@@ -138,8 +138,12 @@ function setCachedStream(key: string, url: string, meta?: Partial<ResolveTrackRe
   persistCache();
 }
 
-function isKnownBrokenStreamUrl(_url?: string | null) {
-  // Server-side probing decides liveness; never blanket-block by host.
+function isKnownBrokenStreamUrl(url?: string | null) {
+  // `yt-video:` is an iframe fallback marker, not an audio stream. Keeping it
+  // in the stream cache makes the player bypass real extraction on future plays,
+  // so Premium WebAudio EQ/effects stay stuck forever.
+  if (!url) return false;
+  if (url.startsWith('yt-video:')) return true;
   return false;
 }
 
@@ -426,7 +430,7 @@ export async function resolveYouTubeVideoStream(
       body: { videoId: id, forceRefresh: opts.forceRefresh === true },
     });
     if (error) throw error;
-    if (data?.success && data?.audioUrl) {
+    if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
       setYtmCached(id, data.audioUrl, {
         title: data.title,
         artist: data.artist,
