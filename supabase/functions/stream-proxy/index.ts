@@ -56,6 +56,11 @@ const ALLOWED_HOST_SUFFIXES = [
   '.f5.si',
   '.thepixora.com',
   '.yewtu.be',
+  // Cobalt extractor fallback used by music-indexer when mirrors fail
+  'co.wuk.sh',
+  '.co.wuk.sh',
+  'cobalt.tools',
+  '.cobalt.tools',
   // Audius
   '.audius.co',
   'audius.co',
