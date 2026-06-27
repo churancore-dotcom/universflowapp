@@ -495,6 +495,7 @@ export default function FaceLivenessCapture({
     setPhase('idle');
     setChallenges([]);
     setActiveIdx(0);
+    setVideoReady(false);
   };
 
   // ── Render ─────────────────────────────────────────────────────────────
