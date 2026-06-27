@@ -3,6 +3,8 @@ import { connectAudioElement, getState, setBands, setReverb, setSpatial, setLate
 import { getEQSettings } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
 
+const RETRY_DELAYS_MS = [0, 50, 140, 320, 700];
+
 /**
  * Mount once at app root.
  *
@@ -28,10 +30,16 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
 
     let reapplyTimer: number | null = null;
     let reapplyFrame: number | null = null;
+    let retryTimers: number[] = [];
     // Once we've attached WebAudio for this element, we can't detach — the
     // MediaElementSource permanently routes audio through the graph. We just
     // keep re-pushing settings on every src/play change.
     let isAttached = false;
+
+    const clearRetries = () => {
+      retryTimers.forEach((id) => window.clearTimeout(id));
+      retryTimers = [];
+    };
 
     const doReapply = () => {
       const s = getEQSettings();
@@ -68,6 +76,14 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       setHeadphoneSurround(s.headphoneSurround);
     };
 
+    const scheduleRecoveryBurst = () => {
+      clearRetries();
+      retryTimers = RETRY_DELAYS_MS.map((delay) => window.setTimeout(() => {
+        doReapply();
+        if (getState() === 'processed') clearRetries();
+      }, delay));
+    };
+
     // Two coalescing paths:
     //   - reapplyFrame: instant (next paint frame) — used for user-driven UI
     //     events like uf-eq-changed. 60 rapid slider moves collapse to 60
@@ -89,7 +105,13 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
         doReapply();
       }, delay);
     };
-    const onMediaReady = () => reapply();
+    const onMediaReady = () => {
+      reapply();
+      // Some mobile WebViews briefly report a direct/idle engine while the new
+      // proxied source is still committing. Keep trying for <1s so the EQ never
+      // gets stuck in the "Reloading stream for effects…" state after a swap.
+      if (getRuntimePremium()) scheduleRecoveryBurst();
+    };
 
     const onPlay = () => {
       if (isAttached) resume();
@@ -103,7 +125,10 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
 
     // User toggled EQ in modal — apply on the very next frame. The graph is
     // already attached, so this is just AudioParam.setTargetAtTime() calls.
-    const onEqChanged = () => reapplyNow();
+    const onEqChanged = () => {
+      reapplyNow();
+      if (getRuntimePremium()) scheduleRecoveryBurst();
+    };
 
     doReapply();
     audioElement.addEventListener('loadstart', onMediaReady);
@@ -116,10 +141,12 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
     window.addEventListener('uf-eq-changed', onEqChanged);
     window.addEventListener('uf-eq-source-ready', onEqChanged);
     window.addEventListener('uf-premium-changed', onEqChanged);
+    window.addEventListener('uf-eq-force-reattach', onEqChanged);
 
     return () => {
       if (reapplyTimer != null) clearTimeout(reapplyTimer);
       if (reapplyFrame != null) cancelAnimationFrame(reapplyFrame);
+      clearRetries();
       audioElement.removeEventListener('loadstart', onMediaReady);
       audioElement.removeEventListener('loadedmetadata', onMediaReady);
       audioElement.removeEventListener('canplay', onMediaReady);
@@ -130,12 +157,16 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       window.removeEventListener('uf-eq-changed', onEqChanged);
       window.removeEventListener('uf-eq-source-ready', onEqChanged);
       window.removeEventListener('uf-premium-changed', onEqChanged);
+      window.removeEventListener('uf-eq-force-reattach', onEqChanged);
     };
   }, [audioElement]);
 }
 
 export function useEngineState() {
-  const [mode, setMode] = useState(() => 'idle' as ReturnType<typeof import('@/lib/audioEngine').getState>);
-  useEffect(() => subscribe(setMode), []);
+  const [mode, setMode] = useState(() => getState());
+  useEffect(() => {
+    setMode(getState());
+    return subscribe(setMode);
+  }, []);
   return mode;
 }

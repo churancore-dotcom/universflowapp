@@ -6,7 +6,7 @@ import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, i
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import { recordPerfEvent } from '@/lib/perfMonitor';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
-import { EQ_SETTINGS_KEY, getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
+import { EQ_SETTINGS_KEY } from '@/lib/eqSettings';
 import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
@@ -129,8 +129,6 @@ interface PlayerContextType {
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
-const CORS_ENABLED_AUDIO_HOSTS = ['supabase.co', 'the-standard.io', 'private.coffee', 'saavncdn.com'];
-
 const shouldUseAnonymousCors = (audioUrl?: string | null) => {
   if (!audioUrl) return false;
   if (audioUrl.startsWith('blob:') || audioUrl.startsWith('data:')) return false;
@@ -159,14 +157,20 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
   }
 
   audio.src = sourceUrl;
+  // Kick the global WebAudio engine immediately after every source assignment.
+  // Relying only on `canplay`/`loadedmetadata` left some Android/WebView loads
+  // stuck in direct mode, so Premium EQ looked like it was endlessly reloading.
+  if (typeof window !== 'undefined') {
+    try {
+      window.queueMicrotask(() => {
+        if (getRuntimePremium()) {
+          window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
+          window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
+        }
+      });
+    } catch { /* ignore */ }
+  }
 };
-
-// Hosts we should keep raw for normal playback. When EQ is active we still
-// proxy remote HTTP streams below because WebAudio processing needs a CORS-
-// clean response, and some hosts advertise CORS inconsistently on media ranges.
-const DIRECT_PLAYABLE_HOST_SNIPPETS = [
-  'supabase.co',
-];
 
 const shouldProxyStreamUrl = (sourceUrl: string) => {
   if (!sourceUrl.startsWith('http')) return false;
@@ -174,15 +178,14 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
   try {
     const parsed = new URL(sourceUrl, window.location.href);
     if (parsed.origin === window.location.origin) return false;
+    if (isStreamProxyUrl(sourceUrl)) return false;
     if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return false;
 
-    // ALWAYS proxy remote streams (regardless of Premium state). This is what
-    // makes the EQ "work instantly on every single song" — the audio element
-    // is fed CORS-clean bytes from the very first play, so the WebAudio graph
-    // attaches cleanly on canplay and can never be tainted by a slow Premium
-    // check or a host that misreports CORS on a Range response.
-    if (DIRECT_PLAYABLE_HOST_SNIPPETS.some((host) => parsed.hostname.endsWith(host))) return false;
-
+    // ALWAYS proxy remote streams (including our own Supabase storage URLs).
+    // Direct storage/CDN responses can be playable but still fail WebAudio on
+    // range/CORS edge cases, which is what left Premium EQ stuck in "Reloading".
+    // The stream-proxy is explicitly allowlisted for this project host and
+    // guarantees stable CORS + Range headers before the graph attaches.
     return true;
   } catch {
     return false;
@@ -222,6 +225,11 @@ const buildStreamProxyUrl = (sourceUrl: string) => {
 
 const isAudioProxyUrl = (url?: string | null) =>
   isStreamProxyUrl(url) || Boolean(url?.includes('/functions/v1/music-indexer?audio='));
+
+const isLocalMediaSource = (url?: string | null) => {
+  if (!url) return false;
+  return url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('file:') || url.startsWith('capacitor://');
+};
 
 // Premium = always run audio through the WebAudio graph (transparent when
 // sliders are flat). This removes the reload-on-EQ-toggle that made EQ feel
@@ -739,27 +747,52 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const alreadyProxied = isAudioProxyUrl(a.src);
       const alreadyAnonymous = a.crossOrigin === 'anonymous';
       if (alreadyProxied && alreadyAnonymous) {
-        window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
+        window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
+        return;
+      }
+
+      const currentSrc = a.currentSrc || a.src;
+      if (isLocalMediaSource(currentSrc)) {
+        // Offline/downloaded blobs and native file URLs are already WebAudio-safe.
+        // Do NOT reload them through the network proxy; just force the engine to
+        // attach/re-apply on the current element.
+        window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
         return;
       }
 
       // Legacy element loaded before Premium activation — reload through proxy.
       const wasPlaying = !a.paused;
       const at = a.currentTime;
-      const currentSrc = a.currentSrc || a.src;
       const songSource = currentSong?.audio_url;
       const original = songSource && songSource.startsWith('http') && !isYouTubeFallbackUrl(songSource) ? songSource : currentSrc;
-      if (!original) return;
+      if (!original || isLocalMediaSource(original)) return;
       try {
-        configureAudioElementSource(a, buildStreamProxyUrl(original));
-        a.load();
-        const restore = () => {
-          try { a.currentTime = at; } catch { /* ignore */ }
+        const proxied = buildStreamProxyUrl(original);
+        if ((a.src === proxied || a.currentSrc === proxied) && a.crossOrigin === 'anonymous') {
+          window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
+          return;
+        }
+
+        let restoreTimer: number | null = null;
+        const cleanup = () => {
           a.removeEventListener('loadedmetadata', restore);
+          a.removeEventListener('canplay', restore);
+          if (restoreTimer != null) window.clearTimeout(restoreTimer);
+          restoreTimer = null;
+        };
+        const restore = () => {
+          cleanup();
+          try { a.currentTime = at; } catch { /* ignore */ }
+          window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
           window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
           if (wasPlaying) a.play().catch(() => {});
         };
+
+        configureAudioElementSource(a, proxied);
         a.addEventListener('loadedmetadata', restore, { once: true });
+        a.addEventListener('canplay', restore, { once: true });
+        restoreTimer = window.setTimeout(restore, 900);
+        a.load();
       } catch { /* ignore */ }
     };
     const onEqStorageChanged = (e: StorageEvent) => {
