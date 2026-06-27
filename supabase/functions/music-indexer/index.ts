@@ -127,6 +127,10 @@ const AUDIO_PROXY_ALLOWED_HOST_SUFFIXES = [
   '.f5.si',
   '.thepixora.com',
   '.yewtu.be',
+  'co.wuk.sh',
+  '.co.wuk.sh',
+  'cobalt.tools',
+  '.cobalt.tools',
   '.saavncdn.com',
 ];
 
@@ -208,7 +212,6 @@ const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 // ── Instance lists (verified working May 2026) ──
 
 const PIPED_INSTANCES = [
-  'https://pipedapi.adminforge.de',
   'https://api.piped.private.coffee',
   'https://pipedapi.tokhmi.xyz',
   'https://pipedapi.moomoo.me',
@@ -221,6 +224,7 @@ const PIPED_INSTANCES = [
 
 const INVIDIOUS_INSTANCES = [
   'https://inv.thepixora.com',
+  'https://inv.nadeko.net',
   'https://invidious.f5.si',
   'https://invidious.nerdvpn.de',
   'https://invidious.private.coffee',
@@ -1084,7 +1088,7 @@ async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } 
       if (!res.ok) continue;
       const data = await res.json().catch(() => null) as any;
       const url = data?.url;
-      if (typeof url === 'string' && /^https?:\/\//.test(url)) {
+      if (typeof url === 'string' && /^https?:\/\//.test(url) && isAllowedAudioProxyUrl(url)) {
         console.log(`[resolve] ✓ ${videoId} via cobalt (${ep})`);
         return { streamUrl: url };
       }
@@ -1107,8 +1111,8 @@ async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } 
 
 async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
 
-  const piped = getPipedInstances();
-  const inv = getInvidiousInstances();
+  const piped = getPipedInstances().filter(isHealthy);
+  const inv = getInvidiousInstances().filter(isHealthy);
 
 
   // Piped adminforge currently redirects /streams to the invalid host
@@ -1120,7 +1124,7 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
   try {
     const data = await fetchJson(`${primaryInvidious}/api/v1/videos/${videoId}`, 5000);
     const url = pickBestStream(data, primaryInvidious);
-    if (url) {
+    if (url && await probePlayableStream(url, 4500)) {
       console.log(`[resolve] ✓ ${videoId} via ${primaryInvidious}`);
       return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined };
     }
@@ -1242,12 +1246,9 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
       cover_url: await resolveArtwork(artist, title),
       fallback: true,
     };
-    setCached(ck, fallback, 30 * 60 * 1000);
-    void writeDbCachedStream(artist, title, {
-      streamUrl: fallback.streamUrl!,
-      videoId: fallback.videoId,
-      cover_url: fallback.cover_url,
-    });
+    // Do NOT cache iframe fallbacks. They are not real audio streams, so a
+    // single mirror outage used to poison memory/DB cache for 30+ minutes and
+    // Premium EQ could never retry extraction into the WebAudio path.
     return fallback;
   }
 
@@ -1572,21 +1573,18 @@ serve(async (req) => {
         const { data: u } = await admin.auth.getUser(jwt);
         userId = u?.user?.id ?? null;
       }
-      if (!userId) {
-        return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
-          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
       if (admin) {
-        const { data: allowed } = await admin.rpc('check_and_increment_rate_limit', {
-          _user_id: userId,
-          _endpoint: 'music-indexer:resolve-video',
-          _max_per_minute: 30,
-        });
-        if (allowed === false) {
-          return new Response(JSON.stringify({ success: false, error: 'Rate limit exceeded' }), {
-            status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        if (userId) {
+          const { data: allowed } = await admin.rpc('check_and_increment_rate_limit', {
+            _user_id: userId,
+            _endpoint: 'music-indexer:resolve-video',
+            _max_per_minute: 30,
           });
+          if (allowed === false) {
+            return new Response(JSON.stringify({ success: false, error: 'Rate limit exceeded' }), {
+              status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
         }
       }
 
@@ -1610,7 +1608,9 @@ serve(async (req) => {
         });
       }
 
-      // Require auth + rate limit for resolve (burns YT quota + writes to DB).
+      // Resolve must be public because playback can start before Supabase auth
+      // finishes hydrating. The handler-level IP throttle protects API quota;
+      // authenticated users also get the normal per-user limiter below.
       const authHeader = req.headers.get('authorization') || '';
       const admin = getAdminClient();
       let userId: string | null = null;
@@ -1619,28 +1619,26 @@ serve(async (req) => {
         const { data: u } = await admin.auth.getUser(jwt);
         userId = u?.user?.id ?? null;
       }
-      if (!userId) {
-        return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
-          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
       if (admin) {
-        const { data: allowed } = await admin.rpc('check_and_increment_rate_limit', {
-          _user_id: userId,
-          _endpoint: 'music-indexer:resolve',
-          _max_per_minute: 30,
-        });
-        if (allowed === false) {
-          return new Response(JSON.stringify({ success: false, error: 'Rate limit exceeded' }), {
-            status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        if (userId) {
+          const { data: allowed } = await admin.rpc('check_and_increment_rate_limit', {
+            _user_id: userId,
+            _endpoint: 'music-indexer:resolve',
+            _max_per_minute: 30,
           });
+          if (allowed === false) {
+            return new Response(JSON.stringify({ success: false, error: 'Rate limit exceeded' }), {
+              status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+            });
+          }
         }
       }
       // forceRefresh restricted to admins to prevent cache-bust abuse
-      if (forceRefresh && admin) {
+      if (forceRefresh && admin && userId) {
         const { data: isAdmin } = await admin.rpc('has_role', { _user_id: userId, _role: 'admin' });
         if (!isAdmin) forceRefresh = false;
       }
+      if (forceRefresh && !userId) forceRefresh = false;
 
       const result = await resolveStream(artist, title, forceRefresh);
       return new Response(JSON.stringify(result), {

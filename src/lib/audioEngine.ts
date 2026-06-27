@@ -93,6 +93,28 @@ const engine: Engine = {
 
 const sourceCache = new WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>();
 
+function getSourceAudioContext(source?: MediaElementAudioSourceNode | null): AudioContext | null {
+  if (!source) return null;
+  const ctx = source.context as AudioContext | undefined;
+  if (!ctx || ctx.state === 'closed') return null;
+  return ctx;
+}
+
+function ensureCtxForElement(el: HTMLAudioElement): AudioContext | null {
+  // A MediaElementSource is permanently bound to the AudioContext that created
+  // it. During Vite HMR / soft reloads this module can be recreated while the
+  // singleton <audio> element survives with an old source attached. If we build
+  // new filters in a fresh AudioContext and connect the old source to them,
+  // WebAudio throws and the EQ stays stuck in direct/unsupported. Reuse the
+  // source's original context whenever it exists.
+  const existingCtx = getSourceAudioContext(getCachedSource(el));
+  if (existingCtx) {
+    engine.ctx = existingCtx;
+    return existingCtx;
+  }
+  return ensureCtx();
+}
+
 function getCachedSource(el: HTMLAudioElement): MediaElementAudioSourceNode | undefined {
   return sourceCache.get(el) || (el as SourceBackedAudioElement).__ufMediaElementSource;
 }
@@ -148,11 +170,9 @@ function isCorsSafe(el: HTMLAudioElement): boolean {
   try {
     const u = new URL(src, window.location.href);
     if (u.origin === window.location.origin) return true;
+    if (u.pathname.includes('/functions/v1/stream-proxy')) return true;
+    if (u.pathname.includes('/functions/v1/music-indexer') && u.searchParams.has('audio')) return true;
     if (u.hostname.endsWith('supabase.co')) return true;
-    // Treat anonymous CORS as graph-safe only after a real source URL exists.
-    // The player now routes every remote track through stream-proxy first, so
-    // this mainly prevents a premature direct-mode attach while src is empty.
-    if (el.crossOrigin === 'anonymous') return true;
   } catch { /* ignore */ }
   return false;
 }
@@ -591,7 +611,7 @@ function getOrCreateSource(ctx: AudioContext, el: HTMLAudioElement): MediaElemen
 
 /** Connect (or reconnect) the global engine to this audio element. */
 export function connectAudioElement(el: HTMLAudioElement): boolean {
-  const ctx = ensureCtx();
+  let ctx = ensureCtxForElement(el);
   if (!ctx) { setMode('unsupported'); return false; }
 
   const sig = signature(el);
@@ -605,6 +625,8 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
     if ((engine.mode === 'direct' || engine.mode === 'idle') && isCorsSafe(el)) {
       const existingSource = getCachedSource(el);
       if (existingSource) {
+        ctx = getSourceAudioContext(existingSource) || ctx;
+        engine.ctx = ctx;
         try { existingSource.disconnect(); } catch { /* source may already be clean */ }
         buildProcessedChain(ctx, existingSource);
         setMode('processed');
@@ -627,7 +649,9 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
       // If this element was already connected before, disconnectAll() has just
       // detached it from destination. Reconnect direct so audio never goes mute.
       try { existingSource.disconnect(); } catch { /* source may already be clean */ }
-      buildDirectChain(existingSource, ctx);
+      const sourceCtx = getSourceAudioContext(existingSource) || ctx;
+      engine.ctx = sourceCtx;
+      buildDirectChain(existingSource, sourceCtx);
     }
     setMode('direct');
     return false;
@@ -635,6 +659,8 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
 
   const source = getOrCreateSource(ctx, el);
   if (!source) return false;
+  ctx = getSourceAudioContext(source) || ctx;
+  engine.ctx = ctx;
 
   try {
     buildProcessedChain(ctx, source);
@@ -657,10 +683,12 @@ export function bypassAudioElement(el: HTMLAudioElement): boolean {
     setMode('idle');
     return true;
   }
-  const ctx = ensureCtx();
+  let ctx = ensureCtxForElement(el);
   if (!ctx) return false;
   const source = getOrCreateSource(ctx, el);
   if (!source) return false;
+  ctx = getSourceAudioContext(source) || ctx;
+  engine.ctx = ctx;
 
   if (engine.el === el && engine.mode === 'direct') return true;
   disconnectAll();

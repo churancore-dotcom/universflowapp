@@ -6,10 +6,38 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+const RATE_LIMIT_WINDOW_MS = 60_000;
+const anonHits = new Map<string, number[]>();
+
+function clientIp(req: Request): string {
+  return (req.headers.get('x-forwarded-for') || '').split(',')[0].trim()
+    || req.headers.get('cf-connecting-ip')
+    || req.headers.get('x-real-ip')
+    || 'unknown';
+}
+
+function checkLocalAnonRateLimit(ip: string, maxPerMinute: number): boolean {
+  const now = Date.now();
+  const hits = (anonHits.get(ip) || []).filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+  if (hits.length >= maxPerMinute) {
+    anonHits.set(ip, hits);
+    return false;
+  }
+  hits.push(now);
+  anonHits.set(ip, hits);
+  if (anonHits.size > 5000) {
+    for (const [key, values] of anonHits) {
+      const kept = values.filter((t) => now - t < RATE_LIMIT_WINDOW_MS);
+      if (!kept.length) anonHits.delete(key);
+      else anonHits.set(key, kept);
+    }
+  }
+  return true;
+}
+
 // Piped instances — refreshed 2026-06. Verified from kavin.rocks/instances + community list.
 const PIPED_INSTANCES = [
   'https://pipedapi.kavin.rocks',
-  'https://pipedapi.adminforge.de',
   'https://api.piped.private.coffee',
   'https://pipedapi.leptons.xyz',
   'https://pipedapi.r4fo.com',
@@ -22,6 +50,7 @@ const PIPED_INSTANCES = [
 
 // Invidious instances — refreshed 2026-06.
 const INVIDIOUS_INSTANCES = [
+  'https://inv.thepixora.com',
   'https://inv.nadeko.net',
   'https://invidious.nerdvpn.de',
   'https://invidious.private.coffee',
@@ -31,6 +60,7 @@ const INVIDIOUS_INSTANCES = [
   'https://invidious-production-d29a.up.railway.app',
   'https://invidious.protokolla.fi',
   'https://yewtu.be',
+  'https://invidious.f5.si',
 ];
 
 interface ExtractionResult {
@@ -113,6 +143,14 @@ async function probePlayableStream(url: string, timeoutMs = 4000) {
   } finally {
     clearTimeout(timeoutId);
   }
+}
+
+function isVolatileProxyStream(url?: string | null) {
+  if (!url) return false;
+  // Invidious/Piped proxy URLs are not signed like raw googlevideo, but mirror
+  // health changes quickly. Never trust an old DB hit blindly — a stale proxy
+  // URL was one of the paths that left the player/EQ stuck on Connecting.
+  return url.includes('/latest_version') || url.includes('proxy.piped.') || url.includes('/videoplayback');
 }
 
 async function tryPipedInstance(apiUrl: string, videoId: string): Promise<ExtractionResult | null> {
@@ -260,19 +298,22 @@ function raceForSuccess<T extends { success: boolean }>(promises: Promise<T | nu
 
 async function extractFromYouTube(videoId: string): Promise<ExtractionResult> {
   console.log(`\n=== Extracting: ${videoId} ===`);
+  const primaryInvidious = 'https://inv.thepixora.com';
   const piped = [...PIPED_INSTANCES].filter(isHealthy).sort(() => Math.random() - 0.5);
-  const invid = [...INVIDIOUS_INSTANCES].filter(isHealthy).sort(() => Math.random() - 0.5);
+  const invid = [primaryInvidious, ...INVIDIOUS_INSTANCES.filter((u) => u !== primaryInvidious)]
+    .filter(isHealthy);
 
-  // Parallel race in batches of 3 — first success wins, others are abandoned.
+  // Invidious local-proxy streams are the only outputs that reliably survive
+  // our stream-proxy + WebAudio path. Try them first; Piped is only fallback.
   const RACE_SIZE = 3;
-  for (let i = 0; i < piped.length; i += RACE_SIZE) {
-    const batch = piped.slice(i, i + RACE_SIZE);
-    const hit = await raceForSuccess(batch.map((u) => tryPipedInstance(u, videoId)));
-    if (hit) return hit;
-  }
   for (let i = 0; i < invid.length; i += RACE_SIZE) {
     const batch = invid.slice(i, i + RACE_SIZE);
     const hit = await raceForSuccess(batch.map((u) => tryInvidiousInstance(u, videoId)));
+    if (hit) return hit;
+  }
+  for (let i = 0; i < piped.length; i += RACE_SIZE) {
+    const batch = piped.slice(i, i + RACE_SIZE);
+    const hit = await raceForSuccess(batch.map((u) => tryPipedInstance(u, videoId)));
     if (hit) return hit;
   }
 
@@ -289,34 +330,41 @@ serve(async (req) => {
 
   try {
     const authHeader = req.headers.get('authorization');
-    if (!authHeader?.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ success: false, error: 'Authentication required' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-      { global: { headers: { Authorization: authHeader } } }
-    );
-    const token = authHeader.replace('Bearer ', '');
-    const { data: claimsData, error: authError } = await supabaseClient.auth.getUser(token);
-    if (authError || !claimsData?.user) {
-      return new Response(JSON.stringify({ success: false, error: 'Invalid authentication' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
-    }
-
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-    // Per-user rate limit — every authenticated user can call this, not just admins.
-    const { data: allowed } = await adminClient.rpc('check_and_increment_rate_limit', {
-      _user_id: claimsData.user.id, _endpoint: 'extract-audio', _max_per_minute: 30,
-    });
-    if (allowed === false) {
-      return new Response(JSON.stringify({ success: false, error: 'Rate limit exceeded. Try again in a minute.' }),
-        { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+    // <audio>/prefetch flows can hit this function before Supabase auth is ready.
+    // Do not hard-401 those calls; resolve with a strict IP throttle so playback
+    // and EQ don't get stuck on `yt-video:` placeholders.
+    let authenticatedUserId: string | null = null;
+    if (authHeader?.startsWith('Bearer ')) {
+      const supabaseClient = createClient(
+        Deno.env.get('SUPABASE_URL') ?? '',
+        Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+        { global: { headers: { Authorization: authHeader } } }
+      );
+      const token = authHeader.replace('Bearer ', '');
+      const { data: claimsData } = await supabaseClient.auth.getUser(token);
+      authenticatedUserId = claimsData?.user?.id ?? null;
+    }
+
+    if (authenticatedUserId) {
+      // Per-user rate limit — every authenticated user can call this, not just admins.
+      const { data: allowed } = await adminClient.rpc('check_and_increment_rate_limit', {
+        _user_id: authenticatedUserId, _endpoint: 'extract-audio', _max_per_minute: 30,
+      });
+      if (allowed === false) {
+        return new Response(JSON.stringify({ success: false, error: 'Rate limit exceeded. Try again in a minute.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      }
+    } else {
+      const ip = clientIp(req);
+      if (!checkLocalAnonRateLimit(ip, 12)) {
+        return new Response(JSON.stringify({ success: false, error: 'Rate limit exceeded. Try again in a minute.' }),
+          { status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'retry-after': '60' } });
+      }
     }
 
     const body = await req.json().catch(() => ({}));
@@ -371,6 +419,10 @@ serve(async (req) => {
         .maybeSingle();
 
       if (cached?.audio_url) {
+        if (isVolatileProxyStream(cached.audio_url) && !(await probePlayableStream(cached.audio_url, 2500))) {
+          console.warn(`cache stale for ${videoId}; refreshing`);
+          await adminClient.from('stream_url_cache').delete().eq('video_id', videoId);
+        } else {
         console.log(`✓ CACHE HIT for ${videoId}`);
         return new Response(JSON.stringify({
           success: true,
@@ -382,6 +434,7 @@ serve(async (req) => {
           platform: 'YouTube',
           cached: true,
         }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+        }
       }
     } catch (e) {
       console.warn('cache read failed:', (e as Error).message);
