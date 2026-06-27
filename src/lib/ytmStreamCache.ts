@@ -58,7 +58,7 @@ export function getCachedStream(videoId: string): Entry | null {
   if (mem && now - mem.ts < TTL_MS && !mem.url.startsWith('yt-video:')) return mem;
   if (mem?.url.startsWith('yt-video:')) memory.delete(videoId);
   const disk = readLS(videoId);
-  if (disk && now - disk.ts < TTL_MS) {
+  if (disk && now - disk.ts < TTL_MS && typeof disk.url === 'string') {
     if (disk.url.startsWith('yt-video:')) {
       try { localStorage.removeItem(lsKey(videoId)); } catch { /* ignore */ }
       return null;
