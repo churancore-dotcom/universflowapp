@@ -145,7 +145,11 @@ function isKnownBrokenStreamUrl(_url?: string | null) {
 
 function isSafeSharedCachedStream(url?: string | null) {
   if (!url) return false;
-  if (url.startsWith('yt-video:')) return true;
+  // `yt-video:` is only an iframe fallback marker, not an audio stream. If we
+  // return it from the shared DB cache, the player bypasses the HTMLAudio path
+  // and the WebAudio equalizer can NEVER attach. Always keep resolving until we
+  // get a real http(s)/blob stream; use `yt-video:` only as the final fallback.
+  if (url.startsWith('yt-video:')) return false;
   // Public proxy URLs can expire or start returning bot-check HTML within minutes.
   // The edge resolver must re-probe those live instead of trusting shared DB cache.
   if (url.includes('/latest_version') || url.includes('proxy.piped.')) return false;
