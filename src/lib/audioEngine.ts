@@ -22,6 +22,10 @@ const SPATIAL_DEPTH = 0.92;  // 0..1 — how far the LFO swings the pan
 
 type Mode = 'idle' | 'processed' | 'direct' | 'unsupported';
 
+type SourceBackedAudioElement = HTMLAudioElement & {
+  __ufMediaElementSource?: MediaElementAudioSourceNode;
+};
+
 interface Engine {
   ctx: AudioContext | null;
   source: MediaElementAudioSourceNode | null;
@@ -88,6 +92,19 @@ const engine: Engine = {
 };
 
 const sourceCache = new WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>();
+
+function getCachedSource(el: HTMLAudioElement): MediaElementAudioSourceNode | undefined {
+  return sourceCache.get(el) || (el as SourceBackedAudioElement).__ufMediaElementSource;
+}
+
+function rememberSource(el: HTMLAudioElement, source: MediaElementAudioSourceNode) {
+  sourceCache.set(el, source);
+  // Keep the source on the element itself as well as in the module WeakMap.
+  // Vite/HMR or a soft app reload can recreate this module while the singleton
+  // <audio> element survives. Without this, createMediaElementSource() throws
+  // "HTMLMediaElement already connected previously" and the EQ stays stuck.
+  (el as SourceBackedAudioElement).__ufMediaElementSource = source;
+}
 
 // 10-band semi-graphic EQ — wider range, finer control over the spectrum.
 const BAND_DEFS: Array<{ freq: number; type: BiquadFilterType; q: number }> = [
@@ -555,11 +572,15 @@ function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext
 }
 
 function getOrCreateSource(ctx: AudioContext, el: HTMLAudioElement): MediaElementAudioSourceNode | null {
-  let source = sourceCache.get(el);
-  if (source) return source;
+  let source = getCachedSource(el);
+  if (source) {
+    try { source.disconnect(); } catch { /* source may already be clean */ }
+    rememberSource(el, source);
+    return source;
+  }
   try {
     source = ctx.createMediaElementSource(el);
-    sourceCache.set(el, source);
+    rememberSource(el, source);
     return source;
   } catch (e) {
     console.warn('[audioEngine] createMediaElementSource failed', e);
@@ -582,8 +603,9 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
     if (ctx.state === 'suspended') ctx.resume().catch(() => { });
     if (engine.mode === 'processed') return true;
     if ((engine.mode === 'direct' || engine.mode === 'idle') && isCorsSafe(el)) {
-      const existingSource = sourceCache.get(el);
+      const existingSource = getCachedSource(el);
       if (existingSource) {
+        try { existingSource.disconnect(); } catch { /* source may already be clean */ }
         buildProcessedChain(ctx, existingSource);
         setMode('processed');
         return true;
@@ -600,10 +622,11 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
     // MediaElementSource for unsafe remote streams. Once created, audio is
     // routed through AudioContext; Android often suspends that in background,
     // causing lag/pause. Leave the <audio> element on its native direct path.
-    const existingSource = sourceCache.get(el);
+    const existingSource = getCachedSource(el);
     if (existingSource) {
       // If this element was already connected before, disconnectAll() has just
       // detached it from destination. Reconnect direct so audio never goes mute.
+      try { existingSource.disconnect(); } catch { /* source may already be clean */ }
       buildDirectChain(existingSource, ctx);
     }
     setMode('direct');
@@ -630,7 +653,7 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
 
 /** Direct path — no EQ/effects. Used when EQ is off to save CPU. */
 export function bypassAudioElement(el: HTMLAudioElement): boolean {
-  if (engine.el !== el && !sourceCache.has(el)) {
+  if (engine.el !== el && !getCachedSource(el)) {
     setMode('idle');
     return true;
   }

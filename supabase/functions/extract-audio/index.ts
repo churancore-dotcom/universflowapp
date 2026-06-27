@@ -86,6 +86,35 @@ function isPlaylistUrl(url: string): boolean {
   } catch { return false; }
 }
 
+function normalizeUrl(candidate: string | undefined, origin: string) {
+  if (!candidate) return undefined;
+  if (candidate.startsWith('//')) return `https:${candidate}`;
+  if (candidate.startsWith('/')) return `${origin.replace(/\/$/, '')}${candidate}`;
+  return candidate;
+}
+
+async function probePlayableStream(url: string, timeoutMs = 4000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      method: 'GET',
+      signal: controller.signal,
+      headers: { range: 'bytes=0-1', 'user-agent': 'Mozilla/5.0', accept: '*/*' },
+      redirect: 'follow',
+    });
+    const contentType = response.headers.get('content-type')?.toLowerCase() || '';
+    await response.body?.cancel().catch(() => undefined);
+    if (!response.ok && response.status !== 206) return false;
+    if (contentType.includes('text/html') || contentType.includes('application/json')) return false;
+    return true;
+  } catch {
+    return false;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+
 async function tryPipedInstance(apiUrl: string, videoId: string): Promise<ExtractionResult | null> {
   if (!isHealthy(apiUrl)) return null;
   const controller = new AbortController();
@@ -106,11 +135,28 @@ async function tryPipedInstance(apiUrl: string, videoId: string): Promise<Extrac
       if (!aM && bM) return 1;
       return (b.bitrate || 0) - (a.bitrate || 0);
     });
-    const best = sorted[0];
+    let playableUrl: string | undefined;
+    for (const stream of sorted) {
+      // Prefer the mirror's own proxy URL. Raw googlevideo URLs are often
+      // signed/bound in a way that later fails through our WebAudio proxy,
+      // which left EQ stuck because no real <audio> stream ever started.
+      const candidates = [
+        normalizeUrl(stream?.proxyUrl, apiUrl),
+        normalizeUrl(stream?.url, apiUrl),
+      ].filter(Boolean) as string[];
+      for (const candidate of candidates) {
+        if (await probePlayableStream(candidate)) {
+          playableUrl = candidate;
+          break;
+        }
+      }
+      if (playableUrl) break;
+    }
+    if (!playableUrl) { markUnhealthy(apiUrl); return null; }
     console.log(`  ✓ [PIPED] ${new URL(apiUrl).hostname}`);
     return {
       success: true,
-      audioUrl: best.url,
+      audioUrl: playableUrl,
       title: data.title,
       artist: data.uploader,
       thumbnail: data.thumbnailUrl,
@@ -148,7 +194,24 @@ async function tryInvidiousInstance(apiUrl: string, videoId: string): Promise<Ex
       if (!aM && bM) return 1;
       return (b.bitrate || 0) - (a.bitrate || 0);
     });
-    const best = sorted[0];
+    let playableUrl: string | undefined;
+    for (const stream of sorted) {
+      const itag = stream?.itag;
+      const candidates = [
+        // Use the Invidious local proxy endpoint first. It avoids handing the
+        // client a raw googlevideo URL that later fails CORS/range/WebAudio.
+        itag ? `${apiUrl.replace(/\/$/, '')}/latest_version?id=${encodeURIComponent(videoId)}&itag=${encodeURIComponent(String(itag))}&local=true` : undefined,
+        normalizeUrl(stream?.url, apiUrl),
+      ].filter(Boolean) as string[];
+      for (const candidate of candidates) {
+        if (await probePlayableStream(candidate)) {
+          playableUrl = candidate;
+          break;
+        }
+      }
+      if (playableUrl) break;
+    }
+    if (!playableUrl) { markUnhealthy(apiUrl); return null; }
     let thumbnail = '';
     if (data.videoThumbnails?.length) {
       thumbnail = data.videoThumbnails.find((t: any) => t.quality === 'maxres')?.url
@@ -157,7 +220,7 @@ async function tryInvidiousInstance(apiUrl: string, videoId: string): Promise<Ex
     console.log(`  ✓ [INV] ${new URL(apiUrl).hostname}`);
     return {
       success: true,
-      audioUrl: best.url,
+      audioUrl: playableUrl,
       title: data.title,
       artist: data.author,
       thumbnail,

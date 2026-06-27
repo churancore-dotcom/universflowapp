@@ -138,14 +138,22 @@ function setCachedStream(key: string, url: string, meta?: Partial<ResolveTrackRe
   persistCache();
 }
 
-function isKnownBrokenStreamUrl(_url?: string | null) {
-  // Server-side probing decides liveness; never blanket-block by host.
+function isKnownBrokenStreamUrl(url?: string | null) {
+  // `yt-video:` is an iframe fallback marker, not an audio stream. Keeping it
+  // in the stream cache makes the player bypass real extraction on future plays,
+  // so Premium WebAudio EQ/effects stay stuck forever.
+  if (!url) return false;
+  if (url.startsWith('yt-video:')) return true;
   return false;
 }
 
 function isSafeSharedCachedStream(url?: string | null) {
   if (!url) return false;
-  if (url.startsWith('yt-video:')) return true;
+  // `yt-video:` is only an iframe fallback marker, not an audio stream. If we
+  // return it from the shared DB cache, the player bypasses the HTMLAudio path
+  // and the WebAudio equalizer can NEVER attach. Always keep resolving until we
+  // get a real http(s)/blob stream; use `yt-video:` only as the final fallback.
+  if (url.startsWith('yt-video:')) return false;
   // Public proxy URLs can expire or start returning bot-check HTML within minutes.
   // The edge resolver must re-probe those live instead of trusting shared DB cache.
   if (url.includes('/latest_version') || url.includes('proxy.piped.')) return false;
@@ -422,7 +430,7 @@ export async function resolveYouTubeVideoStream(
       body: { videoId: id, forceRefresh: opts.forceRefresh === true },
     });
     if (error) throw error;
-    if (data?.success && data?.audioUrl) {
+    if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
       setYtmCached(id, data.audioUrl, {
         title: data.title,
         artist: data.artist,
@@ -438,6 +446,28 @@ export async function resolveYouTubeVideoStream(
         cover_url: data.thumbnail,
         duration: data.duration,
       };
+    }
+  } catch {
+    // Keep going: extract-audio can be rate-limited or hit a bad mirror batch.
+  }
+
+  // 3) Final direct-video resolver fallback. This uses the music-indexer
+  // resolver pool and gives YouTube Music rows a second independent chance to
+  // become a real <audio> URL instead of getting stuck on the iframe marker.
+  try {
+    const data = await requestIndexer<ResolveTrackResponse>({
+      action: 'resolve-video',
+      videoId: id,
+      forceRefresh: opts.forceRefresh === true,
+    });
+    if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
+      setYtmCached(id, data.streamUrl, {
+        title: data.title,
+        artist: data.artist,
+        cover_url: data.cover_url,
+        duration: data.duration,
+      });
+      return { ...data, videoId: id };
     }
     return { success: false, error: data?.error || 'No audio stream available' };
   } catch (e) {

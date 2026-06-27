@@ -992,7 +992,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!url) return false;
     if (url === '' || url === 'pending' || url === 'resolving') return false;
     if (isKnownBrokenStreamUrl(url)) return false;
-    if (isYouTubeFallbackUrl(url)) return true;
+    // `yt-video:` is playable only by the YouTube iframe, not by the main
+    // <audio> element/WebAudio graph. Treat it as unresolved everywhere so the
+    // player must first extract a real stream URL for Equalizer/effects.
+    if (isYouTubeFallbackUrl(url)) return false;
     return url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:');
   }, []);
 
@@ -1019,9 +1022,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (song.artist && song.title) {
         try {
           const result = await resolveIndexedTrack(song.artist, song.title, opts);
-          if (result?.streamUrl) return result.streamUrl;
+          if (result?.streamUrl) {
+            if (isYouTubeFallbackUrl(result.streamUrl)) {
+              return getRuntimePremium() ? null : result.streamUrl;
+            }
+            return result.streamUrl;
+          }
         } catch { /* fall through to YT iframe fallback */ }
       }
+      // Premium audio needs a real HTMLAudio/WebAudio stream. Returning the
+      // iframe marker here makes playback continue outside the graph, which is
+      // exactly why EQ stayed on "Connecting" forever. For Premium, keep
+      // resolving/retrying instead of silently switching to an effect-dead path.
+      if (getRuntimePremium()) return null;
       // Direct stream lookup failed — fall back to the YouTube iframe marker
       // (the player handles `yt-video:` URLs in playSongAtIndex).
       return ytFallback;
@@ -1282,7 +1295,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Resolve audio URL if needed
     let audioUrl = resolvedSong.audio_url;
-    if (!isPlayableUrl(audioUrl)) {
+    // `yt-video:` is only an iframe fallback marker, NOT an effect-capable
+    // audio stream. The previous guard treated it as "playable", so YouTube
+    // Music songs jumped straight to the iframe path and the WebAudio EQ could
+    // never attach — the modal stayed stuck on "Connecting…" forever. Always
+    // try to resolve it into a real audio URL first; use the iframe only as the
+    // final playback fallback when every extractor fails.
+    if (!isPlayableUrl(audioUrl) || isYouTubeFallbackUrl(audioUrl)) {
       try {
         const resolved = await resolveAudioUrl(resolvedSong);
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return; // superseded by newer tap
@@ -1605,7 +1624,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isCrossfading.current = true;
 
     // Prepare next audio
-    if (!isPlayableUrl(nextSong.audio_url)) {
+    if (!isPlayableUrl(nextSong.audio_url) || isYouTubeFallbackUrl(nextSong.audio_url)) {
       isCrossfading.current = false;
       return;
     }
@@ -1720,7 +1739,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     
     let playbackSource = offlineUrl || song.audio_url;
 
-    if (!offlineUrl && !isPlayableUrl(playbackSource)) {
+    // `yt-video:` can play through the YouTube iframe, but iframe audio cannot
+    // be connected to WebAudio. Resolve it to a real stream before playback so
+    // Premium EQ/effects can attach to the normal <audio> element.
+    if (!offlineUrl && (!isPlayableUrl(playbackSource) || isYouTubeFallbackUrl(playbackSource))) {
       const resolved = await resolveAudioUrl(song);
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return; // user tapped another song first
       if (!resolved) {

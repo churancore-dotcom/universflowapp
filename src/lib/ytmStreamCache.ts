@@ -55,9 +55,14 @@ function writeLS(videoId: string, entry: Entry) {
 export function getCachedStream(videoId: string): Entry | null {
   const now = Date.now();
   const mem = memory.get(videoId);
-  if (mem && now - mem.ts < TTL_MS) return mem;
+  if (mem && now - mem.ts < TTL_MS && !mem.url.startsWith('yt-video:')) return mem;
+  if (mem?.url.startsWith('yt-video:')) memory.delete(videoId);
   const disk = readLS(videoId);
-  if (disk && now - disk.ts < TTL_MS) {
+  if (disk && now - disk.ts < TTL_MS && typeof disk.url === 'string') {
+    if (disk.url.startsWith('yt-video:')) {
+      try { localStorage.removeItem(lsKey(videoId)); } catch { /* ignore */ }
+      return null;
+    }
     memory.set(videoId, disk);
     return disk;
   }
@@ -70,6 +75,10 @@ export function getCachedStream(videoId: string): Entry | null {
 
 export function setCachedStream(videoId: string, url: string, meta?: Entry['meta']) {
   if (!videoId || !url) return;
+  // Never cache iframe fallback markers as audio streams. Cached `yt-video:`
+  // values make the player skip stream extraction on the next play, which means
+  // Premium Equalizer/effects can never attach to the <audio> element.
+  if (url.startsWith('yt-video:')) return;
   const entry: Entry = { url, ts: Date.now(), meta };
   memory.set(videoId, entry);
   // Trim memory cache

@@ -1163,8 +1163,16 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
     return await Promise.any(attempts);
   } catch (e) {
     console.warn(`[resolve] all fallbacks failed for ${videoId}:`, (e as AggregateError)?.errors?.map((err: Error) => err.message)?.join(', '));
-    return null;
   }
+
+  // Last real-audio fallback. This function already existed but was never
+  // called, so many YouTube Music tracks fell through to `yt-video:` iframe
+  // playback and the WebAudio equalizer could never attach.
+  const cobalt = await resolveViaCobalt(videoId);
+  if (cobalt?.streamUrl && await probePlayableStream(cobalt.streamUrl, 5000)) {
+    return { streamUrl: cobalt.streamUrl };
+  }
+  return null;
 }
 
 async function resolveStream(artist: string, title: string, forceRefresh = false): Promise<ResolveResult> {
