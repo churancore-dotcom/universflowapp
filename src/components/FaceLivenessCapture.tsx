@@ -389,8 +389,12 @@ export default function FaceLivenessCapture({
       });
       streamRef.current = stream;
       if (videoRef.current) {
-        videoRef.current.srcObject = stream;
-        await videoRef.current.play();
+        const v = videoRef.current;
+        v.srcObject = stream;
+        const onReady = () => setVideoReady(true);
+        v.onloadedmetadata = onReady;
+        v.onplaying = onReady;
+        await v.play().catch(() => {});
       }
       // spin up the worker
       const worker = new Worker(new URL('./faceWorker.ts', import.meta.url), { type: 'module' });
