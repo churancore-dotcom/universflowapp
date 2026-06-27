@@ -163,6 +163,7 @@ export default function FaceLivenessCapture({
   const [quality10Hz, setQuality10Hz] = useState<QualityFail>('noface');
   const [showTimeoutHelp, setShowTimeoutHelp] = useState(false);
   const [flash, setFlash] = useState(false);
+  const [videoReady, setVideoReady] = useState(false);
 
   // ── Teardown ────────────────────────────────────────────────────────────
   const teardown = useCallback(() => {
