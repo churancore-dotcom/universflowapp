@@ -1611,7 +1611,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isCrossfading.current = true;
 
     // Prepare next audio
-    if (!isPlayableUrl(nextSong.audio_url)) {
+    if (!isPlayableUrl(nextSong.audio_url) || isYouTubeFallbackUrl(nextSong.audio_url)) {
       isCrossfading.current = false;
       return;
     }
