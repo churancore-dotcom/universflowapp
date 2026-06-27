@@ -591,7 +591,6 @@ export default function FaceLivenessCapture({
           muted
           autoPlay
           disablePictureInPicture
-          // @ts-expect-error - non-standard but supported on Android WebView
           controlsList="nodownload nofullscreen noremoteplayback"
           className="absolute inset-0 w-full h-full object-cover"
           style={{
