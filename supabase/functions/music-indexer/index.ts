@@ -1246,12 +1246,9 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
       cover_url: await resolveArtwork(artist, title),
       fallback: true,
     };
-    setCached(ck, fallback, 30 * 60 * 1000);
-    void writeDbCachedStream(artist, title, {
-      streamUrl: fallback.streamUrl!,
-      videoId: fallback.videoId,
-      cover_url: fallback.cover_url,
-    });
+    // Do NOT cache iframe fallbacks. They are not real audio streams, so a
+    // single mirror outage used to poison memory/DB cache for 30+ minutes and
+    // Premium EQ could never retry extraction into the WebAudio path.
     return fallback;
   }
 
