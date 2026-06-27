@@ -82,11 +82,30 @@ function pickBlend(arr: { categoryName?: string; displayName?: string; score: nu
   return 0;
 }
 
+const WASM_CDNS = [
+  'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm',
+  'https://unpkg.com/@mediapipe/tasks-vision@0.10.35/wasm',
+  'https://fastly.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm',
+];
+
+async function loadFilesetWithFallback() {
+  let lastErr: unknown = null;
+  for (const url of WASM_CDNS) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      try {
+        return await FilesetResolver.forVisionTasks(url);
+      } catch (e) {
+        lastErr = e;
+        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+      }
+    }
+  }
+  throw lastErr instanceof Error ? lastErr : new Error('All WASM CDNs failed');
+}
+
 async function init() {
   try {
-    const fileset = await FilesetResolver.forVisionTasks(
-      'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm',
-    );
+    const fileset = await loadFilesetWithFallback();
     landmarker = await FaceLandmarker.createFromOptions(fileset, {
       baseOptions: {
         modelAssetPath: modelAsset.url, // bundled via Lovable Asset CDN, same-origin
