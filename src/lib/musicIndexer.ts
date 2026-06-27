@@ -447,6 +447,28 @@ export async function resolveYouTubeVideoStream(
         duration: data.duration,
       };
     }
+  } catch (e) {
+    // Keep going: extract-audio can be rate-limited or hit a bad mirror batch.
+  }
+
+  // 3) Final direct-video resolver fallback. This uses the music-indexer
+  // resolver pool and gives YouTube Music rows a second independent chance to
+  // become a real <audio> URL instead of getting stuck on the iframe marker.
+  try {
+    const data = await requestIndexer<ResolveTrackResponse>({
+      action: 'resolve-video',
+      videoId: id,
+      forceRefresh: opts.forceRefresh === true,
+    });
+    if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
+      setYtmCached(id, data.streamUrl, {
+        title: data.title,
+        artist: data.artist,
+        cover_url: data.cover_url,
+        duration: data.duration,
+      });
+      return { ...data, videoId: id };
+    }
     return { success: false, error: data?.error || 'No audio stream available' };
   } catch (e) {
     return { success: false, error: (e as Error).message || 'Stream extraction failed' };
