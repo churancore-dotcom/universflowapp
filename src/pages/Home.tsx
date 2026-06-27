@@ -136,12 +136,13 @@ const Home = () => {
   const [showEqualizer, setShowEqualizer] = useState(false);
 
   const { data: onlineSongs = (cachedSongs || []), isLoading } = useQuery({
-    queryKey: ['home', 'ytm-feed', 'v3-country', country],
+    queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
     queryFn: () => fetchHomeSongs(countryQueries.hero),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
+    placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
-    enabled: !isOffline && !!country,
+    enabled: !isOffline,
   });
 
 
