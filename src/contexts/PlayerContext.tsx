@@ -992,7 +992,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!url) return false;
     if (url === '' || url === 'pending' || url === 'resolving') return false;
     if (isKnownBrokenStreamUrl(url)) return false;
-    if (isYouTubeFallbackUrl(url)) return true;
+    // `yt-video:` is playable only by the YouTube iframe, not by the main
+    // <audio> element/WebAudio graph. Treat it as unresolved everywhere so the
+    // player must first extract a real stream URL for Equalizer/effects.
+    if (isYouTubeFallbackUrl(url)) return false;
     return url.startsWith('http') || url.startsWith('blob:') || url.startsWith('data:');
   }, []);
 
