@@ -186,8 +186,8 @@ const Home = () => {
   const pullToRefresh = usePullToRefresh({
     onRefresh: async () => {
       triggerHaptic('impactMedium');
-      await queryClient.invalidateQueries({ queryKey: ['home', 'ytm-feed', 'v3-country', country] });
-      await queryClient.refetchQueries({ queryKey: ['home', 'ytm-feed', 'v3-country', country] });
+      await queryClient.invalidateQueries({ queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'] });
+      await queryClient.refetchQueries({ queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'] });
 
     },
   });
