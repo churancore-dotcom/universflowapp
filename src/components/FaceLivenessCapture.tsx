@@ -602,27 +602,166 @@ export default function FaceLivenessCapture({
         />
 
         {/* Loading overlay — hides Android WebView's default <video> play-icon */}
-        {!videoReady && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
-            <div className="relative w-12 h-12">
-              <span
-                className="absolute inset-0 rounded-full"
-                style={{
-                  background: 'radial-gradient(closest-side, rgba(255,45,85,0.55), transparent 70%)',
-                  filter: 'blur(6px)',
-                }}
-              />
-              <motion.span
-                className="absolute inset-2 rounded-full border-2 border-white/15 border-t-white"
-                animate={{ rotate: 360 }}
-                transition={{ duration: 1.1, ease: 'linear', repeat: Infinity }}
-              />
-            </div>
-            <p className="text-[11px] uppercase tracking-[0.26em] text-white/55 font-semibold">
-              {phase === 'starting' ? 'Starting camera' : 'Loading face engine'}
-            </p>
-          </div>
-        )}
+        {(() => {
+          const cameraDone = videoReady;
+          const modelDone = phase === 'preflight' || phase === 'challenge' || phase === 'capturing' || phase === 'done';
+          const warmDone = phase === 'challenge' || phase === 'capturing' || phase === 'done';
+          const showOverlay = !(cameraDone && modelDone && warmDone);
+          const stages: { key: string; label: string; done: boolean; active: boolean }[] = [
+            { key: 'cam',  label: 'Initializing camera', done: cameraDone, active: !cameraDone },
+            { key: 'mdl',  label: 'Loading face model',  done: modelDone,  active: cameraDone && !modelDone },
+            { key: 'warm', label: 'Warming up',          done: warmDone,   active: modelDone && !warmDone },
+          ];
+          return (
+            <AnimatePresence>
+              {showOverlay && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0, transition: { duration: 0.35, ease: 'easeOut' } }}
+                  transition={{ duration: 0.25 }}
+                  className="absolute inset-0 z-10 flex items-center justify-center pointer-events-none px-6"
+                  style={{
+                    background:
+                      'radial-gradient(120% 90% at 50% 35%, rgba(255,45,85,0.16) 0%, transparent 55%),' +
+                      'linear-gradient(180deg, rgba(8,8,10,0.78) 0%, rgba(0,0,0,0.92) 100%)',
+                    backdropFilter: 'blur(10px)',
+                    WebkitBackdropFilter: 'blur(10px)',
+                  }}
+                >
+                  <motion.div
+                    initial={{ scale: 0.96, opacity: 0, y: 6 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                    className="w-full max-w-[260px] flex flex-col items-center"
+                  >
+                    {/* Pulsing brand orb */}
+                    <div className="relative w-14 h-14 mb-5">
+                      <motion.span
+                        className="absolute inset-0 rounded-full"
+                        style={{ background: 'radial-gradient(closest-side, rgba(255,45,85,0.7), transparent 70%)', filter: 'blur(8px)' }}
+                        animate={{ scale: [1, 1.18, 1], opacity: [0.55, 0.9, 0.55] }}
+                        transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
+                      />
+                      <motion.span
+                        className="absolute inset-1 rounded-full border border-white/20"
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 6, ease: 'linear', repeat: Infinity }}
+                      />
+                      <motion.span
+                        className="absolute inset-2.5 rounded-full border-2 border-transparent"
+                        style={{ borderTopColor: '#FF2D55', borderRightColor: 'rgba(255,45,85,0.4)' }}
+                        animate={{ rotate: 360 }}
+                        transition={{ duration: 1.2, ease: 'linear', repeat: Infinity }}
+                      />
+                      <span
+                        className="absolute inset-[18px] rounded-full"
+                        style={{ background: 'radial-gradient(closest-side, #FF2D55, rgba(255,45,85,0.2) 70%, transparent)' }}
+                      />
+                    </div>
+
+                    {/* Staged checklist */}
+                    <div className="w-full space-y-2.5">
+                      {stages.map((s, i) => (
+                        <motion.div
+                          key={s.key}
+                          initial={{ opacity: 0, x: -6 }}
+                          animate={{ opacity: s.done || s.active ? 1 : 0.45, x: 0 }}
+                          transition={{ delay: 0.08 + i * 0.06, duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                          className="flex items-center gap-3"
+                        >
+                          {/* Status dot */}
+                          <div className="relative w-5 h-5 shrink-0 flex items-center justify-center">
+                            <AnimatePresence mode="wait" initial={false}>
+                              {s.done ? (
+                                <motion.div
+                                  key="done"
+                                  initial={{ scale: 0.4, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  exit={{ scale: 0.6, opacity: 0 }}
+                                  transition={{ type: 'spring', stiffness: 380, damping: 22 }}
+                                  className="w-5 h-5 rounded-full flex items-center justify-center"
+                                  style={{ background: 'rgba(52,211,153,0.95)', boxShadow: '0 0 12px rgba(52,211,153,0.55)' }}
+                                >
+                                  <Check className="w-3 h-3 text-black" strokeWidth={3.5} />
+                                </motion.div>
+                              ) : s.active ? (
+                                <motion.div
+                                  key="active"
+                                  initial={{ scale: 0.6, opacity: 0 }}
+                                  animate={{ scale: 1, opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  className="w-5 h-5 rounded-full border-2 border-white/20"
+                                >
+                                  <motion.span
+                                    className="block w-full h-full rounded-full border-2 border-transparent"
+                                    style={{ borderTopColor: '#FF2D55', borderRightColor: 'rgba(255,45,85,0.5)' }}
+                                    animate={{ rotate: 360 }}
+                                    transition={{ duration: 0.9, ease: 'linear', repeat: Infinity }}
+                                  />
+                                </motion.div>
+                              ) : (
+                                <motion.div
+                                  key="pending"
+                                  initial={{ opacity: 0 }}
+                                  animate={{ opacity: 1 }}
+                                  exit={{ opacity: 0 }}
+                                  className="w-2 h-2 rounded-full bg-white/20"
+                                />
+                              )}
+                            </AnimatePresence>
+                          </div>
+
+                          {/* Label + active progress bar */}
+                          <div className="flex-1 min-w-0">
+                            <div
+                              className="text-[12px] font-semibold tracking-[0.02em] truncate"
+                              style={{
+                                color: s.done ? 'rgba(255,255,255,0.95)' : s.active ? '#fff' : 'rgba(255,255,255,0.55)',
+                              }}
+                            >
+                              {s.label}
+                            </div>
+                            <div className="relative mt-1 h-[2px] rounded-full overflow-hidden bg-white/[0.06]">
+                              {s.done && (
+                                <motion.div
+                                  initial={{ width: '0%' }}
+                                  animate={{ width: '100%' }}
+                                  transition={{ duration: 0.4, ease: 'easeOut' }}
+                                  className="absolute inset-y-0 left-0"
+                                  style={{ background: 'linear-gradient(90deg, rgba(52,211,153,0.4), rgba(52,211,153,0.95))' }}
+                                />
+                              )}
+                              {s.active && (
+                                <motion.div
+                                  className="absolute inset-y-0 w-1/3 rounded-full"
+                                  style={{ background: 'linear-gradient(90deg, transparent, #FF2D55, transparent)' }}
+                                  animate={{ x: ['-100%', '300%'] }}
+                                  transition={{ duration: 1.3, ease: 'easeInOut', repeat: Infinity }}
+                                />
+                              )}
+                            </div>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+
+                    <motion.p
+                      key={stages.find((s) => s.active)?.key ?? 'ready'}
+                      initial={{ opacity: 0, y: 4 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className="mt-5 text-[10.5px] uppercase tracking-[0.32em] text-white/45 font-semibold text-center"
+                    >
+                      {stages.find((s) => s.active)?.label ?? 'Ready'}
+                    </motion.p>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          );
+        })()}
+
 
 
         {/* Dark vignette + oval cutout */}
