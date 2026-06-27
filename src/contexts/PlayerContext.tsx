@@ -157,6 +157,19 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
   }
 
   audio.src = sourceUrl;
+  // Kick the global WebAudio engine immediately after every source assignment.
+  // Relying only on `canplay`/`loadedmetadata` left some Android/WebView loads
+  // stuck in direct mode, so Premium EQ looked like it was endlessly reloading.
+  if (typeof window !== 'undefined') {
+    try {
+      window.queueMicrotask(() => {
+        if (getRuntimePremium()) {
+          window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
+          window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
+        }
+      });
+    } catch { /* ignore */ }
+  }
 };
 
 const shouldProxyStreamUrl = (sourceUrl: string) => {
