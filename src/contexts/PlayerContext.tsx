@@ -454,11 +454,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const audio = new Audio();
     audio.volume = volume;
     audio.preload = 'auto';
+    // CRITICAL: set crossOrigin BEFORE the element ever receives a src so the
+    // WebAudio MediaElementSource is never tainted. Every remote stream is
+    // routed through our CORS-clean stream-proxy, so 'anonymous' is always
+    // safe and lets the EQ graph attach on the very first song.
+    audio.crossOrigin = 'anonymous';
     audio.setAttribute('playsinline', 'true');
     audio.setAttribute('webkit-playsinline', 'true');
     // iOS Safari + AirPlay: allow background/lockscreen playback handoff
     audio.setAttribute('x-webkit-airplay', 'allow');
-    
+
     audioRef.current = audio;
     setAudioElement(audio);
 
@@ -466,10 +471,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const nextAudio = new Audio();
     nextAudio.volume = 0;
     nextAudio.preload = 'auto';
+    nextAudio.crossOrigin = 'anonymous';
     nextAudio.setAttribute('playsinline', 'true');
     nextAudio.setAttribute('webkit-playsinline', 'true');
     nextAudio.setAttribute('x-webkit-airplay', 'allow');
     nextAudioRef.current = nextAudio;
+
 
     const recoverBackgroundPlayback = () => {
       const a = audioRef.current;
