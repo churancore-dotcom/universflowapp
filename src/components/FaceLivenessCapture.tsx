@@ -589,9 +589,42 @@ export default function FaceLivenessCapture({
           ref={videoRef}
           playsInline
           muted
+          autoPlay
+          disablePictureInPicture
+          // @ts-expect-error - non-standard but supported on Android WebView
+          controlsList="nodownload nofullscreen noremoteplayback"
           className="absolute inset-0 w-full h-full object-cover"
-          style={{ transform: 'scaleX(-1)' }}
+          style={{
+            transform: 'scaleX(-1)',
+            opacity: videoReady ? 1 : 0,
+            transition: 'opacity 220ms ease',
+            backgroundColor: '#000',
+          }}
         />
+
+        {/* Loading overlay — hides Android WebView's default <video> play-icon */}
+        {!videoReady && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 pointer-events-none">
+            <div className="relative w-12 h-12">
+              <span
+                className="absolute inset-0 rounded-full"
+                style={{
+                  background: 'radial-gradient(closest-side, rgba(255,45,85,0.55), transparent 70%)',
+                  filter: 'blur(6px)',
+                }}
+              />
+              <motion.span
+                className="absolute inset-2 rounded-full border-2 border-white/15 border-t-white"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1.1, ease: 'linear', repeat: Infinity }}
+              />
+            </div>
+            <p className="text-[11px] uppercase tracking-[0.26em] text-white/55 font-semibold">
+              {phase === 'starting' ? 'Starting camera' : 'Loading face engine'}
+            </p>
+          </div>
+        )}
+
 
         {/* Dark vignette + oval cutout */}
         <svg viewBox={`0 0 ${VB} ${VB}`} className="absolute inset-0 w-full h-full pointer-events-none">
