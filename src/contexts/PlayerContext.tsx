@@ -1022,7 +1022,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (song.artist && song.title) {
         try {
           const result = await resolveIndexedTrack(song.artist, song.title, opts);
-          if (result?.streamUrl) return result.streamUrl;
+          if (result?.streamUrl) {
+            if (isYouTubeFallbackUrl(result.streamUrl)) {
+              return getRuntimePremium() ? null : result.streamUrl;
+            }
+            return result.streamUrl;
+          }
         } catch { /* fall through to YT iframe fallback */ }
       }
       // Premium audio needs a real HTMLAudio/WebAudio stream. Returning the
