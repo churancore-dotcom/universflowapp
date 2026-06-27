@@ -447,7 +447,7 @@ export async function resolveYouTubeVideoStream(
         duration: data.duration,
       };
     }
-  } catch (e) {
+  } catch {
     // Keep going: extract-audio can be rate-limited or hit a bad mirror batch.
   }
 
