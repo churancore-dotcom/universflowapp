@@ -6,7 +6,7 @@ import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, i
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import { recordPerfEvent } from '@/lib/perfMonitor';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
-import { EQ_SETTINGS_KEY, getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
+import { EQ_SETTINGS_KEY } from '@/lib/eqSettings';
 import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
@@ -129,8 +129,6 @@ interface PlayerContextType {
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
-const CORS_ENABLED_AUDIO_HOSTS = ['supabase.co', 'the-standard.io', 'private.coffee', 'saavncdn.com'];
-
 const shouldUseAnonymousCors = (audioUrl?: string | null) => {
   if (!audioUrl) return false;
   if (audioUrl.startsWith('blob:') || audioUrl.startsWith('data:')) return false;
@@ -214,6 +212,11 @@ const buildStreamProxyUrl = (sourceUrl: string) => {
 
 const isAudioProxyUrl = (url?: string | null) =>
   isStreamProxyUrl(url) || Boolean(url?.includes('/functions/v1/music-indexer?audio='));
+
+const isLocalMediaSource = (url?: string | null) => {
+  if (!url) return false;
+  return url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('file:') || url.startsWith('capacitor://');
+};
 
 // Premium = always run audio through the WebAudio graph (transparent when
 // sliders are flat). This removes the reload-on-EQ-toggle that made EQ feel
@@ -731,27 +734,52 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const alreadyProxied = isAudioProxyUrl(a.src);
       const alreadyAnonymous = a.crossOrigin === 'anonymous';
       if (alreadyProxied && alreadyAnonymous) {
-        window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
+        window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
+        return;
+      }
+
+      const currentSrc = a.currentSrc || a.src;
+      if (isLocalMediaSource(currentSrc)) {
+        // Offline/downloaded blobs and native file URLs are already WebAudio-safe.
+        // Do NOT reload them through the network proxy; just force the engine to
+        // attach/re-apply on the current element.
+        window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
         return;
       }
 
       // Legacy element loaded before Premium activation — reload through proxy.
       const wasPlaying = !a.paused;
       const at = a.currentTime;
-      const currentSrc = a.currentSrc || a.src;
       const songSource = currentSong?.audio_url;
       const original = songSource && songSource.startsWith('http') && !isYouTubeFallbackUrl(songSource) ? songSource : currentSrc;
-      if (!original) return;
+      if (!original || isLocalMediaSource(original)) return;
       try {
-        configureAudioElementSource(a, buildStreamProxyUrl(original));
-        a.load();
-        const restore = () => {
-          try { a.currentTime = at; } catch { /* ignore */ }
+        const proxied = buildStreamProxyUrl(original);
+        if ((a.src === proxied || a.currentSrc === proxied) && a.crossOrigin === 'anonymous') {
+          window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
+          return;
+        }
+
+        let restoreTimer: number | null = null;
+        const cleanup = () => {
           a.removeEventListener('loadedmetadata', restore);
+          a.removeEventListener('canplay', restore);
+          if (restoreTimer != null) window.clearTimeout(restoreTimer);
+          restoreTimer = null;
+        };
+        const restore = () => {
+          cleanup();
+          try { a.currentTime = at; } catch { /* ignore */ }
+          window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
           window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
           if (wasPlaying) a.play().catch(() => {});
         };
+
+        configureAudioElementSource(a, proxied);
         a.addEventListener('loadedmetadata', restore, { once: true });
+        a.addEventListener('canplay', restore, { once: true });
+        restoreTimer = window.setTimeout(restore, 900);
+        a.load();
       } catch { /* ignore */ }
     };
     const onEqStorageChanged = (e: StorageEvent) => {
