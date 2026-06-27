@@ -422,12 +422,11 @@ export default function ArtistApply() {
       }
 
       const blobToFile = (b: Blob, name: string) => new File([b], name, { type: b.type || 'image/jpeg' });
+      // Single high-res 720×720 liveness capture. The downstream Gemini face
+      // match in `artist-verify-checks` only ever reads face_shots[0], so we
+      // upload one file instead of four identical copies.
       const faceUploads = livenessShots
-        ? await Promise.all(
-            (['center', 'left', 'right', 'up'] as const).map((k) =>
-              uploadKycFile(user.id, 'selfie', blobToFile(livenessShots[k], `face-${k}.jpg`)),
-            ),
-          )
+        ? [await uploadKycFile(user.id, 'selfie', blobToFile(livenessShots.capture, 'face-capture.jpg'))]
         : [];
 
       const [frontPath, backPath, selfiePath, photoUrl] = await Promise.all([
