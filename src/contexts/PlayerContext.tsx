@@ -161,28 +161,20 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
   audio.src = sourceUrl;
 };
 
-// Hosts we should keep raw for normal playback. When EQ is active we still
-// proxy remote HTTP streams below because WebAudio processing needs a CORS-
-// clean response, and some hosts advertise CORS inconsistently on media ranges.
-const DIRECT_PLAYABLE_HOST_SNIPPETS = [
-  'supabase.co',
-];
-
 const shouldProxyStreamUrl = (sourceUrl: string) => {
   if (!sourceUrl.startsWith('http')) return false;
 
   try {
     const parsed = new URL(sourceUrl, window.location.href);
     if (parsed.origin === window.location.origin) return false;
+    if (isStreamProxyUrl(sourceUrl)) return false;
     if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return false;
 
-    // ALWAYS proxy remote streams (regardless of Premium state). This is what
-    // makes the EQ "work instantly on every single song" — the audio element
-    // is fed CORS-clean bytes from the very first play, so the WebAudio graph
-    // attaches cleanly on canplay and can never be tainted by a slow Premium
-    // check or a host that misreports CORS on a Range response.
-    if (DIRECT_PLAYABLE_HOST_SNIPPETS.some((host) => parsed.hostname.endsWith(host))) return false;
-
+    // ALWAYS proxy remote streams (including our own Supabase storage URLs).
+    // Direct storage/CDN responses can be playable but still fail WebAudio on
+    // range/CORS edge cases, which is what left Premium EQ stuck in "Reloading".
+    // The stream-proxy is explicitly allowlisted for this project host and
+    // guarantees stable CORS + Range headers before the graph attaches.
     return true;
   } catch {
     return false;
