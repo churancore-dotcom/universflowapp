@@ -125,7 +125,6 @@ function ensureCtx(): AudioContext | null {
 }
 
 function isCorsSafe(el: HTMLAudioElement): boolean {
-  if (el.crossOrigin === 'anonymous') return true;
   const src = el.currentSrc || el.src;
   if (!src) return false;
   if (src.startsWith('blob:') || src.startsWith('data:')) return true;
@@ -133,6 +132,10 @@ function isCorsSafe(el: HTMLAudioElement): boolean {
     const u = new URL(src, window.location.href);
     if (u.origin === window.location.origin) return true;
     if (u.hostname.endsWith('supabase.co')) return true;
+    // Treat anonymous CORS as graph-safe only after a real source URL exists.
+    // The player now routes every remote track through stream-proxy first, so
+    // this mainly prevents a premature direct-mode attach while src is empty.
+    if (el.crossOrigin === 'anonymous') return true;
   } catch { /* ignore */ }
   return false;
 }
@@ -571,6 +574,10 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
   if (!ctx) { setMode('unsupported'); return false; }
 
   const sig = signature(el);
+  if (!sig) {
+    setMode('idle');
+    return false;
+  }
   if (engine.el === el && engine.signature === sig && sig !== null) {
     if (ctx.state === 'suspended') ctx.resume().catch(() => { });
     if (engine.mode === 'processed') return true;
