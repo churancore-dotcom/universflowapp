@@ -163,7 +163,10 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
 }
 
 export function useEngineState() {
-  const [mode, setMode] = useState(() => 'idle' as ReturnType<typeof import('@/lib/audioEngine').getState>);
-  useEffect(() => subscribe(setMode), []);
+  const [mode, setMode] = useState(() => getState());
+  useEffect(() => {
+    setMode(getState());
+    return subscribe(setMode);
+  }, []);
   return mode;
 }
