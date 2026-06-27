@@ -734,5 +734,5 @@ export function getState(): Mode {
 export function subscribe(cb: (m: Mode) => void): () => void {
   engine.listeners.add(cb);
   cb(engine.mode);
-  return () => engine.listeners.delete(cb);
+  return () => { engine.listeners.delete(cb); };
 }
