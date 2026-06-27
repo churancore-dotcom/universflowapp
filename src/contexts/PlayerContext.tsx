@@ -1025,6 +1025,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (result?.streamUrl) return result.streamUrl;
         } catch { /* fall through to YT iframe fallback */ }
       }
+      // Premium audio needs a real HTMLAudio/WebAudio stream. Returning the
+      // iframe marker here makes playback continue outside the graph, which is
+      // exactly why EQ stayed on "Connecting" forever. For Premium, keep
+      // resolving/retrying instead of silently switching to an effect-dead path.
+      if (getRuntimePremium()) return null;
       // Direct stream lookup failed — fall back to the YouTube iframe marker
       // (the player handles `yt-video:` URLs in playSongAtIndex).
       return ytFallback;
