@@ -17,7 +17,18 @@ const SAME_ORIGIN_HOST_SUFFIXES = ['supabase.co'];
 function getProjectFunctionsBase(): string | null {
   const url = import.meta.env.VITE_SUPABASE_URL;
   if (!url) return null;
-  return url.replace(/\/$/, '');
+  try {
+    const parsed = new URL(url);
+    // Some deployments expose VITE_SUPABASE_URL as the API host, others as the
+    // functions host. Normalize both so audio.src always points at the deployed
+    // edge function; a malformed proxy URL silently breaks EQ attachment.
+    if (parsed.hostname.endsWith('.functions.supabase.co')) {
+      return `${parsed.protocol}//${parsed.hostname.replace('.functions.supabase.co', '.supabase.co')}`;
+    }
+    return `${parsed.protocol}//${parsed.host}`.replace(/\/$/, '');
+  } catch {
+    return url.replace(/\/$/, '');
+  }
 }
 
 /** True if the URL is already pointing at our proxy. */
