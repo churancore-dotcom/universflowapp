@@ -138,7 +138,7 @@ jobs:
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   registerPlugin(MediaNotificationPlugin.class);
-                  registerPlugin(VoiceSearchPlugin.class);
+                  
                   super.onCreate(savedInstanceState);
 
                   WebView web = bridge.getWebView();
@@ -247,22 +247,6 @@ jobs:
           echo "=== Plugin files ==="
           ls -la "android/app/src/main/java/${PKG_PATH}/media/"
 
-      - name: Integrate VoiceSearch plugin
-        run: |
-          PKG="app.lovable.id5acaae55bbc847a7bd32f3924d8ef986"
-          PKG_PATH="app/lovable/id5acaae55bbc847a7bd32f3924d8ef986"
-
-          sed "s|PACKAGE_PLACEHOLDER|${PKG}|g" android-native/java/VoiceSearchPlugin.java \
-            > "android/app/src/main/java/${PKG_PATH}/VoiceSearchPlugin.java"
-
-          MANIFEST="android/app/src/main/AndroidManifest.xml"
-          if ! grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"; then
-            sed -i 's|<application|<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-feature android:name="android.hardware.microphone" android:required="false" />\n    <application|' "$MANIFEST"
-          fi
-
-          echo "=== VoiceSearch plugin / permissions ==="
-          grep -nE "RECORD_AUDIO|microphone" "$MANIFEST" || true
-          ls -la "android/app/src/main/java/${PKG_PATH}/VoiceSearchPlugin.java"
 
       - name: Sync Capacitor
         run: npx cap sync android
