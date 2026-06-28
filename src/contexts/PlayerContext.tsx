@@ -519,6 +519,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (wasPlayingRef.current) startBackgroundHeartbeat();
       } else if (document.visibilityState === 'visible') {
         stopBackgroundHeartbeat();
+        resumeAudioEngine();
         if (backgroundRecoveryTimerRef.current) {
           window.clearTimeout(backgroundRecoveryTimerRef.current);
           backgroundRecoveryTimerRef.current = null;
@@ -1322,6 +1323,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentIndex(index);
     setProgress(0);
     setIsPlaying(true);
+    wasPlayingRef.current = true;
     void publishNativeMusicControls(resolvedSong, true, resolvedSong.duration);
 
     // Resolve audio URL if needed
@@ -1425,6 +1427,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (!isAutoplayEnabled()) {
+        wasPlayingRef.current = false;
         setIsPlaying(false);
         setProgress(audio.duration || audio.currentTime || 0);
         return;
@@ -1458,6 +1461,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
           }
           // Truly nothing to play — stop.
+          wasPlayingRef.current = false;
           setIsPlaying(false);
           setProgress(0);
         });
@@ -1465,6 +1469,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const handlePlay = () => {
+      wasPlayingRef.current = true;
+      intentionalPauseRef.current = false;
       setIsPlaying(true);
     };
 
