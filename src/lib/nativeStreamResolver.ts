@@ -111,10 +111,21 @@ function pickBestAudio(data: PlayerResponse): string | null {
 }
 
 export async function resolveYouTubeStreamOnDevice(videoId: string): Promise<NativeStreamResult | null> {
-  if (!isNativeStreamResolverAvailable()) return null;
   if (!videoId || videoId.length !== 11) return null;
 
-  // Race ANDROID_VR + IOS in parallel; first usable one wins.
+  // PRIMARY: Kotlin OkHttp-based InnerTube plugin (no CORS, native HTTP stack,
+  // residential IP -> bypasses YouTube's datacenter blocks).
+  try {
+    const { resolveOnDevice } = await import('./nativePlayer');
+    const url = await resolveOnDevice(videoId);
+    if (url) return { streamUrl: url, source: 'native-innertube' };
+  } catch (e) {
+    console.warn('[native-resolver] kotlin plugin unavailable:', (e as Error)?.message);
+  }
+
+  // FALLBACK: CapacitorHttp (also residential IP, just slower path).
+  if (!isNativeStreamResolverAvailable()) return null;
+
   const [vr, ios] = await Promise.all([
     fetchPlayer(videoId, ANDROID_VR_CTX),
     fetchPlayer(videoId, IOS_CTX),
@@ -123,13 +134,10 @@ export async function resolveYouTubeStreamOnDevice(videoId: string): Promise<Nat
   for (const data of [vr, ios]) {
     if (!data) continue;
     const status = data.playabilityStatus?.status;
-    if (status && status !== 'OK') {
-      console.warn('[native-resolver]', videoId, 'status=', status);
-      continue;
-    }
+    if (status && status !== 'OK') continue;
     const url = pickBestAudio(data);
     if (url) {
-      console.log('[native-resolver] ✓ resolved', videoId, 'on device');
+      console.log('[native-resolver] ✓ CapacitorHttp fallback', videoId);
       return { streamUrl: url, source: 'native-innertube' };
     }
   }

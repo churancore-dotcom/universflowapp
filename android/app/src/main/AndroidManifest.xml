@@ -14,10 +14,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
 
-
-
-
-
     <!-- Required for in-app face liveness check (artist KYC) -->
     <uses-permission android:name="android.permission.CAMERA" />
     <uses-feature android:name="android.hardware.camera" android:required="false" />
@@ -47,14 +43,17 @@
             </intent-filter>
         </activity>
 
+        <!-- Media3 ExoPlayer-backed MediaSessionService.
+             Replaces the legacy WebView audio + MediaNotificationService path. -->
         <service
-            android:name=".media.MediaNotificationService"
+            android:name=".ExoPlayerService"
             android:foregroundServiceType="mediaPlayback"
-            android:exported="false"
-            android:stopWithTask="false" />
-
-
-
+            android:exported="true"
+            android:stopWithTask="false">
+            <intent-filter>
+                <action android:name="androidx.media3.session.MediaSessionService" />
+            </intent-filter>
+        </service>
 
         <receiver
             android:name="androidx.media.session.MediaButtonReceiver"

@@ -24,7 +24,7 @@ class AudioFocusPlugin : Plugin() {
 
     override fun load() {
         super.load()
-        val filter = IntentFilter(MusicService.AUDIO_ACTION)
+        val filter = IntentFilter("com.universeflow.AUDIO_ACTION")
         val ctx = context.applicationContext
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             ctx.registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
