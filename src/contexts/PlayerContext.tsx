@@ -1123,7 +1123,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch { /* ignore preload errors */ }
     } else if (upcoming.source === 'indexed' || upcoming.audio_url === 'resolving') {
       preloadedNextIdRef.current = upcoming.id;
-      prefetchIndexedTrack(upcoming.artist, upcoming.title);
+      const upcomingVideoId = getYouTubeFallbackVideoId(upcoming.audio_url) || (upcoming.id?.startsWith('ytm-') ? upcoming.id.slice(4) : null);
+      if (upcomingVideoId) prefetchYouTubeVideoStream(upcomingVideoId);
+      else prefetchIndexedTrack(upcoming.artist, upcoming.title);
       resolveAudioUrl(upcoming).then((resolved) => {
         if (!resolved || preloadedNextIdRef.current !== upcoming.id) return;
         const activeQueue = queueRef.current;
@@ -1149,7 +1151,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (nextNextIdx !== null && nextNextIdx !== currentIndex) {
       const afterNext = queue[nextNextIdx];
       if (afterNext && (afterNext.source === 'indexed' || afterNext.audio_url === 'resolving')) {
-        prefetchIndexedTrack(afterNext.artist, afterNext.title);
+        const afterNextVideoId = getYouTubeFallbackVideoId(afterNext.audio_url) || (afterNext.id?.startsWith('ytm-') ? afterNext.id.slice(4) : null);
+        if (afterNextVideoId) prefetchYouTubeVideoStream(afterNextVideoId);
+        else prefetchIndexedTrack(afterNext.artist, afterNext.title);
       }
     }
   }, [queue, currentIndex, shuffle, repeat, getNextIndex, isPlayableUrl, resolveAudioUrl, playbackSettingsVersion]);
