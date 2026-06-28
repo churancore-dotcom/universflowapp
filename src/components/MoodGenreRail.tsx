@@ -106,7 +106,7 @@ const MoodGenreRail = () => {
       const first = songs[0];
       try {
         const resolved = await resolveIndexedTrack(first.artist, first.title);
-        if (resolved?.audio_url) first.audio_url = resolved.audio_url;
+        if (resolved?.streamUrl) first.audio_url = resolved.streamUrl;
       } catch { /* fallthrough; PlayerContext will resolve on play */ }
 
       setQueue(songs);
