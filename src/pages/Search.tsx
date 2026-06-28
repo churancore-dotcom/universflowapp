@@ -15,6 +15,7 @@ import RecognizeSongButton from '@/components/RecognizeSongButton';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
 import VirtualList from '@/components/VirtualList';
+import { useYtmSuggestions } from '@/hooks/useYtmSuggestions';
 import { supabase } from '@/integrations/supabase/client';
 import { prefetchIndexedTrack, searchYouTubeMusicTracks, searchArtistDirectory, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
 // FollowedArtistsRail removed from Search per product decision
