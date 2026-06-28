@@ -1,5 +1,6 @@
 import { memo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
+import { ChevronRight } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { resolveIndexedTrack } from '@/lib/musicIndexer';
@@ -10,25 +11,36 @@ interface MoodPlaylist {
   title: string;
   browseId: string;
 }
-interface MoodShelf {
-  title: string;
-  playlists: MoodPlaylist[];
-}
 
-// Editorial gradient pairs — hand-tuned, no two adjacent tiles share a hue.
-const GRADIENTS: Array<[string, string, string]> = [
-  ['#FF2D55', '#FF6B8A', '#3A0A18'], // rose
-  ['#7C3AED', '#C084FC', '#1A0B33'], // violet
-  ['#0EA5E9', '#7DD3FC', '#062436'], // sky
-  ['#F59E0B', '#FCD34D', '#3A1F02'], // amber
-  ['#10B981', '#6EE7B7', '#022C1F'], // emerald
-  ['#EC4899', '#F9A8D4', '#3A0B22'], // pink
-  ['#6366F1', '#A5B4FC', '#0C1233'], // indigo
-  ['#EF4444', '#FCA5A5', '#3A0A0A'], // red
+// Deterministic tint per tile — deep onyx base with a single hue lift.
+const TINTS = [
+  '#FF2D55', // rose (brand)
+  '#A855F7', // violet
+  '#22D3EE', // cyan
+  '#F59E0B', // amber
+  '#34D399', // emerald
+  '#F472B6', // pink
+  '#818CF8', // indigo
+  '#FB7185', // coral
 ];
 
+// Stable per-title hash → tint index. So "Pop" is always the same color.
+const tintFor = (s: string) => {
+  let h = 0;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  return TINTS[h % TINTS.length];
+};
+
+// Split a title onto two lines around the midpoint for editorial feel.
+const splitTitle = (t: string): [string, string?] => {
+  const words = t.trim().split(/\s+/);
+  if (words.length === 1) return [words[0]];
+  const mid = Math.ceil(words.length / 2);
+  return [words.slice(0, mid).join(' '), words.slice(mid).join(' ')];
+};
+
 const MoodGenreRail = () => {
-  const [shelves, setShelves] = useState<MoodShelf[]>([]);
+  const [items, setItems] = useState<MoodPlaylist[]>([]);
   const [loading, setLoading] = useState(true);
   const [openingId, setOpeningId] = useState<string | null>(null);
   const { playSong, setQueue } = usePlayer();
@@ -44,8 +56,6 @@ const MoodGenreRail = () => {
         });
         if (cancelled) return;
         const cats = Array.isArray(listData?.categories) ? listData.categories : [];
-        if (!cats.length) { setShelves([]); setLoading(false); return; }
-
         const flat: MoodPlaylist[] = [];
         const seen = new Set<string>();
         for (const c of cats) {
@@ -54,11 +64,11 @@ const MoodGenreRail = () => {
               seen.add(it.browseId);
               flat.push({ title: it.title, browseId: it.browseId });
             }
-            if (flat.length >= 10) break;
+            if (flat.length >= 9) break;
           }
-          if (flat.length >= 10) break;
+          if (flat.length >= 9) break;
         }
-        setShelves([{ title: 'Browse', playlists: flat }]);
+        setItems(flat);
       } catch (e) {
         console.warn('moods rail failed', e);
       } finally {
@@ -112,79 +122,142 @@ const MoodGenreRail = () => {
     }
   };
 
+  const Header = (
+    <div className="flex items-center justify-between px-1 mb-4">
+      <h2 className="text-[20px] font-extrabold tracking-tight text-white/95">Explore Moods</h2>
+      <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-white/35">Curated</span>
+    </div>
+  );
+
   if (loading) {
     return (
       <section>
-        <div className="flex items-baseline justify-between mb-3 px-1">
-          <h2 className="text-[15px] font-semibold tracking-tight">Browse</h2>
-          <span className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">Moods & Genres</span>
-        </div>
-        <div className="grid grid-cols-2 gap-2.5">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="aspect-[16/10] rounded-2xl animate-pulse"
+        {Header}
+        <div className="grid grid-cols-2 gap-3">
+          <div className="col-span-2 h-24 rounded-[1.5rem] animate-pulse" style={{ background: 'rgba(255,255,255,0.04)' }} />
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="aspect-[1/1.15] rounded-[1.5rem] animate-pulse"
               style={{ background: 'rgba(255,255,255,0.04)' }} />
           ))}
         </div>
       </section>
     );
   }
-  if (!shelves[0]?.playlists?.length) return null;
+  if (!items.length) return null;
+
+  const [hero, ...rest] = items;
+  const heroTint = tintFor(hero.title);
 
   return (
     <section>
-      <div className="flex items-baseline justify-between mb-3 px-1">
-        <h2 className="text-[15px] font-semibold tracking-tight">Browse</h2>
-        <span className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">Moods & Genres</span>
-      </div>
-      <div className="grid grid-cols-2 gap-2.5">
-        {shelves[0].playlists.map((m, i) => {
-          const [c1, c2, deep] = GRADIENTS[i % GRADIENTS.length];
+      {Header}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Hero banner — full-width editorial card */}
+        <motion.button
+          key={hero.browseId}
+          onClick={() => openMood(hero)}
+          whileTap={{ scale: 0.98 }}
+          transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+          className="col-span-2 relative h-28 rounded-[1.5rem] overflow-hidden text-left isolate border border-white/[0.06]"
+          style={{
+            background:
+              'linear-gradient(135deg, #0d0d0f 0%, #131316 60%, #0a0a0c 100%)',
+            boxShadow: `0 18px 40px -22px ${heroTint}55, 0 1px 0 rgba(255,255,255,0.04) inset`,
+          }}
+          aria-label={`Play ${hero.title}`}
+        >
+          <span
+            aria-hidden
+            className="absolute -left-10 -top-10 w-44 h-44 rounded-full blur-3xl opacity-40"
+            style={{ background: heroTint }}
+          />
+          <span
+            aria-hidden
+            className="absolute inset-0 opacity-[0.05]"
+            style={{
+              backgroundImage:
+                'repeating-linear-gradient(115deg, rgba(255,255,255,1) 0 1px, transparent 1px 18px)',
+            }}
+          />
+          <div className="relative z-10 h-full flex items-center justify-between px-5">
+            <div className="min-w-0">
+              <div
+                className="h-[2px] w-6 rounded-full mb-2"
+                style={{ background: heroTint }}
+              />
+              <p className="text-[22px] font-extrabold tracking-tight text-white leading-[1.05] truncate">
+                {hero.title}
+              </p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/40 mt-1.5">
+                Tap to play
+              </p>
+            </div>
+            <div
+              className="w-10 h-10 rounded-full grid place-items-center shrink-0"
+              style={{ background: `${heroTint}1F`, border: `1px solid ${heroTint}55` }}
+            >
+              <ChevronRight className="w-4 h-4" style={{ color: heroTint }} />
+            </div>
+          </div>
+          {openingId === hero.browseId && (
+            <span className="absolute inset-0 grid place-items-center bg-black/40 backdrop-blur-[2px]">
+              <span className="w-5 h-5 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+            </span>
+          )}
+        </motion.button>
+
+        {/* Grid tiles */}
+        {rest.map((m) => {
+          const tint = tintFor(m.title);
           const busy = openingId === m.browseId;
+          const [l1, l2] = splitTitle(m.title);
           return (
             <motion.button
               key={m.browseId}
               onClick={() => openMood(m)}
-              whileTap={{ scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
-              className="group relative aspect-[16/10] rounded-2xl overflow-hidden text-left isolate"
+              whileTap={{ scale: 0.96 }}
+              transition={{ type: 'spring', stiffness: 380, damping: 26 }}
+              className="group relative aspect-[1/1.15] rounded-[1.5rem] overflow-hidden text-left isolate border border-white/[0.06]"
               style={{
-                background: `linear-gradient(135deg, ${deep} 0%, ${c1} 55%, ${c2} 100%)`,
-                boxShadow: `0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 24px -10px ${c1}66`,
+                background:
+                  'linear-gradient(160deg, #111114 0%, #0b0b0d 100%)',
+                boxShadow: `0 14px 30px -20px ${tint}66, 0 1px 0 rgba(255,255,255,0.04) inset`,
               }}
               aria-label={`Play ${m.title}`}
             >
-              {/* Soft top-right halo */}
+              {/* Corner halo */}
               <span
                 aria-hidden
-                className="absolute -top-6 -right-6 w-24 h-24 rounded-full blur-2xl opacity-60"
-                style={{ background: c2 }}
+                className="absolute -top-8 -right-8 w-28 h-28 rounded-full blur-2xl opacity-50"
+                style={{ background: tint }}
               />
-              {/* Diagonal sheen */}
+              {/* Oversized faded glyph */}
               <span
                 aria-hidden
-                className="absolute inset-0 opacity-[0.07] mix-blend-overlay"
+                className="absolute -bottom-4 -right-2 text-[88px] font-black leading-none select-none pointer-events-none"
                 style={{
-                  backgroundImage:
-                    'repeating-linear-gradient(115deg, rgba(255,255,255,1) 0 1px, transparent 1px 14px)',
+                  color: tint,
+                  opacity: 0.08,
+                  letterSpacing: '-0.05em',
                 }}
-              />
-              {/* Bottom vignette for text legibility */}
-              <span
-                aria-hidden
-                className="absolute inset-x-0 bottom-0 h-2/3"
-                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.45), transparent)' }}
-              />
-              {/* Title */}
-              <div className="absolute inset-0 p-3 flex flex-col justify-end">
-                <span
-                  className="text-white font-bold text-[15px] leading-[1.15] tracking-tight line-clamp-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
-                  style={{ fontFamily: 'inherit' }}
-                >
-                  {m.title}
-                </span>
+              >
+                {m.title.charAt(0).toUpperCase()}
+              </span>
+              {/* Content */}
+              <div className="absolute inset-0 p-4 flex flex-col justify-between">
+                <div
+                  className="h-[2px] w-5 rounded-full"
+                  style={{ background: tint }}
+                />
+                <div>
+                  <p className="text-white font-extrabold text-[15px] leading-[1.1] tracking-tight">
+                    {l1}
+                    {l2 && <><br />{l2}</>}
+                  </p>
+                </div>
               </div>
               {busy && (
-                <span className="absolute inset-0 grid place-items-center bg-black/40 backdrop-blur-[2px]">
+                <span className="absolute inset-0 grid place-items-center bg-black/45 backdrop-blur-[2px]">
                   <span className="w-5 h-5 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
                 </span>
               )}
