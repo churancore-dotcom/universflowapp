@@ -246,6 +246,8 @@ class ExoPlayerService : MediaSessionService() {
 
     override fun onDestroy() {
         ServiceRegistry.exoService = null
+        try { smartReceiver?.let { unregisterReceiver(it) } } catch (_: Throwable) {}
+        smartReceiver = null
         releaseEffects()
         try { mediaSession?.run { player.release(); release() } } catch (_: Throwable) {}
         mediaSession = null
