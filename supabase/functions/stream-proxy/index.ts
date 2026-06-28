@@ -173,7 +173,11 @@ async function fetchAllowedTarget(target: string, req: Request, range: string | 
   });
 
   if (upstream.status >= 300 && upstream.status < 400) {
-    if (redirects >= 2) throw new Error('Too many redirects');
+    // Signed music CDN URLs (especially googlevideo / JioSaavn CDNs) can bounce
+    // through several validated edge hosts before the final byte-serving URL.
+    // The previous limit of 2 made perfectly valid streams fail with 502, which
+    // the player interpreted as "skip to next" in the APK.
+    if (redirects >= 8) throw new Error('Too many redirects');
     const location = upstream.headers.get('location');
     if (!location) throw new Error('Redirect missing Location');
     const next = new URL(location, target).toString();
