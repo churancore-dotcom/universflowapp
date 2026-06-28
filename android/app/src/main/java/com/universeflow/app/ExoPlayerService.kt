@@ -1,12 +1,18 @@
 package com.universeflow.app
 
 import android.app.PendingIntent
+import android.bluetooth.BluetoothA2dp
+import android.content.BroadcastReceiver
+import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
+import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.PowerManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
