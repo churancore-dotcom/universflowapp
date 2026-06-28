@@ -4,6 +4,7 @@
 
 const NAMESPACE = 'ytm:stream:v1';
 const TTL_MS = 6 * 60 * 60 * 1000;
+const VOLATILE_TTL_MS = 20 * 60 * 1000;
 const MAX_ENTRIES = 200;
 
 type Entry = {
@@ -20,6 +21,18 @@ type Entry = {
 const memory = new Map<string, Entry>();
 
 const lsKey = (videoId: string) => `${NAMESPACE}:${videoId}`;
+
+function isVolatileMirrorStream(url?: string | null) {
+  if (!url) return false;
+  return url.includes('/latest_version')
+    || url.includes('/videoplayback')
+    || url.includes('proxy.piped.')
+    || url.includes('googlevideo.com');
+}
+
+function maxAgeFor(url: string) {
+  return isVolatileMirrorStream(url) ? VOLATILE_TTL_MS : TTL_MS;
+}
 
 function readLS(videoId: string): Entry | null {
   try {
@@ -55,10 +68,10 @@ function writeLS(videoId: string, entry: Entry) {
 export function getCachedStream(videoId: string): Entry | null {
   const now = Date.now();
   const mem = memory.get(videoId);
-  if (mem && now - mem.ts < TTL_MS && !mem.url.startsWith('yt-video:')) return mem;
+  if (mem && now - mem.ts < maxAgeFor(mem.url) && !mem.url.startsWith('yt-video:')) return mem;
   if (mem?.url.startsWith('yt-video:')) memory.delete(videoId);
   const disk = readLS(videoId);
-  if (disk && now - disk.ts < TTL_MS && typeof disk.url === 'string') {
+  if (disk && typeof disk.url === 'string' && now - disk.ts < maxAgeFor(disk.url)) {
     if (disk.url.startsWith('yt-video:')) {
       try { localStorage.removeItem(lsKey(videoId)); } catch { /* ignore */ }
       return null;

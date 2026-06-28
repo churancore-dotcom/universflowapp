@@ -150,7 +150,10 @@ function isVolatileProxyStream(url?: string | null) {
   // Invidious/Piped proxy URLs are not signed like raw googlevideo, but mirror
   // health changes quickly. Never trust an old DB hit blindly — a stale proxy
   // URL was one of the paths that left the player/EQ stuck on Connecting.
-  return url.includes('/latest_version') || url.includes('proxy.piped.') || url.includes('/videoplayback');
+  return url.includes('/latest_version')
+    || url.includes('proxy.piped.')
+    || url.includes('/videoplayback')
+    || url.includes('googlevideo.com');
 }
 
 async function tryPipedInstance(apiUrl: string, videoId: string): Promise<ExtractionResult | null> {
