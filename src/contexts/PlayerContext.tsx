@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { useGlobalAudioEngine } from '@/hooks/useGlobalAudioEngine';
 import { supabase } from '@/integrations/supabase/client';
-import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, invalidateYouTubeStream } from '@/lib/musicIndexer';
+import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, prefetchYouTubeVideoStream, invalidateYouTubeStream } from '@/lib/musicIndexer';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import { recordPerfEvent } from '@/lib/perfMonitor';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
