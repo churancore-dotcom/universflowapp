@@ -1009,35 +1009,39 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!opts.forceRefresh && isPlayableUrl(song.audio_url) && !ytFallback) {
         return song.audio_url!;
       }
-      if (ytFallback) {
-        const videoId = getYouTubeFallbackVideoId(ytFallback);
-        if (videoId) {
-          try {
-            if (opts.forceRefresh) invalidateYouTubeStream(videoId);
-            const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh: opts.forceRefresh });
-            if (resolved?.streamUrl) return resolved.streamUrl;
-          } catch { /* keep iframe fallback */ }
-        }
-      }
-      if (song.artist && song.title) {
-        try {
-          const result = await resolveIndexedTrack(song.artist, song.title, opts);
-          if (result?.streamUrl) {
-            if (isYouTubeFallbackUrl(result.streamUrl)) {
-              return getRuntimePremium() ? null : result.streamUrl;
-            }
-            return result.streamUrl;
+
+      // Single attempt that tries extract-audio (and music-indexer) once.
+      const attempt = async (forceRefresh: boolean): Promise<string | null> => {
+        if (ytFallback) {
+          const videoId = getYouTubeFallbackVideoId(ytFallback);
+          if (videoId) {
+            try {
+              if (forceRefresh) invalidateYouTubeStream(videoId);
+              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
+              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
+                return resolved.streamUrl;
+              }
+            } catch { /* try next strategy */ }
           }
-        } catch { /* fall through to YT iframe fallback */ }
-      }
-      // Premium audio needs a real HTMLAudio/WebAudio stream. Returning the
-      // iframe marker here makes playback continue outside the graph, which is
-      // exactly why EQ stayed on "Connecting" forever. For Premium, keep
-      // resolving/retrying instead of silently switching to an effect-dead path.
-      if (getRuntimePremium()) return null;
-      // Direct stream lookup failed — fall back to the YouTube iframe marker
-      // (the player handles `yt-video:` URLs in playSongAtIndex).
-      return ytFallback;
+        }
+        if (song.artist && song.title) {
+          try {
+            const result = await resolveIndexedTrack(song.artist, song.title, { forceRefresh });
+            if (result?.streamUrl && !isYouTubeFallbackUrl(result.streamUrl)) {
+              return result.streamUrl;
+            }
+          } catch { /* fall through */ }
+        }
+        return null;
+      };
+
+      // FIX 2: try once, then ONE automatic retry with forceRefresh.
+      // Iframe fallback is removed entirely — we only ever return a real
+      // stream URL or null (caller shows "Song unavailable").
+      const first = await attempt(opts.forceRefresh === true);
+      if (first) return first;
+      const second = await attempt(true);
+      return second;
     },
     [isPlayableUrl],
   );
@@ -1327,19 +1331,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Final race guard before we actually touch the <audio> element.
     if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
-    // ── YouTube IFrame fallback path ──
+    // FIX 2: NEVER fall back to the YouTube iframe — it cannot be processed by
+    // WebAudio, which is why the EQ stayed dead. If resolution failed to give
+    // us a real audio URL by now, show "Song unavailable" and stop.
     if (isYouTubeFallbackUrl(audioUrl)) {
-      const videoId = getYouTubeFallbackVideoId(audioUrl);
-      if (!videoId) {
-        setIsPlaying(false);
-        toast.error('This song could not be played.');
-        return;
-      }
-      await playYouTubeFallback(videoId, () => {
-        // Trigger normal "ended" pipeline
-        const evt = new Event('ended');
-        try { audioRef.current?.dispatchEvent(evt); } catch { /* ignore */ }
-      }, mySeq, intendedIdentity);
+      setIsPlaying(false);
+      toast.error('Song unavailable');
       return;
     }
 
@@ -1549,21 +1546,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const seqAtRecoveryStart = playRequestSeqRef.current;
           const fresh = await resolveAudioUrl(cur, { forceRefresh: true });
           if (seqAtRecoveryStart !== playRequestSeqRef.current || activeSongIdentityRef.current !== activeIdentity) return;
-          if (fresh && fresh !== cur.audio_url) {
+          if (fresh && fresh !== cur.audio_url && !isYouTubeFallbackUrl(fresh)) {
             const refreshed = { ...cur, audio_url: fresh };
             const newQueue = [...queue];
             newQueue[currentIndex] = refreshed;
             setQueueState(newQueue);
             setCurrentSong(refreshed);
-            if (isYouTubeFallbackUrl(fresh)) {
-              const videoId = getYouTubeFallbackVideoId(fresh);
-              if (videoId) {
-                await playYouTubeFallback(videoId, () => {
-                  try { audioRef.current?.dispatchEvent(new Event('ended')); } catch { /* ignore */ }
-                }, seqAtRecoveryStart, activeIdentity ?? undefined);
-                return;
-              }
-            }
             configureAudioElementSource(audio, buildStreamProxyUrl(fresh));
             audio.load();
             await audio.play().catch(() => { /* will fall through to skip below on next error */ });
@@ -1765,42 +1753,37 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // ── YouTube IFrame fallback path ──
     if (!offlineUrl && isYouTubeFallbackUrl(playbackSource)) {
-      const videoId = getYouTubeFallbackVideoId(playbackSource);
-      if (videoId) {
-        await playYouTubeFallback(videoId, () => {
-          try { audioRef.current?.dispatchEvent(new Event('ended')); } catch { /* ignore */ }
-        }, mySeq, intendedIdentity);
-      } else {
+      // FIX 2: iframe fallback removed — show "Song unavailable" instead of
+      // dropping into a path that bypasses WebAudio / EQ.
+      setIsPlaying(false);
+      toast.error('Song unavailable');
+      return;
+    }
+
+    teardownYouTubePlayback();
+
+    // Set audio source - use offline URL if available
+    const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
+    configureAudioElementSource(audioRef.current, playbackUrl);
+    audioRef.current.volume = volume;
+    audioRef.current.currentTime = 0;
+
+    // Load and play immediately
+    audioRef.current.load();
+    const playPromise = audioRef.current.play();
+    if (playPromise) {
+      playPromise.catch(err => {
+        console.warn('Playback failed:', err?.message);
+        const activeQueue = normalizedQueue && normalizedQueue.length > 1 ? normalizedQueue : queueRef.current;
+        const songIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
+        if (mySeq === playRequestSeqRef.current && activeQueue.length > 1 && songIndex >= 0) {
+          const fallbackIdx = getNextIndex(songIndex, activeQueue.length, shuffle, repeat) ?? ((songIndex + 1) % activeQueue.length);
+          playSongAtIndex(fallbackIdx, activeQueue);
+          return;
+        }
         setIsPlaying(false);
-        toast.error('This song could not start right now.');
-      }
-    } else {
-      teardownYouTubePlayback();
-
-      // Set audio source - use offline URL if available
-      const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
-      configureAudioElementSource(audioRef.current, playbackUrl);
-      audioRef.current.volume = volume;
-      audioRef.current.currentTime = 0;
-
-
-      // Load and play immediately
-      audioRef.current.load();
-      const playPromise = audioRef.current.play();
-      if (playPromise) {
-        playPromise.catch(err => {
-          console.warn('Playback failed:', err?.message);
-          const activeQueue = normalizedQueue && normalizedQueue.length > 1 ? normalizedQueue : queueRef.current;
-          const songIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
-          if (mySeq === playRequestSeqRef.current && activeQueue.length > 1 && songIndex >= 0) {
-            const fallbackIdx = getNextIndex(songIndex, activeQueue.length, shuffle, repeat) ?? ((songIndex + 1) % activeQueue.length);
-            playSongAtIndex(fallbackIdx, activeQueue);
-            return;
-          }
-          setIsPlaying(false);
-          toast.error('This song could not start — trying another source helps while the stream refreshes.');
-        });
-      }
+        toast.error('This song could not start — trying another source helps while the stream refreshes.');
+      });
     }
 
     // If a queue is provided, use it
