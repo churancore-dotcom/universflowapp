@@ -105,7 +105,7 @@ jobs:
 
           tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
               kotlinOptions {
-                  jvmTarget = "17"
+                  jvmTarget = "21"
               }
           }
           EOF
@@ -126,7 +126,7 @@ jobs:
           echo "=== project build.gradle ==="
           grep -n "google-services\|firebase\|kotlin" "$PROJECT_GRADLE" || true
           echo "=== app build.gradle ==="
-          grep -n "google-services\|firebase\|kotlin\|KotlinCompile" "$APP_GRADLE" || true
+          grep -n "google-services\|firebase\|kotlin\|KotlinCompile\|jvmTarget" "$APP_GRADLE" || true
 
       - name: Write MainActivity (registers native plugins, deferred camera only)
         run: |
