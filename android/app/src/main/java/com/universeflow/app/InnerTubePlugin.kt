@@ -68,9 +68,6 @@ class InnerTubePlugin : Plugin() {
         }
     }
 
-    private val endpoint =
-        "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
-
     private data class ClientCtx(
         val name: String,
         val jsonContext: JSONObject,

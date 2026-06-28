@@ -10,13 +10,12 @@ import type { CapacitorConfig } from '@capacitor/cli';
  * internet to load its own HTML and shows a black screen offline / on flaky
  * networks. This file deliberately omits `server.url`.
  *
- * Keep `appId` in sync with:
- *   - android-config/google-services.json (package_name)
- *   - the PKG variable in build-android.yml (MainActivity path)
- * Changing this without updating both will break the Android build.
+ * Keep `appId` in sync with the native Android package under
+ * android/app/src/main/java/com/universeflow/app. Push notifications still
+ * require a matching google-services.json before the Google plugin can run.
  */
 const config: CapacitorConfig = {
-  appId: 'app.lovable.id5acaae55bbc847a7bd32f3924d8ef986',
+  appId: 'com.universeflow.app',
   appName: 'Univers Flow',
   webDir: 'dist',
   // No server.url → assets are served from the APK's local file:// bundle

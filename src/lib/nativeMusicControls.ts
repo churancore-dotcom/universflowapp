@@ -1,10 +1,12 @@
 // Native music controls bridge — talks to our custom Android plugin
-// `MediaNotificationPlugin` (see android-native/java/MediaNotificationPlugin.java).
+// `MediaNotificationPlugin` on legacy Android builds only.
 // On web, no-ops. The Web Media Session in useMediaSession.ts handles
 // browser/PWA controls.
 //
-// IMPORTANT: showNativeMusicControls must be called BEFORE audio starts so
-// Android can keep the WebView alive in background as a foreground service.
+// IMPORTANT: New Android APKs use the ExoPlayer MediaSessionService instead of
+// this legacy WebView foreground service. Starting both services can crash some
+// Android builds with ForegroundServiceDidNotStartInTimeException, so every
+// function below is intentionally a no-op on Android.
 
 import { Capacitor, registerPlugin } from '@capacitor/core';
 
@@ -70,7 +72,7 @@ export function setNativeMusicHandlers(h: typeof currentHandlers) {
 }
 
 async function attachListenerOnce() {
-  if (listenerAttached || !isNative()) return;
+  if (listenerAttached || !isNative() || isAndroid()) return;
   try {
     await MediaNotification.addListener('controlsNotification', (e) => {
       switch (e.message) {
@@ -105,7 +107,9 @@ async function attachListenerOnce() {
  * harmless because the OS only prompts once.
  */
 export async function ensureNotificationPermission(): Promise<boolean> {
-  if (!isAndroid()) return true;
+  // ExoPlayerService owns Android's notification permission/media session now.
+  // Do not touch the legacy MediaNotification plugin on Android.
+  if (isAndroid()) return true;
   if (permissionRequested) return true;
   permissionRequested = true;
   try {
@@ -118,7 +122,7 @@ export async function ensureNotificationPermission(): Promise<boolean> {
 }
 
 export async function showNativeMusicControls(track: NativeTrack, isPlaying: boolean) {
-  if (!isNative()) return;
+  if (!isNative() || isAndroid()) return;
   // Best-effort permission grant, but NEVER block playback startup on the
   // Android 13+ permission dialog. The foreground service can still keep the
   // WebView alive even if the drawer notification is hidden by OS policy.
@@ -139,7 +143,7 @@ export async function showNativeMusicControls(track: NativeTrack, isPlaying: boo
 }
 
 export async function updateNativeMusicState(isPlaying: boolean, position?: number) {
-  if (!isNative()) return;
+  if (!isNative() || isAndroid()) return;
   try {
     await MediaNotification.update({
       isPlaying,
@@ -151,7 +155,7 @@ export async function updateNativeMusicState(isPlaying: boolean, position?: numb
 }
 
 export async function destroyNativeMusicControls() {
-  if (!isNative()) return;
+  if (!isNative() || isAndroid()) return;
   try {
     await MediaNotification.destroy();
   } catch {
