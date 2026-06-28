@@ -63,6 +63,22 @@ const Settings = () => {
     return typeof s.playbackSpeed === 'number' ? s.playbackSpeed : 1;
   });
 
+  // Privacy + Content
+  const [pauseHistory, setPauseHistory] = useState<boolean>(() => isHistoryPaused());
+  const [anonMode, setAnonMode] = useState<boolean>(() => isAnonymousMode());
+  const [hideExplicit, setHideExplicitState] = useState<boolean>(() => isHideExplicit());
+  const [romanize, setRomanize] = useState<boolean>(() => isRomanizeLyrics());
+  const [lyricsProv, setLyricsProv] = useState<LyricsProvider>(() => getLyricsProvider());
+
+  // Search filter
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const show = useMemo(() => (keys: string[]) => {
+    if (!q) return true;
+    return keys.some(k => k.toLowerCase().includes(q));
+  }, [q]);
+
+
 
   
 
