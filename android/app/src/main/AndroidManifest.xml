@@ -44,7 +44,7 @@
         </activity>
 
         <!-- Media3 ExoPlayer-backed MediaSessionService.
-             Replaces the legacy WebView audio + MediaNotificationService path. -->
+             This is the single native playback/notification owner. -->
         <service
             android:name=".ExoPlayerService"
             android:foregroundServiceType="mediaPlayback"

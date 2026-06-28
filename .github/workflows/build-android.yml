@@ -84,36 +84,61 @@ jobs:
           echo "google-services.json installed:"
           ls -la android/app/google-services.json
 
-      - name: Wire Firebase Gradle plugin
+      - name: Wire Android Gradle plugins
         run: |
-          # 1) Add google-services classpath to project-level build.gradle
+          # 1) Add Kotlin + google-services classpaths to project-level build.gradle
           PROJECT_GRADLE="android/build.gradle"
+          if ! grep -q "org.jetbrains.kotlin:kotlin-gradle-plugin" "$PROJECT_GRADLE"; then
+            sed -i "s|classpath 'com.android.tools.build:gradle.*|&\n        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:2.0.21'|" "$PROJECT_GRADLE"
+          fi
           if ! grep -q "com.google.gms:google-services" "$PROJECT_GRADLE"; then
             sed -i "s|classpath 'com.android.tools.build:gradle.*|&\n        classpath 'com.google.gms:google-services:4.4.2'|" "$PROJECT_GRADLE"
           fi
 
-          # 2) Apply google-services plugin at the BOTTOM of app-level build.gradle
+          # 2) Compile committed .kt native plugins (MainActivity, ExoPlayer, InnerTube).
           APP_GRADLE="android/app/build.gradle"
+          if ! grep -q "apply plugin: 'kotlin-android'" "$APP_GRADLE"; then
+            sed -i "/apply plugin: 'com.android.application'/a apply plugin: 'kotlin-android'" "$APP_GRADLE"
+          fi
+          if ! grep -q "KotlinCompile" "$APP_GRADLE"; then
+            cat >> "$APP_GRADLE" <<'EOF'
+
+tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+    kotlinOptions {
+        jvmTarget = "17"
+    }
+}
+EOF
+          fi
+
+          # 3) Apply google-services plugin only if app build.gradle doesn't already
+          # contain the safe package-name guard committed in the repo.
           if ! grep -q "com.google.gms.google-services" "$APP_GRADLE"; then
             echo "" >> "$APP_GRADLE"
             echo "apply plugin: 'com.google.gms.google-services'" >> "$APP_GRADLE"
           fi
 
-          # 3) Add Firebase Messaging dependency
+          # 4) Add Firebase Messaging dependency
           if ! grep -q "firebase-messaging" "$APP_GRADLE"; then
             sed -i "s|dependencies {|dependencies {\n    implementation platform('com.google.firebase:firebase-bom:33.5.1')\n    implementation 'com.google.firebase:firebase-messaging'|" "$APP_GRADLE"
           fi
 
           echo "=== project build.gradle ==="
-          grep -n "google-services\|firebase" "$PROJECT_GRADLE" || true
+          grep -n "google-services\|firebase\|kotlin" "$PROJECT_GRADLE" || true
           echo "=== app build.gradle ==="
-          grep -n "google-services\|firebase" "$APP_GRADLE" || true
+          grep -n "google-services\|firebase\|kotlin\|KotlinCompile" "$APP_GRADLE" || true
 
       - name: Write MainActivity (registers native plugins, deferred camera only)
         run: |
-          PKG="app.lovable.id5acaae55bbc847a7bd32f3924d8ef986"
-          PKG_PATH="app/lovable/id5acaae55bbc847a7bd32f3924d8ef986"
+          PKG="com.universeflow.app"
+          PKG_PATH="com/universeflow/app"
+          MAIN_ACTIVITY_KT="android/app/src/main/java/${PKG_PATH}/MainActivity.kt"
           MAIN_ACTIVITY="android/app/src/main/java/${PKG_PATH}/MainActivity.java"
+
+          if [ -f "$MAIN_ACTIVITY_KT" ]; then
+            echo "Using committed Kotlin MainActivity with all native plugins: $MAIN_ACTIVITY_KT"
+            exit 0
+          fi
 
           mkdir -p "$(dirname "$MAIN_ACTIVITY")"
           cat > "$MAIN_ACTIVITY" <<EOF
@@ -129,7 +154,6 @@ jobs:
           import androidx.core.content.ContextCompat;
           import com.getcapacitor.BridgeActivity;
           import com.getcapacitor.BridgeWebChromeClient;
-          import ${PKG}.media.MediaNotificationPlugin;
 
           public class MainActivity extends BridgeActivity {
               private static final int CAMERA_REQ_CODE = 4711;
@@ -137,7 +161,9 @@ jobs:
 
               @Override
               public void onCreate(Bundle savedInstanceState) {
-                  registerPlugin(MediaNotificationPlugin.class);
+                  registerPlugin(AudioFocusPlugin.class);
+                  registerPlugin(InnerTubePlugin.class);
+                  registerPlugin(ExoPlayerPlugin.class);
                   
                   super.onCreate(savedInstanceState);
 
@@ -201,57 +227,47 @@ jobs:
           echo "MainActivity registered at: $MAIN_ACTIVITY"
 
 
-      - name: Integrate MediaNotification plugin (lockscreen + notification controls)
+      - name: Ensure legacy WebView media service is disabled
         run: |
-          PKG="app.lovable.id5acaae55bbc847a7bd32f3924d8ef986"
-          PKG_PATH="app/lovable/id5acaae55bbc847a7bd32f3924d8ef986"
-
-          # Copy only the media notification bridge sources. Dynamic Island is
-          # copied into its own /island package in the next step.
-          mkdir -p "android/app/src/main/java/${PKG_PATH}/media"
-          rm -f "android/app/src/main/java/${PKG_PATH}/media/DynamicIslandPlugin.java"
-          for f in android-native/java/MediaNotification*.java; do
-            base=$(basename "$f")
-            sed "s|PACKAGE_PLACEHOLDER|${PKG}|g" "$f" \
-              > "android/app/src/main/java/${PKG_PATH}/media/${base}"
-          done
-
+          # Android playback is now owned by ExoPlayerService. Do NOT copy or
+          # register the old MediaNotificationService here: running both
+          # foreground media services can crash the APK during launch/restore on
+          # Android 12+ with ForegroundServiceDidNotStartInTimeException.
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-
-          # Add required permissions (idempotent)
-          add_perm() {
-            local PERM="$1"
-            if ! grep -q "android.permission.${PERM}" "$MANIFEST"; then
-              sed -i "s|<application|<uses-permission android:name=\"android.permission.${PERM}\" />\n    <application|" "$MANIFEST"
-            fi
-          }
-          add_perm "POST_NOTIFICATIONS"
-          add_perm "FOREGROUND_SERVICE"
-          add_perm "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
-          add_perm "WAKE_LOCK"
-          add_perm "ACCESS_WIFI_STATE"
-          add_perm "CHANGE_WIFI_STATE"
-          add_perm "MEDIA_CONTENT_CONTROL"
-
-          # Register the foreground service before </application>
-          if ! grep -q "MediaNotificationService" "$MANIFEST"; then
-            sed -i 's|</application>|    <service android:name=".media.MediaNotificationService" android:exported="false" android:foregroundServiceType="mediaPlayback" android:stopWithTask="false" />\n        <receiver android:name="androidx.media.session.MediaButtonReceiver" android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.MEDIA_BUTTON" />\n            </intent-filter>\n        </receiver>\n    </application>|' "$MANIFEST"
+          rm -rf android/app/src/main/java/com/universeflow/app/media
+          if grep -q "MediaNotificationService" "$MANIFEST"; then
+            echo "::error::Legacy MediaNotificationService is still registered in AndroidManifest.xml"
+            exit 1
           fi
-
-          # Add androidx.media dependency to app build.gradle
-          APP_GRADLE="android/app/build.gradle"
-          if ! grep -q "androidx.media:media" "$APP_GRADLE"; then
-            sed -i "s|dependencies {|dependencies {\n    implementation 'androidx.media:media:1.7.0'|" "$APP_GRADLE"
-          fi
-
-          echo "=== Manifest perms / service ==="
-          grep -nE "POST_NOTIFICATIONS|FOREGROUND_SERVICE|MediaNotificationService|MediaButtonReceiver" "$MANIFEST" || true
-          echo "=== Plugin files ==="
-          ls -la "android/app/src/main/java/${PKG_PATH}/media/"
+          echo "Legacy WebView media service disabled; ExoPlayerService owns background playback."
 
 
       - name: Sync Capacitor
         run: npx cap sync android
+
+      - name: Verify native package and launcher activity
+        run: |
+          MANIFEST="android/app/src/main/AndroidManifest.xml"
+          APP_GRADLE="android/app/build.gradle"
+          MAIN_KT="android/app/src/main/java/com/universeflow/app/MainActivity.kt"
+          if ! grep -q 'applicationId "com.universeflow.app"' "$APP_GRADLE"; then
+            echo "::error::Wrong Android applicationId; expected com.universeflow.app"
+            sed -n '1,80p' "$APP_GRADLE"
+            exit 1
+          fi
+          if grep -R "app.lovable" android/app/src/main/java android/app/src/main/AndroidManifest.xml; then
+            echo "::error::Lovable package leaked into APK native sources"
+            exit 1
+          fi
+          if [ ! -f "$MAIN_KT" ]; then
+            echo "::error::Kotlin MainActivity missing; native ExoPlayer/InnerTube plugins will not register"
+            exit 1
+          fi
+          if grep -q "MediaNotificationService" "$MANIFEST"; then
+            echo "::error::Legacy MediaNotificationService is still registered"
+            exit 1
+          fi
+          echo "Native package verified: com.universeflow.app"
 
       - name: Apply custom app launcher icon (Universflow logo)
         run: |
@@ -316,7 +332,7 @@ jobs:
 
           # Never produce per-ABI / per-density slices.
           if ! grep -q "splits {" "$APP_GRADLE"; then
-            sed -i "s|android {|android {\n    splits {\n        abi { enable false }\n        density { enable false }\n    }|" "$APP_GRADLE"
+            sed -i "s|android {|android {\n    splits {\n        abi { enable false }\n    }|" "$APP_GRADLE"
           fi
 
           # Debug build = unminified so stack traces are readable.
@@ -330,6 +346,26 @@ jobs:
       - name: Build Debug APK
         working-directory: android
         run: ./gradlew assembleDebug
+
+      - name: Verify built APK manifest
+        run: |
+          AAPT="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)/aapt"
+          APK="android/app/build/outputs/apk/debug/app-debug.apk"
+          BAD=0
+          "$AAPT" dump badging "$APK" | tee /tmp/apk-badging.txt
+          if ! grep -q "package: name='com.universeflow.app'" /tmp/apk-badging.txt; then
+            echo "::error::Built APK has wrong package name"
+            BAD=1
+          fi
+          if ! "$AAPT" dump xmltree "$APK" AndroidManifest.xml | grep -q "ExoPlayerService"; then
+            echo "::error::Built APK is missing ExoPlayerService"
+            BAD=1
+          fi
+          if "$AAPT" dump xmltree "$APK" AndroidManifest.xml | grep -q "MediaNotificationService"; then
+            echo "::error::Built APK still contains legacy MediaNotificationService"
+            BAD=1
+          fi
+          exit "$BAD"
 
 
       - name: Rename APK to Univers Flow.apk

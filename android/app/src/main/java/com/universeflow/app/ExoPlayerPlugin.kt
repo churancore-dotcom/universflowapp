@@ -3,7 +3,6 @@ package com.universeflow.app
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import androidx.media3.common.MediaItem
@@ -34,12 +33,9 @@ class ExoPlayerPlugin : Plugin() {
     override fun load() {
         super.load()
         // IMPORTANT: Do NOT start the MediaSessionService here.
-        // startForegroundService() requires the service to call startForeground()
-        // within 5s, but ExoPlayerService only promotes to foreground once
-        // playback actually starts. Starting it at app launch (when nothing is
-        // playing) triggers ForegroundServiceDidNotStartInTimeException and
-        // crashes the app to a black screen on launch.
-        // The service is started lazily inside play() instead.
+        // The service is started lazily inside play(), with plain startService()
+        // (not startForegroundService()) to avoid Android's 5-second foreground
+        // promotion crash path while streams are still resolving/buffering.
     }
 
 
@@ -115,14 +111,14 @@ class ExoPlayerPlugin : Plugin() {
 
         runOnMain {
             val ctx = context.applicationContext
-            // Make sure the service is up.
+            // Make sure the service is up. Use plain startService(): this call
+            // comes from the foreground app, and Media3 can promote the service
+            // when playback is actually active. startForegroundService() is too
+            // fragile here because a slow network prepare can miss Android's
+            // 5-second startForeground deadline and crash the APK.
             val intent = Intent(ctx, ExoPlayerService::class.java)
             try {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    ctx.startForegroundService(intent)
-                } else {
-                    ctx.startService(intent)
-                }
+                ctx.startService(intent)
             } catch (_: Throwable) {}
 
             // Wait one tick if the service hasn't published its player yet.

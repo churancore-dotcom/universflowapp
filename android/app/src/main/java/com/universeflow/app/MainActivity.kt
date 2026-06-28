@@ -10,7 +10,6 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.getcapacitor.BridgeActivity
 import com.getcapacitor.BridgeWebChromeClient
-import com.universeflow.app.media.MediaNotificationPlugin
 
 class MainActivity : BridgeActivity() {
 
@@ -19,7 +18,6 @@ class MainActivity : BridgeActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(AudioFocusPlugin::class.java)
-        registerPlugin(MediaNotificationPlugin::class.java)
         registerPlugin(InnerTubePlugin::class.java)
         registerPlugin(ExoPlayerPlugin::class.java)
         super.onCreate(savedInstanceState)
