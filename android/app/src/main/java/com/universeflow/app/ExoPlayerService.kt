@@ -56,6 +56,9 @@ class ExoPlayerService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    private var smartReceiver: BroadcastReceiver? = null
+    private var pausedByMute: Boolean = false
+    private var pausedByBtDisconnect: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
