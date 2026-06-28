@@ -1,6 +1,5 @@
 import { memo, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { resolveIndexedTrack } from '@/lib/musicIndexer';
@@ -10,26 +9,24 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 interface MoodPlaylist {
   title: string;
   browseId: string;
-  cover?: string;
 }
 interface MoodShelf {
   title: string;
   playlists: MoodPlaylist[];
 }
 
-const PALETTE = [
-  ['#FF2D55', '#FF5E7E'],
-  ['#7C3AED', '#A855F7'],
-  ['#0EA5E9', '#22D3EE'],
-  ['#F59E0B', '#FBBF24'],
-  ['#10B981', '#34D399'],
-  ['#EC4899', '#F472B6'],
+// Editorial gradient pairs — hand-tuned, no two adjacent tiles share a hue.
+const GRADIENTS: Array<[string, string, string]> = [
+  ['#FF2D55', '#FF6B8A', '#3A0A18'], // rose
+  ['#7C3AED', '#C084FC', '#1A0B33'], // violet
+  ['#0EA5E9', '#7DD3FC', '#062436'], // sky
+  ['#F59E0B', '#FCD34D', '#3A1F02'], // amber
+  ['#10B981', '#6EE7B7', '#022C1F'], // emerald
+  ['#EC4899', '#F9A8D4', '#3A0B22'], // pink
+  ['#6366F1', '#A5B4FC', '#0C1233'], // indigo
+  ['#EF4444', '#FCA5A5', '#3A0A0A'], // red
 ];
 
-/**
- * Mood/Genre rail powered by YouTube Music's `FEmusic_moods_and_genres`.
- * Tap a mood → loads its playlist tracks and starts playback in queue.
- */
 const MoodGenreRail = () => {
   const [shelves, setShelves] = useState<MoodShelf[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,7 +39,6 @@ const MoodGenreRail = () => {
     (async () => {
       try {
         const country = (localStorage.getItem('uf_country') || 'US').toUpperCase();
-        // 1) List categories
         const { data: listData } = await supabase.functions.invoke('ytm-moods', {
           body: { mode: 'list', country },
         });
@@ -50,19 +46,19 @@ const MoodGenreRail = () => {
         const cats = Array.isArray(listData?.categories) ? listData.categories : [];
         if (!cats.length) { setShelves([]); setLoading(false); return; }
 
-        // Flatten to a single "Browse by mood" shelf with the first 12 items.
         const flat: MoodPlaylist[] = [];
+        const seen = new Set<string>();
         for (const c of cats) {
           for (const it of (c.items || [])) {
-            // Only items with params → they expand to playlists when browsed.
-            if (it.params && it.browseId) {
+            if (it.params && it.browseId && !seen.has(it.browseId)) {
+              seen.add(it.browseId);
               flat.push({ title: it.title, browseId: it.browseId });
             }
-            if (flat.length >= 12) break;
+            if (flat.length >= 10) break;
           }
-          if (flat.length >= 12) break;
+          if (flat.length >= 10) break;
         }
-        setShelves([{ title: 'Moods & Genres', playlists: flat }]);
+        setShelves([{ title: 'Browse', playlists: flat }]);
       } catch (e) {
         console.warn('moods rail failed', e);
       } finally {
@@ -77,8 +73,6 @@ const MoodGenreRail = () => {
     setOpeningId(m.browseId);
     triggerHaptic('impactLight');
     try {
-      // For a mood category, ytm-moods returns playlist shelves. We grab the
-      // first playlist and play its tracks.
       const { data } = await supabase.functions.invoke('ytm-moods', {
         body: { mode: 'browse', browseId: m.browseId },
       });
@@ -102,16 +96,14 @@ const MoodGenreRail = () => {
         source: 'indexed' as const,
       }));
 
-      // Resolve the first one immediately so playback starts fast; queue the rest.
       const first = songs[0];
       try {
         const resolved = await resolveIndexedTrack(first.artist, first.title);
         if (resolved?.streamUrl) first.audio_url = resolved.streamUrl;
-      } catch { /* fallthrough; PlayerContext will resolve on play */ }
+      } catch { /* PlayerContext will resolve */ }
 
       setQueue(songs);
       await playSong(first);
-
     } catch (e) {
       console.warn('open mood failed', e);
       toast({ title: 'Mood unavailable', description: 'Try another one.', variant: 'destructive' });
@@ -122,14 +114,15 @@ const MoodGenreRail = () => {
 
   if (loading) {
     return (
-      <section className="px-1">
-        <h2 className="text-base font-bold mb-2.5 flex items-center gap-1.5">
-          <Sparkles className="w-4 h-4 text-primary" /> Moods & Genres
-        </h2>
-        <div className="flex gap-2 overflow-x-auto hide-scrollbar">
+      <section>
+        <div className="flex items-baseline justify-between mb-3 px-1">
+          <h2 className="text-[15px] font-semibold tracking-tight">Browse</h2>
+          <span className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">Moods & Genres</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2.5">
           {Array.from({ length: 6 }).map((_, i) => (
-            <div key={i} className="flex-shrink-0 w-28 h-16 rounded-2xl animate-pulse"
-              style={{ background: 'rgba(255,255,255,0.05)' }} />
+            <div key={i} className="aspect-[16/10] rounded-2xl animate-pulse"
+              style={{ background: 'rgba(255,255,255,0.04)' }} />
           ))}
         </div>
       </section>
@@ -138,29 +131,62 @@ const MoodGenreRail = () => {
   if (!shelves[0]?.playlists?.length) return null;
 
   return (
-    <section className="px-1">
-      <h2 className="text-base font-bold mb-2.5 flex items-center gap-1.5">
-        <Sparkles className="w-4 h-4 text-primary" /> Moods & Genres
-      </h2>
-      <div className="grid grid-cols-2 gap-2">
+    <section>
+      <div className="flex items-baseline justify-between mb-3 px-1">
+        <h2 className="text-[15px] font-semibold tracking-tight">Browse</h2>
+        <span className="text-[11px] text-muted-foreground uppercase tracking-[0.12em]">Moods & Genres</span>
+      </div>
+      <div className="grid grid-cols-2 gap-2.5">
         {shelves[0].playlists.map((m, i) => {
-          const [c1, c2] = PALETTE[i % PALETTE.length];
+          const [c1, c2, deep] = GRADIENTS[i % GRADIENTS.length];
           const busy = openingId === m.browseId;
           return (
             <motion.button
               key={m.browseId}
               onClick={() => openMood(m)}
-              whileTap={{ scale: 0.96 }}
-              className="relative h-16 rounded-2xl overflow-hidden text-left px-3 py-2 font-bold text-sm"
+              whileTap={{ scale: 0.97 }}
+              transition={{ type: 'spring', stiffness: 400, damping: 28 }}
+              className="group relative aspect-[16/10] rounded-2xl overflow-hidden text-left isolate"
               style={{
-                background: `linear-gradient(135deg, ${c1}, ${c2})`,
-                color: 'white',
-                opacity: busy ? 0.65 : 1,
+                background: `linear-gradient(135deg, ${deep} 0%, ${c1} 55%, ${c2} 100%)`,
+                boxShadow: `0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 24px -10px ${c1}66`,
               }}
+              aria-label={`Play ${m.title}`}
             >
-              <span className="relative z-10">{m.title}</span>
+              {/* Soft top-right halo */}
+              <span
+                aria-hidden
+                className="absolute -top-6 -right-6 w-24 h-24 rounded-full blur-2xl opacity-60"
+                style={{ background: c2 }}
+              />
+              {/* Diagonal sheen */}
+              <span
+                aria-hidden
+                className="absolute inset-0 opacity-[0.07] mix-blend-overlay"
+                style={{
+                  backgroundImage:
+                    'repeating-linear-gradient(115deg, rgba(255,255,255,1) 0 1px, transparent 1px 14px)',
+                }}
+              />
+              {/* Bottom vignette for text legibility */}
+              <span
+                aria-hidden
+                className="absolute inset-x-0 bottom-0 h-2/3"
+                style={{ background: 'linear-gradient(to top, rgba(0,0,0,0.45), transparent)' }}
+              />
+              {/* Title */}
+              <div className="absolute inset-0 p-3 flex flex-col justify-end">
+                <span
+                  className="text-white font-bold text-[15px] leading-[1.15] tracking-tight line-clamp-2 drop-shadow-[0_1px_2px_rgba(0,0,0,0.35)]"
+                  style={{ fontFamily: 'inherit' }}
+                >
+                  {m.title}
+                </span>
+              </div>
               {busy && (
-                <span className="absolute inset-0 grid place-items-center text-xs bg-black/30 rounded-2xl">Loading…</span>
+                <span className="absolute inset-0 grid place-items-center bg-black/40 backdrop-blur-[2px]">
+                  <span className="w-5 h-5 rounded-full border-2 border-white/80 border-t-transparent animate-spin" />
+                </span>
               )}
             </motion.button>
           );
