@@ -95,12 +95,24 @@ async function getInnertube(): Promise<any | null> {
       return _innertubeClient;
     }
     // Lazy-import so a module resolution failure doesn't break the whole function.
-    const mod = await import('npm:youtubei.js@13.4.0').catch(() => null);
+    const mod = await import('npm:youtubei.js@13.4.0').catch((e) => {
+      console.warn('[innertube] import failed:', (e as Error).message);
+      return null;
+    });
     if (!mod?.Innertube) return null;
+    // CRITICAL: Deno's node:zlib polyfill can't decode brotli reliably, which
+    // crashed the function ("Failed to decompress"). Force gzip/identity by
+    // intercepting fetch and stripping br from accept-encoding.
+    const safeFetch: typeof fetch = (input, init = {}) => {
+      const headers = new Headers(init.headers || {});
+      headers.set('accept-encoding', 'gzip, deflate');
+      return fetch(input, { ...init, headers });
+    };
     const yt = await mod.Innertube.create({
       cache: new mod.UniversalCache(false),
       generate_session_locally: true,
       retrieve_player: true,
+      fetch: safeFetch,
     });
     _innertubeClient = yt;
     _innertubeInitAt = Date.now();
