@@ -1297,28 +1297,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       preloadedNextIdRef.current = null;
     } catch { /* ignore */ }
 
-    // Try to upgrade YT-iframe placeholders to a direct audio stream before play,
-    // so we only fall back to the (often blocked) YouTube iframe when needed.
-    const needsResolution = !isPlayableUrl(song.audio_url) || isYouTubeFallbackUrl(song.audio_url);
-    if (needsResolution) {
-      try {
-        const resolved = await resolveAudioUrl(song);
-        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return; // user tapped another song
-        if (!resolved) {
-          toast.error('This song is still preparing. Try again in a second.');
-          setIsPlaying(false);
-          return;
-        }
-        songQueue[index] = { ...song, audio_url: resolved };
-      } catch {
-        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
-        setIsPlaying(false);
-        toast.error('This song could not be prepared for playback.');
-        return;
-      }
-    }
-
-
     // Cancel any ongoing crossfade
     if (crossfadeIntervalRef.current) {
       clearInterval(crossfadeIntervalRef.current);
