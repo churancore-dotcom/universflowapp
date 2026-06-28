@@ -13,7 +13,7 @@ export default defineConfig(({ mode }) => ({
     },
   },
   build: {
-    sourcemap: mode === "development",
+    sourcemap: true,
     cssCodeSplit: true,
     minify: "esbuild",
     target: "es2020",
