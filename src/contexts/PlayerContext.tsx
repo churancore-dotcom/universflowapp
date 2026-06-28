@@ -1048,6 +1048,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (ytFallback) {
           const videoId = getYouTubeFallbackVideoId(ytFallback);
           if (videoId) {
+            // FIX 2: try on-device Innertube first — bypasses YouTube's
+            // datacenter-IP bot block by using the user's residential IP.
+            // Native-only; resolves to null on web and we proceed to the
+            // edge-function chain below.
+            try {
+              const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
+              const native = await resolveYouTubeStreamOnDevice(videoId);
+              if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
+                return native.streamUrl;
+              }
+            } catch { /* fall through to edge chain */ }
             try {
               if (forceRefresh) invalidateYouTubeStream(videoId);
               const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
