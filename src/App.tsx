@@ -47,7 +47,6 @@ const PlaylistDetail = lazy(() => import("./pages/PlaylistDetail"));
 
 const ArtistDetail = lazy(() => import("./pages/ArtistDetail"));
 const Settings = lazy(() => import("./pages/Settings"));
-const SettingsStats = lazy(() => import("./pages/SettingsStats"));
 const Support = lazy(() => import("./pages/Support"));
 const Offline = lazy(() => import("./pages/Offline"));
 
@@ -317,7 +316,6 @@ const AnimatedRoutes = () => {
           <Route path="/playlist/:id" element={<ListenerRoute><PlaylistDetail /></ListenerRoute>} />
           <Route path="/profile" element={<ListenerRoute><Profile /></ListenerRoute>} />
           <Route path="/settings" element={<ListenerRoute><Settings /></ListenerRoute>} />
-          <Route path="/settings/stats" element={<ListenerRoute><SettingsStats /></ListenerRoute>} />
           <Route path="/support" element={<Support />} />
           <Route path="/offline" element={<ListenerRoute><Offline /></ListenerRoute>} />
           <Route path="/artists" element={<ListenerRoute><AllArtists /></ListenerRoute>} />
