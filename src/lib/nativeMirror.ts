@@ -10,8 +10,16 @@
 //
 // On web this module is a no-op.
 
-import type { Song } from '@/types/music';
 import { ExoPlayerPlugin, isNativePlayerAvailable, type ExoPlaybackError, type ExoPlaybackProgress, type ExoPlaybackState } from '@/lib/nativePlayer';
+
+interface Song {
+  title?: string;
+  artist?: string;
+  author?: string;
+  thumbnail?: string;
+  cover_url?: string;
+  image_url?: string;
+}
 
 type SongGetter = () => Song | null;
 type ErrorHandler = () => void;
