@@ -94,24 +94,28 @@ async function getInnertube(): Promise<any | null> {
     if (_innertubeClient && Date.now() - _innertubeInitAt < INNERTUBE_TTL_MS) {
       return _innertubeClient;
     }
-    // Lazy-import so a module resolution failure doesn't break the whole function.
     const mod = await import('npm:youtubei.js@13.4.0').catch((e) => {
       console.warn('[innertube] import failed:', (e as Error).message);
       return null;
     });
     if (!mod?.Innertube) return null;
-    // CRITICAL: Deno's node:zlib polyfill can't decode brotli reliably, which
-    // crashed the function ("Failed to decompress"). Force gzip/identity by
-    // intercepting fetch and stripping br from accept-encoding.
-    const safeFetch: typeof fetch = (input, init = {}) => {
-      const headers = new Headers(init.headers || {});
+    // Strip brotli from accept-encoding — Deno's node:zlib polyfill can't
+    // decompress it and crashes the function. Must handle Request input too.
+    const safeFetch: typeof fetch = (input, init) => {
+      const baseHeaders = input instanceof Request ? input.headers : (init?.headers);
+      const headers = new Headers(baseHeaders || {});
       headers.set('accept-encoding', 'gzip, deflate');
-      return fetch(input, { ...init, headers });
+      if (input instanceof Request) {
+        return fetch(new Request(input, { headers }));
+      }
+      return fetch(input, { ...(init || {}), headers });
     };
     const yt = await mod.Innertube.create({
       cache: new mod.UniversalCache(false),
       generate_session_locally: true,
-      retrieve_player: true,
+      // retrieve_player: false skips the player.js decipher dance entirely.
+      // We rely on the IOS client below which returns pre-signed audio URLs.
+      retrieve_player: false,
       fetch: safeFetch,
     });
     _innertubeClient = yt;
@@ -119,6 +123,60 @@ async function getInnertube(): Promise<any | null> {
     return yt;
   } catch (e) {
     console.warn('[innertube] init failed:', (e as Error).message);
+    return null;
+  }
+}
+
+async function tryInnertube(videoId: string): Promise<ExtractionResult | null> {
+  try {
+    const yt = await getInnertube();
+    if (!yt) return null;
+    // IOS client returns audio URLs that do NOT require signature cipher /
+    // n-param transform — the player.js dance fails in Deno edge runtimes,
+    // so we deliberately route around it.
+    const info = await yt.getBasicInfo(videoId, 'IOS');
+    if (!info?.streaming_data) return null;
+
+    const adaptive = info.streaming_data.adaptive_formats || [];
+    const audioOnly = adaptive.filter((f: any) => f.mime_type?.startsWith('audio/'));
+    if (!audioOnly.length) return null;
+
+    // Prefer m4a (AAC) — universally decodable; opus chokes on some WebViews.
+    audioOnly.sort((a: any, b: any) => {
+      const aM4a = a.mime_type?.includes('mp4') ? 1 : 0;
+      const bM4a = b.mime_type?.includes('mp4') ? 1 : 0;
+      if (aM4a !== bM4a) return bM4a - aM4a;
+      return (b.bitrate || 0) - (a.bitrate || 0);
+    });
+
+    let chosenUrl: string | null = null;
+    for (const fmt of audioOnly) {
+      // IOS client formats expose `url` directly. No decipher needed.
+      const url = fmt.url;
+      if (!url) continue;
+      if (await probePlayableStream(url, 4000)) {
+        chosenUrl = url;
+        break;
+      }
+    }
+    if (!chosenUrl) return null;
+
+    const details = info.basic_info || {};
+    const thumbs = details.thumbnail || [];
+    const cover = thumbs.length ? thumbs[thumbs.length - 1]?.url : undefined;
+
+    console.log(`  ✓ [INNERTUBE] ${videoId}`);
+    return {
+      success: true,
+      audioUrl: chosenUrl,
+      title: details.title,
+      artist: details.author,
+      thumbnail: cover,
+      duration: details.duration,
+      platform: 'YouTube',
+    };
+  } catch (e) {
+    console.warn(`[innertube] extract failed for ${videoId}:`, (e as Error).message);
     return null;
   }
 }
