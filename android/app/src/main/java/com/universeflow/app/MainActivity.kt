@@ -20,12 +20,12 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(AudioFocusPlugin::class.java)
         registerPlugin(MediaNotificationPlugin::class.java)
-        
+        registerPlugin(InnerTubePlugin::class.java)
+        registerPlugin(ExoPlayerPlugin::class.java)
         super.onCreate(savedInstanceState)
 
-        // IMPORTANT: We do NOT request CAMERA up-front. The runtime prompt is
-        // deferred until the WebView's face-liveness step actually calls
-        // getUserMedia(); see onPermissionRequest below.
+        // CAMERA permission is deferred until the WebView face-liveness step
+        // calls getUserMedia(); see onPermissionRequest below.
         bridge.webView?.let { web: WebView ->
             web.settings.javaScriptEnabled = true
             web.settings.mediaPlaybackRequiresUserGesture = false
