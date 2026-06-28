@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Sparkles } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
-import { resolveAudioUrl } from '@/lib/musicIndexer';
+import { resolveIndexedTrack } from '@/lib/musicIndexer';
 import { useToast } from '@/hooks/use-toast';
 import { triggerHaptic } from '@/hooks/useHaptics';
 
