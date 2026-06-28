@@ -15,6 +15,7 @@ import RecognizeSongButton from '@/components/RecognizeSongButton';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
 import VirtualList from '@/components/VirtualList';
+import MoodGenreRail from '@/components/MoodGenreRail';
 import { useYtmSuggestions } from '@/hooks/useYtmSuggestions';
 import { supabase } from '@/integrations/supabase/client';
 import { prefetchIndexedTrack, searchYouTubeMusicTracks, searchArtistDirectory, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
@@ -770,7 +771,9 @@ const Search = () => {
                   </div>
                 )}
 
-                {/* Followed artists rail removed from search browse state */}
+                {/* Moods & Genres — only when not searching */}
+                <MoodGenreRail />
+
               </motion.div>
             )}
           </AnimatePresence>
