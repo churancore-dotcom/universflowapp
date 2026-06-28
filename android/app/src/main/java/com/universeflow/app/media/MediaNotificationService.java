@@ -138,9 +138,10 @@ public class MediaNotificationService extends Service {
         try {
             WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
             if (wm == null) return;
-            // Battery: WIFI_MODE_FULL is plenty for audio streaming. HIGH_PERF
-            // disables Wi-Fi power-save and burns ~4%/hr extra over long sessions.
-            wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "UniversFlow:MediaWifi");
+            int mode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                ? WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                : WifiManager.WIFI_MODE_FULL;
+            wifiLock = wm.createWifiLock(mode, "UniversFlow:MediaWifi");
             wifiLock.setReferenceCounted(false);
             wifiLock.acquire();
         } catch (Exception ignore) {}
