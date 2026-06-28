@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, Search, Shield, BarChart3, Eye, EyeOff, Globe2, FileText, ScrollText, Lock, Trash2, ImageOff } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
@@ -17,6 +17,14 @@ import { supabase } from '@/integrations/supabase/client';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import SEOHead from '@/components/SEOHead';
+import {
+  isHistoryPaused, setHistoryPaused,
+  isAnonymousMode, setAnonymousMode,
+  isHideExplicit, setHideExplicit,
+  isRomanizeLyrics, setRomanizeLyrics,
+  getLyricsProvider, setLyricsProvider, type LyricsProvider,
+  clearListeningHistory,
+} from '@/lib/privacySettings';
 
 
 
@@ -54,6 +62,22 @@ const Settings = () => {
     const s = readEq();
     return typeof s.playbackSpeed === 'number' ? s.playbackSpeed : 1;
   });
+
+  // Privacy + Content
+  const [pauseHistory, setPauseHistory] = useState<boolean>(() => isHistoryPaused());
+  const [anonMode, setAnonMode] = useState<boolean>(() => isAnonymousMode());
+  const [hideExplicit, setHideExplicitState] = useState<boolean>(() => isHideExplicit());
+  const [romanize, setRomanize] = useState<boolean>(() => isRomanizeLyrics());
+  const [lyricsProv, setLyricsProv] = useState<LyricsProvider>(() => getLyricsProvider());
+
+  // Search filter
+  const [query, setQuery] = useState('');
+  const q = query.trim().toLowerCase();
+  const show = useMemo(() => (keys: string[]) => {
+    if (!q) return true;
+    return keys.some(k => k.toLowerCase().includes(q));
+  }, [q]);
+
 
 
   
@@ -182,15 +206,29 @@ const Settings = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 pt-3 pb-32 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
+          {/* Search */}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-white/40" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search settings"
+              className="w-full bg-card/50 border border-white/5 rounded-2xl pl-9 pr-3 py-2.5 text-sm placeholder:text-white/30 focus:outline-none focus:border-primary/40"
+            />
+          </div>
+
           {/* Account / Email verification */}
+          {show(['account','email','verify']) && (
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Account</h2>
             </div>
             <EmailVerificationCard />
           </section>
+          )}
 
           {/* Playback */}
+          {show(['playback','crossfade','gapless','speed','equalizer','autoplay','audio']) && (
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Playback</h2>
@@ -346,8 +384,135 @@ const Settings = () => {
               </button>
             </div>
           </section>
+          )}
+
+          {/* Content */}
+          {show(['content','explicit','lyrics','romanize','region','language']) && (
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Content</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <EyeOff className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Hide Explicit Content</span>
+                </div>
+                <Switch
+                  checked={hideExplicit}
+                  onCheckedChange={(v) => { setHideExplicitState(v); setHideExplicit(v); }}
+                  className="data-[state=checked]:bg-primary scale-90"
+                  aria-label="Toggle hide explicit"
+                />
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Globe2 className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Romanize Lyrics (JP/KR/CN)</span>
+                </div>
+                <Switch
+                  checked={romanize}
+                  onCheckedChange={(v) => { setRomanize(v); setRomanizeLyrics(v); }}
+                  className="data-[state=checked]:bg-primary scale-90"
+                  aria-label="Toggle romanize lyrics"
+                />
+              </div>
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">Lyrics Source</span>
+                  <span className="text-xs text-primary capitalize">{lyricsProv}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['auto','lrclib','kugou','netease'] as LyricsProvider[]).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => { setLyricsProv(p); setLyricsProvider(p); toast.success(`Lyrics: ${p}`); }}
+                      className={`py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
+                        lyricsProv === p ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
+                      }`}
+                    >{p}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+          )}
+
+          {/* Privacy */}
+          {show(['privacy','history','anonymous','data']) && (
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Privacy</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-primary" />
+                  <div>
+                    <div className="text-sm">Pause Listening History</div>
+                    <div className="text-[11px] text-white/40">Stops recording plays everywhere</div>
+                  </div>
+                </div>
+                <Switch
+                  checked={pauseHistory}
+                  onCheckedChange={(v) => { setPauseHistory(v); setHistoryPaused(v); }}
+                  className="data-[state=checked]:bg-primary scale-90"
+                  aria-label="Pause history"
+                />
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-primary" />
+                  <div>
+                    <div className="text-sm">Anonymous Mode</div>
+                    <div className="text-[11px] text-white/40">Listen without building a taste profile</div>
+                  </div>
+                </div>
+                <Switch
+                  checked={anonMode}
+                  onCheckedChange={(v) => { setAnonMode(v); setAnonymousMode(v); }}
+                  className="data-[state=checked]:bg-primary scale-90"
+                  aria-label="Anonymous mode"
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  if (!confirm('Clear all listening history? This cannot be undone.')) return;
+                  await clearListeningHistory();
+                  toast.success('Listening history cleared');
+                }}
+                className="w-full px-4 py-3 flex items-center justify-between text-destructive active:bg-destructive/10"
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span className="text-sm font-medium">Clear Listening History</span>
+                </div>
+                <ChevronRight className="w-4 h-4 opacity-60" />
+              </button>
+            </div>
+          </section>
+          )}
+
+          {/* Stats */}
+          {show(['stats','insights','listening']) && (
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Insights</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <button onClick={() => navigate('/settings/stats')} className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Listening Stats</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+          </section>
+          )}
 
           {/* Support */}
+          {show(['support','premium','subscription','contact','upgrade']) && (
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Support</h2>
@@ -372,8 +537,10 @@ const Settings = () => {
               </button>
             </div>
           </section>
+          )}
 
           {/* Notifications */}
+          {show(['notifications','push','haptic','mood']) && (
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Notifications</h2>
@@ -408,32 +575,62 @@ const Settings = () => {
               </div>
             </div>
           </section>
-
-          {/* Lock Screen picker removed — users now change it from the 3-dot menu on the lock screen itself */}
-
-
-
+          )}
 
           {/* Storage */}
+          {show(['storage','cache','clear','image','offline']) && (
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Storage</h2>
             </div>
             <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              <button onClick={handleClearCache} className="w-full px-4 py-3 flex items-center justify-between text-destructive active:bg-destructive/10">
-                <span className="text-sm font-medium">Clear Cache</span>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <ImageOff className="w-4 h-4 text-primary" />
+                  <span className="text-sm">App data used</span>
+                </div>
                 <span className="text-sm text-muted-foreground">{cacheSize}</span>
+              </div>
+              <button onClick={handleClearCache} className="w-full px-4 py-3 flex items-center justify-between text-destructive active:bg-destructive/10">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span className="text-sm font-medium">Clear All Cache</span>
+                </div>
+                <ChevronRight className="w-4 h-4 opacity-60" />
               </button>
             </div>
           </section>
+          )}
 
           {/* About */}
+          {show(['about','version','build','legal','terms','privacy','license']) && (
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">About</h2>
             </div>
             <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
               <SettingsUpdateButton />
+              <button onClick={() => navigate('/legal/terms')} className="w-full px-4 py-3 flex items-center justify-between border-b border-white/5 active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <ScrollText className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Terms of Service</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button onClick={() => navigate('/legal/privacy')} className="w-full px-4 py-3 flex items-center justify-between border-b border-white/5 active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Privacy Policy</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <a href="https://github.com/lovable-dev" target="_blank" rel="noreferrer" className="w-full px-4 py-3 flex items-center justify-between border-b border-white/5 active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Open-Source Licenses</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </a>
               <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
                 <span className="text-sm">Version</span>
                 <span className="text-sm text-muted-foreground">1.0.0</span>
@@ -444,6 +641,7 @@ const Settings = () => {
               </div>
             </div>
           </section>
+          )}
         </main>
 
         <BottomNav />

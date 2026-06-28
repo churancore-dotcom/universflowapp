@@ -1853,24 +1853,28 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const sourceForEvent = isCatalogUuid ? 'catalog' : (song.id?.startsWith('yt-') ? 'youtube' : (song.id?.startsWith('audius-') ? 'audius' : 'external'));
     recentlyPlayedTimerRef.current = window.setTimeout(() => {
       recentlyPlayedTimerRef.current = null;
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return;
-        // Jump Back In is per-device only — write to localStorage, NOT the cloud.
-        if (isCatalogUuid) {
-          import('@/lib/localRecentlyPlayed').then((m) => m.pushLocalRecent(user.id, song.id));
-        }
-        // Anonymized aggregate analytics only (no per-user history reveal).
-        supabase.from('song_play_events').insert({
-          user_id: user.id,
-          track_id: trackIdForEvent,
-          song_id: isCatalogUuid ? song.id : null,
-          title: (song.title || 'Unknown').slice(0, 220),
-          artist: (song.artist || 'Unknown').slice(0, 220),
-          cover_url: song.cover_url || null,
-          source: sourceForEvent,
-          action: 'stream',
-          score_weight: 3,
-        }).then(() => {});
+      import('@/lib/privacySettings').then(({ isHistoryPaused, isAnonymousMode }) => {
+        if (isHistoryPaused()) return;
+        const anon = isAnonymousMode();
+        supabase.auth.getUser().then(({ data: { user } }) => {
+          if (!user) return;
+          // Jump Back In is per-device only — write to localStorage, NOT the cloud.
+          if (isCatalogUuid && !anon) {
+            import('@/lib/localRecentlyPlayed').then((m) => m.pushLocalRecent(user.id, song.id));
+          }
+          if (anon) return; // Anonymous mode: don't contribute to taste profile.
+          supabase.from('song_play_events').insert({
+            user_id: user.id,
+            track_id: trackIdForEvent,
+            song_id: isCatalogUuid ? song.id : null,
+            title: (song.title || 'Unknown').slice(0, 220),
+            artist: (song.artist || 'Unknown').slice(0, 220),
+            cover_url: song.cover_url || null,
+            source: sourceForEvent,
+            action: 'stream',
+            score_weight: 3,
+          }).then(() => {});
+        }).catch(() => {});
       }).catch(() => {});
     }, 30000);
   }, [isPlayableUrl, resolveAudioUrl, volume, playYouTubeFallback, teardownYouTubePlayback, publishNativeMusicControls, getNextIndex, shuffle, repeat, playSongAtIndex]);
