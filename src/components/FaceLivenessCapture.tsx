@@ -1,41 +1,28 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import {
-  Camera, Loader2, AlertTriangle, RotateCcw, Check,
-  ArrowLeft, ArrowRight, ArrowUp, ArrowDown, Eye, Smile, X,
-} from 'lucide-react';
+import { Camera, Loader2, AlertTriangle, RotateCcw, Check, X } from 'lucide-react';
 import confetti from 'canvas-confetti';
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Meta-style live face verification.
+// PASSIVE live face capture.
 //
-// • Off-main-thread MediaPipe inference (faceWorker.ts) — UI stays at 60fps.
-// • 3 randomized challenges per session from a pool of 6 (LEFT, RIGHT, UP,
-//   DOWN, BLINK, SMILE). Order changes every run; the challenge state machine
-//   only advances on real, smoothed, held detection.
-// • 5-frame moving average over yaw/pitch/roll kills landmark jitter.
-// • Quality preflight: face size, centering, lighting, single-face, presence.
-// • Single 720×720 JPEG capture at the end — no more 4-blob waste.
-// • 30s per-challenge timeout + 3-fail global cap with graceful exit.
+// Why this rewrite:
+//   • The old multi-pose challenge flow was broken — `worker.onmessage` was
+//     pinned to a stale `useCallback`, so phase transitions (preflight →
+//     challenge → advance activeIdx) silently never fired. Users were stuck.
+//   • Even when it worked, asking people to hold LEFT / RIGHT / UP / DOWN /
+//     BLINK / SMILE poses for 600ms each timed out for most real users.
 //
-// Public contract: `onComplete({ capture })` fires once on success.
-// `onFail(reason)` fires if the user blows past the global fail cap.
+// What this does instead:
+//   • Off-main-thread MediaPipe inference (faceWorker.ts) — UI stays smooth.
+//   • Wait until: face present, single face, centered (loose tolerance),
+//     enough size, decent lighting — held for a brief ~700ms window.
+//   • Snap one 720×720 JPEG and exit.
+//   • Worker handler is stored on a ref so it always sees fresh state.
 // ─────────────────────────────────────────────────────────────────────────────
 
 export interface LivenessShots {
   capture: Blob;
-}
-
-type ChallengeKind = 'LEFT' | 'RIGHT' | 'UP' | 'DOWN' | 'BLINK' | 'SMILE';
-
-interface ChallengeDef {
-  kind: ChallengeKind;
-  title: string;
-  hint: string;
-  holdMs: number;
-  Icon: React.FC<{ className?: string }>;
-  // returns true when the smoothed sample currently satisfies the challenge
-  test: (s: SmoothedSample) => boolean;
 }
 
 interface WorkerResult {
@@ -48,78 +35,25 @@ interface WorkerResult {
   smileLeft: number; smileRight: number;
 }
 
-interface SmoothedSample extends WorkerResult {
-  // moving averages over last N frames
-  yawAvg: number; pitchAvg: number; rollAvg: number;
-  blinkAvg: number; smileAvg: number;
-}
-
-// ── Detection thresholds (per spec) ──────────────────────────────────────────
+// Loose, real-world thresholds so we actually capture instead of looping.
 const TH = {
-  yawLeft: -18, yawRight: 18,
-  pitchUp: 15, pitchDown: -15,
-  // MediaPipe blendshapes: eyeBlink score rises toward 1.0 as eye closes.
-  // Spec asks "close ratio < 0.2" — using blendshape, that maps to > 0.5.
-  blinkClosed: 0.5,
-  // Smile blendshape > ~0.55 is a clear, natural smile.
-  smileOn: 0.55,
-  // Hold durations
-  holdPose: 600,
-  holdBlink: 200,
-  holdSmile: 400,
-  // Quality
-  minFaceFrac: 0.30,    // face bbox short-side >= 30% of frame
-  centerTol: 0.18,      // center within 18% of frame center
-  minBrightness: 55,    // 0..255
+  minFaceFrac: 0.18,   // face short-side >= 18% of frame (was 0.30 — way too tight)
+  centerTol:   0.28,   // within 28% of frame center (was 0.18)
+  minBrightness: 35,   // 0..255 (was 55)
+  holdMs:      700,    // hold "good" for 700ms then auto-capture
+  maxYawAbs:   28,     // roughly facing the camera
+  maxPitchAbs: 24,
 } as const;
 
-const POOL: ChallengeDef[] = [
-  { kind: 'LEFT',  title: 'Turn head LEFT',   hint: 'Slowly turn your head to the left',  holdMs: TH.holdPose,  Icon: ArrowLeft,
-    test: (s) => s.yawAvg < TH.yawLeft },
-  { kind: 'RIGHT', title: 'Turn head RIGHT',  hint: 'Slowly turn your head to the right', holdMs: TH.holdPose,  Icon: ArrowRight,
-    test: (s) => s.yawAvg > TH.yawRight },
-  { kind: 'UP',    title: 'Look UP',          hint: 'Tilt your head up',                  holdMs: TH.holdPose,  Icon: ArrowUp,
-    test: (s) => s.pitchAvg > TH.pitchUp },
-  { kind: 'DOWN',  title: 'Look DOWN',        hint: 'Tilt your head down',                holdMs: TH.holdPose,  Icon: ArrowDown,
-    test: (s) => s.pitchAvg < TH.pitchDown },
-  { kind: 'BLINK', title: 'BLINK twice',      hint: 'Close your eyes, then open',         holdMs: TH.holdBlink, Icon: Eye,
-    test: (s) => s.blinkAvg > TH.blinkClosed },
-  { kind: 'SMILE', title: 'SMILE',            hint: 'Give a natural smile',               holdMs: TH.holdSmile, Icon: Smile,
-    test: (s) => s.smileAvg > TH.smileOn },
-];
-
-function pickThree(): ChallengeDef[] {
-  const arr = [...POOL];
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr.slice(0, 3);
-}
-
-class RingBuf {
-  private buf: number[] = [];
-  constructor(private size: number) {}
-  push(v: number) {
-    this.buf.push(v);
-    if (this.buf.length > this.size) this.buf.shift();
-  }
-  avg(): number {
-    if (!this.buf.length) return 0;
-    let s = 0; for (const v of this.buf) s += v;
-    return s / this.buf.length;
-  }
-  reset() { this.buf = []; }
-}
-
-type QualityFail = 'none' | 'small' | 'offcenter' | 'dark' | 'multi' | 'noface';
+type QualityFail = 'none' | 'small' | 'offcenter' | 'dark' | 'multi' | 'noface' | 'angle';
 const QUALITY_MSG: Record<QualityFail, string> = {
-  none:       'Hold still…',
-  small:      'Move closer to camera',
-  offcenter:  'Center your face in the circle',
-  dark:       'Move to better lighting',
-  multi:      'Only one face allowed',
-  noface:     'No face detected',
+  none:      'Hold still…',
+  small:     'Move a little closer',
+  offcenter: 'Center your face in the circle',
+  dark:      'Move to better lighting',
+  multi:     'Only one face in frame',
+  noface:    'Look at the camera',
+  angle:     'Face the camera straight on',
 };
 
 export default function FaceLivenessCapture({
@@ -131,39 +65,31 @@ export default function FaceLivenessCapture({
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
-  const sampleCanvasRef = useRef<HTMLCanvasElement>(null); // small offscreen for ImageBitmap + brightness
+  const sampleCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const rafRef = useRef<number | null>(null);
   const inFlightRef = useRef(false);
   const lastFrameAtRef = useRef(0);
-
-  // hot-path refs — do NOT trigger React renders
-  const yawBuf = useRef(new RingBuf(5));
-  const pitchBuf = useRef(new RingBuf(5));
-  const rollBuf = useRef(new RingBuf(5));
-  const blinkBuf = useRef(new RingBuf(5));
-  const smileBuf = useRef(new RingBuf(5));
-  const lastSampleRef = useRef<SmoothedSample | null>(null);
-  const challengeHoldStartRef = useRef<number | null>(null);
-  const challengeProgressRef = useRef(0);
-  const qualityFailRef = useRef<QualityFail>('noface');
+  const lastBrightnessRef = useRef(0);
+  const holdStartRef = useRef<number | null>(null);
+  const progressRef = useRef(0);
+  const qualityRef = useRef<QualityFail>('noface');
+  const phaseRef = useRef<Phase>('idle');
   const ringElRef = useRef<SVGEllipseElement>(null);
   const progressRingRef = useRef<SVGEllipseElement>(null);
-  const statusElRef = useRef<HTMLDivElement>(null);
-  const failCountRef = useRef(0);
-  const challengeStartedAtRef = useRef<number>(0);
+  const capturedRef = useRef(false);
 
-  // React state — updated <= 10Hz
-  const [phase, setPhase] = useState<'idle' | 'starting' | 'preflight' | 'challenge' | 'capturing' | 'done' | 'error'>('idle');
+  type Phase = 'idle' | 'starting' | 'preflight' | 'capturing' | 'done' | 'error';
+  const [phase, setPhase] = useState<Phase>('idle');
   const [err, setErr] = useState<string | null>(null);
-  const [challenges, setChallenges] = useState<ChallengeDef[]>([]);
-  const [activeIdx, setActiveIdx] = useState(0);
   const [progress10Hz, setProgress10Hz] = useState(0);
   const [quality10Hz, setQuality10Hz] = useState<QualityFail>('noface');
-  const [showTimeoutHelp, setShowTimeoutHelp] = useState(false);
   const [flash, setFlash] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
+  const [slowHelp, setSlowHelp] = useState(false);
+
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
 
   // ── Teardown ────────────────────────────────────────────────────────────
   const teardown = useCallback(() => {
@@ -171,47 +97,43 @@ export default function FaceLivenessCapture({
     rafRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
-    workerRef.current?.terminate();
+    try { workerRef.current?.terminate(); } catch { /* noop */ }
     workerRef.current = null;
   }, []);
 
   useEffect(() => () => teardown(), [teardown]);
 
-  // ── Throttled React mirror of refs (~10Hz) ──────────────────────────────
+  // ── 10Hz React mirror of refs for status pill / progress ───────────────
   useEffect(() => {
-    if (phase !== 'preflight' && phase !== 'challenge') return;
+    if (phase !== 'preflight') return;
     const id = setInterval(() => {
-      setProgress10Hz(challengeProgressRef.current);
-      setQuality10Hz(qualityFailRef.current);
+      setProgress10Hz(progressRef.current);
+      setQuality10Hz(qualityRef.current);
     }, 100);
     return () => clearInterval(id);
   }, [phase]);
 
-  // ── Per-challenge 30s timeout ──────────────────────────────────────────
+  // ── Slow-capture hint after 20s of preflight ───────────────────────────
   useEffect(() => {
-    if (phase !== 'challenge') { setShowTimeoutHelp(false); return; }
-    setShowTimeoutHelp(false);
-    challengeStartedAtRef.current = performance.now();
-    const id = setTimeout(() => setShowTimeoutHelp(true), 30_000);
+    if (phase !== 'preflight') { setSlowHelp(false); return; }
+    const id = setTimeout(() => setSlowHelp(true), 20_000);
     return () => clearTimeout(id);
-  }, [phase, activeIdx]);
+  }, [phase]);
 
-  // ── Imperative UI ring updates at 60fps from refs ───────────────────────
+  // ── 60fps ring update from refs ────────────────────────────────────────
   useEffect(() => {
-    if (phase !== 'preflight' && phase !== 'challenge') return;
+    if (phase !== 'preflight') return;
     let id = 0;
     const RX = 108, RY = 132;
     const CIRC = 2 * Math.PI * ((RX + RY) / 2 + 8);
     const tick = () => {
-      const p = challengeProgressRef.current;
+      const p = progressRef.current;
       if (progressRingRef.current) {
         progressRingRef.current.style.strokeDashoffset = String((1 - p) * CIRC);
       }
       if (ringElRef.current) {
-        const q = qualityFailRef.current;
-        const color = phase === 'challenge'
-          ? (p > 0.05 ? '#FACC15' : 'rgba(255,255,255,0.55)') // yellow during active
-          : (q === 'none' ? '#34D399' : 'rgba(255,255,255,0.55)');
+        const q = qualityRef.current;
+        const color = q === 'none' ? '#34D399' : 'rgba(255,255,255,0.55)';
         ringElRef.current.setAttribute('stroke', color);
       }
       id = requestAnimationFrame(tick);
@@ -229,104 +151,91 @@ export default function FaceLivenessCapture({
     const dx = Math.abs(s.cx - 0.5), dy = Math.abs(s.cy - 0.5);
     if (dx > TH.centerTol || dy > TH.centerTol) return 'offcenter';
     if (brightness < TH.minBrightness) return 'dark';
+    if (Math.abs(s.yaw) > TH.maxYawAbs || Math.abs(s.pitch) > TH.maxPitchAbs) return 'angle';
     return 'none';
   }
 
-  // ── Worker message handler ─────────────────────────────────────────────
-  const onWorkerMessage = useCallback((ev: MessageEvent) => {
+  // ── Final capture ───────────────────────────────────────────────────────
+  const doCapture = useCallback(async () => {
+    if (capturedRef.current) return;
+    capturedRef.current = true;
+    setPhase('capturing');
+    setFlash(true);
+    setTimeout(() => setFlash(false), 160);
+    try { confetti({ particleCount: 50, spread: 60, origin: { y: 0.4 }, scalar: 0.8 }); }
+    catch { /* noop */ }
+
+    const video = videoRef.current;
+    const canvas = captureCanvasRef.current;
+    if (!video || !canvas) { setPhase('error'); setErr('Capture failed. Tap Retry.'); return; }
+    const SIZE = 720;
+    canvas.width = SIZE; canvas.height = SIZE;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) { setPhase('error'); setErr('Capture failed. Tap Retry.'); return; }
+    const vw = video.videoWidth || SIZE;
+    const vh = video.videoHeight || SIZE;
+    const side = Math.min(vw, vh);
+    const sx = (vw - side) / 2;
+    const sy = (vh - side) / 2;
+    ctx.drawImage(video, sx, sy, side, side, 0, 0, SIZE, SIZE);
+    canvas.toBlob(
+      (blob) => {
+        teardown();
+        if (!blob) { setPhase('error'); setErr('Capture failed. Tap Retry.'); return; }
+        setPhase('done');
+        setTimeout(() => onComplete({ capture: blob }), 320);
+      },
+      'image/jpeg',
+      0.92,
+    );
+  }, [onComplete, teardown]);
+
+  // ── Worker message handler (uses refs only — no stale closure) ─────────
+  const handleWorkerMessage = useCallback((ev: MessageEvent) => {
     const data = ev.data;
-    if (data.type === 'ready') {
-      setPhase('preflight');
+    if (data?.type === 'ready') {
+      if (phaseRef.current === 'starting') setPhase('preflight');
       return;
     }
-    if (data.type === 'error') {
+    if (data?.type === 'error') {
       setErr('Could not load the face model. Check your internet and tap Retry.');
       setPhase('error');
       return;
     }
-    if (data.type !== 'result') return;
+    if (data?.type !== 'result') return;
     inFlightRef.current = false;
+    if (phaseRef.current !== 'preflight') return;
 
     const r = data as WorkerResult;
-    if (!r.hasFace) {
-      yawBuf.current.reset(); pitchBuf.current.reset(); rollBuf.current.reset();
-      blinkBuf.current.reset(); smileBuf.current.reset();
-      challengeHoldStartRef.current = null;
-      challengeProgressRef.current = 0;
-      qualityFailRef.current = r.faceCount > 1 ? 'multi' : 'noface';
-      return;
-    }
-    yawBuf.current.push(r.yaw);
-    pitchBuf.current.push(r.pitch);
-    rollBuf.current.push(r.roll);
-    blinkBuf.current.push(Math.max(r.blinkLeft, r.blinkRight));
-    smileBuf.current.push((r.smileLeft + r.smileRight) / 2);
-
-    const sample: SmoothedSample = {
-      ...r,
-      yawAvg: yawBuf.current.avg(),
-      pitchAvg: pitchBuf.current.avg(),
-      rollAvg: rollBuf.current.avg(),
-      blinkAvg: blinkBuf.current.avg(),
-      smileAvg: smileBuf.current.avg(),
-    };
-    lastSampleRef.current = sample;
-
-    // Brightness already measured in sendFrame and stashed on the worker bitmap;
-    // we approximate here using the most recent value.
     const q = evaluateQuality(r, lastBrightnessRef.current);
-    qualityFailRef.current = q;
+    qualityRef.current = q;
 
-    // Phase transitions
-    if (phase === 'preflight') {
-      if (q === 'none') {
-        // Quality is good — start the challenges
-        const picks = pickThree();
-        setChallenges(picks);
-        setActiveIdx(0);
-        setPhase('challenge');
-      }
+    if (q !== 'none') {
+      holdStartRef.current = null;
+      progressRef.current = 0;
       return;
     }
-
-    if (phase === 'challenge') {
-      const ch = challenges[activeIdx];
-      if (!ch) return;
-      if (q !== 'none' && ch.kind !== 'BLINK' && ch.kind !== 'SMILE') {
-        // quality must hold for pose challenges
-        challengeHoldStartRef.current = null;
-        challengeProgressRef.current = 0;
-        return;
-      }
-      const passes = ch.test(sample);
-      if (passes) {
-        if (challengeHoldStartRef.current == null) challengeHoldStartRef.current = performance.now();
-        const held = performance.now() - challengeHoldStartRef.current;
-        const prog = Math.min(1, held / ch.holdMs);
-        challengeProgressRef.current = prog;
-        if (prog >= 1) {
-          // advance
-          challengeHoldStartRef.current = null;
-          challengeProgressRef.current = 0;
-          if (activeIdx + 1 >= challenges.length) {
-            void doCapture();
-          } else {
-            setActiveIdx((i) => i + 1);
-          }
-        }
-      } else {
-        challengeHoldStartRef.current = null;
-        challengeProgressRef.current = 0;
-      }
+    if (holdStartRef.current == null) holdStartRef.current = performance.now();
+    const held = performance.now() - holdStartRef.current;
+    const prog = Math.min(1, held / TH.holdMs);
+    progressRef.current = prog;
+    if (prog >= 1) {
+      progressRef.current = 0;
+      holdStartRef.current = null;
+      void doCapture();
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, challenges, activeIdx]);
+  }, [doCapture]);
 
-  // brightness ref (avg luminance of last sampled bitmap)
-  const lastBrightnessRef = useRef(0);
+  // Keep onmessage pointed at the latest handler (fixes the stale-closure
+  // bug that broke the old multi-pose flow).
+  useEffect(() => {
+    const w = workerRef.current;
+    if (!w) return;
+    w.onmessage = handleWorkerMessage;
+  }, [handleWorkerMessage]);
 
-  // ── Frame pump: capture ImageBitmap from <video> and ship to worker ────
-  const FRAME_INTERVAL = 50; // ~20fps to the worker; main thread stays free
+  // ── Frame pump ─────────────────────────────────────────────────────────
+  const FRAME_INTERVAL = 60; // ~16fps
   const sendFrame = useCallback(async () => {
     const video = videoRef.current;
     const worker = workerRef.current;
@@ -336,8 +245,6 @@ export default function FaceLivenessCapture({
     if (now - lastFrameAtRef.current < FRAME_INTERVAL) return;
     lastFrameAtRef.current = now;
 
-    // Downscale to 320×320 for the worker — landmarks are still accurate and
-    // CPU inference flies. Also sample brightness in the same pass.
     const c = sampleCanvasRef.current;
     if (!c) return;
     const W = 320, H = 320;
@@ -348,12 +255,13 @@ export default function FaceLivenessCapture({
     try {
       const img = ctx.getImageData(0, 0, W, H);
       let lum = 0;
-      // sparse sample for speed
+      let n = 0;
       for (let i = 0; i < img.data.length; i += 4 * 32) {
         lum += 0.299 * img.data[i] + 0.587 * img.data[i + 1] + 0.114 * img.data[i + 2];
+        n++;
       }
-      lastBrightnessRef.current = lum / (img.data.length / (4 * 32));
-    } catch { /* tainted? extremely unlikely for getUserMedia */ }
+      lastBrightnessRef.current = n ? lum / n : 0;
+    } catch { /* noop */ }
 
     try {
       const bitmap = await createImageBitmap(c);
@@ -365,7 +273,7 @@ export default function FaceLivenessCapture({
   }, []);
 
   useEffect(() => {
-    if (phase !== 'preflight' && phase !== 'challenge') return;
+    if (phase !== 'preflight') return;
     const loop = () => {
       void sendFrame();
       rafRef.current = requestAnimationFrame(loop);
@@ -378,6 +286,7 @@ export default function FaceLivenessCapture({
   const startCamera = async () => {
     if (phase !== 'idle' && phase !== 'error') return;
     setErr(null);
+    capturedRef.current = false;
     setPhase('starting');
     try {
       if (!navigator.mediaDevices?.getUserMedia) {
@@ -396,9 +305,8 @@ export default function FaceLivenessCapture({
         v.onplaying = onReady;
         await v.play().catch(() => {});
       }
-      // spin up the worker
       const worker = new Worker(new URL('./faceWorker.ts', import.meta.url), { type: 'module' });
-      worker.onmessage = onWorkerMessage;
+      worker.onmessage = handleWorkerMessage;
       worker.onerror = (e) => {
         console.error('faceWorker error', e);
         setErr('Face engine failed to start. Tap Retry.');
@@ -425,76 +333,16 @@ export default function FaceLivenessCapture({
     }
   };
 
-  // ── Final capture ───────────────────────────────────────────────────────
-  const doCapture = async () => {
-    if (phase === 'capturing' || phase === 'done') return;
-    setPhase('capturing');
-    setFlash(true);
-    setTimeout(() => setFlash(false), 160);
-
-    // Confetti — light, fast, mobile-friendly
-    try {
-      confetti({ particleCount: 60, spread: 70, origin: { y: 0.4 }, scalar: 0.8 });
-    } catch { /* noop */ }
-
-    const video = videoRef.current;
-    const canvas = captureCanvasRef.current;
-    if (!video || !canvas) { setPhase('error'); setErr('Capture failed. Tap Retry.'); return; }
-    const SIZE = 720;
-    canvas.width = SIZE; canvas.height = SIZE;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) { setPhase('error'); setErr('Capture failed. Tap Retry.'); return; }
-    // Center-crop square from the (likely landscape) video frame.
-    const vw = video.videoWidth || SIZE;
-    const vh = video.videoHeight || SIZE;
-    const side = Math.min(vw, vh);
-    const sx = (vw - side) / 2;
-    const sy = (vh - side) / 2;
-    ctx.drawImage(video, sx, sy, side, side, 0, 0, SIZE, SIZE);
-
-    canvas.toBlob(
-      (blob) => {
-        teardown();
-        if (!blob) { setPhase('error'); setErr('Capture failed. Tap Retry.'); return; }
-        setPhase('done');
-        setTimeout(() => onComplete({ capture: blob }), 360);
-      },
-      'image/jpeg',
-      0.92,
-    );
-  };
-
-  // ── Retry helpers ───────────────────────────────────────────────────────
-  const retryChallenge = () => {
-    challengeHoldStartRef.current = null;
-    challengeProgressRef.current = 0;
-    setShowTimeoutHelp(false);
-    failCountRef.current += 1;
-    if (failCountRef.current >= 3) {
-      teardown();
-      setPhase('error');
-      const m = 'Verification failed. Please try in better lighting.';
-      setErr(m);
-      onFail?.(m);
-      return;
-    }
-    // re-pick fresh trio so it's not the same exact challenge
-    setChallenges(pickThree());
-    setActiveIdx(0);
-    setPhase('preflight');
-  };
-
+  // ── Retry / restart ─────────────────────────────────────────────────────
   const restart = () => {
     teardown();
-    yawBuf.current.reset(); pitchBuf.current.reset(); rollBuf.current.reset();
-    blinkBuf.current.reset(); smileBuf.current.reset();
-    challengeHoldStartRef.current = null;
-    challengeProgressRef.current = 0;
-    failCountRef.current = 0;
+    holdStartRef.current = null;
+    progressRef.current = 0;
+    qualityRef.current = 'noface';
+    capturedRef.current = false;
     setErr(null);
+    setSlowHelp(false);
     setPhase('idle');
-    setChallenges([]);
-    setActiveIdx(0);
     setVideoReady(false);
   };
 
@@ -523,10 +371,9 @@ export default function FaceLivenessCapture({
           <Camera className="w-6 h-6 text-primary" />
         </div>
         <div>
-          <p className="text-[14px] font-semibold">Live face verification</p>
+          <p className="text-[14px] font-semibold">Live face capture</p>
           <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-            We'll ask you to do 3 quick random actions to prove you're real.
-            Takes about 10 seconds.
+            Hold your face inside the oval for about a second. We'll snap one photo automatically.
           </p>
         </div>
         <button
@@ -541,46 +388,11 @@ export default function FaceLivenessCapture({
     );
   }
 
-  // SVG oval geometry
   const VB = 300, CX = 150, CY = 150, RX = 108, RY = 132;
   const CIRC = 2 * Math.PI * ((RX + RY) / 2 + 8);
 
-  const active = challenges[activeIdx];
-  const ActiveIcon = active?.Icon;
-
   return (
     <div className="space-y-4">
-      {/* Progress dots */}
-      {(phase === 'challenge' || phase === 'capturing' || phase === 'done') && challenges.length > 0 && (
-        <div className="flex items-center justify-center gap-2">
-          {challenges.map((c, i) => {
-            const state = i < activeIdx || phase === 'done' || phase === 'capturing' ? 'done'
-              : i === activeIdx ? 'active' : 'pending';
-            return (
-              <div key={i} className="flex items-center gap-2">
-                <div
-                  className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-medium border tabular-nums transition"
-                  style={{
-                    background: state === 'done' ? 'rgba(52,211,153,0.18)'
-                      : state === 'active' ? 'rgba(250,204,21,0.18)'
-                      : 'rgba(255,255,255,0.04)',
-                    color: state === 'done' ? '#34D399'
-                      : state === 'active' ? '#FACC15'
-                      : 'rgba(255,255,255,0.55)',
-                    borderColor: state === 'done' ? 'rgba(52,211,153,0.45)'
-                      : state === 'active' ? 'rgba(250,204,21,0.45)'
-                      : 'rgba(255,255,255,0.10)',
-                  }}
-                >
-                  {state === 'done' ? <Check className="w-3 h-3" /> : <span>{i + 1}</span>}
-                  <span>{c.kind}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
-
       <div
         className="relative aspect-square rounded-3xl overflow-hidden border border-white/10"
         style={{ background: 'radial-gradient(ellipse at center, #0a0a0a 0%, #000 100%)' }}
@@ -601,16 +413,14 @@ export default function FaceLivenessCapture({
           }}
         />
 
-        {/* Loading overlay — hides Android WebView's default <video> play-icon */}
+        {/* Loading overlay until camera + model are warm */}
         {(() => {
           const cameraDone = videoReady;
-          const modelDone = phase === 'preflight' || phase === 'challenge' || phase === 'capturing' || phase === 'done';
-          const warmDone = phase === 'challenge' || phase === 'capturing' || phase === 'done';
-          const showOverlay = !(cameraDone && modelDone && warmDone);
-          const stages: { key: string; label: string; done: boolean; active: boolean }[] = [
-            { key: 'cam',  label: 'Initializing camera', done: cameraDone, active: !cameraDone },
-            { key: 'mdl',  label: 'Loading face model',  done: modelDone,  active: cameraDone && !modelDone },
-            { key: 'warm', label: 'Warming up',          done: warmDone,   active: modelDone && !warmDone },
+          const modelDone = phase === 'preflight' || phase === 'capturing' || phase === 'done';
+          const showOverlay = !(cameraDone && modelDone);
+          const stages = [
+            { key: 'cam', label: 'Initializing camera', done: cameraDone, active: !cameraDone },
+            { key: 'mdl', label: 'Loading face model',  done: modelDone,  active: cameraDone && !modelDone },
           ];
           return (
             <AnimatePresence>
@@ -635,7 +445,6 @@ export default function FaceLivenessCapture({
                     transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
                     className="w-full max-w-[260px] flex flex-col items-center"
                   >
-                    {/* Pulsing brand orb */}
                     <div className="relative w-14 h-14 mb-5">
                       <motion.span
                         className="absolute inset-0 rounded-full"
@@ -644,117 +453,53 @@ export default function FaceLivenessCapture({
                         transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}
                       />
                       <motion.span
-                        className="absolute inset-1 rounded-full border border-white/20"
-                        animate={{ rotate: 360 }}
-                        transition={{ duration: 6, ease: 'linear', repeat: Infinity }}
-                      />
-                      <motion.span
                         className="absolute inset-2.5 rounded-full border-2 border-transparent"
                         style={{ borderTopColor: '#FF2D55', borderRightColor: 'rgba(255,45,85,0.4)' }}
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1.2, ease: 'linear', repeat: Infinity }}
                       />
-                      <span
-                        className="absolute inset-[18px] rounded-full"
-                        style={{ background: 'radial-gradient(closest-side, #FF2D55, rgba(255,45,85,0.2) 70%, transparent)' }}
-                      />
                     </div>
-
-                    {/* Staged checklist */}
                     <div className="w-full space-y-2.5">
                       {stages.map((s, i) => (
                         <motion.div
                           key={s.key}
                           initial={{ opacity: 0, x: -6 }}
                           animate={{ opacity: s.done || s.active ? 1 : 0.45, x: 0 }}
-                          transition={{ delay: 0.08 + i * 0.06, duration: 0.32, ease: [0.22, 1, 0.36, 1] }}
+                          transition={{ delay: 0.08 + i * 0.06, duration: 0.32 }}
                           className="flex items-center gap-3"
                         >
-                          {/* Status dot */}
                           <div className="relative w-5 h-5 shrink-0 flex items-center justify-center">
-                            <AnimatePresence mode="wait" initial={false}>
-                              {s.done ? (
-                                <motion.div
-                                  key="done"
-                                  initial={{ scale: 0.4, opacity: 0 }}
-                                  animate={{ scale: 1, opacity: 1 }}
-                                  exit={{ scale: 0.6, opacity: 0 }}
-                                  transition={{ type: 'spring', stiffness: 380, damping: 22 }}
-                                  className="w-5 h-5 rounded-full flex items-center justify-center"
-                                  style={{ background: 'rgba(52,211,153,0.95)', boxShadow: '0 0 12px rgba(52,211,153,0.55)' }}
-                                >
-                                  <Check className="w-3 h-3 text-black" strokeWidth={3.5} />
-                                </motion.div>
-                              ) : s.active ? (
-                                <motion.div
-                                  key="active"
-                                  initial={{ scale: 0.6, opacity: 0 }}
-                                  animate={{ scale: 1, opacity: 1 }}
-                                  exit={{ opacity: 0 }}
-                                  className="w-5 h-5 rounded-full border-2 border-white/20"
-                                >
-                                  <motion.span
-                                    className="block w-full h-full rounded-full border-2 border-transparent"
-                                    style={{ borderTopColor: '#FF2D55', borderRightColor: 'rgba(255,45,85,0.5)' }}
-                                    animate={{ rotate: 360 }}
-                                    transition={{ duration: 0.9, ease: 'linear', repeat: Infinity }}
-                                  />
-                                </motion.div>
-                              ) : (
-                                <motion.div
-                                  key="pending"
-                                  initial={{ opacity: 0 }}
-                                  animate={{ opacity: 1 }}
-                                  exit={{ opacity: 0 }}
-                                  className="w-2 h-2 rounded-full bg-white/20"
+                            {s.done ? (
+                              <div
+                                className="w-5 h-5 rounded-full flex items-center justify-center"
+                                style={{ background: 'rgba(52,211,153,0.95)' }}
+                              >
+                                <Check className="w-3 h-3 text-black" strokeWidth={3.5} />
+                              </div>
+                            ) : s.active ? (
+                              <div className="w-5 h-5 rounded-full border-2 border-white/20">
+                                <motion.span
+                                  className="block w-full h-full rounded-full border-2 border-transparent"
+                                  style={{ borderTopColor: '#FF2D55' }}
+                                  animate={{ rotate: 360 }}
+                                  transition={{ duration: 0.9, ease: 'linear', repeat: Infinity }}
                                 />
-                              )}
-                            </AnimatePresence>
+                              </div>
+                            ) : (
+                              <div className="w-2 h-2 rounded-full bg-white/20" />
+                            )}
                           </div>
-
-                          {/* Label + active progress bar */}
                           <div className="flex-1 min-w-0">
                             <div
                               className="text-[12px] font-semibold tracking-[0.02em] truncate"
-                              style={{
-                                color: s.done ? 'rgba(255,255,255,0.95)' : s.active ? '#fff' : 'rgba(255,255,255,0.55)',
-                              }}
+                              style={{ color: s.done ? 'rgba(255,255,255,0.95)' : s.active ? '#fff' : 'rgba(255,255,255,0.55)' }}
                             >
                               {s.label}
-                            </div>
-                            <div className="relative mt-1 h-[2px] rounded-full overflow-hidden bg-white/[0.06]">
-                              {s.done && (
-                                <motion.div
-                                  initial={{ width: '0%' }}
-                                  animate={{ width: '100%' }}
-                                  transition={{ duration: 0.4, ease: 'easeOut' }}
-                                  className="absolute inset-y-0 left-0"
-                                  style={{ background: 'linear-gradient(90deg, rgba(52,211,153,0.4), rgba(52,211,153,0.95))' }}
-                                />
-                              )}
-                              {s.active && (
-                                <motion.div
-                                  className="absolute inset-y-0 w-1/3 rounded-full"
-                                  style={{ background: 'linear-gradient(90deg, transparent, #FF2D55, transparent)' }}
-                                  animate={{ x: ['-100%', '300%'] }}
-                                  transition={{ duration: 1.3, ease: 'easeInOut', repeat: Infinity }}
-                                />
-                              )}
                             </div>
                           </div>
                         </motion.div>
                       ))}
                     </div>
-
-                    <motion.p
-                      key={stages.find((s) => s.active)?.key ?? 'ready'}
-                      initial={{ opacity: 0, y: 4 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className="mt-5 text-[10.5px] uppercase tracking-[0.32em] text-white/45 font-semibold text-center"
-                    >
-                      {stages.find((s) => s.active)?.label ?? 'Ready'}
-                    </motion.p>
                   </motion.div>
                 </motion.div>
               )}
@@ -762,9 +507,7 @@ export default function FaceLivenessCapture({
           );
         })()}
 
-
-
-        {/* Dark vignette + oval cutout */}
+        {/* Oval cutout + progress ring */}
         <svg viewBox={`0 0 ${VB} ${VB}`} className="absolute inset-0 w-full h-full pointer-events-none">
           <defs>
             <mask id="cutout">
@@ -785,7 +528,7 @@ export default function FaceLivenessCapture({
             ref={progressRingRef}
             cx={CX} cy={CY} rx={RX + 8} ry={RY + 8}
             fill="none"
-            stroke="#FACC15"
+            stroke="#34D399"
             strokeWidth={3.5}
             strokeLinecap="round"
             strokeDasharray={CIRC}
@@ -794,75 +537,33 @@ export default function FaceLivenessCapture({
           />
         </svg>
 
-        {/* Big challenge instruction — Meta-style */}
-        <AnimatePresence mode="wait">
-          {phase === 'challenge' && active && (
-            <motion.div
-              key={`${activeIdx}-${active.kind}`}
-              initial={{ opacity: 0, y: -8, scale: 0.96 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 0.96 }}
-              transition={{ duration: 0.22 }}
-              className="absolute top-4 left-0 right-0 flex flex-col items-center pointer-events-none px-4"
-            >
-              <div className="text-white text-[22px] font-bold tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] uppercase">
-                {active.title}
-              </div>
-              <div className="text-white/75 text-[12px] mt-0.5 drop-shadow">
-                {active.hint}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {/* Top hint */}
+        {phase === 'preflight' && (
+          <div className="absolute top-4 left-0 right-0 flex flex-col items-center pointer-events-none px-4">
+            <div className="text-white text-[18px] font-bold tracking-wide drop-shadow-[0_2px_10px_rgba(0,0,0,0.6)] uppercase">
+              Look at the camera
+            </div>
+            <div className="text-white/75 text-[12px] mt-0.5 drop-shadow">
+              Stay still — we'll snap automatically
+            </div>
+          </div>
+        )}
 
-        {/* Animated directional / action icon */}
-        <AnimatePresence>
-          {phase === 'challenge' && ActiveIcon && (
-            <motion.div
-              key={`icon-${activeIdx}`}
-              initial={{ opacity: 0, scale: 0.7 }}
-              animate={{
-                opacity: 1, scale: 1,
-                x: active.kind === 'LEFT' ? [-6, -18, -6] : active.kind === 'RIGHT' ? [6, 18, 6] : 0,
-                y: active.kind === 'UP' ? [-6, -18, -6] : active.kind === 'DOWN' ? [6, 18, 6] : 0,
-              }}
-              exit={{ opacity: 0, scale: 0.7 }}
-              transition={{
-                opacity: { duration: 0.2 },
-                scale: { duration: 0.2 },
-                x: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' },
-                y: { duration: 1.2, repeat: Infinity, ease: 'easeInOut' },
-              }}
-              className="absolute inset-0 flex items-center justify-center pointer-events-none"
-            >
-              <div className="w-20 h-20 rounded-full bg-black/55 backdrop-blur-md flex items-center justify-center border border-white/15">
-                <ActiveIcon className="w-10 h-10 text-yellow-300" />
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Quality / status pill */}
+        {/* Status pill */}
         <div className="absolute bottom-3 left-3 right-3 flex justify-center pointer-events-none">
           <div
-            ref={statusElRef}
             className="px-3.5 py-1.5 rounded-full text-[12px] font-medium backdrop-blur-md bg-black/45 border tabular-nums"
             style={{
-              color: phase === 'done' ? '#34D399'
-                : quality10Hz === 'none' ? '#34D399'
-                : '#FECACA',
-              borderColor: phase === 'done' ? 'rgba(52,211,153,0.7)'
-                : quality10Hz === 'none' ? 'rgba(52,211,153,0.55)'
+              color: phase === 'done' || quality10Hz === 'none' ? '#34D399' : '#FECACA',
+              borderColor: phase === 'done' || quality10Hz === 'none'
+                ? 'rgba(52,211,153,0.55)'
                 : 'rgba(244,114,114,0.45)',
             }}
           >
             {phase === 'starting' && (<><Loader2 className="inline w-3 h-3 mr-1.5 animate-spin" />Starting camera…</>)}
-            {phase === 'preflight' && QUALITY_MSG[quality10Hz]}
-            {phase === 'challenge' && (
-              quality10Hz !== 'none' && active && active.kind !== 'BLINK' && active.kind !== 'SMILE'
-                ? QUALITY_MSG[quality10Hz]
-                : `${Math.round(progress10Hz * 100)}%`
-            )}
+            {phase === 'preflight' && (quality10Hz === 'none'
+              ? `${Math.round(progress10Hz * 100)}%`
+              : QUALITY_MSG[quality10Hz])}
             {phase === 'capturing' && 'Capturing…'}
             {phase === 'done' && 'Captured ✓'}
           </div>
@@ -899,29 +600,28 @@ export default function FaceLivenessCapture({
       <canvas ref={captureCanvasRef} className="hidden" />
       <canvas ref={sampleCanvasRef} className="hidden" />
 
-      {/* Per-challenge timeout helper */}
-      {showTimeoutHelp && phase === 'challenge' && (
+      {slowHelp && phase === 'preflight' && (
         <div className="rounded-2xl p-3.5 bg-yellow-500/10 border border-yellow-500/30 text-yellow-100 flex items-center justify-between gap-3">
           <div className="text-[12.5px] leading-snug">
-            Having trouble? You can retry this step.
+            Trouble capturing? Try better lighting or move a little closer.
           </div>
           <button
             type="button"
-            onClick={retryChallenge}
+            onClick={() => { setSlowHelp(false); onFail?.('user-gave-up'); restart(); }}
             className="shrink-0 h-9 px-3 rounded-lg text-[12px] font-semibold bg-yellow-400/90 text-black"
           >
-            <RotateCcw className="inline w-3.5 h-3.5 mr-1" /> Retry
+            <RotateCcw className="inline w-3.5 h-3.5 mr-1" /> Restart
           </button>
         </div>
       )}
 
-      {(phase === 'preflight' || phase === 'challenge') && (
+      {phase === 'preflight' && (
         <button
           type="button"
           onClick={restart}
           className="w-full h-10 rounded-xl text-[12.5px] text-muted-foreground hover:text-white border border-white/10 hover:border-white/25 transition"
         >
-          <X className="inline w-3.5 h-3.5 mr-1.5" /> Cancel & restart
+          <X className="inline w-3.5 h-3.5 mr-1.5" /> Cancel
         </button>
       )}
     </div>
