@@ -181,64 +181,7 @@ async function tryInnertube(videoId: string): Promise<ExtractionResult | null> {
   }
 }
 
-async function tryInnertube(videoId: string): Promise<ExtractionResult | null> {
-  try {
-    const yt = await getInnertube();
-    if (!yt) return null;
-    const info = await yt.getBasicInfo(videoId, 'IOS').catch(async () => {
-      // IOS client gives signed URLs that don't need decipher; fall back to WEB.
-      return await yt.getBasicInfo(videoId);
-    });
-    if (!info?.streaming_data) return null;
-
-    // Pick the best audio-only adaptive format. Prefer m4a (AAC) over webm/opus
-    // because Safari/iOS WebView can't decode opus in MediaSource consistently.
-    const adaptive = info.streaming_data.adaptive_formats || [];
-    const audioOnly = adaptive.filter((f: any) => f.mime_type?.startsWith('audio/'));
-    if (!audioOnly.length) return null;
-
-    audioOnly.sort((a: any, b: any) => {
-      const aM4a = a.mime_type?.includes('mp4') ? 1 : 0;
-      const bM4a = b.mime_type?.includes('mp4') ? 1 : 0;
-      if (aM4a !== bM4a) return bM4a - aM4a;
-      return (b.bitrate || 0) - (a.bitrate || 0);
-    });
-
-    let chosen: any = null;
-    for (const fmt of audioOnly) {
-      try {
-        // .decipher() handles signature cipher + n-param transform automatically.
-        const url = typeof fmt.decipher === 'function'
-          ? fmt.decipher(yt.session.player)
-          : fmt.url;
-        if (!url) continue;
-        if (await probePlayableStream(url, 4000)) {
-          chosen = { fmt, url };
-          break;
-        }
-      } catch { /* try next format */ }
-    }
-    if (!chosen) return null;
-
-    const details = info.basic_info || {};
-    const thumbs = details.thumbnail || [];
-    const cover = thumbs.length ? thumbs[thumbs.length - 1]?.url : undefined;
-
-    console.log(`  ✓ [INNERTUBE] ${videoId}`);
-    return {
-      success: true,
-      audioUrl: chosen.url,
-      title: details.title,
-      artist: details.author,
-      thumbnail: cover,
-      duration: details.duration,
-      platform: 'YouTube',
-    };
-  } catch (e) {
-    console.warn(`[innertube] extract failed for ${videoId}:`, (e as Error).message);
-    return null;
-  }
-}
+// (duplicate legacy tryInnertube removed — IOS-only implementation lives above)
 
 // ---------- Module-level instance health cache ----------
 // Skip an instance for 5 minutes after a failure so we don't keep waiting on dead hosts.
