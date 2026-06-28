@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2, Mic } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -369,7 +369,7 @@ const Search = () => {
   const [hiddenResults, setHiddenResults] = useState<HiddenSearchEntry[]>(() => loadHiddenResults());
   const [visibleCount, setVisibleCount] = useState(40);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [voiceListening, setVoiceListening] = useState(false);
+  
   // Live autocomplete from YT Music Innertube. Suppressed once the user has
   // actually triggered a search (we don't want it covering results).
   const [suggestActive, setSuggestActive] = useState(true);
@@ -538,26 +538,6 @@ const Search = () => {
     setIndexedResults((results) => results.filter((item) => !isHiddenTrack(item, nextHidden)));
   }, []);
 
-  const handleVoiceSearch = useCallback(async () => {
-    if (voiceListening) return;
-    setVoiceListening(true);
-    try {
-      const { listenForSongName } = await import('@/lib/voiceSearch');
-      const spoken = await listenForSongName();
-      if (!spoken) {
-        toast.error('I could not hear a song name. Try again.');
-        return;
-      }
-      setQuery(spoken);
-      setSource('songs');
-      setSuggestActive(false);
-      toast.success(`Searching “${spoken}”`);
-    } catch (err) {
-      toast.error((err as Error).message || 'Voice search failed');
-    } finally {
-      setVoiceListening(false);
-    }
-  }, [voiceListening]);
 
   const handlePlayIndexed = useCallback((track: IndexedTrack) => {
     const trackAudioUrl = track.audio_url || (track.videoId ? `yt-video:${track.videoId}` : 'resolving');
@@ -618,77 +598,58 @@ const Search = () => {
           <div className="px-1 mt-3">
 
 
-          <div className="flex items-center gap-2">
-            <div className="relative flex-1">
-              <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input value={query} onChange={(e) => { setQuery(e.target.value); setSuggestActive(true); }}
-                onFocus={() => setIsFocused(true)}
-                onBlur={() => setTimeout(() => setIsFocused(false), 150)}
-                placeholder="Any song, artist, or album worldwide"
-                aria-label="Search songs, artists, or albums"
-                className="pl-10 pr-8 h-12 text-sm rounded-3xl border-0 bg-card"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.06)',
-                  border: isFocused ? '1px solid hsl(var(--primary) / 0.4)' : '1px solid rgba(255,255,255,0.06)',
-                  transition: 'border-color 0.2s',
-                }} />
-              {query && (
-                <button onClick={() => { setQuery(''); setIndexedResults([]); setArtistResults([]); setSuggestActive(true); }}
-                  aria-label="Clear search"
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full"
-                  style={{ background: 'rgba(255,255,255,0.15)' }}>
-                  <X className="w-3 h-3" />
-                </button>
-              )}
-
-              {/* Live autocomplete dropdown (YT Music suggestions) */}
-              <AnimatePresence>
-                {isFocused && suggestActive && suggestions.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: -4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -4 }}
-                    transition={{ duration: 0.14 }}
-                    className="absolute left-0 right-0 top-full mt-2 z-40 rounded-2xl overflow-hidden"
-                    style={{
-                      background: 'hsl(var(--card))',
-                      border: '1px solid rgba(255,255,255,0.08)',
-                      boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-                    }}
-                  >
-                    {suggestions.map((s) => (
-                      <button
-                        key={s}
-                        type="button"
-                        onMouseDown={(e) => e.preventDefault()}
-                        onClick={() => { setQuery(s); setSuggestActive(false); }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-white/5 active:bg-white/10 transition-colors"
-                      >
-                        <SearchIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                        <span className="truncate">{s}</span>
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-            </div>
-            <motion.button
-              type="button"
-              onClick={handleVoiceSearch}
-              disabled={voiceListening}
-              whileTap={{ scale: 0.94 }}
-              className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 border transition-all disabled:opacity-70"
+          <div className="relative">
+            <SearchIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input value={query} onChange={(e) => { setQuery(e.target.value); setSuggestActive(true); }}
+              onFocus={() => setIsFocused(true)}
+              onBlur={() => setTimeout(() => setIsFocused(false), 150)}
+              placeholder="Any song, artist, or album worldwide"
+              aria-label="Search songs, artists, or albums"
+              className="pl-10 pr-8 h-12 text-sm rounded-3xl border-0 bg-card"
               style={{
-                background: voiceListening ? 'linear-gradient(135deg, hsl(var(--primary)), hsl(18 100% 82%))' : 'hsl(var(--card))',
-                borderColor: voiceListening ? 'hsl(var(--primary) / 0.35)' : 'rgba(255,255,255,0.08)',
-                boxShadow: voiceListening ? '0 0 24px hsl(var(--primary) / 0.28)' : undefined,
-              }}
-              aria-label="Speak song name to search"
-              title="Speak song name"
-            >
-              {voiceListening ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5 text-primary" />}
-            </motion.button>
+                background: 'rgba(255, 255, 255, 0.06)',
+                border: isFocused ? '1px solid hsl(var(--primary) / 0.4)' : '1px solid rgba(255,255,255,0.06)',
+                transition: 'border-color 0.2s',
+              }} />
+            {query && (
+              <button onClick={() => { setQuery(''); setIndexedResults([]); setArtistResults([]); setSuggestActive(true); }}
+                aria-label="Clear search"
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 rounded-full"
+                style={{ background: 'rgba(255,255,255,0.15)' }}>
+                <X className="w-3 h-3" />
+              </button>
+            )}
 
+            {/* Live autocomplete dropdown (YT Music suggestions) */}
+            <AnimatePresence>
+              {isFocused && suggestActive && suggestions.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: -4 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -4 }}
+                  transition={{ duration: 0.14 }}
+                  className="absolute left-0 right-0 top-full mt-2 z-40 rounded-2xl overflow-hidden"
+                  style={{
+                    background: 'hsl(var(--card))',
+                    border: '1px solid rgba(255,255,255,0.08)',
+                    boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+                  }}
+                >
+                  {suggestions.map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { setQuery(s); setSuggestActive(false); }}
+                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-white/5 active:bg-white/10 transition-colors"
+                    >
+                      <SearchIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate">{s}</span>
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Source tabs */}

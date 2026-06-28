@@ -20,7 +20,7 @@ class MainActivity : BridgeActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         registerPlugin(AudioFocusPlugin::class.java)
         registerPlugin(MediaNotificationPlugin::class.java)
-        registerPlugin(VoiceSearchPlugin::class.java)
+        
         super.onCreate(savedInstanceState)
 
         // IMPORTANT: We do NOT request CAMERA up-front. The runtime prompt is
