@@ -67,7 +67,7 @@ export const isNativeStreamResolverAvailable = (): boolean => {
   return typeof CapacitorHttp?.post === 'function';
 };
 
-async function fetchPlayer(videoId: string, ctx: typeof ANDROID_VR_CTX): Promise<PlayerResponse | null> {
+async function fetchPlayer(videoId: string, ctx: { client: Record<string, unknown> & { userAgent: string; clientName: string } }): Promise<PlayerResponse | null> {
   try {
     const res = await CapacitorHttp.post({
       url: INNERTUBE_URL,
