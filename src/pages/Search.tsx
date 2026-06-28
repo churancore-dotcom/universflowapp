@@ -770,7 +770,9 @@ const Search = () => {
                   </div>
                 )}
 
-                {/* Followed artists rail removed from search browse state */}
+                {/* Moods & Genres — only when not searching */}
+                <MoodGenreRail />
+
               </motion.div>
             )}
           </AnimatePresence>
