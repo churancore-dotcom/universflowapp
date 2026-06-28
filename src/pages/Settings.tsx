@@ -384,8 +384,135 @@ const Settings = () => {
               </button>
             </div>
           </section>
+          )}
+
+          {/* Content */}
+          {show(['content','explicit','lyrics','romanize','region','language']) && (
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Content</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <EyeOff className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Hide Explicit Content</span>
+                </div>
+                <Switch
+                  checked={hideExplicit}
+                  onCheckedChange={(v) => { setHideExplicitState(v); setHideExplicit(v); }}
+                  className="data-[state=checked]:bg-primary scale-90"
+                  aria-label="Toggle hide explicit"
+                />
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Globe2 className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Romanize Lyrics (JP/KR/CN)</span>
+                </div>
+                <Switch
+                  checked={romanize}
+                  onCheckedChange={(v) => { setRomanize(v); setRomanizeLyrics(v); }}
+                  className="data-[state=checked]:bg-primary scale-90"
+                  aria-label="Toggle romanize lyrics"
+                />
+              </div>
+              <div className="px-4 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="text-sm">Lyrics Source</span>
+                  <span className="text-xs text-primary capitalize">{lyricsProv}</span>
+                </div>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {(['auto','lrclib','kugou','netease'] as LyricsProvider[]).map((p) => (
+                    <button
+                      key={p}
+                      onClick={() => { setLyricsProv(p); setLyricsProvider(p); toast.success(`Lyrics: ${p}`); }}
+                      className={`py-1.5 rounded-lg text-xs font-medium capitalize transition-colors ${
+                        lyricsProv === p ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
+                      }`}
+                    >{p}</button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </section>
+          )}
+
+          {/* Privacy */}
+          {show(['privacy','history','anonymous','data']) && (
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Privacy</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Eye className="w-4 h-4 text-primary" />
+                  <div>
+                    <div className="text-sm">Pause Listening History</div>
+                    <div className="text-[11px] text-white/40">Stops recording plays everywhere</div>
+                  </div>
+                </div>
+                <Switch
+                  checked={pauseHistory}
+                  onCheckedChange={(v) => { setPauseHistory(v); setHistoryPaused(v); }}
+                  className="data-[state=checked]:bg-primary scale-90"
+                  aria-label="Pause history"
+                />
+              </div>
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <Lock className="w-4 h-4 text-primary" />
+                  <div>
+                    <div className="text-sm">Anonymous Mode</div>
+                    <div className="text-[11px] text-white/40">Listen without building a taste profile</div>
+                  </div>
+                </div>
+                <Switch
+                  checked={anonMode}
+                  onCheckedChange={(v) => { setAnonMode(v); setAnonymousMode(v); }}
+                  className="data-[state=checked]:bg-primary scale-90"
+                  aria-label="Anonymous mode"
+                />
+              </div>
+              <button
+                onClick={async () => {
+                  if (!confirm('Clear all listening history? This cannot be undone.')) return;
+                  await clearListeningHistory();
+                  toast.success('Listening history cleared');
+                }}
+                className="w-full px-4 py-3 flex items-center justify-between text-destructive active:bg-destructive/10"
+              >
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4" />
+                  <span className="text-sm font-medium">Clear Listening History</span>
+                </div>
+                <ChevronRight className="w-4 h-4 opacity-60" />
+              </button>
+            </div>
+          </section>
+          )}
+
+          {/* Stats */}
+          {show(['stats','insights','listening']) && (
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Insights</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <button onClick={() => navigate('/settings/stats')} className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <BarChart3 className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Listening Stats</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
+          </section>
+          )}
 
           {/* Support */}
+          {show(['support','premium','subscription','contact','upgrade']) && (
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Support</h2>
@@ -410,6 +537,7 @@ const Settings = () => {
               </button>
             </div>
           </section>
+          )}
 
           {/* Notifications */}
           <section>
