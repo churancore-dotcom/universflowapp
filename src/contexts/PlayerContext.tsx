@@ -489,6 +489,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const recoverBackgroundPlayback = () => {
       const a = audioRef.current;
       if (!a || !a.src || intentionalPauseRef.current) return;
+      resumeAudioEngine();
       // Only act if the OS actually stalled us. Don't write progress on every
       // tick — the lockscreen/MediaSession already tracks position natively.
       if (wasPlayingRef.current && a.paused) {
@@ -1640,7 +1641,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         const fresh = await resolveAudioUrl(cur, { forceRefresh: true });
         if (!fresh || fresh === cur.audio_url || isYouTubeFallbackUrl(fresh)) return;
-        // Hot-swap src while keeping playhead + play/pause state.
+        // Never hot-swap the active stream while the app is hidden: Android can
+        // throttle metadata/canplay events in background, leaving the element at
+        // 0:00 or silent. Let the current stream continue; recover on foreground
+        // or via the normal audio error path if it actually expires.
+        if (document.visibilityState === 'hidden') return;
+
+        // Hot-swap src while keeping playhead + play/pause state. Restore only
+        // after metadata/canplay because Android WebView often ignores
+        // currentTime writes immediately after src assignment.
+        const seqAtSwap = playRequestSeqRef.current;
+        const identityAtSwap = activeSongIdentityRef.current;
         const t = audio.currentTime;
         const wasPlaying = !audio.paused;
         const refreshed = { ...cur, audio_url: fresh };
@@ -1651,8 +1662,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         });
         setCurrentSong(refreshed);
         configureAudioElementSource(audio, buildStreamProxyUrl(fresh));
-        try { audio.currentTime = t; } catch { /* ignore */ }
-        if (wasPlaying) await audio.play().catch(() => undefined);
+        let restored = false;
+        let restoreTimer: number | null = null;
+        const restoreAfterMetadata = () => {
+          if (restored) return;
+          if (seqAtSwap !== playRequestSeqRef.current || activeSongIdentityRef.current !== identityAtSwap) return;
+          restored = true;
+          audio.removeEventListener('loadedmetadata', restoreAfterMetadata);
+          audio.removeEventListener('canplay', restoreAfterMetadata);
+          if (restoreTimer != null) window.clearTimeout(restoreTimer);
+          try { audio.currentTime = t; } catch { /* ignore */ }
+          resumeAudioEngine();
+          if (wasPlaying) void audio.play().catch(() => undefined);
+        };
+        audio.addEventListener('loadedmetadata', restoreAfterMetadata, { once: true });
+        audio.addEventListener('canplay', restoreAfterMetadata, { once: true });
+        restoreTimer = window.setTimeout(restoreAfterMetadata, 1200);
+        audio.load();
         sourceResolvedAtRef.current = { songId: cur.id, at: Date.now() };
         console.log('[player] proactively refreshed stream URL');
       } catch { /* swallow — error handler will catch real failures */ }

@@ -27,6 +27,7 @@ import android.support.v4.media.session.PlaybackStateCompat;
 
 import androidx.core.app.NotificationCompat;
 import androidx.media.app.NotificationCompat.MediaStyle;
+import androidx.media.session.MediaButtonReceiver;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -191,9 +192,15 @@ public class MediaNotificationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || intent.getAction() == null) {
+            refresh(false);
             return START_STICKY;
         }
         String action = intent.getAction();
+
+        if (Intent.ACTION_MEDIA_BUTTON.equals(action)) {
+            MediaButtonReceiver.handleIntent(session, intent);
+            return START_STICKY;
+        }
 
         switch (action) {
             case ACTION_UPDATE: {
