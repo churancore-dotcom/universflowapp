@@ -315,8 +315,6 @@ const Home = () => {
               {!isOffline && <FollowedArtistSongsSection songs={allSongs} />}
               {/* Viral Now Rail — live country chart, real data */}
               {!isOffline && <CountryViralSection />}
-              {/* Moods & Genres — Innertube FEmusic_moods_and_genres */}
-              {!isOffline && <MoodGenreRail />}
 
               {/* Saved songs only when offline — uploaded catalog is hidden from online Home */}
               {isOffline && allSongs.length > 0 && (
