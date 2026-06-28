@@ -2357,3 +2357,5 @@ export const usePlayer = () => {
   }
   return context;
 };
+
+export const useOptionalPlayer = () => useContext(PlayerContext);
