@@ -57,9 +57,16 @@ apply from: 'capacitor.build.gradle'
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
+        def appPackageName = android.defaultConfig.applicationId
+        def json = new groovy.json.JsonSlurper().parseText(servicesJSON.text)
+        def googlePackageName = json?.client?.getAt(0)?.client_info?.android_client_info?.package_name
+        if (googlePackageName == appPackageName) {
+            apply plugin: 'com.google.gms.google-services'
+        } else {
+            logger.warn("google-services.json package_name (${googlePackageName}) does not match applicationId (${appPackageName}); google-services plugin not applied. Push Notifications won't work until the JSON is updated.")
+        }
     }
 } catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+    logger.info("google-services.json not found or invalid, google-services plugin not applied. Push Notifications won't work")
 }
 
