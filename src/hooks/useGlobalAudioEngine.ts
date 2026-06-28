@@ -2,8 +2,20 @@ import { useEffect, useState } from 'react';
 import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, resume, subscribe } from '@/lib/audioEngine';
 import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
+import {
+  isNativePlayerAvailable,
+  pushNativeEQFromWebBands,
+  setNativeBassBoost,
+  setNativeEQEnabled,
+  setNativeLoudnessEnhancer,
+  setNativeVirtualizer,
+} from '@/lib/nativePlayer';
+
+// Web EQ band center frequencies — must mirror BAND_DEFS in audioEngine.ts.
+const WEB_BAND_FREQS_HZ = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
 const RETRY_DELAYS_MS = [0, 50, 140, 320, 700];
+
 
 /**
  * Mount once at app root.
