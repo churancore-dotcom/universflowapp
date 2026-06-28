@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, Search, Shield, BarChart3, Eye, EyeOff, Globe2, FileText, ScrollText, Lock, Trash2, ImageOff } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
@@ -17,6 +17,14 @@ import { supabase } from '@/integrations/supabase/client';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import SEOHead from '@/components/SEOHead';
+import {
+  isHistoryPaused, setHistoryPaused,
+  isAnonymousMode, setAnonymousMode,
+  isHideExplicit, setHideExplicit,
+  isRomanizeLyrics, setRomanizeLyrics,
+  getLyricsProvider, setLyricsProvider, type LyricsProvider,
+  clearListeningHistory,
+} from '@/lib/privacySettings';
 
 
 
