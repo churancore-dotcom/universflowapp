@@ -1631,6 +1631,65 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [currentIndex, queue, shuffle, repeat, crossfade, crossfadeDuration, crossfadeCurve, volume, gaplessPro, getNextIndex, playSongAtIndex, resolveAudioUrl, playYouTubeFallback, extendQueueWithMix, currentSong, playbackSettingsVersion]);
 
+  // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
+  // YouTube-backed audio URLs expire ~6h after issue, and the OS can suspend
+  // the audio element if the URL goes stale while in background. We:
+  //   • Stamp when the active source was resolved.
+  //   • Every 5 min check elapsed age; once > 3h, silently re-resolve and
+  //     swap audio.src while preserving currentTime + play state.
+  //   • Also re-check on `visibilitychange` returning to foreground after a
+  //     long sleep (>15 min) — the most common cause of "song just dies".
+  // The whole thing is best-effort: any failure is swallowed and the existing
+  // error handler above will still recover on actual playback failure.
+  const sourceResolvedAtRef = useRef<{ songId: string; at: number } | null>(null);
+  useEffect(() => {
+    if (!currentSong || !audioRef.current?.src) return;
+    sourceResolvedAtRef.current = { songId: currentSong.id, at: Date.now() };
+  }, [currentSong?.id, currentSong?.audio_url]);
+
+  useEffect(() => {
+    const refreshIfStale = async (minAgeMs: number) => {
+      const audio = audioRef.current;
+      const stamp = sourceResolvedAtRef.current;
+      const cur = currentSong;
+      if (!audio || !stamp || !cur) return;
+      if (stamp.songId !== cur.id) return;
+      if (Date.now() - stamp.at < minAgeMs) return;
+      // Only refresh resolvable tracks (need artist/title or YT fallback id).
+      if (!cur.artist || !cur.title) return;
+      try {
+        const fresh = await resolveAudioUrl(cur, { forceRefresh: true });
+        if (!fresh || fresh === cur.audio_url || isYouTubeFallbackUrl(fresh)) return;
+        // Hot-swap src while keeping playhead + play/pause state.
+        const t = audio.currentTime;
+        const wasPlaying = !audio.paused;
+        const refreshed = { ...cur, audio_url: fresh };
+        setQueueState((q) => {
+          const next = [...q];
+          if (next[currentIndex]?.id === cur.id) next[currentIndex] = refreshed;
+          return next;
+        });
+        setCurrentSong(refreshed);
+        configureAudioElementSource(audio, buildStreamProxyUrl(fresh));
+        try { audio.currentTime = t; } catch { /* ignore */ }
+        if (wasPlaying) await audio.play().catch(() => undefined);
+        sourceResolvedAtRef.current = { songId: cur.id, at: Date.now() };
+        console.log('[player] proactively refreshed stream URL');
+      } catch { /* swallow — error handler will catch real failures */ }
+    };
+
+    const interval = window.setInterval(() => { void refreshIfStale(3 * 60 * 60 * 1000); }, 5 * 60 * 1000);
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') void refreshIfStale(15 * 60 * 1000);
+    };
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [currentSong, currentIndex, resolveAudioUrl]);
+
+
   // Crossfade implementation
   const startCrossfade = useCallback((transitionSeconds = crossfadeDuration) => {
     if (!audioRef.current || !nextAudioRef.current || isCrossfading.current) return;
