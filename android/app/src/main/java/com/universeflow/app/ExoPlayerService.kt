@@ -113,8 +113,63 @@ class ExoPlayerService : MediaSessionService() {
         this.mediaSession = sessionBuilder.build()
 
         ensureEffectsBound()
+        registerSmartPlaybackReceiver()
 
         ServiceRegistry.exoService = this
+    }
+
+    /**
+     * Pause-on-mute + resume-on-Bluetooth (Echo Music's "Smart Playback").
+     * Listens for volume changes and A2DP connect/disconnect.
+     */
+    private fun registerSmartPlaybackReceiver() {
+        val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
+        smartReceiver = object : BroadcastReceiver() {
+            override fun onReceive(ctx: Context?, intent: Intent?) {
+                val p = player ?: return
+                when (intent?.action) {
+                    "android.media.VOLUME_CHANGED_ACTION" -> {
+                        val vol = am?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
+                        if (vol == 0 && p.isPlaying) {
+                            pausedByMute = true
+                            p.pause()
+                        } else if (vol > 0 && pausedByMute && !p.isPlaying) {
+                            pausedByMute = false
+                            p.play()
+                        }
+                    }
+                    BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED -> {
+                        val state = intent.getIntExtra(BluetoothA2dp.EXTRA_STATE, -1)
+                        when (state) {
+                            BluetoothA2dp.STATE_DISCONNECTED -> {
+                                if (p.isPlaying) {
+                                    pausedByBtDisconnect = true
+                                    p.pause()
+                                }
+                            }
+                            BluetoothA2dp.STATE_CONNECTED -> {
+                                if (pausedByBtDisconnect && !p.isPlaying) {
+                                    pausedByBtDisconnect = false
+                                    p.play()
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        val filter = IntentFilter().apply {
+            addAction("android.media.VOLUME_CHANGED_ACTION")
+            addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(smartReceiver, filter, Context.RECEIVER_NOT_EXPORTED)
+            } else {
+                @Suppress("UnspecifiedRegisterReceiverFlag")
+                registerReceiver(smartReceiver, filter)
+            }
+        } catch (_: Throwable) { /* noop */ }
     }
 
     /** (Re)bind AudioEffects to the current player's session id. */
