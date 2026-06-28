@@ -33,18 +33,15 @@ class ExoPlayerPlugin : Plugin() {
 
     override fun load() {
         super.load()
-        // Eagerly start the foreground service so the MediaSession exists before
-        // the JS calls play(). Required for MediaSessionService on Android 14+.
-        val ctx = context.applicationContext
-        val intent = Intent(ctx, ExoPlayerService::class.java)
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ctx.startForegroundService(intent)
-            } else {
-                ctx.startService(intent)
-            }
-        } catch (_: Throwable) { /* will retry on play() */ }
+        // IMPORTANT: Do NOT start the MediaSessionService here.
+        // startForegroundService() requires the service to call startForeground()
+        // within 5s, but ExoPlayerService only promotes to foreground once
+        // playback actually starts. Starting it at app launch (when nothing is
+        // playing) triggers ForegroundServiceDidNotStartInTimeException and
+        // crashes the app to a black screen on launch.
+        // The service is started lazily inside play() instead.
     }
+
 
     private fun service(): ExoPlayerService? = ServiceRegistry.exoService
 
