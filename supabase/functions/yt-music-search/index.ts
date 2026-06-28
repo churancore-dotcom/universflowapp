@@ -15,7 +15,9 @@ interface SearchResult {
   cover_url?: string;
   duration?: number;
   published?: number;
+  kind?: 'song' | 'video';
 }
+
 
 async function persistSearchResults(adminClient: any, results: SearchResult[]) {
   if (!results.length) return;
