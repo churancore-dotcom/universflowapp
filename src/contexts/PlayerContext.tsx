@@ -1009,35 +1009,39 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!opts.forceRefresh && isPlayableUrl(song.audio_url) && !ytFallback) {
         return song.audio_url!;
       }
-      if (ytFallback) {
-        const videoId = getYouTubeFallbackVideoId(ytFallback);
-        if (videoId) {
-          try {
-            if (opts.forceRefresh) invalidateYouTubeStream(videoId);
-            const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh: opts.forceRefresh });
-            if (resolved?.streamUrl) return resolved.streamUrl;
-          } catch { /* keep iframe fallback */ }
-        }
-      }
-      if (song.artist && song.title) {
-        try {
-          const result = await resolveIndexedTrack(song.artist, song.title, opts);
-          if (result?.streamUrl) {
-            if (isYouTubeFallbackUrl(result.streamUrl)) {
-              return getRuntimePremium() ? null : result.streamUrl;
-            }
-            return result.streamUrl;
+
+      // Single attempt that tries extract-audio (and music-indexer) once.
+      const attempt = async (forceRefresh: boolean): Promise<string | null> => {
+        if (ytFallback) {
+          const videoId = getYouTubeFallbackVideoId(ytFallback);
+          if (videoId) {
+            try {
+              if (forceRefresh) invalidateYouTubeStream(videoId);
+              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
+              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
+                return resolved.streamUrl;
+              }
+            } catch { /* try next strategy */ }
           }
-        } catch { /* fall through to YT iframe fallback */ }
-      }
-      // Premium audio needs a real HTMLAudio/WebAudio stream. Returning the
-      // iframe marker here makes playback continue outside the graph, which is
-      // exactly why EQ stayed on "Connecting" forever. For Premium, keep
-      // resolving/retrying instead of silently switching to an effect-dead path.
-      if (getRuntimePremium()) return null;
-      // Direct stream lookup failed — fall back to the YouTube iframe marker
-      // (the player handles `yt-video:` URLs in playSongAtIndex).
-      return ytFallback;
+        }
+        if (song.artist && song.title) {
+          try {
+            const result = await resolveIndexedTrack(song.artist, song.title, { forceRefresh });
+            if (result?.streamUrl && !isYouTubeFallbackUrl(result.streamUrl)) {
+              return result.streamUrl;
+            }
+          } catch { /* fall through */ }
+        }
+        return null;
+      };
+
+      // FIX 2: try once, then ONE automatic retry with forceRefresh.
+      // Iframe fallback is removed entirely — we only ever return a real
+      // stream URL or null (caller shows "Song unavailable").
+      const first = await attempt(opts.forceRefresh === true);
+      if (first) return first;
+      const second = await attempt(true);
+      return second;
     },
     [isPlayableUrl],
   );
