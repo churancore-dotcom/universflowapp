@@ -4,7 +4,6 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.os.Build
-import android.provider.Settings
 import android.speech.RecognizerIntent
 import com.getcapacitor.ActivityResult
 import com.getcapacitor.JSObject
