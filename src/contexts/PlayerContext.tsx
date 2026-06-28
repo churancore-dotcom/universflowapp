@@ -1379,8 +1379,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const playPromise = audioRef.current.play();
     if (playPromise) {
       playPromise.catch(err => {
+        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
         console.warn('Playback failed:', err.message);
         setIsPlaying(false);
+        toast.error('This song could not start right now.');
       });
     }
     
@@ -1541,7 +1543,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // src is assigned, and must NOT cause us to auto-skip the queue.
       if (!audio.src || audio.src === window.location.href || /empty src/i.test(errorMessage)) return;
 
-      console.warn('[player] audio error, auto-skipping:', errorCode, errorMessage);
+      console.warn('[player] audio error:', errorCode, errorMessage);
       recordPerfEvent({
         event_type: 'playback_error',
         severity: 'error',
@@ -1584,21 +1586,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             return;
           }
         } catch { /* fall through to skip */ }
-      }
-
-      if (queue.length === 0) {
-        setIsPlaying(false);
-        return;
-      }
-
-      let nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
-      if (nextIdx === null && repeat === 'all') nextIdx = 0;
-      if (nextIdx === null && queue.length > 1) nextIdx = (currentIndex + 1) % queue.length;
-
-      if (errorBelongsToActiveSong && nextIdx !== null && queue[nextIdx]) {
-        toast.info('Skipping unavailable stream…');
-        playSongAtIndex(nextIdx, queue);
-        return;
       }
 
       if (errorBelongsToActiveSong) {
@@ -1859,15 +1846,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (playPromise) {
       playPromise.catch(err => {
         console.warn('Playback failed:', err?.message);
-        const activeQueue = normalizedQueue && normalizedQueue.length > 1 ? normalizedQueue : queueRef.current;
-        const songIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
-        if (mySeq === playRequestSeqRef.current && activeQueue.length > 1 && songIndex >= 0) {
-          const fallbackIdx = getNextIndex(songIndex, activeQueue.length, shuffle, repeat) ?? ((songIndex + 1) % activeQueue.length);
-          playSongAtIndex(fallbackIdx, activeQueue);
-          return;
+        if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity) {
+          setIsPlaying(false);
+          toast.error('This song could not start right now.');
         }
-        setIsPlaying(false);
-        toast.error('This song could not start — trying another source helps while the stream refreshes.');
       });
     }
 
