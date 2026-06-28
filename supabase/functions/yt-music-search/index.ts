@@ -15,7 +15,9 @@ interface SearchResult {
   cover_url?: string;
   duration?: number;
   published?: number;
+  kind?: 'song' | 'video';
 }
+
 
 async function persistSearchResults(adminClient: any, results: SearchResult[]) {
   if (!results.length) return;
@@ -484,7 +486,7 @@ serve(async (req) => {
       ytMusicSearch(cleanQuery, PARAMS_ALL, target).catch(() => []),
     ]);
 
-    const merged: Array<SearchResult & { _score?: number }> = [];
+    const merged: Array<SearchResult & { _score?: number; _kind: 'song' | 'video' }> = [];
     const seen = new Set<string>();
     for (const [pass, list] of [['songs', songs], ['videos', videos], ['videos', all]] as const) {
       for (let i = 0; i < list.length; i++) {
@@ -493,14 +495,20 @@ serve(async (req) => {
         const score = relevanceScore(r, cleanQuery, i, pass);
         if (score < 0) continue;
         seen.add(r.videoId);
-        merged.push({ ...r, _score: score });
+        merged.push({ ...r, _score: score, _kind: pass === 'songs' ? 'song' : 'video', kind: pass === 'songs' ? 'song' : 'video' });
       }
     }
 
+    // Keep REAL songs (from YT Music SONGS shelf) strictly above generic videos,
+    // then sort each bucket by relevance score.
     let results = merged
-      .sort((a, b) => (b._score || 0) - (a._score || 0))
+      .sort((a, b) => {
+        if (a._kind !== b._kind) return a._kind === 'song' ? -1 : 1;
+        return (b._score || 0) - (a._score || 0);
+      })
       .slice(0, limit)
-      .map(({ _score, ...r }) => r);
+      .map(({ _score, _kind, ...r }) => r);
+
     let source = 'youtube-music-innertube';
 
     // FALLBACK: official Data API only if Innertube returns nothing.

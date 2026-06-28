@@ -344,8 +344,15 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
   tagSets.forEach((set, setIndex) => set.forEach((track, index) => add(track, 220 + setIndex * 40, index, 1)));
 
   return Array.from(rows.values())
-    .sort((a, b) => b.score - a.score || b.sourcePriority - a.sourcePriority || a.firstSeen - b.firstSeen || a.track.title.localeCompare(b.track.title) || a.track.artist.localeCompare(b.track.artist))
+    .sort((a, b) => {
+      // Real songs (YT Music SONGS shelf) strictly above music videos.
+      const aSong = a.track.kind === 'song' ? 1 : 0;
+      const bSong = b.track.kind === 'song' ? 1 : 0;
+      if (aSong !== bSong) return bSong - aSong;
+      return b.score - a.score || b.sourcePriority - a.sourcePriority || a.firstSeen - b.firstSeen || a.track.title.localeCompare(b.track.title) || a.track.artist.localeCompare(b.track.artist);
+    })
     .map(({ track }) => track);
+
 }
 
 const Search = () => {
