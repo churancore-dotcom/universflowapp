@@ -30,27 +30,9 @@ function detectFallbackCountry(): string {
   }
 }
 
-/** Fetch Deezer top chart (global). Returns lightweight tracks needing stream resolution. */
-async function getDeezerChart(limit = 30): Promise<IndexedTrack[]> {
-  try {
-    const res = await fetch(`https://api.deezer.com/chart/0/tracks?limit=${limit}`, {
-      headers: { Accept: 'application/json' },
-    });
-    if (!res.ok) return [];
-    const data = await res.json();
-    type DeezerTrack = { id: number | string; title?: string; title_short?: string; artist?: { name?: string }; album?: { cover_big?: string; cover_medium?: string }; duration?: number };
-    const items: DeezerTrack[] = Array.isArray(data?.data) ? data.data : [];
-    return items.map((t) => ({
-      id: `deezer-${t.id}`,
-      title: t.title_short || t.title || 'Unknown',
-      artist: t?.artist?.name || 'Unknown',
-      cover_url: t?.album?.cover_big || t?.album?.cover_medium || undefined,
-      duration: t?.duration || undefined,
-    })) as IndexedTrack[];
-  } catch {
-    return [];
-  }
-}
+// Deezer's public API does not send CORS headers, so calling it from the
+// browser is blocked and pollutes the console. Trending uses Last.fm only.
+
 
 const CountryViralSection = memo(function CountryViralSection() {
   const { user } = useAuth();
@@ -89,18 +71,10 @@ const CountryViralSection = memo(function CountryViralSection() {
       const TARGET = 24;
       const name = COUNTRY_NAMES[country!] || COUNTRY_NAMES.IN;
 
-      // ONLY real charts — Last.fm geo top + Deezer global chart.
-      // No keyword YouTube/JioSaavn searches: those returned random/unpopular results.
-      const [geoRes, deezerRes] = await Promise.allSettled([
-        getGeoTopTracks(name, TARGET * 2),
-        getDeezerChart(TARGET),
-      ]);
+      // Last.fm geo top tracks only — Deezer's public API has no CORS so it
+      // was removed from the browser. Server-side aggregation still uses it.
+      const geo = await getGeoTopTracks(name, TARGET * 2).catch(() => [] as IndexedTrack[]);
 
-      const geo = geoRes.status === 'fulfilled' ? geoRes.value : [];
-      const deezer = deezerRes.status === 'fulfilled' ? deezerRes.value : [];
-
-      // Quality gate: Last.fm tracks must have meaningful listenership.
-      // Deezer chart is curated by Deezer so it's trusted as-is.
       const MIN_LISTENERS = 25_000;
       const geoFiltered = geo.filter((t) => !t.listeners || t.listeners >= MIN_LISTENERS);
 
@@ -114,10 +88,8 @@ const CountryViralSection = memo(function CountryViralSection() {
         seenKeys.add(key);
         merged.push(track);
       };
-      const max = Math.max(geoFiltered.length, deezer.length);
-      for (let i = 0; i < max && merged.length < TARGET; i++) {
+      for (let i = 0; i < geoFiltered.length && merged.length < TARGET; i++) {
         add(geoFiltered[i]);
-        add(deezer[i]);
       }
 
       return merged.slice(0, TARGET);
