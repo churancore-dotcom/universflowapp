@@ -105,12 +105,13 @@ const MoodGenreRail = () => {
       // Resolve the first one immediately so playback starts fast; queue the rest.
       const first = songs[0];
       try {
-        const resolved = await resolveAudioUrl(first);
+        const resolved = await resolveIndexedTrack(first.artist, first.title);
         if (resolved?.audio_url) first.audio_url = resolved.audio_url;
       } catch { /* fallthrough; PlayerContext will resolve on play */ }
 
-      setQueue(songs, 0);
+      setQueue(songs);
       await playSong(first);
+
     } catch (e) {
       console.warn('open mood failed', e);
       toast({ title: 'Mood unavailable', description: 'Try another one.', variant: 'destructive' });
