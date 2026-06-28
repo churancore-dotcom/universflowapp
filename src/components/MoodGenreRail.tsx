@@ -75,7 +75,7 @@ const MoodGenreRail = () => {
   const openMood = async (m: MoodPlaylist) => {
     if (openingId) return;
     setOpeningId(m.browseId);
-    triggerHaptic('light');
+    triggerHaptic('impactLight');
     try {
       // For a mood category, ytm-moods returns playlist shelves. We grab the
       // first playlist and play its tracks.
