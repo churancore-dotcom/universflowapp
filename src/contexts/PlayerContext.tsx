@@ -2376,12 +2376,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let sentinel: WakeLockSentinel | null = null;
     let cancelled = false;
     const acquire = async () => {
+      if (cancelled || sentinel) return;
       try {
-        sentinel = await navigator.wakeLock.request('screen');
-        if (cancelled) {
-          sentinel?.release().catch(() => {});
+        const s = await navigator.wakeLock.request('screen');
+        sentinel = s;
+        if (cancelled) { s.release().catch(() => {}); sentinel = null; return; }
+        // Auto re-request when the system releases (screen off, tab hidden).
+        s.addEventListener('release', () => {
           sentinel = null;
-        }
+          if (!cancelled && document.visibilityState === 'visible') acquire();
+        });
       } catch { /* ignore — user gesture or unsupported */ }
     };
     acquire();
@@ -2394,6 +2398,29 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       document.removeEventListener('visibilitychange', onVis);
       sentinel?.release().catch(() => {});
       sentinel = null;
+    };
+  }, [isPlaying]);
+
+  // Silent audio loop — keeps the iOS/Android audio session alive during
+  // network buffering or stream hot-swaps so the OS doesn't tear it down.
+  // Mirrors the trick YouTube/Spotify PWAs use on iOS.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    // 0.1s WAV of pure silence (8kHz mono).
+    const silentSrc =
+      'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
+    const el = new Audio(silentSrc);
+    el.loop = true;
+    el.volume = 0;
+    el.preload = 'auto';
+    (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
+    el.setAttribute('playsinline', '');
+    if (isPlaying) {
+      el.play().catch(() => {});
+    }
+    return () => {
+      try { el.pause(); } catch { /* ignore */ }
+      el.src = '';
     };
   }, [isPlaying]);
 
