@@ -229,11 +229,13 @@ jobs:
           add_perm "FOREGROUND_SERVICE"
           add_perm "FOREGROUND_SERVICE_MEDIA_PLAYBACK"
           add_perm "WAKE_LOCK"
+          add_perm "ACCESS_WIFI_STATE"
+          add_perm "CHANGE_WIFI_STATE"
           add_perm "MEDIA_CONTENT_CONTROL"
 
           # Register the foreground service before </application>
           if ! grep -q "MediaNotificationService" "$MANIFEST"; then
-            sed -i 's|</application>|    <service android:name=".media.MediaNotificationService" android:exported="false" android:foregroundServiceType="mediaPlayback" />\n        <receiver android:name="androidx.media.session.MediaButtonReceiver" android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.MEDIA_BUTTON" />\n            </intent-filter>\n        </receiver>\n    </application>|' "$MANIFEST"
+            sed -i 's|</application>|    <service android:name=".media.MediaNotificationService" android:exported="false" android:foregroundServiceType="mediaPlayback" android:stopWithTask="false" />\n        <receiver android:name="androidx.media.session.MediaButtonReceiver" android:exported="true">\n            <intent-filter>\n                <action android:name="android.intent.action.MEDIA_BUTTON" />\n            </intent-filter>\n        </receiver>\n    </application>|' "$MANIFEST"
           fi
 
           # Add androidx.media dependency to app build.gradle

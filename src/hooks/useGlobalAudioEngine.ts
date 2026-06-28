@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
-import { connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, resume, subscribe } from '@/lib/audioEngine';
-import { getEQSettings } from '@/lib/eqSettings';
+import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, resume, subscribe } from '@/lib/audioEngine';
+import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
 
 const RETRY_DELAYS_MS = [0, 50, 140, 320, 700];
@@ -48,10 +48,23 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // Always honor playback rate — native <audio> property, no graph needed.
       audioElement.playbackRate = s.playbackSpeed;
 
-      // ALWAYS attach the WebAudio graph (transparent when sliders are flat).
-      // Audio is already piped through the CORS-clean stream-proxy + crossOrigin
-      // anonymous, so the source is never tainted. This lets EQ apply INSTANTLY
-      // on every song with zero reload — Premium just unlocks the UI knobs.
+      const needsWebAudio = isPremium && hasWebAudioEffects(s);
+
+      // Background playback wins over an always-on transparent graph. Android
+      // WebView commonly suspends AudioContext after lock/background, so keep
+      // flat/default playback on the native <audio> path and only attach the
+      // WebAudio chain when the user actually enables EQ/effects.
+      if (!needsWebAudio) {
+        if (isAttached) bypassAudioElement(audioElement);
+        setBands([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 0);
+        setReverb(0);
+        engineSetStudioSpace('off');
+        setSpatial(false);
+        setLateNight(false);
+        setHeadphoneSurround(false);
+        return;
+      }
+
       const ok = connectAudioElement(audioElement);
       if (ok) isAttached = true;
 

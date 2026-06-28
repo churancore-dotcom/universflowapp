@@ -15,6 +15,7 @@ import android.media.AudioAttributes;
 import android.media.AudioFocusRequest;
 import android.media.AudioManager;
 import android.graphics.BitmapFactory;
+import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Handler;
 import android.os.IBinder;
@@ -26,6 +27,7 @@ import android.support.v4.media.session.PlaybackStateCompat;
 
 import androidx.core.app.NotificationCompat;
 import androidx.media.app.NotificationCompat.MediaStyle;
+import androidx.media.session.MediaButtonReceiver;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -61,6 +63,7 @@ public class MediaNotificationService extends Service {
     private Bitmap currentArt = null;
     private String loadedArtUrl = null;
     private PowerManager.WakeLock wakeLock = null;
+    private WifiManager.WifiLock wifiLock = null;
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -130,11 +133,42 @@ public class MediaNotificationService extends Service {
         } catch (Exception ignore) {}
     }
 
+    private void acquireWifiLockIfNeeded() {
+        if (wifiLock != null && wifiLock.isHeld()) return;
+        try {
+            WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+            if (wm == null) return;
+            int mode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                ? WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                : WifiManager.WIFI_MODE_FULL;
+            wifiLock = wm.createWifiLock(mode, "UniversFlow:MediaWifi");
+            wifiLock.setReferenceCounted(false);
+            wifiLock.acquire();
+        } catch (Exception ignore) {}
+    }
+
+    private void acquirePlaybackLocks() {
+        acquireWakeLockIfNeeded();
+        acquireWifiLockIfNeeded();
+    }
+
     private void releaseWakeLock() {
         try {
             if (wakeLock != null && wakeLock.isHeld()) wakeLock.release();
         } catch (Exception ignore) {}
         wakeLock = null;
+    }
+
+    private void releaseWifiLock() {
+        try {
+            if (wifiLock != null && wifiLock.isHeld()) wifiLock.release();
+        } catch (Exception ignore) {}
+        wifiLock = null;
+    }
+
+    private void releasePlaybackLocks() {
+        releaseWakeLock();
+        releaseWifiLock();
     }
 
     @Override
@@ -159,9 +193,17 @@ public class MediaNotificationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || intent.getAction() == null) {
-            return START_NOT_STICKY;
+            restoreCachedState();
+            if (isPlaying) { acquirePlaybackLocks(); registerNoisyReceiver(); }
+            refresh(false);
+            return START_STICKY;
         }
         String action = intent.getAction();
+
+        if (Intent.ACTION_MEDIA_BUTTON.equals(action)) {
+            MediaButtonReceiver.handleIntent(session, intent);
+            return START_STICKY;
+        }
 
         switch (action) {
             case ACTION_UPDATE: {
@@ -171,15 +213,15 @@ public class MediaNotificationService extends Service {
                 coverUrl = safe(intent.getStringExtra("cover"));
                 durationMs = intent.getLongExtra("duration", 0L);
                 isPlaying = intent.getBooleanExtra("isPlaying", false);
-                if (isPlaying) { acquireWakeLockIfNeeded(); requestAudioFocus(); registerNoisyReceiver(); }
-                else { releaseWakeLock(); }
+                if (isPlaying) { acquirePlaybackLocks(); requestAudioFocus(); registerNoisyReceiver(); }
+                else { releasePlaybackLocks(); unregisterNoisyReceiver(); }
                 refresh(true);
                 break;
             }
             case ACTION_STATE: {
                 isPlaying = intent.getBooleanExtra("isPlaying", isPlaying);
-                if (isPlaying) { acquireWakeLockIfNeeded(); requestAudioFocus(); registerNoisyReceiver(); }
-                else { releaseWakeLock(); }
+                if (isPlaying) { acquirePlaybackLocks(); requestAudioFocus(); registerNoisyReceiver(); }
+                else { releasePlaybackLocks(); unregisterNoisyReceiver(); }
                 if (intent.hasExtra("position")) {
                     positionMs = intent.getLongExtra("position", 0L);
                 }
@@ -337,6 +379,13 @@ public class MediaNotificationService extends Service {
             editor.putString("current_title", title.isEmpty() ? "Not Playing" : title);
             editor.putString("current_artist", artist.isEmpty() ? "Tap to open UniversFlow" : artist);
             editor.putBoolean("is_playing", isPlaying);
+            editor.putString("service_title", title);
+            editor.putString("service_artist", artist);
+            editor.putString("service_album", album);
+            editor.putString("service_cover", coverUrl);
+            editor.putLong("service_duration_ms", durationMs);
+            editor.putLong("service_position_ms", positionMs);
+            editor.putBoolean("service_is_playing", isPlaying);
             int progress = durationMs > 0 ? (int) ((positionMs * 100L) / durationMs) : 0;
             editor.putInt("progress", Math.max(0, Math.min(100, progress)));
             editor.apply();
@@ -354,6 +403,20 @@ public class MediaNotificationService extends Service {
                     sendBroadcast(updateIntent);
                 }
             } catch (ClassNotFoundException ignore) {}
+        } catch (Exception ignore) {}
+    }
+
+    private void restoreCachedState() {
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences(
+                "UniversFlowWidgetPrefs", Context.MODE_PRIVATE);
+            title = prefs.getString("service_title", title);
+            artist = prefs.getString("service_artist", artist);
+            album = prefs.getString("service_album", album);
+            coverUrl = prefs.getString("service_cover", coverUrl);
+            durationMs = prefs.getLong("service_duration_ms", durationMs);
+            positionMs = prefs.getLong("service_position_ms", positionMs);
+            isPlaying = prefs.getBoolean("service_is_playing", isPlaying);
         } catch (Exception ignore) {}
     }
 
@@ -462,7 +525,7 @@ public class MediaNotificationService extends Service {
     public void onDestroy() {
         unregisterNoisyReceiver();
         abandonAudioFocus();
-        releaseWakeLock();
+        releasePlaybackLocks();
         stopForegroundCompat();
         super.onDestroy();
     }

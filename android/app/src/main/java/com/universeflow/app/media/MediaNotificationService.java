@@ -27,6 +27,7 @@ import android.support.v4.media.session.PlaybackStateCompat;
 
 import androidx.core.app.NotificationCompat;
 import androidx.media.app.NotificationCompat.MediaStyle;
+import androidx.media.session.MediaButtonReceiver;
 
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -137,9 +138,10 @@ public class MediaNotificationService extends Service {
         try {
             WifiManager wm = (WifiManager) getApplicationContext().getSystemService(Context.WIFI_SERVICE);
             if (wm == null) return;
-            // Battery: WIFI_MODE_FULL is plenty for audio streaming. HIGH_PERF
-            // disables Wi-Fi power-save and burns ~4%/hr extra over long sessions.
-            wifiLock = wm.createWifiLock(WifiManager.WIFI_MODE_FULL, "UniversFlow:MediaWifi");
+            int mode = Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q
+                ? WifiManager.WIFI_MODE_FULL_HIGH_PERF
+                : WifiManager.WIFI_MODE_FULL;
+            wifiLock = wm.createWifiLock(mode, "UniversFlow:MediaWifi");
             wifiLock.setReferenceCounted(false);
             wifiLock.acquire();
         } catch (Exception ignore) {}
@@ -191,9 +193,17 @@ public class MediaNotificationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || intent.getAction() == null) {
+            restoreCachedState();
+            if (isPlaying) { acquirePlaybackLocks(); registerNoisyReceiver(); }
+            refresh(false);
             return START_STICKY;
         }
         String action = intent.getAction();
+
+        if (Intent.ACTION_MEDIA_BUTTON.equals(action)) {
+            MediaButtonReceiver.handleIntent(session, intent);
+            return START_STICKY;
+        }
 
         switch (action) {
             case ACTION_UPDATE: {
@@ -369,6 +379,13 @@ public class MediaNotificationService extends Service {
             editor.putString("current_title", title.isEmpty() ? "Not Playing" : title);
             editor.putString("current_artist", artist.isEmpty() ? "Tap to open UniversFlow" : artist);
             editor.putBoolean("is_playing", isPlaying);
+            editor.putString("service_title", title);
+            editor.putString("service_artist", artist);
+            editor.putString("service_album", album);
+            editor.putString("service_cover", coverUrl);
+            editor.putLong("service_duration_ms", durationMs);
+            editor.putLong("service_position_ms", positionMs);
+            editor.putBoolean("service_is_playing", isPlaying);
             int progress = durationMs > 0 ? (int) ((positionMs * 100L) / durationMs) : 0;
             editor.putInt("progress", Math.max(0, Math.min(100, progress)));
             editor.apply();
@@ -386,6 +403,20 @@ public class MediaNotificationService extends Service {
                     sendBroadcast(updateIntent);
                 }
             } catch (ClassNotFoundException ignore) {}
+        } catch (Exception ignore) {}
+    }
+
+    private void restoreCachedState() {
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences(
+                "UniversFlowWidgetPrefs", Context.MODE_PRIVATE);
+            title = prefs.getString("service_title", title);
+            artist = prefs.getString("service_artist", artist);
+            album = prefs.getString("service_album", album);
+            coverUrl = prefs.getString("service_cover", coverUrl);
+            durationMs = prefs.getLong("service_duration_ms", durationMs);
+            positionMs = prefs.getLong("service_position_ms", positionMs);
+            isPlaying = prefs.getBoolean("service_is_playing", isPlaying);
         } catch (Exception ignore) {}
     }
 
