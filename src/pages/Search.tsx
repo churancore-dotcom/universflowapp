@@ -18,7 +18,7 @@ import VirtualList from '@/components/VirtualList';
 
 import { useYtmSuggestions } from '@/hooks/useYtmSuggestions';
 import { supabase } from '@/integrations/supabase/client';
-import { prefetchIndexedTrack, searchYouTubeMusicTracks, searchArtistDirectory, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
+import { prefetchIndexedTrack, prefetchYouTubeVideoStream, searchYouTubeMusicTracks, searchArtistDirectory, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
 // FollowedArtistsRail removed from Search per product decision
 import { clearCache, getCached, setCached } from '@/lib/searchCache';
 import {
@@ -477,7 +477,8 @@ const Search = () => {
 
   useEffect(() => {
     indexedResults.slice(0, 6).forEach((track) => {
-      prefetchIndexedTrack(track.artist, track.title);
+      if (track.videoId) prefetchYouTubeVideoStream(track.videoId);
+      else prefetchIndexedTrack(track.artist, track.title);
     });
   }, [indexedResults]);
 
