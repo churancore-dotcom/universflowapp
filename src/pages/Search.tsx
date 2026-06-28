@@ -771,8 +771,6 @@ const Search = () => {
                   </div>
                 )}
 
-                {/* Moods & Genres — only when not searching */}
-                <MoodGenreRail />
 
               </motion.div>
             )}
