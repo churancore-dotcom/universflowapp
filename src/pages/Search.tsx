@@ -560,13 +560,14 @@ const Search = () => {
   }, [voiceListening]);
 
   const handlePlayIndexed = useCallback((track: IndexedTrack) => {
+    const trackAudioUrl = track.audio_url || (track.videoId ? `yt-video:${track.videoId}` : 'resolving');
     const song: Song = {
       id: track.id,
       title: track.title,
       artist: track.artist,
       album: track.album,
       cover_url: track.cover_url,
-      audio_url: track.audio_url || 'resolving',
+      audio_url: trackAudioUrl,
       duration: track.duration,
       source: 'indexed',
     };
@@ -576,7 +577,7 @@ const Search = () => {
       artist: item.artist,
       album: item.album,
       cover_url: item.cover_url,
-      audio_url: item.audio_url || 'resolving',
+      audio_url: item.audio_url || (item.videoId ? `yt-video:${item.videoId}` : 'resolving'),
       duration: item.duration,
       source: 'indexed' as const,
     })));
