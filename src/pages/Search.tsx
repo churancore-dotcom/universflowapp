@@ -1,7 +1,8 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2, Mic } from 'lucide-react';
+import { toast } from 'sonner';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import BottomNav from '@/components/BottomNav';
@@ -11,7 +12,6 @@ import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
 import SEOHead from '@/components/SEOHead';
 import RoseHero from '@/components/RoseHero';
-import RecognizeSongButton from '@/components/RecognizeSongButton';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
 import VirtualList from '@/components/VirtualList';
@@ -369,6 +369,7 @@ const Search = () => {
   const [hiddenResults, setHiddenResults] = useState<HiddenSearchEntry[]>(() => loadHiddenResults());
   const [visibleCount, setVisibleCount] = useState(40);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [voiceListening, setVoiceListening] = useState(false);
   // Live autocomplete from YT Music Innertube. Suppressed once the user has
   // actually triggered a search (we don't want it covering results).
   const [suggestActive, setSuggestActive] = useState(true);
@@ -536,6 +537,27 @@ const Search = () => {
     setIndexedResults((results) => results.filter((item) => !isHiddenTrack(item, nextHidden)));
   }, []);
 
+  const handleVoiceSearch = useCallback(async () => {
+    if (voiceListening) return;
+    setVoiceListening(true);
+    try {
+      const { listenForSongName } = await import('@/lib/voiceSearch');
+      const spoken = await listenForSongName();
+      if (!spoken) {
+        toast.error('I could not hear a song name. Try again.');
+        return;
+      }
+      setQuery(spoken);
+      setSource('songs');
+      setSuggestActive(false);
+      toast.success(`Searching “${spoken}”`);
+    } catch (err) {
+      toast.error((err as Error).message || 'Voice search failed');
+    } finally {
+      setVoiceListening(false);
+    }
+  }, [voiceListening]);
+
   const handlePlayIndexed = useCallback((track: IndexedTrack) => {
     const song: Song = {
       id: track.id,
@@ -648,7 +670,22 @@ const Search = () => {
                 )}
               </AnimatePresence>
             </div>
-            <RecognizeSongButton />
+            <motion.button
+              type="button"
+              onClick={handleVoiceSearch}
+              disabled={voiceListening}
+              whileTap={{ scale: 0.94 }}
+              className="h-12 w-12 rounded-2xl flex items-center justify-center flex-shrink-0 border transition-all disabled:opacity-70"
+              style={{
+                background: voiceListening ? 'linear-gradient(135deg, hsl(var(--primary)), hsl(18 100% 82%))' : 'hsl(var(--card))',
+                borderColor: voiceListening ? 'hsl(var(--primary) / 0.35)' : 'rgba(255,255,255,0.08)',
+                boxShadow: voiceListening ? '0 0 24px hsl(var(--primary) / 0.28)' : undefined,
+              }}
+              aria-label="Speak song name to search"
+              title="Speak song name"
+            >
+              {voiceListening ? <Loader2 className="w-5 h-5 animate-spin" /> : <Mic className="w-5 h-5 text-primary" />}
+            </motion.button>
 
           </div>
 
