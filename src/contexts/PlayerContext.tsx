@@ -1545,21 +1545,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         try {
           const seqAtRecoveryStart = playRequestSeqRef.current;
           const fresh = await resolveAudioUrl(cur, { forceRefresh: true });
-            if (seqAtRecoveryStart !== playRequestSeqRef.current || activeSongIdentityRef.current !== activeIdentity) return;
-            if (fresh && fresh !== cur.audio_url && !isYouTubeFallbackUrl(fresh)) {
-              const refreshed = { ...cur, audio_url: fresh };
-              const newQueue = [...queue];
-              newQueue[currentIndex] = refreshed;
-              setQueueState(newQueue);
-              setCurrentSong(refreshed);
-              const videoId = getYouTubeFallbackVideoId(fresh);
-              if (videoId) {
-                await playYouTubeFallback(videoId, () => {
-                  try { audioRef.current?.dispatchEvent(new Event('ended')); } catch { /* ignore */ }
-                }, seqAtRecoveryStart, activeIdentity ?? undefined);
-                return;
-              }
-            }
+          if (seqAtRecoveryStart !== playRequestSeqRef.current || activeSongIdentityRef.current !== activeIdentity) return;
+          if (fresh && fresh !== cur.audio_url && !isYouTubeFallbackUrl(fresh)) {
+            const refreshed = { ...cur, audio_url: fresh };
+            const newQueue = [...queue];
+            newQueue[currentIndex] = refreshed;
+            setQueueState(newQueue);
+            setCurrentSong(refreshed);
             configureAudioElementSource(audio, buildStreamProxyUrl(fresh));
             audio.load();
             await audio.play().catch(() => { /* will fall through to skip below on next error */ });
