@@ -11,6 +11,8 @@ import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
+import { attachNativeMirror, setNativeMirrorVolume, stopNativeMirror, disposeNativeMirror } from '@/lib/nativeMirror';
+import { isNativePlayerAvailable } from '@/lib/nativePlayer';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -419,6 +421,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const autoMixSeenRef = useRef<Set<string>>(new Set());
   const pendingNativeRestoreRef = useRef<SavedPlayerState | null>(null);
   const nativeRestoreAttemptedRef = useRef(false);
+  const currentSongRef = useRef<Song | null>(null);
+  useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
+
 
   useEffect(() => {
     queueRef.current = queue;
@@ -530,6 +535,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     audioRef.current = audio;
     setAudioElement(audio);
+
+    // Android: mirror the HTMLAudioElement to ExoPlayer (MediaSessionService).
+    // ExoPlayer is the only audible source on native; the HTML element stays
+    // muted so existing EQ/lyrics/progress code keeps working unchanged.
+    if (isNativePlayerAvailable()) {
+      attachNativeMirror(audio, {
+        getSong: () => currentSongRef.current as never,
+        onUnrecoverableError: () => {
+          // Surface skip to existing error path via a synthetic error event.
+          try { audio.dispatchEvent(new Event('error')); } catch { /* ignore */ }
+        },
+      });
+      setNativeMirrorVolume(volume);
+    }
 
     // Create second audio for crossfade
     const nextAudio = new Audio();
@@ -2287,6 +2306,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => {
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.setVolume?.(Math.round(volume * 100)); } catch { /* ignore */ }
+    }
+    if (isNativePlayerAvailable()) {
+      setNativeMirrorVolume(volume);
     }
   }, [volume]);
 
