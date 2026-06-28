@@ -103,12 +103,12 @@ jobs:
           if ! grep -q "KotlinCompile" "$APP_GRADLE"; then
             cat >> "$APP_GRADLE" <<'EOF'
 
-tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-}
-EOF
+          tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
+              kotlinOptions {
+                  jvmTarget = "17"
+              }
+          }
+          EOF
           fi
 
           # 3) Apply google-services plugin only if app build.gradle doesn't already
