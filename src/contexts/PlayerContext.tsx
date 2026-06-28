@@ -1753,42 +1753,37 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // ── YouTube IFrame fallback path ──
     if (!offlineUrl && isYouTubeFallbackUrl(playbackSource)) {
-      const videoId = getYouTubeFallbackVideoId(playbackSource);
-      if (videoId) {
-        await playYouTubeFallback(videoId, () => {
-          try { audioRef.current?.dispatchEvent(new Event('ended')); } catch { /* ignore */ }
-        }, mySeq, intendedIdentity);
-      } else {
+      // FIX 2: iframe fallback removed — show "Song unavailable" instead of
+      // dropping into a path that bypasses WebAudio / EQ.
+      setIsPlaying(false);
+      toast.error('Song unavailable');
+      return;
+    }
+
+    teardownYouTubePlayback();
+
+    // Set audio source - use offline URL if available
+    const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
+    configureAudioElementSource(audioRef.current, playbackUrl);
+    audioRef.current.volume = volume;
+    audioRef.current.currentTime = 0;
+
+    // Load and play immediately
+    audioRef.current.load();
+    const playPromise = audioRef.current.play();
+    if (playPromise) {
+      playPromise.catch(err => {
+        console.warn('Playback failed:', err?.message);
+        const activeQueue = normalizedQueue && normalizedQueue.length > 1 ? normalizedQueue : queueRef.current;
+        const songIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
+        if (mySeq === playRequestSeqRef.current && activeQueue.length > 1 && songIndex >= 0) {
+          const fallbackIdx = getNextIndex(songIndex, activeQueue.length, shuffle, repeat) ?? ((songIndex + 1) % activeQueue.length);
+          playSongAtIndex(fallbackIdx, activeQueue);
+          return;
+        }
         setIsPlaying(false);
-        toast.error('This song could not start right now.');
-      }
-    } else {
-      teardownYouTubePlayback();
-
-      // Set audio source - use offline URL if available
-      const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
-      configureAudioElementSource(audioRef.current, playbackUrl);
-      audioRef.current.volume = volume;
-      audioRef.current.currentTime = 0;
-
-
-      // Load and play immediately
-      audioRef.current.load();
-      const playPromise = audioRef.current.play();
-      if (playPromise) {
-        playPromise.catch(err => {
-          console.warn('Playback failed:', err?.message);
-          const activeQueue = normalizedQueue && normalizedQueue.length > 1 ? normalizedQueue : queueRef.current;
-          const songIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
-          if (mySeq === playRequestSeqRef.current && activeQueue.length > 1 && songIndex >= 0) {
-            const fallbackIdx = getNextIndex(songIndex, activeQueue.length, shuffle, repeat) ?? ((songIndex + 1) % activeQueue.length);
-            playSongAtIndex(fallbackIdx, activeQueue);
-            return;
-          }
-          setIsPlaying(false);
-          toast.error('This song could not start — trying another source helps while the stream refreshes.');
-        });
-      }
+        toast.error('This song could not start — trying another source helps while the stream refreshes.');
+      });
     }
 
     // If a queue is provided, use it
