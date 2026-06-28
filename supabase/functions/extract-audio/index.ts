@@ -89,26 +89,33 @@ interface ExtractionResult {
 // Failures here are silently swallowed and we fall back to Invidious/Piped.
 const INNERTUBE_PLAYER_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
 
-// ANDROID_TESTSUITE returns un-ciphered URLs.  Keys/versions are widely
-// published (they ship in every Android APK) — these are NOT secrets.
-const ANDROID_CONTEXT = {
+// ANDROID_VR is what NewPipe / yt-dlp use right now — its responses still
+// contain pre-signed audio URLs that bypass the player.js cipher entirely.
+const ANDROID_VR_CONTEXT = {
   client: {
-    clientName: 'ANDROID_TESTSUITE',
-    clientVersion: '1.9',
-    androidSdkVersion: 30,
+    clientName: 'ANDROID_VR',
+    clientVersion: '1.60.19',
+    deviceMake: 'Oculus',
+    deviceModel: 'Quest 3',
+    androidSdkVersion: 32,
+    osName: 'Android',
+    osVersion: '12L',
     hl: 'en',
     gl: 'US',
-    userAgent: 'com.google.android.youtube/1.9 (Linux; U; Android 11) gzip',
+    userAgent: 'com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12L; GB) gzip',
   },
 };
 const IOS_CONTEXT = {
   client: {
     clientName: 'IOS',
-    clientVersion: '19.45.4',
+    clientVersion: '20.10.4',
+    deviceMake: 'Apple',
     deviceModel: 'iPhone16,2',
+    osName: 'iPhone',
+    osVersion: '18.3.2.22D82',
     hl: 'en',
     gl: 'US',
-    userAgent: 'com.google.ios.youtube/19.45.4 (iPhone16,2; U; CPU iOS 18_1_0 like Mac OS X)',
+    userAgent: 'com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X)',
   },
 };
 
