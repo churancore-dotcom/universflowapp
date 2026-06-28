@@ -2017,12 +2017,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!audioRef.current) return;
     if (audioRef.current.paused) {
       setIsPlaying(true); // optimistic — listener will revert if play() rejects
+      wasPlayingRef.current = true;
       audioRef.current.play().catch(err => {
+        wasPlayingRef.current = false;
         setIsPlaying(false);
         console.warn('Play failed:', err?.message);
       });
     } else {
       setIsPlaying(false);
+      wasPlayingRef.current = false;
       markIntentionalPause();
       audioRef.current.pause();
     }
@@ -2030,6 +2033,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const pause = useCallback(() => {
     setIsPlaying(false);
+    wasPlayingRef.current = false;
     markIntentionalPause();
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.pauseVideo(); } catch { /* ignore */ }
@@ -2043,12 +2047,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const play = useCallback(() => {
     if (!currentSong) return;
     setIsPlaying(true); // optimistic
+    wasPlayingRef.current = true;
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.playVideo(); } catch { /* ignore */ }
       return;
     }
     if (audioRef.current) {
       audioRef.current.play().catch((err) => {
+        wasPlayingRef.current = false;
         setIsPlaying(false);
         console.warn('Play failed:', err?.message);
       });
@@ -2063,6 +2069,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     isCrossfading.current = false;
 
     teardownYouTubePlayback();
+    wasPlayingRef.current = false;
 
     if (audioRef.current) {
       markIntentionalPause();
