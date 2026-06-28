@@ -2,8 +2,20 @@ import { useEffect, useState } from 'react';
 import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, resume, subscribe } from '@/lib/audioEngine';
 import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
+import {
+  isNativePlayerAvailable,
+  pushNativeEQFromWebBands,
+  setNativeBassBoost,
+  setNativeEQEnabled,
+  setNativeLoudnessEnhancer,
+  setNativeVirtualizer,
+} from '@/lib/nativePlayer';
+
+// Web EQ band center frequencies — must mirror BAND_DEFS in audioEngine.ts.
+const WEB_BAND_FREQS_HZ = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
 const RETRY_DELAYS_MS = [0, 50, 140, 320, 700];
+
 
 /**
  * Mount once at app root.
@@ -41,12 +53,37 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       retryTimers = [];
     };
 
+    const pushNative = (s: ReturnType<typeof getEQSettings>, isPremium: boolean) => {
+      if (!isNativePlayerAvailable()) return;
+      // Non-premium or flat → disable all native effects.
+      if (!isPremium) {
+        setNativeEQEnabled(false);
+        setNativeBassBoost(0);
+        setNativeVirtualizer(0);
+        setNativeLoudnessEnhancer(0);
+        return;
+      }
+      // Per-band EQ → millibels, mapped to native band centers.
+      pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ);
+      // Bass boost 0..100 → 0..1000 strength.
+      setNativeBassBoost(Math.round((s.bassBoost / 100) * 1000));
+      // Spatial / headphone surround → Virtualizer strength.
+      const virtStrength = s.headphoneSurround ? 1000 : s.spatialAudio ? 700 : 0;
+      setNativeVirtualizer(virtStrength);
+      // Late-night = quiet boost via LoudnessEnhancer (~+6dB).
+      setNativeLoudnessEnhancer(s.lateNight ? 600 : 0);
+    };
+
     const doReapply = () => {
       const s = getEQSettings();
       const isPremium = getRuntimePremium();
 
       // Always honor playback rate — native <audio> property, no graph needed.
       audioElement.playbackRate = s.playbackSpeed;
+
+      // Always push the native AudioEffect chain on Android — that path is
+      // what's actually audible while ExoPlayer is active. Cheap no-op on web.
+      pushNative(s, isPremium);
 
       const needsWebAudio = isPremium && hasWebAudioEffects(s);
 
@@ -88,6 +125,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       setLateNight(s.lateNight);
       setHeadphoneSurround(s.headphoneSurround);
     };
+
 
     const scheduleRecoveryBurst = () => {
       clearRetries();

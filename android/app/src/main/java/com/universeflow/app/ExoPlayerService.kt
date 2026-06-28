@@ -2,7 +2,10 @@ package com.universeflow.app
 
 import android.app.PendingIntent
 import android.content.Intent
-import android.content.pm.PackageManager
+import android.media.audiofx.BassBoost
+import android.media.audiofx.Equalizer
+import android.media.audiofx.LoudnessEnhancer
+import android.media.audiofx.Virtualizer
 import android.net.wifi.WifiManager
 import android.os.PowerManager
 import androidx.media3.common.AudioAttributes
@@ -17,6 +20,9 @@ import androidx.media3.session.MediaSessionService
  * Replaces the old WebView HTML5 audio path so playback survives screen lock
  * and Doze. The system pins this service in the foreground as long as the
  * MediaSession reports an active playing state.
+ *
+ * Audio effects (Equalizer / BassBoost / Virtualizer / LoudnessEnhancer) are
+ * bound to the player's audio session id and exposed through ExoPlayerPlugin.
  */
 class ExoPlayerService : MediaSessionService() {
 
@@ -28,6 +34,18 @@ class ExoPlayerService : MediaSessionService() {
 
     var player: ExoPlayer? = null
         private set
+
+    // ---- Audio effects (lazy on first session-id discovery) ----
+    var equalizer: Equalizer? = null
+        private set
+    var bassBoost: BassBoost? = null
+        private set
+    var virtualizer: Virtualizer? = null
+        private set
+    var loudnessEnhancer: LoudnessEnhancer? = null
+        private set
+
+    private var boundSessionId: Int = C.AUDIO_SESSION_ID_UNSET
 
     private var mediaSession: MediaSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -41,15 +59,32 @@ class ExoPlayerService : MediaSessionService() {
             .setContentType(C.AUDIO_CONTENT_TYPE_MUSIC)
             .build()
 
-        val exo = ExoPlayer.Builder(this)
+        // Force a stable audio session id BEFORE prepare() so AudioEffects can
+        // bind on first play with no race.
+        val sessionId = try {
+            C.generateAudioSessionIdV21(this)
+        } catch (_: Throwable) {
+            C.AUDIO_SESSION_ID_UNSET
+        }
+
+        val builder = ExoPlayer.Builder(this)
             .setAudioAttributes(audioAttrs, /* handleAudioFocus */ true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
-            .build()
+
+        val exo = builder.build().also { p ->
+            if (sessionId != C.AUDIO_SESSION_ID_UNSET) {
+                try { p.setAudioSessionId(sessionId) } catch (_: Throwable) {}
+            }
+        }
 
         exo.addListener(object : androidx.media3.common.Player.Listener {
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying) acquireLocks() else releaseLocks()
+                ensureEffectsBound()
+            }
+            override fun onAudioSessionIdChanged(audioSessionId: Int) {
+                ensureEffectsBound()
             }
         })
 
@@ -68,8 +103,46 @@ class ExoPlayerService : MediaSessionService() {
         this.player = exo
         this.mediaSession = sessionBuilder.build()
 
-        // Expose to the plugin without static plumbing.
+        ensureEffectsBound()
+
         ServiceRegistry.exoService = this
+    }
+
+    /** (Re)bind AudioEffects to the current player's session id. */
+    @Synchronized
+    fun ensureEffectsBound() {
+        val sid = player?.audioSessionId ?: return
+        if (sid == C.AUDIO_SESSION_ID_UNSET || sid == 0) return
+        if (sid == boundSessionId
+            && equalizer != null && bassBoost != null
+            && virtualizer != null && loudnessEnhancer != null) return
+
+        releaseEffects()
+        try {
+            equalizer = Equalizer(0, sid).apply { enabled = true }
+        } catch (_: Throwable) { equalizer = null }
+        try {
+            bassBoost = BassBoost(0, sid).apply { enabled = false }
+        } catch (_: Throwable) { bassBoost = null }
+        try {
+            virtualizer = Virtualizer(0, sid).apply { enabled = false }
+        } catch (_: Throwable) { virtualizer = null }
+        try {
+            loudnessEnhancer = LoudnessEnhancer(sid).apply { enabled = false }
+        } catch (_: Throwable) { loudnessEnhancer = null }
+        boundSessionId = sid
+    }
+
+    private fun releaseEffects() {
+        try { equalizer?.release() } catch (_: Throwable) {}
+        try { bassBoost?.release() } catch (_: Throwable) {}
+        try { virtualizer?.release() } catch (_: Throwable) {}
+        try { loudnessEnhancer?.release() } catch (_: Throwable) {}
+        equalizer = null
+        bassBoost = null
+        virtualizer = null
+        loudnessEnhancer = null
+        boundSessionId = C.AUDIO_SESSION_ID_UNSET
     }
 
     private fun acquireLocks() {
@@ -109,6 +182,7 @@ class ExoPlayerService : MediaSessionService() {
 
     override fun onDestroy() {
         ServiceRegistry.exoService = null
+        releaseEffects()
         try { mediaSession?.run { player.release(); release() } } catch (_: Throwable) {}
         mediaSession = null
         player = null

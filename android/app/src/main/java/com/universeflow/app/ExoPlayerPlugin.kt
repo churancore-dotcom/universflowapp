@@ -228,8 +228,153 @@ class ExoPlayerPlugin : Plugin() {
         }
     }
 
+    // ---------- Audio effects ----------
+
+    @PluginMethod
+    fun getAudioSessionId(call: PluginCall) {
+        runOnMain {
+            service()?.ensureEffectsBound()
+            val sid = service()?.player?.audioSessionId ?: 0
+            call.resolve(JSObject().put("sessionId", sid))
+        }
+    }
+
+    @PluginMethod
+    fun setEQEnabled(call: PluginCall) {
+        val enabled = call.getBoolean("enabled") ?: true
+        runOnMain {
+            val svc = service()
+            svc?.ensureEffectsBound()
+            try { svc?.equalizer?.enabled = enabled } catch (_: Throwable) {}
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun setEQBand(call: PluginCall) {
+        val band = call.getInt("band") ?: run { call.reject("missing band"); return }
+        val mb = call.getInt("levelMillibels") ?: run { call.reject("missing levelMillibels"); return }
+        runOnMain {
+            val svc = service()
+            svc?.ensureEffectsBound()
+            val eq = svc?.equalizer
+            if (eq == null) { call.resolve(); return@runOnMain }
+            try {
+                val range = eq.bandLevelRange
+                val min = range[0].toInt()
+                val max = range[1].toInt()
+                val clamped = mb.coerceIn(min, max).toShort()
+                eq.setBandLevel(band.toShort(), clamped)
+            } catch (_: Throwable) {}
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun getEQBands(call: PluginCall) {
+        runOnMain {
+            val svc = service()
+            svc?.ensureEffectsBound()
+            val eq = svc?.equalizer
+            val out = JSObject()
+            if (eq == null) {
+                out.put("available", false)
+                out.put("numberOfBands", 0)
+                out.put("minLevel", 0)
+                out.put("maxLevel", 0)
+                out.put("bands", org.json.JSONArray())
+                call.resolve(out)
+                return@runOnMain
+            }
+            try {
+                val n = eq.numberOfBands.toInt()
+                val range = eq.bandLevelRange
+                val arr = org.json.JSONArray()
+                for (i in 0 until n) {
+                    val freqRange = eq.getBandFreqRange(i.toShort())
+                    val center = eq.getCenterFreq(i.toShort()) // milliHz
+                    val obj = JSObject()
+                    obj.put("index", i)
+                    obj.put("centerFrequencyHz", center / 1000)
+                    obj.put("minFrequencyHz", freqRange[0] / 1000)
+                    obj.put("maxFrequencyHz", freqRange[1] / 1000)
+                    arr.put(obj)
+                }
+                out.put("available", true)
+                out.put("numberOfBands", n)
+                out.put("minLevel", range[0].toInt())
+                out.put("maxLevel", range[1].toInt())
+                out.put("bands", arr)
+            } catch (_: Throwable) {
+                out.put("available", false)
+            }
+            call.resolve(out)
+        }
+    }
+
+    @PluginMethod
+    fun setBassBoost(call: PluginCall) {
+        val strength = (call.getInt("strength") ?: 0).coerceIn(0, 1000)
+        runOnMain {
+            val svc = service()
+            svc?.ensureEffectsBound()
+            val bb = svc?.bassBoost
+            try {
+                if (bb != null) {
+                    if (strength <= 0) { bb.enabled = false }
+                    else {
+                        bb.enabled = true
+                        if (bb.strengthSupported) bb.setStrength(strength.toShort())
+                    }
+                }
+            } catch (_: Throwable) {}
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun setVirtualizer(call: PluginCall) {
+        val strength = (call.getInt("strength") ?: 0).coerceIn(0, 1000)
+        runOnMain {
+            val svc = service()
+            svc?.ensureEffectsBound()
+            val v = svc?.virtualizer
+            try {
+                if (v != null) {
+                    if (strength <= 0) { v.enabled = false }
+                    else {
+                        v.enabled = true
+                        if (v.strengthSupported) v.setStrength(strength.toShort())
+                    }
+                }
+            } catch (_: Throwable) {}
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun setLoudnessEnhancer(call: PluginCall) {
+        val gainMb = (call.getInt("gainMb") ?: 0).coerceIn(0, 2000)
+        runOnMain {
+            val svc = service()
+            svc?.ensureEffectsBound()
+            val le = svc?.loudnessEnhancer
+            try {
+                if (le != null) {
+                    if (gainMb <= 0) { le.enabled = false }
+                    else {
+                        le.setTargetGain(gainMb)
+                        le.enabled = true
+                    }
+                }
+            } catch (_: Throwable) {}
+            call.resolve()
+        }
+    }
+
     override fun handleOnDestroy() {
         stopProgress()
         super.handleOnDestroy()
     }
 }
+
