@@ -85,3 +85,72 @@ export async function resolveOnDevice(videoId: string): Promise<string | null> {
   }
   return null;
 }
+
+// ---------------- Native EQ helpers (Android-only) ----------------
+
+let cachedNativeEQ: NativeEQBandsInfo | null = null;
+
+export async function getNativeEQBands(): Promise<NativeEQBandsInfo | null> {
+  if (!isNativePlayerAvailable()) return null;
+  if (cachedNativeEQ?.available) return cachedNativeEQ;
+  try {
+    const info = await ExoPlayerPlugin.getEQBands();
+    cachedNativeEQ = info;
+    return info;
+  } catch {
+    return null;
+  }
+}
+
+export async function setNativeEQEnabled(enabled: boolean): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await ExoPlayerPlugin.setEQEnabled({ enabled }); } catch {}
+}
+
+export async function setNativeEQBand(band: number, levelMillibels: number): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await ExoPlayerPlugin.setEQBand({ band, levelMillibels: Math.round(levelMillibels) }); } catch {}
+}
+
+export async function setNativeBassBoost(strength: number): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await ExoPlayerPlugin.setBassBoost({ strength: Math.max(0, Math.min(1000, Math.round(strength))) }); } catch {}
+}
+
+export async function setNativeVirtualizer(strength: number): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await ExoPlayerPlugin.setVirtualizer({ strength: Math.max(0, Math.min(1000, Math.round(strength))) }); } catch {}
+}
+
+export async function setNativeLoudnessEnhancer(gainMb: number): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await ExoPlayerPlugin.setLoudnessEnhancer({ gainMb: Math.max(0, Math.min(2000, Math.round(gainMb))) }); } catch {}
+}
+
+/**
+ * Map a 10-band web EQ (centers in Hz, gains in dB ±12) onto the device's
+ * native AudioEffect Equalizer (typically 5 bands). For each native band we
+ * pick the nearest web band by center frequency and convert dB → millibels.
+ */
+export async function pushNativeEQFromWebBands(
+  webBands: number[],
+  webFrequenciesHz: number[],
+): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  const info = await getNativeEQBands();
+  if (!info?.available || info.numberOfBands === 0) return;
+  await setNativeEQEnabled(true);
+  for (const native of info.bands) {
+    const target = native.centerFrequencyHz;
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < webFrequenciesHz.length; i++) {
+      // log-distance for fairness across octaves
+      const d = Math.abs(Math.log2(Math.max(1, webFrequenciesHz[i] / Math.max(1, target))));
+      if (d < bestDist) { bestDist = d; best = i; }
+    }
+    const dB = webBands[best] ?? 0;
+    const mb = Math.max(info.minLevel, Math.min(info.maxLevel, Math.round(dB * 100)));
+    await setNativeEQBand(native.index, mb);
+  }
+}
