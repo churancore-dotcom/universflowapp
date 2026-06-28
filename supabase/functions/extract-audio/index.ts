@@ -189,14 +189,30 @@ async function pickAndReturn(videoId: string, data: any, audioOnly: any[]): Prom
     return (b.bitrate || 0) - (a.bitrate || 0);
   });
 
-  let chosenUrl: string | null = null;
-  for (const fmt of audioOnly) {
-    if (!fmt.url) continue;
-    if (await probePlayableStream(fmt.url, 4000)) {
-      chosenUrl = fmt.url;
-      break;
+  const probeCandidates = audioOnly.filter((fmt) => fmt.url).slice(0, 6);
+  const chosenUrl = await new Promise<string | null>((resolve) => {
+    let pending = probeCandidates.length;
+    if (!pending) { resolve(null); return; }
+    let settled = false;
+    for (const fmt of probeCandidates) {
+      probePlayableStream(fmt.url, 1500)
+        .then((ok) => {
+          if (settled) return;
+          if (ok) {
+            settled = true;
+            resolve(fmt.url);
+            return;
+          }
+          pending -= 1;
+          if (pending === 0) resolve(null);
+        })
+        .catch(() => {
+          if (settled) return;
+          pending -= 1;
+          if (pending === 0) resolve(null);
+        });
     }
-  }
+  });
   if (!chosenUrl) return null;
 
   const details = data.videoDetails || {};

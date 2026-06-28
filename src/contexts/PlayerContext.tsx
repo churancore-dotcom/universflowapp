@@ -6,7 +6,7 @@ import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, p
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import { recordPerfEvent } from '@/lib/perfMonitor';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
-import { EQ_SETTINGS_KEY } from '@/lib/eqSettings';
+import { EQ_SETTINGS_KEY, getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
@@ -129,16 +129,72 @@ interface PlayerContextType {
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
+const NATIVE_RESOLVED_STREAMS_KEY = 'uf_native_resolved_streams_v1';
+const nativeResolvedStreamUrls = new Set<string>();
+const nativeResolvedStreamVideoIds = new Map<string, string>();
+
+const readNativeResolvedStreamUrls = () => {
+  if (typeof window === 'undefined') return;
+  try {
+    const stored = JSON.parse(localStorage.getItem(NATIVE_RESOLVED_STREAMS_KEY) || '[]');
+    if (Array.isArray(stored)) {
+      stored.slice(-50).forEach((entry) => {
+        const url = typeof entry === 'string' ? entry : typeof entry?.url === 'string' ? entry.url : null;
+        const videoId = typeof entry?.videoId === 'string' ? entry.videoId : null;
+        if (!url) return;
+        nativeResolvedStreamUrls.add(url);
+        if (videoId) nativeResolvedStreamVideoIds.set(url, videoId);
+      });
+    }
+  } catch { /* ignore corrupt cache */ }
+};
+
+const markNativeResolvedStreamUrl = (url?: string | null, videoId?: string | null) => {
+  if (!url || !url.startsWith('http')) return;
+  nativeResolvedStreamUrls.add(url);
+  if (videoId) nativeResolvedStreamVideoIds.set(url, videoId);
+  if (typeof window === 'undefined') return;
+  try {
+    const stored = JSON.parse(localStorage.getItem(NATIVE_RESOLVED_STREAMS_KEY) || '[]');
+    const list = Array.isArray(stored) ? stored : [];
+    const next = [
+      ...list.filter((entry) => (typeof entry === 'string' ? entry : entry?.url) !== url),
+      { url, videoId: videoId || nativeResolvedStreamVideoIds.get(url) || null },
+    ].slice(-50);
+    localStorage.setItem(NATIVE_RESOLVED_STREAMS_KEY, JSON.stringify(next));
+  } catch { /* best effort */ }
+};
+
+const isNativeResolvedStreamUrl = (url?: string | null) => {
+  if (!url) return false;
+  if (nativeResolvedStreamUrls.size === 0) readNativeResolvedStreamUrls();
+  return nativeResolvedStreamUrls.has(url);
+};
+
+const getNativeResolvedVideoId = (url?: string | null) => {
+  if (!url) return null;
+  if (nativeResolvedStreamUrls.size === 0) readNativeResolvedStreamUrls();
+  return nativeResolvedStreamVideoIds.get(url) || null;
+};
+
 const shouldUseAnonymousCors = (audioUrl?: string | null) => {
   if (!audioUrl) return false;
   if (audioUrl.startsWith('blob:') || audioUrl.startsWith('data:')) return false;
-  // ALWAYS use anonymous CORS for http(s). Even if the host doesn't return
-  // ACAO headers, the element won't be tainted by an opaque load — and we
-  // proxy every remote URL below, so the response is guaranteed CORS-clean.
-  // This eliminates the cold-boot race where the very first song was loaded
-  // with crossOrigin=null and the WebAudio graph could never attach to it
-  // (forever-dead EQ on that element).
-  return audioUrl.startsWith('http');
+  if (!audioUrl.startsWith('http')) return false;
+  // Native on-device YouTube URLs are signed for the user's phone IP. They must
+  // be played directly with NO crossorigin attribute; forcing anonymous CORS
+  // makes Android WebView reject the stream before playback even starts.
+  if (isNativeResolvedStreamUrl(audioUrl)) return false;
+  try {
+    const parsed = new URL(audioUrl, window.location.href);
+    if (parsed.origin === window.location.origin) return false;
+    if (isStreamProxyUrl(audioUrl)) return true;
+    if (parsed.pathname.includes('/functions/v1/music-indexer') && parsed.searchParams.has('audio')) return true;
+    if (parsed.hostname.endsWith('supabase.co')) return true;
+  } catch { /* fall through */ }
+  // Unknown direct remote streams should stay on the native <audio> path. If EQ
+  // needs WebAudio, buildStreamProxyUrl() first rewrites them to stream-proxy.
+  return false;
 };
 
 const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string) => {
@@ -157,23 +213,19 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
   }
 
   audio.src = sourceUrl;
-  // Kick the global WebAudio engine immediately after every source assignment.
-  // Relying only on `canplay`/`loadedmetadata` left some Android/WebView loads
-  // stuck in direct mode, so Premium EQ looked like it was endlessly reloading.
-  if (typeof window !== 'undefined') {
-    try {
-      window.queueMicrotask(() => {
-        if (getRuntimePremium()) {
-          window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
-          window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
-        }
-      });
-    } catch { /* ignore */ }
-  }
+  // Do not force-rebuild the WebAudio graph here. The audio element's real
+  // media events (`loadstart`, `loadedmetadata`, `canplay`) already trigger the
+  // EQ hook at the correct time; firing a microtask here caused repeated graph
+  // rebuilds before the source was ready, which produced startup silence.
 };
 
 const shouldProxyStreamUrl = (sourceUrl: string) => {
   if (!sourceUrl.startsWith('http')) return false;
+  // The most important APK fix: on-device Innertube returns googlevideo URLs
+  // signed for the user's IP. If we send those URLs through the Supabase edge
+  // proxy, YouTube sees a different IP and returns 403/empty media, so every tap
+  // becomes "This song could not start". Play these URLs directly.
+  if (isNativeResolvedStreamUrl(sourceUrl)) return false;
 
   try {
     const parsed = new URL(sourceUrl, window.location.href);
@@ -181,12 +233,14 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
     if (isStreamProxyUrl(sourceUrl)) return false;
     if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return false;
 
-    // ALWAYS proxy remote streams (including our own Supabase storage URLs).
-    // Direct storage/CDN responses can be playable but still fail WebAudio on
-    // range/CORS edge cases, which is what left Premium EQ stuck in "Reloading".
-    // The stream-proxy is explicitly allowlisted for this project host and
-    // guarantees stable CORS + Range headers before the graph attaches.
-    return true;
+    // YouTube streams resolved by our edge function are signed for Supabase's
+    // IP, not the user's device/browser. They must be fetched by stream-proxy.
+    if (parsed.hostname.endsWith('googlevideo.com')) return true;
+
+    // For Premium EQ/effects, proxy external streams to guarantee a CORS-clean
+    // MediaElementSource. Flat playback stays direct for fastest start and more
+    // reliable Android background playback.
+    return getRuntimePremium() && hasWebAudioEffects(getEQSettings());
   } catch {
     return false;
   }
@@ -231,11 +285,11 @@ const isLocalMediaSource = (url?: string | null) => {
   return url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('file:') || url.startsWith('capacitor://');
 };
 
-// Premium = always run audio through the WebAudio graph (transparent when
-// sliders are flat). This removes the reload-on-EQ-toggle that made EQ feel
-// dead. Non-premium = never touch the graph (EQ is locked to Premium anyway).
+// Only run WebAudio when Premium audio effects are actually enabled. Keeping
+// flat/default playback on the native <audio> path is much faster and avoids
+// Android background WebAudio suspension.
 const isEqProcessingEnabled = () => {
-  try { return getRuntimePremium(); } catch { return false; }
+  try { return getRuntimePremium() && hasWebAudioEffects(getEQSettings()); } catch { return false; }
 };
 
 const isAutoplayEnabled = () => {
@@ -346,6 +400,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const nextAudioRef = useRef<HTMLAudioElement | null>(null);
   const crossfadeIntervalRef = useRef<number | null>(null);
   const isCrossfading = useRef(false);
+  const crossfadeAttemptedForSeqRef = useRef<number>(-1);
   const animationFrameRef = useRef<number | null>(null);
   const recentlyPlayedTimerRef = useRef<number | null>(null);
   const queueRestoredRef = useRef(false);
@@ -451,6 +506,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const backgroundHeartbeatRef = useRef<number | null>(null);
   const intentionalPauseRef = useRef(false);
   const backgroundRecoveryTimerRef = useRef<number | null>(null);
+  const backgroundRecoveryAttemptsRef = useRef(0);
 
   const markIntentionalPause = useCallback(() => {
     intentionalPauseRef.current = true;
@@ -493,21 +549,37 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Only act if the OS actually stalled us. Don't write progress on every
       // tick — the lockscreen/MediaSession already tracks position natively.
       if (wasPlayingRef.current && a.paused) {
-        a.play().catch(() => {});
+        if (backgroundRecoveryAttemptsRef.current >= 3) {
+          setIsPlaying(false);
+          return;
+        }
+        backgroundRecoveryAttemptsRef.current += 1;
+        window.setTimeout(() => {
+          const current = audioRef.current;
+          if (!current?.src || !wasPlayingRef.current || !current.paused || intentionalPauseRef.current) return;
+          resumeAudioEngine();
+          current.play()
+            .then(() => { backgroundRecoveryAttemptsRef.current = 0; })
+            .catch(() => {
+              if (backgroundRecoveryAttemptsRef.current >= 3) setIsPlaying(false);
+            });
+        }, 80);
       }
     };
 
     const startBackgroundHeartbeat = () => {
       if (backgroundHeartbeatRef.current != null) return;
-      // Battery: was 3.5s (burns ~6%/hr keeping JS thread awake). 20s is
-      // enough to recover from an OS pause without preventing doze.
-      backgroundHeartbeatRef.current = window.setInterval(recoverBackgroundPlayback, 20000);
+      // Hidden/background only: keep recovery fast enough for OEM WebViews that
+      // silently stall within a few seconds, but stop the timer immediately when
+      // the app is visible again.
+      backgroundHeartbeatRef.current = window.setInterval(recoverBackgroundPlayback, 4500);
     };
 
     const stopBackgroundHeartbeat = () => {
       if (backgroundHeartbeatRef.current == null) return;
       window.clearInterval(backgroundHeartbeatRef.current);
       backgroundHeartbeatRef.current = null;
+      backgroundRecoveryAttemptsRef.current = 0;
     };
 
     // Track playing state before going to background
@@ -759,6 +831,44 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Do NOT reload them through the network proxy; just force the engine to
         // attach/re-apply on the current element.
         window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
+        return;
+      }
+
+      if (isNativeResolvedStreamUrl(currentSrc) || isNativeResolvedStreamUrl(currentSong?.audio_url)) {
+        const videoId = getNativeResolvedVideoId(currentSrc) || getNativeResolvedVideoId(currentSong?.audio_url);
+        if (!videoId) return;
+        const wasPlaying = !a.paused;
+        const at = a.currentTime;
+        const seqAtResolve = playRequestSeqRef.current;
+        resolveYouTubeVideoStream(videoId, { forceRefresh: true })
+          .then((result) => {
+            if (seqAtResolve !== playRequestSeqRef.current || !result?.streamUrl || isYouTubeFallbackUrl(result.streamUrl)) return;
+            const proxied = buildStreamProxyUrl(result.streamUrl);
+            const refreshed = currentSong ? { ...currentSong, audio_url: result.streamUrl } : null;
+            if (refreshed) {
+              setCurrentSong(refreshed);
+              setQueueState((q) => q.map((queuedSong) => queuedSong.id === refreshed.id ? refreshed : queuedSong));
+            }
+            let restored = false;
+            let restoreTimer: number | null = null;
+            const restore = () => {
+              if (restored) return;
+              restored = true;
+              a.removeEventListener('loadedmetadata', restore);
+              a.removeEventListener('canplay', restore);
+              if (restoreTimer != null) window.clearTimeout(restoreTimer);
+              try { a.currentTime = at; } catch { /* ignore */ }
+              window.dispatchEvent(new CustomEvent('uf-eq-force-reattach'));
+              window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
+              if (wasPlaying) a.play().catch(() => {});
+            };
+            configureAudioElementSource(a, proxied);
+            a.addEventListener('loadedmetadata', restore, { once: true });
+            a.addEventListener('canplay', restore, { once: true });
+            restoreTimer = window.setTimeout(restore, 900);
+            a.load();
+          })
+          .catch(() => {});
         return;
       }
 
@@ -1055,10 +1165,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // Native-only; resolves to null on web and we proceed to the
             // edge-function chain below.
             try {
-              const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
-              const native = await resolveYouTubeStreamOnDevice(videoId);
-              if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
-                return native.streamUrl;
+              // Native direct URLs are fastest and avoid datacenter bot blocks,
+              // but they are not CORS-clean for WebAudio. If the user has EQ /
+              // reverb / spatial enabled, skip this path and use the edge URL
+              // below so stream-proxy can make the EQ chain work.
+              if (!getRuntimePremium() || !hasWebAudioEffects(getEQSettings())) {
+                const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
+                const native = await resolveYouTubeStreamOnDevice(videoId);
+                if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
+                  markNativeResolvedStreamUrl(native.streamUrl, videoId);
+                  return native.streamUrl;
+                }
               }
             } catch { /* fall through to edge chain */ }
             try {
@@ -1081,13 +1198,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return null;
       };
 
-      // FIX 2: try once, then ONE automatic retry with forceRefresh.
-      // Iframe fallback is removed entirely — we only ever return a real
-      // stream URL or null (caller shows "Song unavailable").
-      const first = await attempt(opts.forceRefresh === true);
-      if (first) return first;
-      const second = await attempt(true);
-      return second;
+      // One resolver pass only. A forced retry is still available from the
+      // audio error handler, but doing two full resolver chains on every tap made
+      // cold playback feel broken and doubled extraction time.
+      return await attempt(opts.forceRefresh === true);
     },
     [isPlayableUrl],
   );
@@ -1343,8 +1457,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Update the song in queue with resolved URL
           const updatedSong = { ...song, audio_url: resolved };
           setCurrentSong(updatedSong);
-          songQueue[index] = updatedSong;
-          setQueueState([...songQueue]);
+          const nextQueue = [...songQueue];
+          nextQueue[index] = updatedSong;
+          queueRef.current = nextQueue;
+          setQueueState(nextQueue);
         } else {
           console.warn('Could not resolve audio for:', song.title);
           setIsPlaying(false);
@@ -1434,22 +1550,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       // Move to next song immediately - no async operations
-      let nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
+      const activeQueue = queueRef.current;
+      let nextIdx = getNextIndex(currentIndex, activeQueue.length, shuffle, repeat);
       
       // If repeat is 'all' and we hit the end, loop back
       if (nextIdx === null && repeat === 'all') {
         nextIdx = 0;
       }
       
-      if (nextIdx !== null && queue.length > 0) {
-        const nextSong = queue[nextIdx];
-        
-        // Play next song immediately without any async delay
-        playSongAtIndex(nextIdx, queue);
-      } else if (repeat === 'off' && queue.length > 0) {
+      if (nextIdx !== null && activeQueue.length > 0) {
+        playSongAtIndex(nextIdx, activeQueue);
+      } else if (repeat === 'off' && activeQueue.length > 0) {
         // End of queue — fire YouTube-style endless mix: pull more songs
         // (same artist → genre/mood → trending) and continue playing.
-        const seed = queue[currentIndex] || currentSong;
+        const seed = activeQueue[currentIndex] || currentSong;
         extendQueueWithMix(seed).then((added) => {
           if (added.length > 0) {
             // Append happened via setQueueState; jump to the first new track.
@@ -1470,6 +1584,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const handlePlay = () => {
       wasPlayingRef.current = true;
+      backgroundRecoveryAttemptsRef.current = 0;
       intentionalPauseRef.current = false;
       setIsPlaying(true);
     };
@@ -1486,8 +1601,18 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (backgroundRecoveryTimerRef.current) window.clearTimeout(backgroundRecoveryTimerRef.current);
           backgroundRecoveryTimerRef.current = window.setTimeout(() => {
             const a = audioRef.current;
+            if (backgroundRecoveryAttemptsRef.current >= 3) {
+              setIsPlaying(false);
+              return;
+            }
             if (wasPlayingRef.current && a?.src && a.paused) {
-              a.play().catch(() => {});
+              backgroundRecoveryAttemptsRef.current += 1;
+              resumeAudioEngine();
+              a.play()
+                .then(() => { backgroundRecoveryAttemptsRef.current = 0; })
+                .catch(() => {
+                  if (backgroundRecoveryAttemptsRef.current >= 3) setIsPlaying(false);
+                });
             }
           }, 250);
           return;
@@ -1508,14 +1633,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const premiumAudioTransitions = getRuntimePremium() && isAutoplayEnabled();
       if (premiumAudioTransitions && crossfade && queue.length > 1 && audio.duration && !isCrossfading.current) {
         const timeLeft = audio.duration - audio.currentTime;
-        if (timeLeft <= crossfadeDuration && timeLeft > 0) {
+        if (timeLeft <= crossfadeDuration && timeLeft > 0 && crossfadeAttemptedForSeqRef.current !== playRequestSeqRef.current) {
           startCrossfade();
         }
       } else if (premiumAudioTransitions && gaplessPro && !crossfade && queue.length > 1 && audio.duration && !isCrossfading.current) {
         // Gapless Pro — fire a ~0.45s overlap right before end so the swap is
         // truly seamless even when the next track needs a beat to decode.
         const timeLeft = audio.duration - audio.currentTime;
-        if (timeLeft <= GAPLESS_PRO_OVERLAP_SECONDS && timeLeft > 0) {
+        if (timeLeft <= GAPLESS_PRO_OVERLAP_SECONDS && timeLeft > 0 && crossfadeAttemptedForSeqRef.current !== playRequestSeqRef.current) {
           startCrossfade(GAPLESS_PRO_OVERLAP_SECONDS);
         }
       }
@@ -1561,7 +1686,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // ── First-chance recovery: stream URL likely went stale. Re-resolve
       //    once with a forced cache-bust, then retry the same song. Only skip
       //    if the refreshed URL also fails. ──
-      const cur = queue[currentIndex];
+      const activeQueue = queueRef.current;
+      const cur = activeQueue[currentIndex];
       const activeIdentity = activeSongIdentityRef.current;
       const errorBelongsToActiveSong = cur && activeIdentity === getSongIdentity(cur);
       const looksStale =
@@ -1583,8 +1709,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (seqAtRecoveryStart !== playRequestSeqRef.current || activeSongIdentityRef.current !== activeIdentity) return;
           if (fresh && fresh !== cur.audio_url && !isYouTubeFallbackUrl(fresh)) {
             const refreshed = { ...cur, audio_url: fresh };
-            const newQueue = [...queue];
+            const newQueue = [...activeQueue];
             newQueue[currentIndex] = refreshed;
+            queueRef.current = newQueue;
             setQueueState(newQueue);
             setCurrentSong(refreshed);
             configureAudioElementSource(audio, buildStreamProxyUrl(fresh));
@@ -1705,6 +1832,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Crossfade implementation
   const startCrossfade = useCallback((transitionSeconds = crossfadeDuration) => {
     if (!audioRef.current || !nextAudioRef.current || isCrossfading.current) return;
+    if (crossfadeAttemptedForSeqRef.current === playRequestSeqRef.current) return;
+    crossfadeAttemptedForSeqRef.current = playRequestSeqRef.current;
     if (queue.length <= 1) return;
 
     const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
@@ -2400,30 +2529,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       sentinel = null;
     };
   }, [isPlaying]);
-
-  // Silent audio loop — keeps the iOS/Android audio session alive during
-  // network buffering or stream hot-swaps so the OS doesn't tear it down.
-  // Mirrors the trick YouTube/Spotify PWAs use on iOS.
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    // 0.1s WAV of pure silence (8kHz mono).
-    const silentSrc =
-      'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQAAAAA=';
-    const el = new Audio(silentSrc);
-    el.loop = true;
-    el.volume = 0;
-    el.preload = 'auto';
-    (el as HTMLAudioElement & { playsInline?: boolean }).playsInline = true;
-    el.setAttribute('playsinline', '');
-    if (isPlaying) {
-      el.play().catch(() => {});
-    }
-    return () => {
-      try { el.pause(); } catch { /* ignore */ }
-      el.src = '';
-    };
-  }, [isPlaying]);
-
 
   return (
     <PlayerContext.Provider value={{
