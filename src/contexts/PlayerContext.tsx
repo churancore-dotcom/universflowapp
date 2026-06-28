@@ -1331,19 +1331,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Final race guard before we actually touch the <audio> element.
     if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
-    // ── YouTube IFrame fallback path ──
+    // FIX 2: NEVER fall back to the YouTube iframe — it cannot be processed by
+    // WebAudio, which is why the EQ stayed dead. If resolution failed to give
+    // us a real audio URL by now, show "Song unavailable" and stop.
     if (isYouTubeFallbackUrl(audioUrl)) {
-      const videoId = getYouTubeFallbackVideoId(audioUrl);
-      if (!videoId) {
-        setIsPlaying(false);
-        toast.error('This song could not be played.');
-        return;
-      }
-      await playYouTubeFallback(videoId, () => {
-        // Trigger normal "ended" pipeline
-        const evt = new Event('ended');
-        try { audioRef.current?.dispatchEvent(evt); } catch { /* ignore */ }
-      }, mySeq, intendedIdentity);
+      setIsPlaying(false);
+      toast.error('Song unavailable');
       return;
     }
 
