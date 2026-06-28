@@ -136,6 +136,10 @@ EOF
           MAIN_ACTIVITY="android/app/src/main/java/${PKG_PATH}/MainActivity.java"
 
           if [ -f "$MAIN_ACTIVITY_KT" ]; then
+            # Capacitor may have generated a Java stub during `cap add`; keeping
+            # both MainActivity.java and MainActivity.kt creates duplicate class
+            # builds or, worse, ships the stub without native plugin registration.
+            rm -f "$MAIN_ACTIVITY"
             echo "Using committed Kotlin MainActivity with all native plugins: $MAIN_ACTIVITY_KT"
             exit 0
           fi
