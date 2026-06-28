@@ -193,6 +193,8 @@ public class MediaNotificationService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent == null || intent.getAction() == null) {
+            restoreCachedState();
+            if (isPlaying) { acquirePlaybackLocks(); registerNoisyReceiver(); }
             refresh(false);
             return START_STICKY;
         }
@@ -377,6 +379,13 @@ public class MediaNotificationService extends Service {
             editor.putString("current_title", title.isEmpty() ? "Not Playing" : title);
             editor.putString("current_artist", artist.isEmpty() ? "Tap to open UniversFlow" : artist);
             editor.putBoolean("is_playing", isPlaying);
+            editor.putString("service_title", title);
+            editor.putString("service_artist", artist);
+            editor.putString("service_album", album);
+            editor.putString("service_cover", coverUrl);
+            editor.putLong("service_duration_ms", durationMs);
+            editor.putLong("service_position_ms", positionMs);
+            editor.putBoolean("service_is_playing", isPlaying);
             int progress = durationMs > 0 ? (int) ((positionMs * 100L) / durationMs) : 0;
             editor.putInt("progress", Math.max(0, Math.min(100, progress)));
             editor.apply();
@@ -394,6 +403,20 @@ public class MediaNotificationService extends Service {
                     sendBroadcast(updateIntent);
                 }
             } catch (ClassNotFoundException ignore) {}
+        } catch (Exception ignore) {}
+    }
+
+    private void restoreCachedState() {
+        try {
+            android.content.SharedPreferences prefs = getSharedPreferences(
+                "UniversFlowWidgetPrefs", Context.MODE_PRIVATE);
+            title = prefs.getString("service_title", title);
+            artist = prefs.getString("service_artist", artist);
+            album = prefs.getString("service_album", album);
+            coverUrl = prefs.getString("service_cover", coverUrl);
+            durationMs = prefs.getLong("service_duration_ms", durationMs);
+            positionMs = prefs.getLong("service_position_ms", positionMs);
+            isPlaying = prefs.getBoolean("service_is_playing", isPlaying);
         } catch (Exception ignore) {}
     }
 
