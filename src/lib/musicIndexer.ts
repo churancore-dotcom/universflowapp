@@ -13,7 +13,10 @@ export interface IndexedTrack {
   listeners?: number;
   rank?: number;
   videoId?: string;
+  /** 'song' = official audio (YT Music Songs shelf), 'video' = generic music video. */
+  kind?: 'song' | 'video';
 }
+
 
 interface IndexedTracksResponse {
   success: boolean;
