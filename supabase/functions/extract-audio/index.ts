@@ -119,7 +119,7 @@ const IOS_CONTEXT = {
   },
 };
 
-async function fetchPlayerResponse(videoId: string, ctx: typeof ANDROID_CONTEXT) {
+async function fetchPlayerResponse(videoId: string, ctx: typeof ANDROID_VR_CONTEXT) {
   const controller = new AbortController();
   const tid = setTimeout(() => controller.abort(), 6000);
   try {
@@ -140,9 +140,13 @@ async function fetchPlayerResponse(videoId: string, ctx: typeof ANDROID_CONTEXT)
         racyCheckOk: true,
       }),
     });
-    if (!r.ok) return null;
+    if (!r.ok) {
+      console.warn(`[innertube] ${ctx.client.clientName} http ${r.status}`);
+      return null;
+    }
     return await r.json();
-  } catch {
+  } catch (e) {
+    console.warn(`[innertube] ${ctx.client.clientName} fetch error:`, (e as Error).message);
     return null;
   } finally {
     clearTimeout(tid);
@@ -150,26 +154,32 @@ async function fetchPlayerResponse(videoId: string, ctx: typeof ANDROID_CONTEXT)
 }
 
 async function tryInnertube(videoId: string): Promise<ExtractionResult | null> {
-  // Try ANDROID_TESTSUITE first (most reliable un-ciphered output), then IOS.
-  let data = await fetchPlayerResponse(videoId, ANDROID_CONTEXT);
-  if (!data?.streamingData?.adaptiveFormats?.length) {
-    data = await fetchPlayerResponse(videoId, IOS_CONTEXT);
-  }
-  if (!data?.streamingData) return null;
+  // Race ANDROID_VR (NewPipe's choice) and IOS in parallel; first valid wins.
+  const [vrData, iosData] = await Promise.all([
+    fetchPlayerResponse(videoId, ANDROID_VR_CONTEXT),
+    fetchPlayerResponse(videoId, IOS_CONTEXT),
+  ]);
 
-  const status = data.playabilityStatus?.status;
-  if (status && status !== 'OK') {
-    console.warn(`[innertube] ${videoId} not playable: ${status}`);
-    return null;
+  const candidates = [vrData, iosData].filter(Boolean);
+  for (const data of candidates) {
+    const status = data.playabilityStatus?.status;
+    if (status && status !== 'OK') {
+      console.warn(`[innertube] ${videoId} (${data?.responseContext?.serviceTrackingParams ? 'client' : '?'}) status=${status} reason=${data.playabilityStatus?.reason || ''}`);
+      continue;
+    }
+    const adaptive: any[] = data.streamingData?.adaptiveFormats || [];
+    const audioOnly = adaptive.filter(
+      (f) => typeof f?.mimeType === 'string' && f.mimeType.startsWith('audio/') && f.url,
+    );
+    console.log(`[innertube] ${videoId} adaptive=${adaptive.length} audio_w_url=${audioOnly.length}`);
+    if (!audioOnly.length) continue;
+    // hand off to the picker below
+    return await pickAndReturn(videoId, data, audioOnly);
   }
+  return null;
+}
 
-  const adaptive: any[] = data.streamingData.adaptiveFormats || [];
-  const audioOnly = adaptive.filter((f) => typeof f?.mimeType === 'string' && f.mimeType.startsWith('audio/') && f.url);
-  if (!audioOnly.length) {
-    // Some responses only expose ciphered URLs in `signatureCipher`; we
-    // deliberately don't decipher — fall back to mirrors.
-    return null;
-  }
+async function pickAndReturn(videoId: string, data: any, audioOnly: any[]): Promise<ExtractionResult | null> {
 
   // Prefer m4a/AAC for universal WebView/Safari compatibility, then bitrate.
   audioOnly.sort((a, b) => {
