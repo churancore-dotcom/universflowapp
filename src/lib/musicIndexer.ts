@@ -51,6 +51,7 @@ interface YoutubeNewReleasesResponse {
 const streamCache = new Map<string, { url: string; expiresAt: number; meta?: Partial<ResolveTrackResponse> }>();
 const inFlightResolutions = new Map<string, Promise<ResolveTrackResponse>>();
 const STREAM_CACHE_TTL = 55 * 60 * 1000; // 55 min
+const VOLATILE_STREAM_CACHE_TTL = 20 * 60 * 1000; // public mirror URLs go stale much faster
 const LS_KEY = 'uf_stream_cache_v3';
 const LS_MAX_ENTRIES = 200;
 const SEARCH_CACHE_TTL = 20 * 60 * 1000;
@@ -134,7 +135,8 @@ function getCachedStream(key: string): { url: string; meta?: Partial<ResolveTrac
 
 function setCachedStream(key: string, url: string, meta?: Partial<ResolveTrackResponse>) {
   if (isKnownBrokenStreamUrl(url)) return;
-  streamCache.set(key, { url, expiresAt: Date.now() + STREAM_CACHE_TTL, meta });
+  const ttl = isVolatileMirrorStream(url) ? VOLATILE_STREAM_CACHE_TTL : STREAM_CACHE_TTL;
+  streamCache.set(key, { url, expiresAt: Date.now() + ttl, meta });
   persistCache();
 }
 
@@ -147,6 +149,14 @@ function isKnownBrokenStreamUrl(url?: string | null) {
   return false;
 }
 
+function isVolatileMirrorStream(url?: string | null) {
+  if (!url) return false;
+  return url.includes('/latest_version')
+    || url.includes('/videoplayback')
+    || url.includes('proxy.piped.')
+    || url.includes('googlevideo.com');
+}
+
 function isSafeSharedCachedStream(url?: string | null) {
   if (!url) return false;
   // `yt-video:` is only an iframe fallback marker, not an audio stream. If we
@@ -156,7 +166,7 @@ function isSafeSharedCachedStream(url?: string | null) {
   if (url.startsWith('yt-video:')) return false;
   // Public proxy URLs can expire or start returning bot-check HTML within minutes.
   // The edge resolver must re-probe those live instead of trusting shared DB cache.
-  if (url.includes('/latest_version') || url.includes('proxy.piped.')) return false;
+  if (isVolatileMirrorStream(url)) return false;
   return true;
 }
 

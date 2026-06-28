@@ -55,6 +55,7 @@ async function getDbCachedStream(artist: string, title: string): Promise<{ strea
       .maybeSingle();
     if (!data?.audio_url) return null;
     if (isKnownBrokenStreamUrl(data.audio_url as string)) return null;
+    if (isVolatileMirrorStream(data.audio_url as string)) return null;
     const ageMs = Date.now() - new Date(data.last_seen_at as string).getTime();
     if (ageMs > STREAM_DB_CACHE_TTL_MS) return null;
     // Do not block playback startup by probing cached streams here. If a cached
@@ -969,6 +970,14 @@ function isAllowedAudioProxyUrl(value: string) {
   }
 }
 
+function isVolatileMirrorStream(url?: string | null) {
+  if (!url) return false;
+  return url.includes('/latest_version')
+    || url.includes('/videoplayback')
+    || url.includes('proxy.piped.')
+    || url.includes('googlevideo.com');
+}
+
 async function fetchAllowedAudioProxyTarget(audioTarget: string, req: Request, range: string | null, redirects = 0): Promise<Response> {
   if (!isAllowedAudioProxyUrl(audioTarget)) throw new Error('Invalid audio source');
   const upstream = await fetch(audioTarget, {
@@ -1633,12 +1642,10 @@ serve(async (req) => {
           }
         }
       }
-      // forceRefresh restricted to admins to prevent cache-bust abuse
-      if (forceRefresh && admin && userId) {
-        const { data: isAdmin } = await admin.rpc('has_role', { _user_id: userId, _role: 'admin' });
-        if (!isAdmin) forceRefresh = false;
-      }
-      if (forceRefresh && !userId) forceRefresh = false;
+      // Let real playback recovery bypass stale stream caches for normal users.
+      // This was previously admin-only, so expired Invidious/Piped URLs kept
+      // returning after an audio error and Premium EQ stayed stuck connecting.
+      // Abuse is still controlled by the per-IP/per-user rate limits above.
 
       const result = await resolveStream(artist, title, forceRefresh);
       return new Response(JSON.stringify(result), {
