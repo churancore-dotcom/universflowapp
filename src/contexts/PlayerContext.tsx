@@ -911,7 +911,40 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         pushUnique(shuffled);
       }
 
+      // 4) YT Music Radio fallback — pulls the official "Mix" queue Innertube
+      // builds for ANY video. Kicks in when local DB doesn't have enough.
+      // We always try if seed is a YTM track (id "ytm-<videoId>"), and as
+      // a last resort even for local tracks via title+artist resolved videoId.
+      if (pool.length < 15) {
+        const seedVideoId = seed.id?.startsWith('ytm-') ? seed.id.slice(4) : undefined;
+        if (seedVideoId) {
+          try {
+            const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId: seedVideoId } });
+            const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
+            for (const t of tracks) {
+              if (!t?.videoId) continue;
+              const id = `ytm-${t.videoId}`;
+              if (existing.has(id)) continue;
+              existing.add(id);
+              pool.push({
+                id,
+                title: t.title,
+                artist: t.artist || 'Unknown',
+                cover_url: t.cover_url,
+                audio_url: t.audio_url || `yt-video:${t.videoId}`,
+                duration: t.duration || undefined,
+                source: 'indexed',
+              } as Song);
+              if (pool.length >= 25) break;
+            }
+          } catch (e) {
+            console.warn('[autoMix] ytm-radio failed', e);
+          }
+        }
+      }
+
       pool.forEach((s) => autoMixSeenRef.current.add(s.id));
+
 
       if (pool.length > 0) {
         setQueueState((prev) => {
