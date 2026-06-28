@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePlayer } from '@/contexts/PlayerContext';
+import { useOptionalPlayer } from '@/contexts/PlayerContext';
 import { playerProgressStore } from '@/lib/playerProgressStore';
 import { getDeviceId, getDeviceLabel } from '@/lib/deviceId';
 
@@ -12,12 +12,15 @@ import { getDeviceId, getDeviceLabel } from '@/lib/deviceId';
  */
 export function usePlaybackSync() {
   const { user } = useAuth();
-  const { currentSong, isPlaying, queue } = usePlayer();
+  const player = useOptionalPlayer();
+  const currentSong = player?.currentSong ?? null;
+  const isPlaying = player?.isPlaying ?? false;
+  const queue = player?.queue ?? [];
   const lastWriteRef = useRef<number>(0);
   const lastSongKeyRef = useRef<string>('');
 
   useEffect(() => {
-    if (!user || !currentSong) return;
+    if (!player || !user || !currentSong) return;
 
     const songKey = `${currentSong.id}|${isPlaying ? 1 : 0}`;
     const songChanged = songKey !== lastSongKeyRef.current;
@@ -61,5 +64,5 @@ export function usePlaybackSync() {
     }, delay);
 
     return () => window.clearTimeout(t);
-  }, [user?.id, currentSong?.id, isPlaying, queue.length]);
+  }, [player, user?.id, currentSong?.id, isPlaying, queue.length]);
 }
