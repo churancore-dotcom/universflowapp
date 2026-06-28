@@ -109,7 +109,7 @@ jobs:
           echo "=== app build.gradle ==="
           grep -n "google-services\|firebase" "$APP_GRADLE" || true
 
-      - name: Write MainActivity (registers native plugins)
+      - name: Write MainActivity (registers native plugins, deferred camera only)
         run: |
           PKG="app.lovable.id5acaae55bbc847a7bd32f3924d8ef986"
           PKG_PATH="app/lovable/id5acaae55bbc847a7bd32f3924d8ef986"
@@ -130,21 +130,16 @@ jobs:
           import com.getcapacitor.BridgeActivity;
           import com.getcapacitor.BridgeWebChromeClient;
           import ${PKG}.media.MediaNotificationPlugin;
-          import ${PKG}.island.DynamicIslandPlugin;
 
           public class MainActivity extends BridgeActivity {
               private static final int CAMERA_REQ_CODE = 4711;
+              private PermissionRequest pendingPermissionRequest;
 
               @Override
               public void onCreate(Bundle savedInstanceState) {
                   registerPlugin(MediaNotificationPlugin.class);
-                  registerPlugin(DynamicIslandPlugin.class);
+                  registerPlugin(VoiceSearchPlugin.class);
                   super.onCreate(savedInstanceState);
-
-                  if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
-                      ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
-                      ActivityCompat.requestPermissions(this, new String[]{ Manifest.permission.CAMERA }, CAMERA_REQ_CODE);
-                  }
 
                   WebView web = bridge.getWebView();
                   if (web != null) {
@@ -152,19 +147,52 @@ jobs:
                       web.getSettings().setMediaPlaybackRequiresUserGesture(false);
                       web.getSettings().setAllowFileAccess(true);
                       web.getSettings().setAllowContentAccess(true);
-                      // Keep Capacitor's WebChromeClient so <input type="file">
-                      // opens Android's native picker in the APK. A plain
-                      // WebChromeClient breaks upload buttons because it does
-                      // not implement onShowFileChooser.
+                      // Keep file-picker support, but defer CAMERA permission until
+                      // the face-liveness screen actually calls getUserMedia().
                       web.setWebChromeClient(new BridgeWebChromeClient(bridge) {
                           @Override
                           public void onPermissionRequest(final PermissionRequest request) {
                               runOnUiThread(() -> {
-                                  try { request.grant(request.getResources()); }
-                                  catch (Throwable t) { request.deny(); }
+                                  boolean needsCamera = false;
+                                  for (String resource : request.getResources()) {
+                                      if (PermissionRequest.RESOURCE_VIDEO_CAPTURE.equals(resource)) {
+                                          needsCamera = true;
+                                          break;
+                                      }
+                                  }
+
+                                  if (needsCamera
+                                      && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
+                                      && ContextCompat.checkSelfPermission(MainActivity.this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+                                      pendingPermissionRequest = request;
+                                      ActivityCompat.requestPermissions(
+                                          MainActivity.this,
+                                          new String[]{ Manifest.permission.CAMERA },
+                                          CAMERA_REQ_CODE
+                                      );
+                                  } else {
+                                      try { request.grant(request.getResources()); }
+                                      catch (Throwable t) { request.deny(); }
+                                  }
                               });
                           }
                       });
+                  }
+              }
+
+              @Override
+              public void onRequestPermissionsResult(int requestCode, String[] permissions, int[] grantResults) {
+                  super.onRequestPermissionsResult(requestCode, permissions, grantResults);
+                  if (requestCode == CAMERA_REQ_CODE) {
+                      PermissionRequest req = pendingPermissionRequest;
+                      pendingPermissionRequest = null;
+                      if (req != null) {
+                          boolean granted = grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED;
+                          runOnUiThread(() -> {
+                              try { if (granted) req.grant(req.getResources()); else req.deny(); }
+                              catch (Throwable ignored) {}
+                          });
+                      }
                   }
               }
           }
@@ -219,35 +247,22 @@ jobs:
           echo "=== Plugin files ==="
           ls -la "android/app/src/main/java/${PKG_PATH}/media/"
 
-      - name: Integrate Dynamic Island plugin (system floating pill)
+      - name: Integrate VoiceSearch plugin
         run: |
           PKG="app.lovable.id5acaae55bbc847a7bd32f3924d8ef986"
           PKG_PATH="app/lovable/id5acaae55bbc847a7bd32f3924d8ef986"
 
-          mkdir -p "android/app/src/main/java/${PKG_PATH}/island"
-          for f in android-native/java/DynamicIsland*.java; do
-            base=$(basename "$f")
-            sed "s|PACKAGE_PLACEHOLDER|${PKG}|g" "$f" \
-              > "android/app/src/main/java/${PKG_PATH}/island/${base}"
-          done
+          sed "s|PACKAGE_PLACEHOLDER|${PKG}|g" android-native/java/VoiceSearchPlugin.java \
+            > "android/app/src/main/java/${PKG_PATH}/VoiceSearchPlugin.java"
 
           MANIFEST="android/app/src/main/AndroidManifest.xml"
-          add_perm() {
-            local PERM="$1"
-            if ! grep -q "android.permission.${PERM}" "$MANIFEST"; then
-              sed -i "s|<application|<uses-permission android:name=\"android.permission.${PERM}\" />\n    <application|" "$MANIFEST"
-            fi
-          }
-          add_perm "SYSTEM_ALERT_WINDOW"
-          add_perm "CAMERA"
-
-          if ! grep -q "DynamicIslandService" "$MANIFEST"; then
-            sed -i 's|</application>|    <service android:name=".island.DynamicIslandService" android:exported="false" android:stopWithTask="true" />\n    </application>|' "$MANIFEST"
+          if ! grep -q "android.permission.RECORD_AUDIO" "$MANIFEST"; then
+            sed -i 's|<application|<uses-permission android:name="android.permission.RECORD_AUDIO" />\n    <uses-feature android:name="android.hardware.microphone" android:required="false" />\n    <application|' "$MANIFEST"
           fi
 
-          echo "=== Dynamic Island manifest / files ==="
-          grep -nE "SYSTEM_ALERT_WINDOW|DynamicIslandService" "$MANIFEST" || true
-          ls -la "android/app/src/main/java/${PKG_PATH}/island/"
+          echo "=== VoiceSearch plugin / permissions ==="
+          grep -nE "RECORD_AUDIO|microphone" "$MANIFEST" || true
+          ls -la "android/app/src/main/java/${PKG_PATH}/VoiceSearchPlugin.java"
 
       - name: Sync Capacitor
         run: npx cap sync android

@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { useGlobalAudioEngine } from '@/hooks/useGlobalAudioEngine';
 import { supabase } from '@/integrations/supabase/client';
-import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, invalidateYouTubeStream } from '@/lib/musicIndexer';
+import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, prefetchYouTubeVideoStream, invalidateYouTubeStream } from '@/lib/musicIndexer';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import { recordPerfEvent } from '@/lib/perfMonitor';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
@@ -1123,7 +1123,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch { /* ignore preload errors */ }
     } else if (upcoming.source === 'indexed' || upcoming.audio_url === 'resolving') {
       preloadedNextIdRef.current = upcoming.id;
-      prefetchIndexedTrack(upcoming.artist, upcoming.title);
+      const upcomingVideoId = getYouTubeFallbackVideoId(upcoming.audio_url) || (upcoming.id?.startsWith('ytm-') ? upcoming.id.slice(4) : null);
+      if (upcomingVideoId) prefetchYouTubeVideoStream(upcomingVideoId);
+      else prefetchIndexedTrack(upcoming.artist, upcoming.title);
       resolveAudioUrl(upcoming).then((resolved) => {
         if (!resolved || preloadedNextIdRef.current !== upcoming.id) return;
         const activeQueue = queueRef.current;
@@ -1149,7 +1151,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (nextNextIdx !== null && nextNextIdx !== currentIndex) {
       const afterNext = queue[nextNextIdx];
       if (afterNext && (afterNext.source === 'indexed' || afterNext.audio_url === 'resolving')) {
-        prefetchIndexedTrack(afterNext.artist, afterNext.title);
+        const afterNextVideoId = getYouTubeFallbackVideoId(afterNext.audio_url) || (afterNext.id?.startsWith('ytm-') ? afterNext.id.slice(4) : null);
+        if (afterNextVideoId) prefetchYouTubeVideoStream(afterNextVideoId);
+        else prefetchIndexedTrack(afterNext.artist, afterNext.title);
       }
     }
   }, [queue, currentIndex, shuffle, repeat, getNextIndex, isPlayableUrl, resolveAudioUrl, playbackSettingsVersion]);
@@ -1296,28 +1300,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       preloadedNextIdRef.current = null;
     } catch { /* ignore */ }
-
-    // Try to upgrade YT-iframe placeholders to a direct audio stream before play,
-    // so we only fall back to the (often blocked) YouTube iframe when needed.
-    const needsResolution = !isPlayableUrl(song.audio_url) || isYouTubeFallbackUrl(song.audio_url);
-    if (needsResolution) {
-      try {
-        const resolved = await resolveAudioUrl(song);
-        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return; // user tapped another song
-        if (!resolved) {
-          toast.error('This song is still preparing. Try again in a second.');
-          setIsPlaying(false);
-          return;
-        }
-        songQueue[index] = { ...song, audio_url: resolved };
-      } catch {
-        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
-        setIsPlaying(false);
-        toast.error('This song could not be prepared for playback.');
-        return;
-      }
-    }
-
 
     // Cancel any ongoing crossfade
     if (crossfadeIntervalRef.current) {
