@@ -76,6 +76,100 @@ interface ExtractionResult {
   cached?: boolean;
 }
 
+// ---------- Innertube primary extractor (youtubei.js) ----------
+// This is Echo Music's secret: hit YouTube's REAL internal player API directly,
+// just like the official YouTube app does. No third-party Invidious/Piped
+// instances that go down every week. Cached as a module-level singleton so we
+// don't re-bootstrap the player on every request (saves ~600ms).
+//
+// IMPORTANT: youtubei.js init can fail in cold-start edge runtimes. Any
+// failure here is swallowed and we silently fall back to Invidious/Piped —
+// the function NEVER crashes because of this primary path.
+let _innertubeClient: any = null;
+let _innertubeInitAt = 0;
+const INNERTUBE_TTL_MS = 30 * 60 * 1000; // re-init every 30 min to refresh player tokens
+
+async function getInnertube(): Promise<any | null> {
+  try {
+    if (_innertubeClient && Date.now() - _innertubeInitAt < INNERTUBE_TTL_MS) {
+      return _innertubeClient;
+    }
+    // Lazy-import so a module resolution failure doesn't break the whole function.
+    const mod = await import('npm:youtubei.js@13.4.0').catch(() => null);
+    if (!mod?.Innertube) return null;
+    const yt = await mod.Innertube.create({
+      cache: new mod.UniversalCache(false),
+      generate_session_locally: true,
+      retrieve_player: true,
+    });
+    _innertubeClient = yt;
+    _innertubeInitAt = Date.now();
+    return yt;
+  } catch (e) {
+    console.warn('[innertube] init failed:', (e as Error).message);
+    return null;
+  }
+}
+
+async function tryInnertube(videoId: string): Promise<ExtractionResult | null> {
+  try {
+    const yt = await getInnertube();
+    if (!yt) return null;
+    const info = await yt.getBasicInfo(videoId, 'IOS').catch(async () => {
+      // IOS client gives signed URLs that don't need decipher; fall back to WEB.
+      return await yt.getBasicInfo(videoId);
+    });
+    if (!info?.streaming_data) return null;
+
+    // Pick the best audio-only adaptive format. Prefer m4a (AAC) over webm/opus
+    // because Safari/iOS WebView can't decode opus in MediaSource consistently.
+    const adaptive = info.streaming_data.adaptive_formats || [];
+    const audioOnly = adaptive.filter((f: any) => f.mime_type?.startsWith('audio/'));
+    if (!audioOnly.length) return null;
+
+    audioOnly.sort((a: any, b: any) => {
+      const aM4a = a.mime_type?.includes('mp4') ? 1 : 0;
+      const bM4a = b.mime_type?.includes('mp4') ? 1 : 0;
+      if (aM4a !== bM4a) return bM4a - aM4a;
+      return (b.bitrate || 0) - (a.bitrate || 0);
+    });
+
+    let chosen: any = null;
+    for (const fmt of audioOnly) {
+      try {
+        // .decipher() handles signature cipher + n-param transform automatically.
+        const url = typeof fmt.decipher === 'function'
+          ? fmt.decipher(yt.session.player)
+          : fmt.url;
+        if (!url) continue;
+        if (await probePlayableStream(url, 4000)) {
+          chosen = { fmt, url };
+          break;
+        }
+      } catch { /* try next format */ }
+    }
+    if (!chosen) return null;
+
+    const details = info.basic_info || {};
+    const thumbs = details.thumbnail || [];
+    const cover = thumbs.length ? thumbs[thumbs.length - 1]?.url : undefined;
+
+    console.log(`  ✓ [INNERTUBE] ${videoId}`);
+    return {
+      success: true,
+      audioUrl: chosen.url,
+      title: details.title,
+      artist: details.author,
+      thumbnail: cover,
+      duration: details.duration,
+      platform: 'YouTube',
+    };
+  } catch (e) {
+    console.warn(`[innertube] extract failed for ${videoId}:`, (e as Error).message);
+    return null;
+  }
+}
+
 // ---------- Module-level instance health cache ----------
 // Skip an instance for 5 minutes after a failure so we don't keep waiting on dead hosts.
 const HEALTH_TTL_MS = 5 * 60 * 1000;
