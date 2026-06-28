@@ -368,6 +368,11 @@ const Search = () => {
   const [hiddenResults, setHiddenResults] = useState<HiddenSearchEntry[]>(() => loadHiddenResults());
   const [visibleCount, setVisibleCount] = useState(40);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Live autocomplete from YT Music Innertube. Suppressed once the user has
+  // actually triggered a search (we don't want it covering results).
+  const [suggestActive, setSuggestActive] = useState(true);
+  const suggestions = useYtmSuggestions(query, suggestActive && isFocused);
+
   const expandedQueriesRef = useRef<Set<string>>(new Set());
   const { playSong, currentSong, isPlaying } = usePlayer();
   const { getDownloadedUrl } = useDownloads();
