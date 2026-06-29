@@ -1486,6 +1486,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           queueRef.current = nextQueue;
           setQueueState(nextQueue);
         } else {
+          const fallbackVideoId = getYouTubeFallbackVideoId(resolvedSong.audio_url);
+          if (fallbackVideoId) {
+            console.warn('Could not resolve direct audio for:', song.title, '— using YouTube fallback');
+            toast.info('Direct audio failed — playing fallback source.');
+            void playYouTubeFallback(
+              fallbackVideoId,
+              () => {
+                const activeQueue = queueRef.current;
+                const activeIndex = currentIndexRef.current;
+                const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
+                if (nextIdx !== null) void playSongAtIndex(nextIdx, activeQueue);
+                else setIsPlaying(false);
+              },
+              mySeq,
+              intendedIdentity,
+            );
+            return;
+          }
           console.warn('Could not resolve audio for:', song.title);
           setIsPlaying(false);
           return;
@@ -1500,10 +1518,28 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Final race guard before we actually touch the <audio> element.
     if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
-    // FIX 2: NEVER fall back to the YouTube iframe — it cannot be processed by
-    // WebAudio, which is why the EQ stayed dead. If resolution failed to give
-    // us a real audio URL by now, show "Song unavailable" and stop.
+    // Absolute last resort: if every direct extractor failed, keep playback
+    // working with the YouTube iframe fallback instead of leaving the song dead.
+    // EQ/native background playback may be unavailable on this fallback, but the
+    // user still gets audio while the resolver/proxies recover.
     if (isYouTubeFallbackUrl(audioUrl)) {
+      const fallbackVideoId = getYouTubeFallbackVideoId(audioUrl);
+      if (fallbackVideoId) {
+        toast.info('Direct audio failed — playing fallback source.');
+        void playYouTubeFallback(
+          fallbackVideoId,
+          () => {
+            const activeQueue = queueRef.current;
+            const activeIndex = currentIndexRef.current;
+            const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
+            if (nextIdx !== null) void playSongAtIndex(nextIdx, activeQueue);
+            else setIsPlaying(false);
+          },
+          mySeq,
+          intendedIdentity,
+        );
+        return;
+      }
       setIsPlaying(false);
       toast.error('Song unavailable');
       return;
@@ -1543,7 +1579,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
-  }, [isPlayableUrl, resolveAudioUrl, teardownYouTubePlayback, publishNativeMusicControls, playbackSettingsVersion]);
+  }, [isPlayableUrl, resolveAudioUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, playbackSettingsVersion]);
 
   // Handle song end and crossfade
   useEffect(() => {
