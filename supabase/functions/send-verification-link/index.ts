@@ -51,6 +51,8 @@ Deno.serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email ?? '').trim().toLowerCase();
     const username = String(body?.username ?? '').trim().slice(0, 40) || 'there';
+    const accountType: 'artist' | 'listener' =
+      String(body?.accountType ?? '').toLowerCase() === 'artist' ? 'artist' : 'listener';
 
     // Uniform success response — never reveal whether the email is registered,
     // verified, or rate-limited. This prevents account enumeration attacks.
