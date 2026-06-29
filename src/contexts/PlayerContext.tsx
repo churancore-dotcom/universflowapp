@@ -11,7 +11,7 @@ import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
-import { attachNativeMirror, setNativeMirrorVolume, stopNativeMirror, disposeNativeMirror } from '@/lib/nativeMirror';
+import { attachNativeMirror, setNativeMirrorVolume, stopNativeMirror, disposeNativeMirror, isNativeMirrorActive } from '@/lib/nativeMirror';
 import { isNativePlayerAvailable } from '@/lib/nativePlayer';
 import { toast } from 'sonner';
 
@@ -1184,31 +1184,62 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (ytFallback) {
           const videoId = getYouTubeFallbackVideoId(ytFallback);
           if (videoId) {
-            // FIX 2: try on-device Innertube first — bypasses YouTube's
-            // datacenter-IP bot block by using the user's residential IP.
-            // Native-only; resolves to null on web and we proceed to the
-            // edge-function chain below.
-            try {
-              // Native direct URLs are fastest and avoid datacenter bot blocks,
-              // but they are not CORS-clean for WebAudio. If the user has EQ /
-              // reverb / spatial enabled, skip this path and use the edge URL
-              // below so stream-proxy can make the EQ chain work.
-              if (isNativePlayerAvailable() || !getRuntimePremium() || !hasWebAudioEffects(getEQSettings())) {
-                const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
-                const native = await resolveYouTubeStreamOnDevice(videoId);
-                if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
-                  markNativeResolvedStreamUrl(native.streamUrl, videoId);
-                  return native.streamUrl;
+            // Race native residential-IP resolution against the edge resolver.
+            // The previous sequential order waited ~4s for native timeout before
+            // trying the edge, which is exactly why taps felt dead. First real
+            // stream wins; no duplicate retries on the critical startup path.
+            const candidates: Promise<{ url: string; native: boolean } | null>[] = [];
+
+            if (isNativePlayerAvailable() || !getRuntimePremium() || !hasWebAudioEffects(getEQSettings())) {
+              candidates.push((async () => {
+                try {
+                  const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
+                  const native = await Promise.race([
+                    resolveYouTubeStreamOnDevice(videoId),
+                    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 2600)),
+                  ]);
+                  if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
+                    return { url: native.streamUrl, native: true };
+                  }
+                } catch { /* ignore */ }
+                return null;
+              })());
+            }
+
+            candidates.push((async () => {
+              try {
+                if (forceRefresh) invalidateYouTubeStream(videoId);
+                const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
+                if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
+                  return { url: resolved.streamUrl, native: false };
                 }
-              }
-            } catch { /* fall through to edge chain */ }
-            try {
-              if (forceRefresh) invalidateYouTubeStream(videoId);
-              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
-              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
-                return resolved.streamUrl;
-              }
-            } catch { /* try next strategy */ }
+              } catch { /* ignore */ }
+              return null;
+            })());
+
+            const winner = await new Promise<{ url: string; native: boolean } | null>((resolve) => {
+              let settled = false;
+              let remaining = candidates.length;
+              const done = (value: { url: string; native: boolean } | null) => {
+                if (settled) return;
+                if (value?.url) {
+                  settled = true;
+                  resolve(value);
+                  return;
+                }
+                remaining -= 1;
+                if (remaining <= 0) {
+                  settled = true;
+                  resolve(null);
+                }
+              };
+              candidates.forEach((candidate) => candidate.then(done).catch(() => done(null)));
+            });
+
+            if (winner?.url) {
+              if (winner.native) markNativeResolvedStreamUrl(winner.url, videoId);
+              return winner.url;
+            }
           }
         }
         if (song.artist && song.title) {
@@ -1559,6 +1590,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (playPromise) {
       playPromise.catch(err => {
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+        // In the Android APK the WebView <audio> is only a shadow while
+        // ExoPlayer takes over. Some phone-signed YouTube/CDN URLs reject in
+        // WebView even though ExoPlayer can play them, so never let this shadow
+        // promise show a false "song can't play" or flip the UI to stopped.
+        if (isNativePlayerAvailable() && isNativeMirrorActive()) return;
         console.warn('Playback failed:', err.message);
         setIsPlaying(false);
         toast.error('This song could not start right now.');
@@ -1752,11 +1788,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!audio.src || audio.src === window.location.href || /empty src/i.test(errorMessage)) return;
 
       // Android APK: ExoPlayer owns audible playback. The HTMLAudioElement is a
-      // muted shadow for UI/progress and can emit WebView-only CORS/network
-      // errors even while ExoPlayer is playing fine. Never let that shadow stop
-      // or skip the queue; real native failures are handled by nativeMirror's
-      // WebView fallback and then this handler only runs if fallback is audible.
-      if (isNativePlayerAvailable() && audio.muted) return;
+      // shadow used for UI/progress and can emit WebView-only CORS/network
+      // errors while ExoPlayer is still starting or already playing fine. Never
+      // let that shadow show "This song could not start" or stop the queue while
+      // native takeover is pending/audible; nativeMirror emits a real failure
+      // event below if ExoPlayer itself cannot play the URL.
+      if (isNativePlayerAvailable() && (audio.muted || isNativeMirrorActive())) return;
 
       console.warn('[player] audio error:', errorCode, errorMessage);
       recordPerfEvent({
@@ -1812,6 +1849,61 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     };
 
+    const handleNativePlaybackFailed = async (event: Event) => {
+      if (!isNativePlayerAvailable()) return;
+      const activeQueue = queueRef.current;
+      const activeIndex = currentIndexRef.current;
+      const cur = activeQueue[activeIndex] || currentSongRef.current;
+      if (!cur) return;
+
+      const seqAtRecoveryStart = playRequestSeqRef.current;
+      const activeIdentity = activeSongIdentityRef.current;
+      const failedUrl = (event as CustomEvent<{ url?: string }>).detail?.url;
+      try {
+        // If phone-signed/native playback failed, immediately fall back to the
+        // edge/proxy resolver for the SAME song. Do not advance to the next song.
+        const fresh = await resolveAudioUrl(cur, { forceRefresh: true });
+        if (seqAtRecoveryStart !== playRequestSeqRef.current || activeSongIdentityRef.current !== activeIdentity) return;
+        if (fresh && !isYouTubeFallbackUrl(fresh)) {
+          const refreshed = { ...cur, audio_url: fresh };
+          const nextQueue = [...activeQueue];
+          if (activeIndex >= 0 && activeIndex < nextQueue.length) nextQueue[activeIndex] = refreshed;
+          queueRef.current = nextQueue.length ? nextQueue : [refreshed];
+          setQueueState(queueRef.current);
+          setCurrentSong(refreshed);
+          setIsPlaying(true);
+          configureAudioElementSource(audio, buildStreamProxyUrl(fresh));
+          audio.volume = volumeRef.current;
+          audio.currentTime = 0;
+          audio.load();
+          await audio.play().catch(() => undefined);
+          return;
+        }
+
+        const fallbackVideoId = getYouTubeFallbackVideoId(cur.audio_url) || getNativeResolvedVideoId(failedUrl);
+        if (fallbackVideoId) {
+          void playYouTubeFallback(
+            fallbackVideoId,
+            () => {
+              const q = queueRef.current;
+              const i = currentIndexRef.current;
+              const nextIdx = getNextIndex(i, q.length, shuffleRef.current, repeatRef.current);
+              if (nextIdx !== null) void playSongAtIndex(nextIdx, q);
+              else setIsPlaying(false);
+            },
+            seqAtRecoveryStart,
+            activeIdentity || undefined,
+          );
+          return;
+        }
+      } catch { /* final failure below */ }
+
+      if (seqAtRecoveryStart === playRequestSeqRef.current && activeSongIdentityRef.current === activeIdentity) {
+        setIsPlaying(false);
+        toast.error('This song could not start right now.');
+      }
+    };
+
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
     audio.addEventListener('uf-native-ended', handleEnded as EventListener);
@@ -1819,6 +1911,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('timeupdate', handleTimeUpdate);
     audio.addEventListener('error', handleAudioError);
+    window.addEventListener('uf-native-playback-failed', handleNativePlaybackFailed as EventListener);
 
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
@@ -1828,8 +1921,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('error', handleAudioError);
+      window.removeEventListener('uf-native-playback-failed', handleNativePlaybackFailed as EventListener);
     };
-  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, resolveAudioUrl, extendQueueWithMix, playbackSettingsVersion]);
+  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, extendQueueWithMix, playbackSettingsVersion]);
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
   // YouTube-backed audio URLs expire ~6h after issue, and the OS can suspend
@@ -2129,6 +2223,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       playPromise.catch(err => {
         console.warn('Playback failed:', err?.message);
         if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity) {
+          // Android APK: ignore WebView shadow play() rejection while native
+          // ExoPlayer takeover is pending/audible. Native failure is handled by
+          // uf-native-playback-failed, not this HTMLAudioElement promise.
+          if (isNativePlayerAvailable() && isNativeMirrorActive()) return;
           setIsPlaying(false);
           toast.error('This song could not start right now.');
         }

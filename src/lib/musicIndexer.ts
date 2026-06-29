@@ -437,55 +437,75 @@ export async function resolveYouTubeVideoStream(
     invalidateYtmCached(id);
   }
 
-  // 2) extract-audio edge function (Piped/Invidious race, 5h server cache)
-  try {
-    const { data, error } = await supabase.functions.invoke('extract-audio', {
-      body: { videoId: id, forceRefresh: opts.forceRefresh === true },
+  // 2) Race BOTH resolver stacks in parallel. Waiting for extract-audio to fail
+  // before trying music-indexer made every tap feel frozen when a proxy batch was
+  // bad. The first real audio URL wins; failed/iframe results are ignored.
+  const resolvers: Promise<ResolveTrackResponse | null>[] = [
+    (async () => {
+      try {
+        const { data, error } = await supabase.functions.invoke('extract-audio', {
+          body: { videoId: id, forceRefresh: opts.forceRefresh === true },
+        });
+        if (error) throw error;
+        if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
+          return {
+            success: true,
+            streamUrl: data.audioUrl,
+            videoId: id,
+            title: data.title,
+            artist: data.artist,
+            cover_url: data.thumbnail,
+            duration: data.duration,
+          };
+        }
+      } catch { /* try other resolver */ }
+      return null;
+    })(),
+    (async () => {
+      try {
+        const data = await requestIndexer<ResolveTrackResponse>({
+          action: 'resolve-video',
+          videoId: id,
+          forceRefresh: opts.forceRefresh === true,
+        });
+        if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
+          return { ...data, videoId: id };
+        }
+      } catch { /* try other resolver */ }
+      return null;
+    })(),
+  ];
+
+  const winner = await new Promise<ResolveTrackResponse | null>((resolve) => {
+    let settled = false;
+    let remaining = resolvers.length;
+    const done = (result: ResolveTrackResponse | null) => {
+      if (settled) return;
+      if (result?.success && result.streamUrl && !result.streamUrl.startsWith('yt-video:')) {
+        settled = true;
+        resolve(result);
+        return;
+      }
+      remaining -= 1;
+      if (remaining <= 0) {
+        settled = true;
+        resolve(null);
+      }
+    };
+    resolvers.forEach((resolver) => resolver.then(done).catch(() => done(null)));
+  });
+
+  if (winner?.streamUrl) {
+    setYtmCached(id, winner.streamUrl, {
+      title: winner.title,
+      artist: winner.artist,
+      cover_url: winner.cover_url,
+      duration: winner.duration,
     });
-    if (error) throw error;
-    if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
-      setYtmCached(id, data.audioUrl, {
-        title: data.title,
-        artist: data.artist,
-        cover_url: data.thumbnail,
-        duration: data.duration,
-      });
-      return {
-        success: true,
-        streamUrl: data.audioUrl,
-        videoId: id,
-        title: data.title,
-        artist: data.artist,
-        cover_url: data.thumbnail,
-        duration: data.duration,
-      };
-    }
-  } catch {
-    // Keep going: extract-audio can be rate-limited or hit a bad mirror batch.
+    return winner;
   }
 
-  // 3) Final direct-video resolver fallback. This uses the music-indexer
-  // resolver pool and gives YouTube Music rows a second independent chance to
-  // become a real <audio> URL instead of getting stuck on the iframe marker.
-  try {
-    const data = await requestIndexer<ResolveTrackResponse>({
-      action: 'resolve-video',
-      videoId: id,
-      forceRefresh: opts.forceRefresh === true,
-    });
-    if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
-      setYtmCached(id, data.streamUrl, {
-        title: data.title,
-        artist: data.artist,
-        cover_url: data.cover_url,
-        duration: data.duration,
-      });
-      return { ...data, videoId: id };
-    }
-    return { success: false, error: data?.error || 'No audio stream available' };
-  } catch (e) {
-    return { success: false, error: (e as Error).message || 'Stream extraction failed' };
-  }
+  return { success: false, error: 'No audio stream available' };
 }
 
 export function invalidateYouTubeStream(videoId: string) {

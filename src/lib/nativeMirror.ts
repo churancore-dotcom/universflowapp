@@ -41,6 +41,10 @@ let nativeAudible = false;
 let pendingNativeUrl: string | null = null;
 let nativeTakeoverTimer: number | null = null;
 
+export function isNativeMirrorActive(): boolean {
+  return nativeAudible || Boolean(pendingNativeUrl);
+}
+
 const isPlayableHttpUrl = (url: string | null | undefined): url is string =>
   !!url && typeof url === 'string' && /^https?:\/\//i.test(url);
 
@@ -75,6 +79,14 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     } catch { /* ignore */ }
   };
 
+  const notifyNativePlaybackFailed = (reason?: string) => {
+    try {
+      window.dispatchEvent(new CustomEvent('uf-native-playback-failed', {
+        detail: { url: pendingNativeUrl || lastUrl, reason: reason || 'native playback failed' },
+      }));
+    } catch { /* ignore */ }
+  };
+
   const startExo = async (url: string) => {
     const song = opts.getSong();
     const title = song?.title || 'Universe Flow';
@@ -94,6 +106,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
         if (!nativeAudible && pendingNativeUrl === url) {
           // Exo is still buffering/stuck; keep the user's song audible via the
           // normal HTMLAudioElement instead of leaving the app silent.
+          notifyNativePlaybackFailed('ExoPlayer takeover timed out');
           restoreWebAudioFallback();
         }
       }, 5000);
@@ -103,6 +116,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
       // the only active HTMLAudioElement muted. Fall back to audible WebView
       // playback instead of creating silent tracks that auto-advance.
       restoreWebAudioFallback();
+      notifyNativePlaybackFailed((e as Error)?.message);
       opts.onUnrecoverableError?.();
     }
   };
@@ -188,6 +202,8 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
         pendingNativeUrl = null;
         clearNativeTakeoverTimer();
         muteShadowAudio();
+        window.dispatchEvent(new CustomEvent('uf-eq-changed'));
+        window.dispatchEvent(new CustomEvent('uf-eq-source-ready'));
         return;
       }
       if (s.state === 'ended') {
@@ -205,6 +221,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
       const e = data as ExoPlaybackError;
       console.warn('[nativeMirror] ExoPlayer error', e?.message);
       restoreWebAudioFallback();
+      notifyNativePlaybackFailed(e?.message);
       opts.onUnrecoverableError?.();
     }).then((h) => { errorUnlisten = () => h.remove(); }).catch(() => undefined);
   }
