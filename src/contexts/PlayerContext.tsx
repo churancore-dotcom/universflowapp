@@ -1999,7 +1999,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!isNativePlayerAvailable()) return;
       const activeQueue = queueRef.current;
       const activeIndex = currentIndexRef.current;
-      const cur = activeQueue[activeIndex] || currentSongRef.current;
+      const cur = currentSongRef.current || activeQueue[activeIndex];
       if (!cur) return;
 
       const seqAtRecoveryStart = playRequestSeqRef.current;
