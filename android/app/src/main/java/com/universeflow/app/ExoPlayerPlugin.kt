@@ -389,7 +389,7 @@ class ExoPlayerPlugin : Plugin() {
             for (i in 0 until max) {
                 val track = parseTrack(arr.optJSONObject(i), i) ?: continue
                 val vid = track.videoId
-                if (vid != null && vid.length == 11) NativeYouTubeResolver.resolve(vid, nativeTimeoutMs = 5200L)
+                if (vid != null && vid.length == 11) NativeYouTubeResolver.resolve(vid, timeoutMs = 5200L)
             }
             call.resolve()
         }.start()
