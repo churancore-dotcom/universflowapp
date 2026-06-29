@@ -2189,7 +2189,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }).then(() => {});
       }).catch(() => {});
     }, 30000);
-  }, [isPlayableUrl, resolveAudioUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex]);
+  }, [isPlayableUrl, resolveAudioUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex]);
 
   const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium
