@@ -235,6 +235,12 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
     if (isStreamProxyUrl(sourceUrl)) return false;
     if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return false;
 
+    // APK permanent guard: googlevideo URLs resolved on the phone are signed
+    // for the phone's IP. A backend proxy changes the IP and causes instant
+    // 403/silent failures. Native Android must always hand these directly to
+    // ExoPlayer.
+    if (isNativePlayerAvailable() && parsed.hostname.endsWith('googlevideo.com')) return false;
+
     // YouTube streams resolved by our edge function are signed for Supabase's
     // IP, not the user's device/browser. They must be fetched by stream-proxy.
     if (parsed.hostname.endsWith('googlevideo.com')) return true;
