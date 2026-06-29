@@ -179,9 +179,19 @@ class InnerTubePlugin : Plugin() {
             return
         }
 
+        // Cache hit — skip the network entirely.
+        getCached(videoId)?.let { c ->
+            Log.d("InnerTube", "cache hit ${c.client} (itag=${c.itag}) for $videoId")
+            call.resolve(JSObject().apply {
+                put("url", c.url); put("itag", c.itag); put("client", c.client)
+            })
+            return
+        }
+
         // Race all 3 clients in parallel — first successful one wins,
         // others are cancelled. Drops resolve time from ~1.5s to ~500ms.
         val clients = buildClients()
+
         val latch = java.util.concurrent.CountDownLatch(1)
         val winner = java.util.concurrent.atomic.AtomicReference<Triple<String, Int, String>?>()
         val errors = java.util.concurrent.ConcurrentLinkedQueue<String>()
