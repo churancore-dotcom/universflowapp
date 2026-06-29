@@ -2665,6 +2665,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     teardownYouTubePlayback();
     wasPlayingRef.current = false;
+    nativeStartupSeqRef.current = null;
 
     if (isNativePlayerAvailable()) {
       void ExoPlayerPlugin.stop().catch(() => undefined);
