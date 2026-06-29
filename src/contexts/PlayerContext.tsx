@@ -2050,7 +2050,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setQueueState(queueRef.current);
           setCurrentSong(refreshed);
           currentSongRef.current = refreshed;
-          setIsPlaying(true);
+          setIsPlaying(false);
           await ExoPlayerPlugin.play({
             url: fresh,
             title: refreshed.title || '',
@@ -2126,12 +2126,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const s = await ExoPlayerPlugin.addListener('playbackStateChange', (d) => {
           const data = d as ExoPlaybackState;
           const startupPending = nativeStartupSeqRef.current === playRequestSeqRef.current;
-          if (data.state === 'playing') { nativeStartupSeqRef.current = null; setIsPlaying(true); wasPlayingRef.current = true; }
-          else if (data.state === 'buffering' && startupPending) { setIsPlaying(true); wasPlayingRef.current = true; }
+          if (data.state === 'playing') {
+            nativeStartedForSeqRef.current = playRequestSeqRef.current;
+            nativeStartupSeqRef.current = null;
+            clearNativeStartupTimer();
+            setIsPlaying(true);
+            wasPlayingRef.current = true;
+            reapplyNativeEqSoon();
+          }
+          else if (data.state === 'buffering') {
+            if (!startupPending) setIsPlaying(false);
+          }
           else if (data.state === 'paused') { if (!startupPending) setIsPlaying(false); }
-          else if (data.state === 'stopped') { if (!startupPending) setIsPlaying(false); }
+          else if (data.state === 'stopped') { nativeStartupSeqRef.current = null; clearNativeStartupTimer(); if (!startupPending) setIsPlaying(false); }
           else if (data.state === 'ended') {
             nativeStartupSeqRef.current = null;
+            clearNativeStartupTimer();
             const activeRepeat = repeatRef.current;
             if (activeRepeat === 'one') {
               void ExoPlayerPlugin.seekTo({ positionMs: 0 }).catch(() => undefined);
@@ -2150,6 +2160,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const data = d as ExoPlaybackError;
           console.warn('[player/native] ExoPlayer error:', data.message);
           nativeStartupSeqRef.current = null;
+          clearNativeStartupTimer();
+          setIsPlaying(false);
+          wasPlayingRef.current = false;
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: data.message } }));
         });
         if (cancelled) { p.remove(); s.remove(); e.remove(); return; }
@@ -2165,7 +2178,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { stateHandle?.remove(); } catch { /* noop */ }
       try { errorHandle?.remove(); } catch { /* noop */ }
     };
-  }, [getNextIndex, playSongAtIndex]);
+  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer]);
 
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
