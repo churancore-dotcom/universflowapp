@@ -845,8 +845,7 @@ export default function ArtistApply() {
                   <div className="flex items-start gap-3 p-4 rounded-2xl bg-primary/8 border border-primary/15">
                     <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                     <p className="text-[12.5px] leading-relaxed text-foreground/90">
-                      Quick face check. Look at the camera and follow the prompts —{' '}
-                      <strong>turn left, right, then up</strong>. We capture 4 photos to confirm you're a real person.
+                      Quick face check. Just look at the camera and hold still for about a second — we'll snap one photo automatically to confirm you're a real person.
                     </p>
                   </div>
                   {livenessShots ? (
@@ -854,7 +853,7 @@ export default function ArtistApply() {
                       <Check className="w-5 h-5 text-emerald-300" />
                       <div className="flex-1">
                         <p className="text-[13px] font-semibold text-emerald-200">Face check complete</p>
-                        <p className="text-[11.5px] text-emerald-200/80">4 photos captured. Tap Continue.</p>
+                        <p className="text-[11.5px] text-emerald-200/80">Photo captured. Tap Continue.</p>
                       </div>
                       <button type="button" onClick={() => setLivenessShots(null)} className="text-[11.5px] text-emerald-200 underline">Redo</button>
                     </div>
