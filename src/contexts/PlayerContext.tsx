@@ -1625,9 +1625,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     queueRef.current = songQueue;
     setDuration(resolvedSong.duration || 0);
     setProgress(0);
-    setIsPlaying(!useNativePlayback);
-    wasPlayingRef.current = !useNativePlayback;
-    void publishNativeMusicControls(resolvedSong, !useNativePlayback, resolvedSong.duration);
+    // Optimistically show "playing" immediately — even on native. The native
+    // startup filter (isStartingUp) blocks any spurious paused/stopped events
+    // emitted while ExoPlayer transitions media items, so the UI no longer
+    // flips to a pause icon for 3-5s waiting for buffer.
+    setIsPlaying(true);
+    wasPlayingRef.current = true;
+    void publishNativeMusicControls(resolvedSong, true, resolvedSong.duration);
 
     // ── ANDROID NATIVE PATH ────────────────────────────────────────────────
     // Direct InnerTube → ExoPlayer. No audio element, no proxy, no WebView.
