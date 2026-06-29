@@ -179,6 +179,17 @@ const getNativeResolvedVideoId = (url?: string | null) => {
   return nativeResolvedStreamVideoIds.get(url) || null;
 };
 
+const unwrapStreamProxyUrl = (url?: string | null) => {
+  if (!url) return null;
+  if (!isStreamProxyUrl(url)) return url;
+  try {
+    const parsed = new URL(url, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    return parsed.searchParams.get('u') || parsed.searchParams.get('url') || url;
+  } catch {
+    return url;
+  }
+};
+
 const shouldUseAnonymousCors = (audioUrl?: string | null) => {
   if (!audioUrl) return false;
   if (audioUrl.startsWith('blob:') || audioUrl.startsWith('data:')) return false;
