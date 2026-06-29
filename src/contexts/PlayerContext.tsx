@@ -299,6 +299,19 @@ const buildStreamProxyUrl = (sourceUrl: string) => {
   return wrapStreamUrl(sourceUrl, { force: true });
 };
 
+const buildNativeExoPlayerUrl = (sourceUrl: string) => {
+  if (!sourceUrl || !sourceUrl.startsWith('http')) return sourceUrl;
+  if (isStreamProxyUrl(sourceUrl) || isNativeResolvedStreamUrl(sourceUrl)) return sourceUrl;
+  try {
+    const parsed = new URL(sourceUrl, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    // Edge-resolved googlevideo URLs are signed for Supabase's IP, so Android
+    // ExoPlayer must fetch them through stream-proxy. Normal CDN/upload URLs do
+    // not need CORS in ExoPlayer and should stay direct for fastest startup.
+    if (parsed.hostname.endsWith('googlevideo.com')) return buildStreamProxyUrl(sourceUrl);
+  } catch { /* keep original URL */ }
+  return sourceUrl;
+};
+
 const isAudioProxyUrl = (url?: string | null) =>
   isStreamProxyUrl(url) || Boolean(url?.includes('/functions/v1/music-indexer?audio='));
 
@@ -463,6 +476,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const pendingNativeRestoreRef = useRef<SavedPlayerState | null>(null);
   const nativeRestoreAttemptedRef = useRef(false);
   const currentSongRef = useRef<Song | null>(null);
+  const nativeRecoveryAttemptedRef = useRef<Set<string>>(new Set());
   useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
@@ -1305,6 +1319,57 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [isPlayableUrl],
   );
 
+  const resolveNativePlaybackUrl = useCallback(async (
+    song: Song,
+    offlineUrl?: string | null,
+    opts: { skipNativeFastPath?: boolean } = {},
+  ): Promise<string | null> => {
+    if (offlineUrl) return offlineUrl;
+
+    const directUrl = isPlayableUrl(song.audio_url) && !isYouTubeFallbackUrl(song.audio_url)
+      ? song.audio_url
+      : null;
+    const videoId = getNativePlaybackVideoId(song as Song & { videoId?: string });
+
+    if (directUrl && !opts.skipNativeFastPath) {
+      let shouldRefreshYoutubeUrl = false;
+      try {
+        const parsed = new URL(directUrl, window.location.href);
+        shouldRefreshYoutubeUrl = Boolean(videoId)
+          && parsed.hostname.endsWith('googlevideo.com')
+          && !isNativeResolvedStreamUrl(directUrl);
+      } catch { /* use direct URL */ }
+      if (!shouldRefreshYoutubeUrl) return buildNativeExoPlayerUrl(directUrl);
+    }
+
+    // Fast path: try true on-device YouTube resolution first, but never let it
+    // be the only path. Many videos now require signature/n-param handling; when
+    // the Kotlin resolver can't return a playable URL, we immediately fall back
+    // to the normal resolver chain (JioSaavn + edge proxy) and still play through
+    // ExoPlayer so background audio keeps working.
+    if (videoId && !opts.skipNativeFastPath) {
+      try {
+        const res = await Promise.race([
+          InnerTubePlugin.resolveAudio({ videoId }),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 6500)),
+        ]);
+        if (res?.url && !isYouTubeFallbackUrl(res.url)) {
+          markNativeResolvedStreamUrl(res.url, videoId);
+          return res.url;
+        }
+      } catch { /* fall through to backend/JioSaavn resolver */ }
+    }
+
+    try {
+      const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
+      if (fresh && !isYouTubeFallbackUrl(fresh)) return buildNativeExoPlayerUrl(fresh);
+    } catch { /* fall through to direct URL */ }
+
+    // Last resort for catalog uploads/direct CDN URLs. If this is a cloud-signed
+    // googlevideo URL, buildStreamProxyUrl keeps the fetch on the signing side.
+    return directUrl ? buildNativeExoPlayerUrl(directUrl) : null;
+  }, [isPlayableUrl, resolveAudioUrl, playbackSettingsVersion]);
+
   // ── Preload NEXT queued track for zero-gap transitions ──
   // Whenever queue / current index changes, warm `nextAudioRef` with the upcoming
   // song so crossfade & "next" feel instantaneous.
@@ -1504,6 +1569,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const mySeq = ++playRequestSeqRef.current;
     const intendedIdentity = getSongIdentity(song);
     activeSongIdentityRef.current = intendedIdentity;
+    nativeRecoveryAttemptedRef.current.delete(intendedIdentity);
 
     // Stop whatever is currently playing IMMEDIATELY so we never have two
     // <audio> elements racing to set src and emit events.
@@ -1534,6 +1600,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Update state first for instant UI response
     setCurrentSong(resolvedSong);
     setCurrentIndex(index);
+    currentSongRef.current = resolvedSong;
+    currentIndexRef.current = index;
+    queueRef.current = songQueue;
     setDuration(resolvedSong.duration || 0);
     setProgress(0);
     setIsPlaying(true);
@@ -1547,35 +1616,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       await ExoPlayerPlugin.stop().catch(() => undefined);
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
-      const extractVideoId = (s: Song): string | null => {
-        const v1 = getYouTubeFallbackVideoId(s.audio_url || '');
-        if (v1 && v1.length === 11) return v1;
-        if (s.id?.startsWith('ytm-')) {
-          const v = s.id.slice(4);
-          if (v.length === 11) return v;
-        }
-        const anyId = (s as unknown as { videoId?: string }).videoId;
-        if (typeof anyId === 'string' && anyId.length === 11) return anyId;
-        // If audio_url is a direct http(s) stream (catalog upload, Audius), use as-is.
-        return null;
-      };
-
-      const directUrl = isPlayableUrl(resolvedSong.audio_url) && !isYouTubeFallbackUrl(resolvedSong.audio_url)
-        ? resolvedSong.audio_url
-        : null;
-      const videoId = directUrl ? null : extractVideoId(resolvedSong);
-      console.log('[player/native] tap', resolvedSong.title, 'directUrl?', !!directUrl, 'videoId:', videoId);
-
       try {
-        let playUrl = directUrl;
-        if (!playUrl) {
-          if (!videoId) throw new Error('no videoId');
-          const res = await InnerTubePlugin.resolveAudio({ videoId });
-          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
-          if (!res?.url) throw new Error('no url from InnerTube');
-          console.log('[player/native] resolved via', res.client, 'itag', res.itag);
-          playUrl = res.url;
-        }
+        const playUrl = await resolveNativePlaybackUrl(resolvedSong);
+        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+        if (!playUrl) throw new Error('no native playable url');
         await ExoPlayerPlugin.play({
           url: playUrl,
           title: resolvedSong.title || '',
@@ -1586,10 +1630,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (err) {
         console.warn('[player/native] failed', (err as Error)?.message);
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
-        nativeStartupSeqRef.current = null;
-        toast.error('Song unavailable');
-        wasPlayingRef.current = false;
-        setIsPlaying(false);
+        window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: (err as Error)?.message } }));
       }
       return;
     }
@@ -1718,7 +1759,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
-  }, [isPlayableUrl, resolveAudioUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, playbackSettingsVersion]);
+  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, playbackSettingsVersion]);
 
   // Handle song end and crossfade
   useEffect(() => {
@@ -1958,16 +1999,25 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!isNativePlayerAvailable()) return;
       const activeQueue = queueRef.current;
       const activeIndex = currentIndexRef.current;
-      const cur = activeQueue[activeIndex] || currentSongRef.current;
+      const cur = currentSongRef.current || activeQueue[activeIndex];
       if (!cur) return;
 
       const seqAtRecoveryStart = playRequestSeqRef.current;
       const activeIdentity = activeSongIdentityRef.current;
       const failedUrl = (event as CustomEvent<{ url?: string }>).detail?.url;
+      if (activeIdentity && nativeRecoveryAttemptedRef.current.has(activeIdentity)) {
+        if (seqAtRecoveryStart === playRequestSeqRef.current && activeSongIdentityRef.current === activeIdentity) {
+          setIsPlaying(false);
+          toast.error('This song could not start right now.');
+        }
+        return;
+      }
+      if (activeIdentity) nativeRecoveryAttemptedRef.current.add(activeIdentity);
       try {
         // If phone-signed/native playback failed, immediately fall back to the
-        // edge/proxy resolver for the SAME song. Do not advance to the next song.
-        const fresh = await resolveAudioUrl(cur, { forceRefresh: true, skipNative: true });
+        // edge/JioSaavn/proxy resolver for the SAME song, but keep ExoPlayer as
+        // the playback engine so lock-screen/background playback still works.
+        const fresh = await resolveNativePlaybackUrl(cur, null, { skipNativeFastPath: true });
         if (seqAtRecoveryStart !== playRequestSeqRef.current || activeSongIdentityRef.current !== activeIdentity) return;
         if (fresh && !isYouTubeFallbackUrl(fresh)) {
           const refreshed = { ...cur, audio_url: fresh };
@@ -1976,12 +2026,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           queueRef.current = nextQueue.length ? nextQueue : [refreshed];
           setQueueState(queueRef.current);
           setCurrentSong(refreshed);
+          currentSongRef.current = refreshed;
           setIsPlaying(true);
-          configureAudioElementSource(audio, buildStreamProxyUrl(fresh));
-          audio.volume = volumeRef.current;
-          audio.currentTime = 0;
-          audio.load();
-          await audio.play().catch(() => undefined);
+          await ExoPlayerPlugin.play({
+            url: fresh,
+            title: refreshed.title || '',
+            artist: refreshed.artist || '',
+            artworkUrl: refreshed.cover_url || undefined,
+          });
+          reapplyNativeEqSoon();
           return;
         }
 
@@ -2028,7 +2081,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('error', handleAudioError);
       window.removeEventListener('uf-native-playback-failed', handleNativePlaybackFailed as EventListener);
     };
-  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, extendQueueWithMix, playbackSettingsVersion]);
+  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, resolveNativePlaybackUrl, extendQueueWithMix, playbackSettingsVersion]);
 
   // ── Android: subscribe to ExoPlayer events and drive React state directly.
   useEffect(() => {
@@ -2074,9 +2127,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const data = d as ExoPlaybackError;
           console.warn('[player/native] ExoPlayer error:', data.message);
           nativeStartupSeqRef.current = null;
-          toast.error('Song unavailable');
-          wasPlayingRef.current = false;
-          setIsPlaying(false);
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: data.message } }));
         });
         if (cancelled) { p.remove(); s.remove(); e.remove(); return; }
         progressHandle = p; stateHandle = s; errorHandle = e;
@@ -2288,6 +2339,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const mySeq = ++playRequestSeqRef.current;
     const intendedIdentity = getSongIdentity(song);
     activeSongIdentityRef.current = intendedIdentity;
+    nativeRecoveryAttemptedRef.current.delete(intendedIdentity);
 
     // Cancel any ongoing crossfade and stale preloaded next-track audio
     if (crossfadeIntervalRef.current) {
@@ -2306,6 +2358,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Update state immediately to prevent UI flicker
     setCurrentSong(song);
+    currentSongRef.current = song;
     setDuration(song.duration || 0);
     setProgress(0);
     setIsPlaying(true);
@@ -2364,13 +2417,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
       try {
-        const videoId = getNativePlaybackVideoId(song as Song & { videoId?: string });
-        let playUrl = videoId ? null : (offlineUrl || playbackSource);
-        if (!playUrl) {
-          const res = await InnerTubePlugin.resolveAudio({ videoId: videoId! });
-          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
-          playUrl = res?.url || null;
-        }
+        const playUrl = await resolveNativePlaybackUrl({ ...song, audio_url: playbackSource }, offlineUrl);
+        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
         if (!playUrl || isYouTubeFallbackUrl(playUrl)) throw new Error('no native playable url');
         await ExoPlayerPlugin.play({
           url: playUrl,
@@ -2399,10 +2447,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (err) {
         console.warn('[player/native] playActualSong failed', (err as Error)?.message);
         if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity) {
-          nativeStartupSeqRef.current = null;
-          setIsPlaying(false);
-          wasPlayingRef.current = false;
-          toast.error('Song unavailable');
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: (err as Error)?.message } }));
         }
       }
       return;
@@ -2513,7 +2558,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }).then(() => {});
       }).catch(() => {});
     }, 30000);
-  }, [isPlayableUrl, resolveAudioUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex]);
+  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex]);
 
   const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium
