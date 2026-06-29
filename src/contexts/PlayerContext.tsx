@@ -2582,6 +2582,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (isNativePlayerAvailable()) {
       if (isPlaying) {
+        nativeStartupSeqRef.current = null;
         setIsPlaying(false); wasPlayingRef.current = false;
         void ExoPlayerPlugin.pause().catch(() => undefined);
       } else {
@@ -2621,6 +2622,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     wasPlayingRef.current = false;
     markIntentionalPause();
     if (isNativePlayerAvailable()) {
+      nativeStartupSeqRef.current = null;
       void ExoPlayerPlugin.pause().catch(() => undefined);
       return;
     }
