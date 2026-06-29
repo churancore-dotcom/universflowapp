@@ -1702,6 +1702,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // src is assigned, and must NOT cause us to auto-skip the queue.
       if (!audio.src || audio.src === window.location.href || /empty src/i.test(errorMessage)) return;
 
+      // Android APK: ExoPlayer owns audible playback. The HTMLAudioElement is a
+      // muted shadow for UI/progress and can emit WebView-only CORS/network
+      // errors even while ExoPlayer is playing fine. Never let that shadow stop
+      // or skip the queue; real native failures are handled by nativeMirror's
+      // WebView fallback and then this handler only runs if fallback is audible.
+      if (isNativePlayerAvailable() && audio.muted) return;
+
       console.warn('[player] audio error:', errorCode, errorMessage);
       recordPerfEvent({
         event_type: 'playback_error',

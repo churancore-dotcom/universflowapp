@@ -163,6 +163,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     ExoPlayerPlugin.addListener('playbackError', (data) => {
       const e = data as ExoPlaybackError;
       console.warn('[nativeMirror] ExoPlayer error', e?.message);
+      restoreWebAudioFallback();
       opts.onUnrecoverableError?.();
     }).then((h) => { errorUnlisten = () => h.remove(); }).catch(() => undefined);
   }
