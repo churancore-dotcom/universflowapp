@@ -47,14 +47,11 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) { setGenerating(false); return; }
 
-    // Magazine-cover portrait format (Instagram/WhatsApp story friendly)
+    // Story portrait 1080x1920 (IG/WA story native)
     const W = 1080;
-    const H = 1350;
+    const H = 1920;
     canvas.width = W;
     canvas.height = H;
-
-    ctx.fillStyle = '#0A0A0C';
-    ctx.fillRect(0, 0, W, H);
 
     // Load artwork
     let art: HTMLImageElement | null = null;
@@ -69,116 +66,235 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
       } catch { art = null; }
     }
 
-    // Full-bleed blurred backdrop
+    // Extract dominant color from artwork for accent
+    let accent = { r: 255, g: 45, b: 85 };
+    if (art) {
+      try {
+        const tmp = document.createElement('canvas');
+        tmp.width = 32; tmp.height = 32;
+        const tctx = tmp.getContext('2d')!;
+        tctx.drawImage(art, 0, 0, 32, 32);
+        const data = tctx.getImageData(0, 0, 32, 32).data;
+        let r = 0, g = 0, b = 0, n = 0;
+        for (let i = 0; i < data.length; i += 16) {
+          // bias to saturated pixels
+          const cr = data[i], cg = data[i + 1], cb = data[i + 2];
+          const max = Math.max(cr, cg, cb), min = Math.min(cr, cg, cb);
+          if (max - min < 40) continue;
+          r += cr; g += cg; b += cb; n++;
+        }
+        if (n > 0) {
+          accent = { r: Math.round(r / n), g: Math.round(g / n), b: Math.round(b / n) };
+          // boost saturation/brightness
+          const maxC = Math.max(accent.r, accent.g, accent.b);
+          if (maxC < 200) {
+            const k = 200 / Math.max(maxC, 1);
+            accent.r = Math.min(255, Math.round(accent.r * k));
+            accent.g = Math.min(255, Math.round(accent.g * k));
+            accent.b = Math.min(255, Math.round(accent.b * k));
+          }
+        }
+      } catch {}
+    }
+    const accentRgb = `${accent.r}, ${accent.g}, ${accent.b}`;
+
+    // Duotone backdrop: deep black → accent radial glow
+    const bgGrad = ctx.createRadialGradient(W * 0.5, H * 0.35, 50, W * 0.5, H * 0.5, H);
+    bgGrad.addColorStop(0, `rgba(${accentRgb}, 0.55)`);
+    bgGrad.addColorStop(0.5, `rgba(${Math.round(accent.r * 0.3)}, ${Math.round(accent.g * 0.3)}, ${Math.round(accent.b * 0.3)}, 1)`);
+    bgGrad.addColorStop(1, '#050507');
+    ctx.fillStyle = bgGrad; ctx.fillRect(0, 0, W, H);
+
+    // Heavy blurred artwork wash (subtle, behind everything)
     if (art) {
       ctx.save();
-      ctx.filter = 'blur(60px) saturate(140%) brightness(0.55)';
+      ctx.globalAlpha = 0.35;
+      ctx.filter = 'blur(80px) saturate(180%)';
       const ratio = Math.max(W / art.width, H / art.height);
       const dw = art.width * ratio;
       const dh = art.height * ratio;
       ctx.drawImage(art, (W - dw) / 2, (H - dh) / 2, dw, dh);
       ctx.restore();
-    } else {
-      const g = ctx.createLinearGradient(0, 0, W, H);
-      g.addColorStop(0, '#1a1320');
-      g.addColorStop(1, '#0A0A0C');
-      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     }
 
-    // Darkening top & bottom
-    const topShade = ctx.createLinearGradient(0, 0, 0, H * 0.45);
-    topShade.addColorStop(0, 'rgba(0,0,0,0.7)');
-    topShade.addColorStop(1, 'rgba(0,0,0,0)');
-    ctx.fillStyle = topShade; ctx.fillRect(0, 0, W, H * 0.45);
+    // Film grain (sparse)
+    ctx.save();
+    ctx.globalAlpha = 0.08;
+    for (let i = 0; i < 1200; i++) {
+      ctx.fillStyle = Math.random() > 0.5 ? '#fff' : '#000';
+      ctx.fillRect(Math.random() * W, Math.random() * H, 1, 1);
+    }
+    ctx.restore();
 
-    const botShade = ctx.createLinearGradient(0, H * 0.45, 0, H);
-    botShade.addColorStop(0, 'rgba(0,0,0,0)');
-    botShade.addColorStop(0.6, 'rgba(0,0,0,0.75)');
-    botShade.addColorStop(1, 'rgba(0,0,0,0.95)');
-    ctx.fillStyle = botShade; ctx.fillRect(0, H * 0.45, W, H * 0.55);
+    // Vignette
+    const vg = ctx.createRadialGradient(W / 2, H / 2, H * 0.3, W / 2, H / 2, H * 0.75);
+    vg.addColorStop(0, 'rgba(0,0,0,0)');
+    vg.addColorStop(1, 'rgba(0,0,0,0.7)');
+    ctx.fillStyle = vg; ctx.fillRect(0, 0, W, H);
 
-    // Masthead
-    const margin = 64;
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = '700 22px "Helvetica Neue", system-ui, sans-serif';
+    const margin = 72;
+
+    // ─── TOP BAR — brand + monogram ───────────────────────
+    ctx.fillStyle = 'rgba(255,255,255,0.95)';
+    ctx.font = '800 26px "Helvetica Neue", system-ui, sans-serif';
     ctx.textAlign = 'left';
-    ctx.fillText('UNIVERS FLOW', margin, 90);
-    ctx.fillStyle = '#FF2D55';
+    ctx.fillText('UNIVERS', margin, 110);
+    ctx.fillStyle = `rgb(${accentRgb})`;
+    ctx.fillText('FLOW', margin + ctx.measureText('UNIVERS').width + 12, 110);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.6)';
+    ctx.font = '600 18px "Helvetica Neue", system-ui, sans-serif';
     ctx.textAlign = 'right';
-    ctx.fillText('NOW PLAYING / VOL. 01', W - margin, 90);
-    ctx.textAlign = 'left';
+    ctx.fillText('NOW SPINNING', W - margin, 110);
 
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.lineWidth = 1.5;
+    // hair-line rule
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+    ctx.lineWidth = 1;
     ctx.beginPath();
-    ctx.moveTo(margin, 110);
-    ctx.lineTo(W - margin, 110);
+    ctx.moveTo(margin, 138); ctx.lineTo(W - margin, 138);
     ctx.stroke();
 
-    // Centered artwork tile (sharp)
-    const tile = 640;
+    // ─── VINYL + ARTWORK COMPOSITION ──────────────────────
+    const tile = 760;
     const tx = (W - tile) / 2;
-    const ty = 175;
+    const ty = 230;
+
+    // Vinyl disc peeking from right
+    const vinylCx = tx + tile + 30;
+    const vinylCy = ty + tile / 2;
+    const vinylR = tile / 2 + 40;
     ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.6)';
-    ctx.shadowBlur = 50;
-    ctx.shadowOffsetY = 25;
-    roundRect(ctx, tx, ty, tile, tile, 28);
-    ctx.fillStyle = '#15151A';
+    ctx.shadowColor = 'rgba(0,0,0,0.7)';
+    ctx.shadowBlur = 60;
+    ctx.shadowOffsetY = 20;
+    ctx.fillStyle = '#0a0a0a';
+    ctx.beginPath(); ctx.arc(vinylCx, vinylCy, vinylR, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    // vinyl grooves
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    for (let r = vinylR - 20; r > 80; r -= 14) {
+      ctx.beginPath(); ctx.arc(vinylCx, vinylCy, r, 0, Math.PI * 2); ctx.stroke();
+    }
+    // vinyl label
+    const labelR = 90;
+    ctx.fillStyle = `rgb(${accentRgb})`;
+    ctx.beginPath(); ctx.arc(vinylCx, vinylCy, labelR, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#050507';
+    ctx.beginPath(); ctx.arc(vinylCx, vinylCy, 12, 0, Math.PI * 2); ctx.fill();
+    // vinyl shine highlight
+    const shine = ctx.createLinearGradient(vinylCx - vinylR, vinylCy - vinylR, vinylCx + vinylR, vinylCy + vinylR);
+    shine.addColorStop(0, 'rgba(255,255,255,0.18)');
+    shine.addColorStop(0.5, 'rgba(255,255,255,0)');
+    shine.addColorStop(1, 'rgba(255,255,255,0.08)');
+    ctx.fillStyle = shine;
+    ctx.beginPath(); ctx.arc(vinylCx, vinylCy, vinylR, 0, Math.PI * 2); ctx.fill();
+
+    // Artwork tile (sharp, with thick chrome border)
+    ctx.save();
+    ctx.shadowColor = `rgba(${accentRgb}, 0.45)`;
+    ctx.shadowBlur = 90;
+    ctx.shadowOffsetY = 30;
+    roundRect(ctx, tx, ty, tile, tile, 36);
+    ctx.fillStyle = '#0a0a0a';
     ctx.fill();
     ctx.restore();
 
     if (art) {
       ctx.save();
-      roundRect(ctx, tx, ty, tile, tile, 28);
+      roundRect(ctx, tx, ty, tile, tile, 36);
       ctx.clip();
       const ratio = Math.max(tile / art.width, tile / art.height);
       const dw = art.width * ratio;
       const dh = art.height * ratio;
       ctx.drawImage(art, tx + (tile - dw) / 2, ty + (tile - dh) / 2, dw, dh);
+      // gloss highlight
+      const gloss = ctx.createLinearGradient(tx, ty, tx, ty + tile * 0.5);
+      gloss.addColorStop(0, 'rgba(255,255,255,0.18)');
+      gloss.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = gloss;
+      ctx.fillRect(tx, ty, tile, tile * 0.5);
       ctx.restore();
     }
-    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
-    ctx.lineWidth = 1;
-    roundRect(ctx, tx + 0.5, ty + 0.5, tile - 1, tile - 1, 28);
+    // crisp inner border
+    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+    ctx.lineWidth = 2;
+    roundRect(ctx, tx + 1, ty + 1, tile - 2, tile - 2, 35);
     ctx.stroke();
 
-    // Editorial headline
-    const headlineY = ty + tile + 95;
+    // ─── AUDIO WAVEFORM BARS ──────────────────────────────
+    const waveY = ty + tile + 80;
+    const waveH = 70;
+    const barCount = 56;
+    const barGap = 6;
+    const barW = (W - margin * 2 - barGap * (barCount - 1)) / barCount;
+    for (let i = 0; i < barCount; i++) {
+      // smooth pseudo-random wave envelope
+      const t = i / barCount;
+      const env = Math.sin(t * Math.PI) * 0.85 + 0.15;
+      const noise = 0.4 + Math.abs(Math.sin(i * 1.7) + Math.cos(i * 0.9)) * 0.3;
+      const h = Math.max(8, waveH * env * noise);
+      const bx = margin + i * (barW + barGap);
+      const by = waveY + (waveH - h) / 2;
+      const alpha = 0.4 + env * 0.6;
+      ctx.fillStyle = `rgba(${accentRgb}, ${alpha})`;
+      roundRect(ctx, bx, by, barW, h, barW / 2);
+      ctx.fill();
+    }
+
+    // ─── HEADLINE BLOCK ───────────────────────────────────
+    let cursor = waveY + waveH + 90;
+
+    // tiny eyebrow
+    ctx.fillStyle = `rgb(${accentRgb})`;
+    ctx.font = '800 20px "Helvetica Neue", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('▸ TRACK', margin, cursor);
+    cursor += 30;
+
+    // Massive serif title
     ctx.fillStyle = '#FFFFFF';
-    ctx.textAlign = 'center';
-    ctx.font = '900 76px Georgia, "Times New Roman", serif';
-    const titleLines = wrapText(ctx, song.title || 'Untitled', W - margin * 2, 2);
-    titleLines.forEach((line, i) => {
-      ctx.fillText(line, W / 2, headlineY + i * 82);
+    ctx.font = '900 96px Georgia, "Times New Roman", serif';
+    const titleLines = wrapText(ctx, song.title || 'Untitled', W - margin * 2, 3);
+    titleLines.forEach((line) => {
+      ctx.fillText(line, margin, cursor + 78);
+      cursor += 100;
     });
 
-    // Accent rule
-    const ruleY = headlineY + titleLines.length * 82 + 20;
-    ctx.strokeStyle = '#FF2D55';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    ctx.moveTo(W / 2 - 40, ruleY);
-    ctx.lineTo(W / 2 + 40, ruleY);
-    ctx.stroke();
+    cursor += 30;
 
-    // Artist meta
-    ctx.fillStyle = 'rgba(255,255,255,0.88)';
-    ctx.font = '500 30px "Helvetica Neue", system-ui, sans-serif';
-    const meta = song.album ? `${song.artist}  ·  ${song.album}` : song.artist;
-    ctx.fillText(truncateText(ctx, meta, W - margin * 2), W / 2, ruleY + 50);
-
-    // Footer ticker
+    // Artist + album on baseline
     ctx.fillStyle = 'rgba(255,255,255,0.55)';
-    ctx.font = '600 18px "Helvetica Neue", system-ui, sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText('STREAM · UNIVERSFLOW.IN', margin, H - 50);
-    ctx.textAlign = 'right';
-    ctx.fillText('FREE · NO ADS · LOSSLESS', W - margin, H - 50);
-    ctx.textAlign = 'left';
+    ctx.font = '700 22px "Helvetica Neue", system-ui, sans-serif';
+    ctx.fillText('BY', margin, cursor);
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '700 36px "Helvetica Neue", system-ui, sans-serif';
+    ctx.fillText(truncateText(ctx, (song.artist || 'Unknown').toUpperCase(), W - margin * 2 - 60), margin + 50, cursor + 4);
+    cursor += 60;
 
-    // Watermark pill
-    await drawUniversFlowWatermark(ctx, W, H - 90, {
+    if (song.album) {
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.font = '500 24px Georgia, serif';
+      ctx.fillText(truncateText(ctx, `from "${song.album}"`, W - margin * 2), margin, cursor);
+      cursor += 40;
+    }
+
+    // ─── FOOTER STRIP ─────────────────────────────────────
+    const footerY = H - 140;
+    // accent rule
+    ctx.fillStyle = `rgb(${accentRgb})`;
+    ctx.fillRect(margin, footerY, 80, 4);
+
+    ctx.fillStyle = 'rgba(255,255,255,0.85)';
+    ctx.font = '700 22px "Helvetica Neue", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('STREAM FREE', margin, footerY + 50);
+    ctx.fillStyle = 'rgba(255,255,255,0.5)';
+    ctx.font = '500 18px "Helvetica Neue", system-ui, sans-serif';
+    ctx.fillText('universflow.in  ·  no ads  ·  lossless', margin, footerY + 80);
+
+    // Watermark pill bottom-right
+    await drawUniversFlowWatermark(ctx, W, H - 60, {
       position: 'bottom-right',
       theme: 'light',
     });
