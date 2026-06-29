@@ -1576,6 +1576,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Update state first for instant UI response
     setCurrentSong(resolvedSong);
     setCurrentIndex(index);
+    currentSongRef.current = resolvedSong;
+    currentIndexRef.current = index;
+    queueRef.current = songQueue;
     setDuration(resolvedSong.duration || 0);
     setProgress(0);
     setIsPlaying(true);
@@ -2330,6 +2333,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Update state immediately to prevent UI flicker
     setCurrentSong(song);
+    currentSongRef.current = song;
     setDuration(song.duration || 0);
     setProgress(0);
     setIsPlaying(true);
