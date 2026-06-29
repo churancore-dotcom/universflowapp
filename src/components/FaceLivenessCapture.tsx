@@ -115,10 +115,10 @@ export default function FaceLivenessCapture({
     return () => clearInterval(id);
   }, [phase]);
 
-  // ── Slow-capture hint after 20s of preflight ───────────────────────────
+  // ── Slow-capture hint after 6s of preflight ────────────────────────────
   useEffect(() => {
     if (phase !== 'preflight') { setSlowHelp(false); return; }
-    const id = setTimeout(() => setSlowHelp(true), 20_000);
+    const id = setTimeout(() => setSlowHelp(true), 6_000);
     return () => clearTimeout(id);
   }, [phase]);
 
