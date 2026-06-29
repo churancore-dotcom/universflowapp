@@ -4,6 +4,7 @@ import { X, Download, Copy, Check, Link2 } from 'lucide-react';
 import { Song } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
 import { iosSpring, iosBounce } from '@/lib/animations';
+import { drawUniversFlowWatermark } from '@/lib/shareWatermark';
 
 // Social platform icons as SVG components
 const InstagramIcon = () => (
