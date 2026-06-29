@@ -35,14 +35,15 @@ interface WorkerResult {
   smileLeft: number; smileRight: number;
 }
 
-// Loose, real-world thresholds so we actually capture instead of looping.
+// Very loose thresholds — most real users with phones at arm's length should
+// trip "good" within a second. Anything tighter just causes infinite loops.
 const TH = {
-  minFaceFrac: 0.18,   // face short-side >= 18% of frame (was 0.30 — way too tight)
-  centerTol:   0.28,   // within 28% of frame center (was 0.18)
-  minBrightness: 35,   // 0..255 (was 55)
-  holdMs:      700,    // hold "good" for 700ms then auto-capture
-  maxYawAbs:   28,     // roughly facing the camera
-  maxPitchAbs: 24,
+  minFaceFrac: 0.12,   // face short-side >= 12% of frame
+  centerTol:   0.36,   // within 36% of frame center
+  minBrightness: 22,   // 0..255
+  holdMs:      350,    // hold "good" for 350ms then auto-capture
+  maxYawAbs:   45,
+  maxPitchAbs: 38,
 } as const;
 
 type QualityFail = 'none' | 'small' | 'offcenter' | 'dark' | 'multi' | 'noface' | 'angle';
