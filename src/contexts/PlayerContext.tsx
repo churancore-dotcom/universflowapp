@@ -11,8 +11,7 @@ import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
-import { attachNativeMirror, setNativeMirrorVolume, stopNativeMirror, disposeNativeMirror, isNativeMirrorActive } from '@/lib/nativeMirror';
-import { isNativePlayerAvailable } from '@/lib/nativePlayer';
+import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError } from '@/lib/nativePlayer';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
