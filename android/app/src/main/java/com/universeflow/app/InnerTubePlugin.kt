@@ -217,9 +217,11 @@ class InnerTubePlugin : Plugin() {
             val w = winner.get()
             if (w != null) {
                 Log.d("InnerTube", "Resolved via ${w.third} (itag=${w.second}): ${w.first.take(80)}...")
+                streamCache[videoId] = CachedStream(w.first, w.second, w.third, System.currentTimeMillis())
                 call.resolve(JSObject().apply {
                     put("url", w.first); put("itag", w.second); put("client", w.third)
                 })
+
             } else {
                 val joined = errors.joinToString("; ").ifEmpty { "no playable stream" }
                 Log.e("InnerTube", "All clients failed for $videoId: $joined")
