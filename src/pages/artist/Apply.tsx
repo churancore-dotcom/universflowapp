@@ -821,25 +821,17 @@ export default function ArtistApply() {
                     </p>
                   </Field>
                   <Field label="Country">
-                    <div className="relative">
-                      <Globe2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                      <select
-                        value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        disabled={isLockedReapply || signupLocked}
-                        className={`flex h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-9 pr-3 py-2 text-sm appearance-none focus:outline-none focus:border-primary/50 ${
-                          !country ? 'text-muted-foreground' : ''
-                        }`}
-                      >
-                        <option value="" disabled>Select your country…</option>
-                        {COUNTRIES.map(([c, l]) => (
-                          <option key={c} value={c} className="bg-background text-foreground">{l}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <CountryCombobox
+                      value={country}
+                      onChange={setCountry}
+                      variant="full"
+                      disabled={isLockedReapply || signupLocked}
+                      placeholder="Select your country…"
+                      ariaLabel="Country"
+                    />
                     {!country && (
                       <p className="mt-2 text-[11px] text-muted-foreground">
-                        We use this to ask for the right ID document.
+                        Search any country — we use this to ask for the right ID document.
                       </p>
                     )}
                   </Field>
