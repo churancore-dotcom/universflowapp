@@ -1292,7 +1292,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // uses the phone's residential IP and returns a direct googlevideo
             // URL in ~300-600ms — no Supabase round-trip, no datacenter-IP
             // block. This is the Echo Music / NewPipe approach.
-            if (!opts.skipNative && !getRuntimePremium()) {
+            if (!opts.skipNative && isNativePlayerAvailable()) {
               try {
                 const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
                 const native = await Promise.race([
@@ -1349,6 +1349,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       : null;
     const videoId = getNativePlaybackVideoId(song as Song & { videoId?: string });
 
+    // Echo/NewPipe-style APK path: if this is a YouTube Music item, always try
+    // phone-side InnerTube FIRST. Backend/Supabase googlevideo URLs are signed
+    // for the server IP and are exactly what caused slow starts/IP blocks.
+    if (videoId && !opts.skipNativeFastPath) {
+      try {
+        const res = await Promise.race([
+          InnerTubePlugin.resolveAudio({ videoId }),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 5200)),
+        ]);
+        if (res?.url && !isYouTubeFallbackUrl(res.url)) {
+          markNativeResolvedStreamUrl(res.url, videoId);
+          return res.url;
+        }
+      } catch { /* fall through */ }
+    }
+
     if (directUrl && !opts.skipNativeFastPath) {
       let shouldRefreshYoutubeUrl = false;
       try {
@@ -1364,23 +1380,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
       if (fresh && !isYouTubeFallbackUrl(fresh)) return buildNativeExoPlayerUrl(fresh);
     } catch { /* fall through to direct URL */ }
-
-    // Last fallback only: true on-device YouTube resolution. These googlevideo
-    // URLs are signed for the phone IP, so they must stay direct. We do NOT use
-    // this as the primary path because some URLs still require signature/n-param
-    // transforms and can stall ExoPlayer at ~3s before failing.
-    if (videoId && !opts.skipNativeFastPath) {
-      try {
-        const res = await Promise.race([
-          InnerTubePlugin.resolveAudio({ videoId }),
-          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 3500)),
-        ]);
-        if (res?.url && !isYouTubeFallbackUrl(res.url)) {
-          markNativeResolvedStreamUrl(res.url, videoId);
-          return res.url;
-        }
-      } catch { /* fall through to direct URL */ }
-    }
 
     // Last resort for catalog uploads/direct CDN URLs. If this is a cloud-signed
     // googlevideo URL, buildStreamProxyUrl keeps the fetch on the signing side.
