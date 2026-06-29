@@ -1807,7 +1807,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
-  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, playbackSettingsVersion]);
+  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent, playbackSettingsVersion]);
 
   // Handle song end and crossfade
   useEffect(() => {
@@ -2133,7 +2133,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('error', handleAudioError);
       window.removeEventListener('uf-native-playback-failed', handleNativePlaybackFailed as EventListener);
     };
-  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, resolveNativePlaybackUrl, extendQueueWithMix, playbackSettingsVersion]);
+  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, resolveNativePlaybackUrl, extendQueueWithMix, markNativePlayIntent, playbackSettingsVersion]);
 
   // ── Android: subscribe to ExoPlayer events and drive React state directly.
   useEffect(() => {
@@ -2659,7 +2659,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }).then(() => {});
       }).catch(() => {});
     }, 30000);
-  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex, clearNativeStartupTimer]);
+  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent]);
 
   const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium
@@ -2763,7 +2763,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       markIntentionalPause();
       audioRef.current.pause();
     }
-  }, [currentSong, isPlaying, markIntentionalPause]);
+  }, [currentSong, isPlaying, markIntentionalPause, markNativePlayIntent]);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
