@@ -2309,7 +2309,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // `yt-video:` can play through the YouTube iframe, but iframe audio cannot
     // be connected to WebAudio. Resolve it to a real stream before playback so
     // Premium EQ/effects can attach to the normal <audio> element.
-    if (!offlineUrl && (!isPlayableUrl(playbackSource) || isYouTubeFallbackUrl(playbackSource))) {
+    if (!isNativePlayerAvailable() && !offlineUrl && (!isPlayableUrl(playbackSource) || isYouTubeFallbackUrl(playbackSource))) {
       const resolved = await resolveAudioUrl(song);
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return; // user tapped another song first
       if (!resolved) {
