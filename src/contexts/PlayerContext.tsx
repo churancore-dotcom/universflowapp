@@ -553,20 +553,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     audioRef.current = audio;
     setAudioElement(audio);
 
-    // Android: mirror the HTMLAudioElement to ExoPlayer (MediaSessionService).
-    // ExoPlayer is the only audible source on native; the HTML element stays
-    // muted so existing EQ/lyrics/progress code keeps working unchanged.
-    if (isNativePlayerAvailable()) {
-      attachNativeMirror(audio, {
-        getSong: () => currentSongRef.current as never,
-        onUnrecoverableError: () => {
-          // Native failed to take over. nativeMirror restores audible WebView
-          // playback, so do NOT dispatch a synthetic media error here — that was
-          // stopping the tapped song even though the fallback could still play.
-        },
-      });
-      setNativeMirrorVolume(volume);
-    }
+    // Android native playback path is fully owned by ExoPlayer (see playSongAtIndex).
+    // We deliberately do NOT touch this HTMLAudioElement on Android — no muting,
+    // no mirroring. ExoPlayer plays directly; events drive React state via the
+    // dedicated subscription useEffect below.
 
     // Create second audio for crossfade
     const nextAudio = new Audio();
