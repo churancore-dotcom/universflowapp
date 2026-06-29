@@ -1856,6 +1856,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const handlePlay = () => {
+      if (isNativePlayerAvailable()) return;
       wasPlayingRef.current = true;
       backgroundRecoveryAttemptsRef.current = 0;
       intentionalPauseRef.current = false;
@@ -1863,6 +1864,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const handlePause = () => {
+      if (isNativePlayerAvailable()) return;
       if (!isCrossfading.current) {
         if (intentionalPauseRef.current) {
           wasPlayingRef.current = false;
