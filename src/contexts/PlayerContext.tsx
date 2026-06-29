@@ -1279,34 +1279,33 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (ytFallback) {
           const videoId = getYouTubeFallbackVideoId(ytFallback);
           if (videoId) {
-            // Reliability-first Android fix: prefer the edge resolver +
-            // stream-proxy path as the primary source. The on-device native
-            // resolver returns phone-signed googlevideo URLs that Android
-            // WebView/Exo handoff could reject before the fallback had a chance,
-            // producing "This song could not start" for every tap. Native is now
-            // only a last-resort fallback when the edge resolver cannot return a
-            // proxy-playable URL.
+            // NATIVE-FIRST on Android: the on-device Kotlin InnerTube resolver
+            // uses the phone's residential IP and returns a direct googlevideo
+            // URL in ~300-600ms — no Supabase round-trip, no datacenter-IP
+            // block. This is the Echo Music / NewPipe approach.
+            if (!opts.skipNative && !getRuntimePremium()) {
+              try {
+                const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
+                const native = await Promise.race([
+                  resolveYouTubeStreamOnDevice(videoId),
+                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 2500)),
+                ]);
+                if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
+                  markNativeResolvedStreamUrl(native.streamUrl, videoId);
+                  return native.streamUrl;
+                }
+              } catch { /* fall through to edge resolver */ }
+            }
+
+            // FALLBACK: Supabase edge resolver + stream-proxy (web users, or
+            // when on-device resolution failed for this particular videoId).
             try {
               if (forceRefresh) invalidateYouTubeStream(videoId);
               const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
               if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
                 return resolved.streamUrl;
               }
-            } catch { /* fall through to native fallback */ }
-
-            if (!opts.skipNative && !getRuntimePremium()) {
-              try {
-                const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
-                const native = await Promise.race([
-                  resolveYouTubeStreamOnDevice(videoId),
-                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 2200)),
-                ]);
-                if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
-                  markNativeResolvedStreamUrl(native.streamUrl, videoId);
-                  return native.streamUrl;
-                }
-              } catch { /* ignore */ }
-            }
+            } catch { /* fall through to indexed track lookup */ }
           }
         }
         if (song.artist && song.title) {
@@ -1319,6 +1318,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
         return null;
       };
+
 
       // One resolver pass only. A forced retry is still available from the
       // audio error handler, but doing two full resolver chains on every tap made
