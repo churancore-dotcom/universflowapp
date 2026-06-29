@@ -188,9 +188,16 @@ class ExoPlayerPlugin : Plugin() {
                 notifyListeners("playbackStateChange", JSObject().put("state", name))
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                val stateName = if (isPlaying) {
+                    "playing"
+                } else if (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING) {
+                    "buffering"
+                } else {
+                    "paused"
+                }
                 notifyListeners(
                     "playbackStateChange",
-                    JSObject().put("state", if (isPlaying) "playing" else "paused"),
+                    JSObject().put("state", stateName),
                 )
                 if (isPlaying) startProgress() else stopProgress()
             }
