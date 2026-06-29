@@ -1873,7 +1873,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try {
         // If phone-signed/native playback failed, immediately fall back to the
         // edge/proxy resolver for the SAME song. Do not advance to the next song.
-        const fresh = await resolveAudioUrl(cur, { forceRefresh: true });
+        const fresh = await resolveAudioUrl(cur, { forceRefresh: true, skipNative: true });
         if (seqAtRecoveryStart !== playRequestSeqRef.current || activeSongIdentityRef.current !== activeIdentity) return;
         if (fresh && !isYouTubeFallbackUrl(fresh)) {
           const refreshed = { ...cur, audio_url: fresh };
