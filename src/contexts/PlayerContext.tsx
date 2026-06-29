@@ -461,6 +461,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const playRequestSeqRef = useRef(0);
   const activeSongIdentityRef = useRef<string | null>(null);
   const nativeStartupSeqRef = useRef<number | null>(null);
+  const nativeStartedForSeqRef = useRef<number | null>(null);
+  const nativeStartupTimerRef = useRef<number | null>(null);
   const queueRef = useRef<Song[]>([]);
   const currentIndexRef = useRef(0);
   const shuffleRef = useRef(false);
@@ -478,6 +480,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const currentSongRef = useRef<Song | null>(null);
   const nativeRecoveryAttemptedRef = useRef<Set<string>>(new Set());
   useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
+
+  const clearNativeStartupTimer = useCallback(() => {
+    if (nativeStartupTimerRef.current != null) {
+      window.clearTimeout(nativeStartupTimerRef.current);
+      nativeStartupTimerRef.current = null;
+    }
+  }, []);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
   useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
