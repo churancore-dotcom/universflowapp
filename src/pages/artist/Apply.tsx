@@ -347,7 +347,7 @@ export default function ArtistApply() {
         if (!prefilledCountry) {
           try {
             const cc = await detectCountrySilently();
-            if (cc && COUNTRIES.some(([c]) => c === cc)) setCountry(cc);
+            if (cc && ALL_COUNTRIES.some((c) => c.code === cc)) setCountry(cc);
           } catch { /* keep blank */ }
         }
       } catch (err) {
