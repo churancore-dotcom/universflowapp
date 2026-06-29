@@ -1,0 +1,99 @@
+name: Build iOS App (Unsigned Simulator)
+
+# Safety notes:
+# - Manual trigger ONLY (workflow_dispatch). Will NOT run on push.
+# - Builds an unsigned .app for the iOS Simulator. No Apple Developer
+#   account, signing certificate, provisioning profile, or App Store
+#   Connect secret is required.
+# - Does not touch the Android workflow or any committed iOS source —
+#   if `ios/` doesn't exist, it's generated fresh via `npx cap add ios`
+#   inside the runner only.
+# - To produce a signed .ipa for TestFlight, signing secrets must be
+#   added separately; this workflow intentionally stops short of that.
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-15
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build web app
+        run: |
+          export VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-$(grep '^VITE_SUPABASE_URL=' .env | cut -d= -f2- | tr -d '"')}"
+          export VITE_SUPABASE_PUBLISHABLE_KEY="${VITE_SUPABASE_PUBLISHABLE_KEY:-$(grep '^VITE_SUPABASE_PUBLISHABLE_KEY=' .env | cut -d= -f2- | tr -d '"')}"
+          export VITE_SUPABASE_PROJECT_ID="${VITE_SUPABASE_PROJECT_ID:-$(grep '^VITE_SUPABASE_PROJECT_ID=' .env | cut -d= -f2- | tr -d '"')}"
+          if [ -z "$VITE_SUPABASE_URL" ] || [ -z "$VITE_SUPABASE_PUBLISHABLE_KEY" ]; then
+            echo "::error::Supabase env missing — iOS build would black-screen. Aborting."
+            exit 1
+          fi
+          npm run build
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_SUPABASE_PROJECT_ID: ${{ secrets.VITE_SUPABASE_PROJECT_ID }}
+
+      - name: Use production Capacitor config
+        run: cp capacitor.config.prod.ts capacitor.config.ts
+
+      - name: Add iOS platform (if missing)
+        run: |
+          if [ -f "ios/App/App.xcodeproj/project.pbxproj" ]; then
+            echo "iOS project already exists."
+          else
+            npx cap add ios
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync ios
+
+      - name: Install CocoaPods
+        working-directory: ios/App
+        run: pod install --repo-update
+
+      - name: Build unsigned .app for iOS Simulator
+        working-directory: ios/App
+        run: |
+          xcodebuild \
+            -workspace App.xcworkspace \
+            -scheme App \
+            -configuration Debug \
+            -sdk iphonesimulator \
+            -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            build
+
+      - name: Package .app artifact
+        run: |
+          APP_PATH=$(find ios/App/build/Build/Products -type d -name "App.app" | head -n1)
+          if [ -z "$APP_PATH" ]; then
+            echo "::error::App.app not found after build"
+            exit 1
+          fi
+          mkdir -p artifacts
+          cp -R "$APP_PATH" "artifacts/Univers Flow.app"
+          cd artifacts && zip -r "Univers Flow (Simulator).zip" "Univers Flow.app"
+          ls -la artifacts/
+
+      - name: Upload Simulator build
+        uses: actions/upload-artifact@v5
+        with:
+          name: Univers Flow iOS (Simulator)
+          path: "artifacts/Univers Flow (Simulator).zip"
