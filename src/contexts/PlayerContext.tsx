@@ -1306,7 +1306,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     [isPlayableUrl],
   );
 
-  const resolveNativePlaybackUrl = useCallback(async (song: Song, offlineUrl?: string | null): Promise<string | null> => {
+  const resolveNativePlaybackUrl = useCallback(async (
+    song: Song,
+    offlineUrl?: string | null,
+    opts: { skipNativeFastPath?: boolean } = {},
+  ): Promise<string | null> => {
     if (offlineUrl) return offlineUrl;
 
     const directUrl = isPlayableUrl(song.audio_url) && !isYouTubeFallbackUrl(song.audio_url)
@@ -1319,7 +1323,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // the Kotlin resolver can't return a playable URL, we immediately fall back
     // to the normal resolver chain (JioSaavn + edge proxy) and still play through
     // ExoPlayer so background audio keeps working.
-    if (videoId) {
+    if (videoId && !opts.skipNativeFastPath) {
       try {
         const res = await Promise.race([
           InnerTubePlugin.resolveAudio({ videoId }),
@@ -1333,7 +1337,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     try {
-      const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
+        const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
       if (fresh && !isYouTubeFallbackUrl(fresh)) return buildStreamProxyUrl(fresh);
     } catch { /* fall through to direct URL */ }
 
@@ -1599,10 +1603,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (err) {
         console.warn('[player/native] failed', (err as Error)?.message);
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
-        nativeStartupSeqRef.current = null;
-        toast.error('Song unavailable');
-        wasPlayingRef.current = false;
-        setIsPlaying(false);
+        window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: (err as Error)?.message } }));
       }
       return;
     }
@@ -1989,7 +1990,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // If phone-signed/native playback failed, immediately fall back to the
         // edge/JioSaavn/proxy resolver for the SAME song, but keep ExoPlayer as
         // the playback engine so lock-screen/background playback still works.
-        const fresh = await resolveNativePlaybackUrl(cur);
+        const fresh = await resolveNativePlaybackUrl(cur, null, { skipNativeFastPath: true });
         if (seqAtRecoveryStart !== playRequestSeqRef.current || activeSongIdentityRef.current !== activeIdentity) return;
         if (fresh && !isYouTubeFallbackUrl(fresh)) {
           const refreshed = { ...cur, audio_url: fresh };
@@ -2052,7 +2053,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('error', handleAudioError);
       window.removeEventListener('uf-native-playback-failed', handleNativePlaybackFailed as EventListener);
     };
-  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, extendQueueWithMix, playbackSettingsVersion]);
+  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, resolveNativePlaybackUrl, extendQueueWithMix, playbackSettingsVersion]);
 
   // ── Android: subscribe to ExoPlayer events and drive React state directly.
   useEffect(() => {
@@ -2417,10 +2418,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (err) {
         console.warn('[player/native] playActualSong failed', (err as Error)?.message);
         if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity) {
-          nativeStartupSeqRef.current = null;
-          setIsPlaying(false);
-          wasPlayingRef.current = false;
-          toast.error('Song unavailable');
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: (err as Error)?.message } }));
         }
       }
       return;
