@@ -53,6 +53,7 @@ class ExoPlayerPlugin : Plugin() {
         override fun onServiceDisconnected(name: ComponentName?) {
             Log.d("ExoPlayerPlugin", "ServiceConnection.onServiceDisconnected")
             serviceConnected = false
+            serviceBindAttempted = false
         }
     }
 
@@ -92,7 +93,7 @@ class ExoPlayerPlugin : Plugin() {
         } catch (t: Throwable) {
             Log.w("ExoPlayerPlugin", "startService failed: ${t.message}")
         }
-        if (!serviceBindAttempted || !serviceConnected) {
+        if (!serviceBindAttempted) {
             try {
                 serviceBindAttempted = true
                 ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
