@@ -2347,6 +2347,53 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       getSongIdentity(queuedSong) === intendedIdentity ? { ...queuedSong, audio_url: playbackSource } : queuedSong,
     );
 
+    // Android APK: ExoPlayer is the only audible player. Do not start the
+    // WebView <audio> element here; it gets suspended/killed in background and
+    // fights the native session. Resolve YouTube IDs on-device, then play
+    // directly through the foreground MediaSessionService.
+    if (isNativePlayerAvailable()) {
+      try {
+        const videoId = getNativePlaybackVideoId(song as Song & { videoId?: string });
+        let playUrl = videoId ? null : (offlineUrl || playbackSource);
+        if (!playUrl) {
+          const res = await InnerTubePlugin.resolveAudio({ videoId: videoId! });
+          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          playUrl = res?.url || null;
+        }
+        if (!playUrl || isYouTubeFallbackUrl(playUrl)) throw new Error('no native playable url');
+        await ExoPlayerPlugin.play({
+          url: playUrl,
+          title: song.title || '',
+          artist: song.artist || '',
+          artworkUrl: song.cover_url || undefined,
+        });
+        if (normalizedQueue && normalizedQueue.length > 0) {
+          queueRef.current = normalizedQueue;
+          setQueueState(normalizedQueue);
+          const songIndex = normalizedQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
+          setCurrentIndex(songIndex >= 0 ? songIndex : 0);
+        } else {
+          const activeQueue = queueRef.current;
+          const existingIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
+          if (existingIndex === -1) {
+            const next = [...activeQueue, song];
+            queueRef.current = next;
+            setQueueState(next);
+            setCurrentIndex(activeQueue.length);
+          } else {
+            setCurrentIndex(existingIndex);
+          }
+        }
+      } catch (err) {
+        console.warn('[player/native] playActualSong failed', (err as Error)?.message);
+        if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity) {
+          setIsPlaying(false);
+          toast.error('Song unavailable');
+        }
+      }
+      return;
+    }
+
     // ── YouTube IFrame fallback path ──
     if (!offlineUrl && isYouTubeFallbackUrl(playbackSource)) {
       const fallbackVideoId = getYouTubeFallbackVideoId(playbackSource);
