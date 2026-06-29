@@ -62,11 +62,17 @@ class ExoPlayerPlugin : Plugin() {
         return if (url.startsWith("http") || url.startsWith("file:") || url.startsWith("content:")) url else null
     }
 
-    private fun resolveTrackUrl(track: NativeTrack, nativeTimeoutMs: Long = 5200L): String? {
+    /**
+     * Build the playable URI for a track.
+     * - If we have a YouTube videoId, use `yt://<videoId>` so the native
+     *   ResolvingDataSource resolves it lazily inside ExoPlayer (Echo-style).
+     *   That removes the JS round-trip from the first-tap critical path.
+     * - Otherwise fall back to any direct http/file/content URL the JS layer
+     *   already has.
+     */
+    private fun playbackUriFor(track: NativeTrack): String? {
         val vid = track.videoId?.takeIf { it.length == 11 }
-        if (vid != null) {
-            NativeYouTubeResolver.resolve(vid, nativeTimeoutMs)?.let { return it.url }
-        }
+        if (vid != null) return "yt://$vid"
         return directPlayableUrl(track.url)
     }
 
