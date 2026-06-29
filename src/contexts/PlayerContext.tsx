@@ -586,6 +586,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 
     const recoverBackgroundPlayback = () => {
+      if (isNativePlayerAvailable()) return;
       const a = audioRef.current;
       if (!a || !a.src || intentionalPauseRef.current) return;
       resumeAudioEngine();
@@ -611,6 +612,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const startBackgroundHeartbeat = () => {
+      if (isNativePlayerAvailable()) return;
       if (backgroundHeartbeatRef.current != null) return;
       // Hidden/background only: keep recovery fast enough for OEM WebViews that
       // silently stall within a few seconds, but stop the timer immediately when
@@ -627,6 +629,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Track playing state before going to background
     const handleVisibilityChange = () => {
+      if (isNativePlayerAvailable()) {
+        if (document.visibilityState === 'hidden') {
+          wasPlayingRef.current = isPlayingRef.current;
+          persistPlayerSnapshotRef.current();
+        } else {
+          ExoPlayerPlugin.isPlaying()
+            .then(({ isPlaying }) => {
+              setIsPlaying(isPlaying);
+              wasPlayingRef.current = isPlaying;
+            })
+            .catch(() => undefined);
+        }
+        return;
+      }
       if (document.visibilityState === 'hidden') {
         // Entering background — remember if we were playing
         wasPlayingRef.current = !!(audioRef.current && !audioRef.current.paused);
@@ -647,18 +663,33 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const handlePageHide = () => {
+      if (isNativePlayerAvailable()) {
+        wasPlayingRef.current = isPlayingRef.current;
+        persistPlayerSnapshotRef.current();
+        return;
+      }
       wasPlayingRef.current = !!(audioRef.current && !audioRef.current.paused);
       persistPlayerSnapshotRef.current();
       if (wasPlayingRef.current) startBackgroundHeartbeat();
     };
 
     const handlePageShow = () => {
+      if (isNativePlayerAvailable()) {
+        ExoPlayerPlugin.isPlaying()
+          .then(({ isPlaying }) => {
+            setIsPlaying(isPlaying);
+            wasPlayingRef.current = isPlaying;
+          })
+          .catch(() => undefined);
+        return;
+      }
       stopBackgroundHeartbeat();
       resumeAudioEngine();
       recoverBackgroundPlayback();
     };
     
     const handleFocus = () => {
+      if (isNativePlayerAvailable()) return;
       if (audioRef.current && audioRef.current.src && audioRef.current.paused && wasPlayingRef.current) {
         audioRef.current.play().catch(() => {});
       }
@@ -732,6 +763,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const mod = await import(/* @vite-ignore */ modName).catch(() => null) as CapacitorAppModule | null;
         if (!mod?.App) return;
         const handle = await mod.App.addListener('appStateChange', (state: { isActive: boolean }) => {
+          if (isNativePlayerAvailable()) {
+            if (!state?.isActive) {
+              wasPlayingRef.current = isPlayingRef.current;
+              persistPlayerSnapshotRef.current();
+              return;
+            }
+            ExoPlayerPlugin.isPlaying()
+              .then(({ isPlaying }) => {
+                setIsPlaying(isPlaying);
+                wasPlayingRef.current = isPlaying;
+              })
+              .catch(() => undefined);
+            return;
+          }
           if (!state?.isActive) {
             wasPlayingRef.current = !!(audioRef.current && !audioRef.current.paused);
             persistPlayerSnapshotRef.current();
