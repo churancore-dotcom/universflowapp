@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Loader2, Upload, Check, ShieldCheck, Globe2, User, Link2, FileCheck2, Camera, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Upload, Check, ShieldCheck, User, Link2, FileCheck2, Camera, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import SEOHead from '@/components/SEOHead';
