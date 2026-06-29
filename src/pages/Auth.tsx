@@ -90,7 +90,7 @@ const Auth = () => {
           { state: { email, username }, replace: true }
         );
         supabase.functions
-          .invoke('send-verification-link', { body: { email, username } })
+          .invoke('send-verification-link', { body: { email, username, accountType: 'listener' } })
           .catch((e) => console.warn('verification email failed:', e));
       }
     } catch {
