@@ -52,6 +52,22 @@ class InnerTubePlugin : Plugin() {
 
     @Volatile private var warmed = false
 
+    // In-memory cache of resolved stream URLs. YouTube-signed googlevideo URLs
+    // are typically valid for ~6h; we expire at 5h to leave headroom.
+    private data class CachedStream(val url: String, val itag: Int, val client: String, val ts: Long)
+    private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
+    private val cacheTtlMs = 5L * 60L * 60L * 1000L
+
+    private fun getCached(videoId: String): CachedStream? {
+        val c = streamCache[videoId] ?: return null
+        if (System.currentTimeMillis() - c.ts > cacheTtlMs) {
+            streamCache.remove(videoId)
+            return null
+        }
+        return c
+    }
+
+
     override fun load() {
         super.load()
         // Pre-warm DNS + TLS to youtube.com so the very first song doesn't pay
@@ -163,9 +179,19 @@ class InnerTubePlugin : Plugin() {
             return
         }
 
+        // Cache hit — skip the network entirely.
+        getCached(videoId)?.let { c ->
+            Log.d("InnerTube", "cache hit ${c.client} (itag=${c.itag}) for $videoId")
+            call.resolve(JSObject().apply {
+                put("url", c.url); put("itag", c.itag); put("client", c.client)
+            })
+            return
+        }
+
         // Race all 3 clients in parallel — first successful one wins,
         // others are cancelled. Drops resolve time from ~1.5s to ~500ms.
         val clients = buildClients()
+
         val latch = java.util.concurrent.CountDownLatch(1)
         val winner = java.util.concurrent.atomic.AtomicReference<Triple<String, Int, String>?>()
         val errors = java.util.concurrent.ConcurrentLinkedQueue<String>()
@@ -191,9 +217,11 @@ class InnerTubePlugin : Plugin() {
             val w = winner.get()
             if (w != null) {
                 Log.d("InnerTube", "Resolved via ${w.third} (itag=${w.second}): ${w.first.take(80)}...")
+                streamCache[videoId] = CachedStream(w.first, w.second, w.third, System.currentTimeMillis())
                 call.resolve(JSObject().apply {
                     put("url", w.first); put("itag", w.second); put("client", w.third)
                 })
+
             } else {
                 val joined = errors.joinToString("; ").ifEmpty { "no playable stream" }
                 Log.e("InnerTube", "All clients failed for $videoId: $joined")
