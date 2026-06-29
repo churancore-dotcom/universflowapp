@@ -776,9 +776,14 @@ export default function ArtistApply() {
                   </Field>
                   <Field label={`Phone number${country ? ` · ${getDialCode(country)} (${PHONE_DIGITS[country] ?? '—'} digits)` : ''}`}>
                     <div className="flex gap-2">
-                      <span className="h-11 px-3 inline-flex items-center rounded-xl bg-white/[0.04] border border-white/10 text-[13px] tabular-nums text-muted-foreground shrink-0">
-                        {country ? getDialCode(country) : '+—'}
-                      </span>
+                      <CountryCombobox
+                        value={country}
+                        onChange={setCountry}
+                        variant="dial"
+                        disabled={isLockedReapply || signupLocked}
+                        ariaLabel="Phone country code"
+                        className="shrink-0"
+                      />
                       <Input
                         type="tel"
                         inputMode="numeric"
