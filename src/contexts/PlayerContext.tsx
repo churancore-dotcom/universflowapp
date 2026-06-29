@@ -1635,25 +1635,29 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       nativeStartupSeqRef.current = mySeq;
       nativeStartedForSeqRef.current = null;
       clearNativeStartupTimer();
-      await ExoPlayerPlugin.stop().catch(() => undefined);
-      if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
       try {
-        const playUrl = await resolveNativePlaybackUrl(resolvedSong);
+        const nativeTracks = songQueue.map(toNativeQueueTrack);
+        if (nativeTracks.length > 0) {
+          await ExoPlayerPlugin.playQueue({ tracks: nativeTracks, startIndex: index });
+        } else {
+          const playUrl = await resolveNativePlaybackUrl(resolvedSong);
+          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          if (!playUrl) throw new Error('no native playable url');
+          await ExoPlayerPlugin.play({
+            url: playUrl,
+            title: resolvedSong.title || '',
+            artist: resolvedSong.artist || '',
+            artworkUrl: resolvedSong.cover_url || undefined,
+          });
+        }
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
-        if (!playUrl) throw new Error('no native playable url');
-        await ExoPlayerPlugin.play({
-          url: playUrl,
-          title: resolvedSong.title || '',
-          artist: resolvedSong.artist || '',
-          artworkUrl: resolvedSong.cover_url || undefined,
-        });
         clearNativeStartupTimer();
         nativeStartupTimerRef.current = window.setTimeout(() => {
           if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
           console.warn('[player/native] startup timeout; retrying fallback for', resolvedSong.title);
           nativeStartupSeqRef.current = null;
-          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout', url: playUrl } }));
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
         }, 12000);
         reapplyNativeEqSoon();
       } catch (err) {
