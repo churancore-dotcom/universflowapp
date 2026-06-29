@@ -10,7 +10,7 @@ import { useDownloads } from '@/contexts/DownloadContext';
 import BottomNav from '@/components/BottomNav';
 import CreatePlaylistModal from '@/components/CreatePlaylistModal';
 
-import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection';
+// FollowedArtistSongsSection intentionally not imported — removed from Liked tab.
 import LikeButton from '@/components/LikeButton';
 import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
