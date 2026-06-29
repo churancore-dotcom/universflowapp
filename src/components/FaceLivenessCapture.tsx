@@ -349,6 +349,7 @@ export default function FaceLivenessCapture({
     progressRef.current = 0;
     qualityRef.current = 'noface';
     capturedRef.current = false;
+    modelRetryRef.current = 0;
     setErr(null);
     setSlowHelp(false);
     setPhase('idle');
