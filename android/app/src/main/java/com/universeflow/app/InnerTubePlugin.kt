@@ -52,6 +52,22 @@ class InnerTubePlugin : Plugin() {
 
     @Volatile private var warmed = false
 
+    // In-memory cache of resolved stream URLs. YouTube-signed googlevideo URLs
+    // are typically valid for ~6h; we expire at 5h to leave headroom.
+    private data class CachedStream(val url: String, val itag: Int, val client: String, val ts: Long)
+    private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
+    private val cacheTtlMs = 5L * 60L * 60L * 1000L
+
+    private fun getCached(videoId: String): CachedStream? {
+        val c = streamCache[videoId] ?: return null
+        if (System.currentTimeMillis() - c.ts > cacheTtlMs) {
+            streamCache.remove(videoId)
+            return null
+        }
+        return c
+    }
+
+
     override fun load() {
         super.load()
         // Pre-warm DNS + TLS to youtube.com so the very first song doesn't pay
