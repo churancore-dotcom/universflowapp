@@ -40,6 +40,7 @@ let lastMasterVolume = 1;
 let nativeAudible = false;
 let pendingNativeUrl: string | null = null;
 let nativeTakeoverTimer: number | null = null;
+let nativeDisabledUntil = 0;
 
 export function isNativeMirrorActive(): boolean {
   return nativeAudible || Boolean(pendingNativeUrl);
@@ -87,6 +88,14 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     } catch { /* ignore */ }
   };
 
+  const suppressNativeBriefly = () => {
+    // If ExoPlayer failed/timed out for the current handoff, do not immediately
+    // re-grab the next WebView loadstart. That loop was able to keep the song
+    // permanently silent on APKs where the native service/plugin was unhealthy.
+    // Let the CORS-clean WebView/proxy fallback play this song first.
+    nativeDisabledUntil = Date.now() + 30_000;
+  };
+
   const startExo = async (url: string) => {
     const song = opts.getSong();
     const title = song?.title || 'Universe Flow';
@@ -106,6 +115,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
         if (!nativeAudible && pendingNativeUrl === url) {
           // Exo is still buffering/stuck; keep the user's song audible via the
           // normal HTMLAudioElement instead of leaving the app silent.
+          suppressNativeBriefly();
           notifyNativePlaybackFailed('ExoPlayer takeover timed out');
           restoreWebAudioFallback();
         }
@@ -115,6 +125,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
       // Permanent safety net: if the native service cannot start, do NOT leave
       // the only active HTMLAudioElement muted. Fall back to audible WebView
       // playback instead of creating silent tracks that auto-advance.
+      suppressNativeBriefly();
       restoreWebAudioFallback();
       notifyNativePlaybackFailed((e as Error)?.message);
       opts.onUnrecoverableError?.();
@@ -130,6 +141,16 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     if (!isPlayableHttpUrl(src)) return;
     if (src === lastUrl) return;
     lastUrl = src;
+    if (Date.now() < nativeDisabledUntil) {
+      pendingNativeUrl = null;
+      nativeAudible = false;
+      clearNativeTakeoverTimer();
+      try {
+        audio.muted = false;
+        audio.volume = lastMasterVolume;
+      } catch { /* ignore */ }
+      return;
+    }
     void startExo(src);
   });
 
@@ -220,6 +241,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     ExoPlayerPlugin.addListener('playbackError', (data) => {
       const e = data as ExoPlaybackError;
       console.warn('[nativeMirror] ExoPlayer error', e?.message);
+      suppressNativeBriefly();
       restoreWebAudioFallback();
       notifyNativePlaybackFailed(e?.message);
       opts.onUnrecoverableError?.();
