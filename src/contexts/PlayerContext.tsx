@@ -2126,6 +2126,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let progressHandle: { remove: () => void } | undefined;
     let stateHandle: { remove: () => void } | undefined;
     let errorHandle: { remove: () => void } | undefined;
+    let transitionHandle: { remove: () => void } | undefined;
     let cancelled = false;
 
     (async () => {
@@ -2179,8 +2180,25 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           wasPlayingRef.current = false;
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: data.message } }));
         });
-        if (cancelled) { p.remove(); s.remove(); e.remove(); return; }
-        progressHandle = p; stateHandle = s; errorHandle = e;
+        const t = await ExoPlayerPlugin.addListener('mediaItemTransition', (d) => {
+          const data = d as ExoMediaItemTransition;
+          if (!data.mediaId) return;
+          const q = queueRef.current;
+          const nextIdx = q.findIndex((song) => getSongIdentity(song) === data.mediaId);
+          if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
+          const nextSong = q[nextIdx];
+          if (!nextSong) return;
+          activeSongIdentityRef.current = getSongIdentity(nextSong);
+          currentSongRef.current = nextSong;
+          currentIndexRef.current = nextIdx;
+          setCurrentSong(nextSong);
+          setCurrentIndex(nextIdx);
+          setProgress(0);
+          if (nextSong.duration) setDuration(nextSong.duration);
+          void publishNativeMusicControls(nextSong, true, nextSong.duration);
+        });
+        if (cancelled) { p.remove(); s.remove(); e.remove(); t.remove(); return; }
+        progressHandle = p; stateHandle = s; errorHandle = e; transitionHandle = t;
       } catch (err) {
         console.warn('[player/native] failed to attach listeners', (err as Error)?.message);
       }
@@ -2191,6 +2209,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { progressHandle?.remove(); } catch { /* noop */ }
       try { stateHandle?.remove(); } catch { /* noop */ }
       try { errorHandle?.remove(); } catch { /* noop */ }
+      try { transitionHandle?.remove(); } catch { /* noop */ }
     };
   }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer]);
 
