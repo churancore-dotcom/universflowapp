@@ -2056,6 +2056,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const resolved = await resolveAudioUrl(song);
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return; // user tapped another song first
       if (!resolved) {
+        const fallbackVideoId = getYouTubeFallbackVideoId(song.audio_url);
+        if (fallbackVideoId) {
+          toast.info('Direct audio failed — playing fallback source.');
+          void playYouTubeFallback(
+            fallbackVideoId,
+            () => {
+              const activeQueue = queueRef.current;
+              const activeIndex = currentIndexRef.current;
+              const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
+              if (nextIdx !== null) void playSongAtIndex(nextIdx, activeQueue);
+              else setIsPlaying(false);
+            },
+            mySeq,
+            intendedIdentity,
+          );
+          return;
+        }
         setIsPlaying(false);
         toast.error('This song could not start right now.');
         return;
@@ -2075,8 +2092,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // ── YouTube IFrame fallback path ──
     if (!offlineUrl && isYouTubeFallbackUrl(playbackSource)) {
-      // FIX 2: iframe fallback removed — show "Song unavailable" instead of
-      // dropping into a path that bypasses WebAudio / EQ.
+      const fallbackVideoId = getYouTubeFallbackVideoId(playbackSource);
+      if (fallbackVideoId) {
+        toast.info('Direct audio failed — playing fallback source.');
+        void playYouTubeFallback(
+          fallbackVideoId,
+          () => {
+            const activeQueue = queueRef.current;
+            const activeIndex = currentIndexRef.current;
+            const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
+            if (nextIdx !== null) void playSongAtIndex(nextIdx, activeQueue);
+            else setIsPlaying(false);
+          },
+          mySeq,
+          intendedIdentity,
+        );
+        return;
+      }
       setIsPlaying(false);
       toast.error('Song unavailable');
       return;
