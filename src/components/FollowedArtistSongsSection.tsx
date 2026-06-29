@@ -49,11 +49,17 @@ const toCatalogSong = (row: SongRowWithArtist): Song => {
 };
 
 const dedupeSongs = (songs: Song[]) => {
-  const seen = new Set<string>();
+  const seenKey = new Set<string>();
+  const coverCount = new Map<string, number>();
   return songs.filter((song) => {
     const key = `${normalize(song.artist)}::${normalize(song.title)}`;
-    if (!key.trim() || seen.has(key) || isSpamSong(song)) return false;
-    seen.add(key);
+    if (!key.trim() || seenKey.has(key) || isSpamSong(song)) return false;
+    // Limit same-cover repeats to 1 per artist so albums don't visually clone tiles.
+    const coverKey = `${normalize(song.artist)}::${song.cover_url || ''}`;
+    const count = coverCount.get(coverKey) || 0;
+    if (song.cover_url && count >= 1) return false;
+    coverCount.set(coverKey, count + 1);
+    seenKey.add(key);
     return true;
   });
 };
@@ -71,8 +77,9 @@ const fetchFollowedArtistSongs = async (userId: string, seedSongs: Song[] = []) 
       .select('*, artists(id, name, photo_url)')
       .eq('is_visible', true)
       .order('created_at', { ascending: false })
-      .limit(300),
-    Promise.all(followedNames.slice(0, 8).map((artist) => getArtistTopTracksByName(artist, 8).catch(() => []))),
+      .limit(500),
+    // Pull more per artist (20) across more artists (16) so the rail feels rich and varied.
+    Promise.all(followedNames.slice(0, 16).map((artist) => getArtistTopTracksByName(artist, 20).catch(() => []))),
   ]);
 
   if (error) console.warn('Failed to load followed-artist catalog songs:', error);
@@ -92,7 +99,24 @@ const fetchFollowedArtistSongs = async (userId: string, seedSongs: Song[] = []) 
     source: 'indexed',
   }));
 
-  return dedupeSongs([...seedMatches, ...catalogMatches, ...fallbackSongs]).slice(0, 24);
+  // Interleave artists round-robin so the rail isn't dominated by a single artist's album.
+  const byArtist = new Map<string, Song[]>();
+  for (const song of [...seedMatches, ...catalogMatches, ...fallbackSongs]) {
+    const k = normalize(song.artist);
+    if (!byArtist.has(k)) byArtist.set(k, []);
+    byArtist.get(k)!.push(song);
+  }
+  const interleaved: Song[] = [];
+  let added = true;
+  while (added) {
+    added = false;
+    for (const list of byArtist.values()) {
+      const next = list.shift();
+      if (next) { interleaved.push(next); added = true; }
+    }
+  }
+
+  return dedupeSongs(interleaved).slice(0, 60);
 };
 
 const FollowedArtistSongsSection = memo(function FollowedArtistSongsSection({ songs }: Props) {
