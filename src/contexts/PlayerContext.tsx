@@ -1469,6 +1469,63 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     wasPlayingRef.current = true;
     void publishNativeMusicControls(resolvedSong, true, resolvedSong.duration);
 
+    // ── ANDROID NATIVE PATH ────────────────────────────────────────────────
+    // Direct InnerTube → ExoPlayer. No audio element, no proxy, no WebView.
+    if (isNativePlayerAvailable()) {
+      const extractVideoId = (s: Song): string | null => {
+        const v1 = getYouTubeFallbackVideoId(s.audio_url || '');
+        if (v1 && v1.length === 11) return v1;
+        if (s.id?.startsWith('ytm-')) {
+          const v = s.id.slice(4);
+          if (v.length === 11) return v;
+        }
+        const anyId = (s as unknown as { videoId?: string }).videoId;
+        if (typeof anyId === 'string' && anyId.length === 11) return anyId;
+        // If audio_url is a direct http(s) stream (catalog upload, Audius), use as-is.
+        return null;
+      };
+
+      const directUrl = isPlayableUrl(resolvedSong.audio_url) && !isYouTubeFallbackUrl(resolvedSong.audio_url)
+        ? resolvedSong.audio_url
+        : null;
+      const videoId = directUrl ? null : extractVideoId(resolvedSong);
+      console.log('[player/native] tap', resolvedSong.title, 'directUrl?', !!directUrl, 'videoId:', videoId);
+
+      const skipForward = () => {
+        const q = queueRef.current;
+        const i = currentIndexRef.current;
+        const n = getNextIndex(i, q.length, shuffleRef.current, repeatRef.current);
+        if (n !== null) void playSongAtIndex(n, q);
+        else setIsPlaying(false);
+      };
+
+      try {
+        let playUrl = directUrl;
+        if (!playUrl) {
+          if (!videoId) throw new Error('no videoId');
+          const res = await InnerTubePlugin.resolveAudio({ videoId });
+          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          if (!res?.url) throw new Error('no url from InnerTube');
+          console.log('[player/native] resolved via', res.client, 'itag', res.itag);
+          playUrl = res.url;
+        }
+        await ExoPlayerPlugin.play({
+          url: playUrl,
+          title: resolvedSong.title || '',
+          artist: resolvedSong.artist || '',
+          artworkUrl: resolvedSong.cover_url || undefined,
+        });
+      } catch (err) {
+        console.warn('[player/native] failed', (err as Error)?.message);
+        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+        toast.error('Song unavailable');
+        window.setTimeout(skipForward, 1500);
+      }
+      return;
+    }
+    // ── END ANDROID NATIVE PATH ────────────────────────────────────────────
+
+
     // Resolve audio URL if needed
     let audioUrl = resolvedSong.audio_url;
     // `yt-video:` is only an iframe fallback marker, NOT an effect-capable
