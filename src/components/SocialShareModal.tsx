@@ -45,130 +45,173 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
     setGenerating(true);
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    if (!ctx) { setGenerating(false); return; }
 
-    // Card dimensions (1200x630 for social sharing)
-    canvas.width = 1200;
-    canvas.height = 630;
+    // Magazine-cover portrait format (Instagram/WhatsApp story friendly)
+    const W = 1080;
+    const H = 1350;
+    canvas.width = W;
+    canvas.height = H;
 
-    // Create gradient background
-    const gradient = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
-    gradient.addColorStop(0, '#1a1a2e');
-    gradient.addColorStop(0.5, '#16213e');
-    gradient.addColorStop(1, '#0f0f23');
-    ctx.fillStyle = gradient;
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#0A0A0C';
+    ctx.fillRect(0, 0, W, H);
 
-    // Add decorative circles
-    ctx.fillStyle = 'rgba(139, 92, 246, 0.15)';
-    ctx.beginPath();
-    ctx.arc(100, 100, 200, 0, Math.PI * 2);
-    ctx.fill();
-    
-    ctx.fillStyle = 'rgba(236, 72, 153, 0.15)';
-    ctx.beginPath();
-    ctx.arc(canvas.width - 100, canvas.height - 100, 250, 0, Math.PI * 2);
-    ctx.fill();
-
-    // Sound wave decoration
-    ctx.strokeStyle = 'rgba(139, 92, 246, 0.3)';
-    ctx.lineWidth = 3;
-    for (let i = 0; i < 5; i++) {
-      ctx.beginPath();
-      ctx.moveTo(0, 315 + i * 20);
-      for (let x = 0; x < canvas.width; x += 10) {
-        ctx.lineTo(x, 315 + Math.sin((x + i * 50) * 0.02) * 30 + i * 20);
-      }
-      ctx.stroke();
-    }
-
-    // Load and draw album art
-    const coverSize = 350;
-    const coverX = 100;
-    const coverY = (canvas.height - coverSize) / 2;
-
-    // Draw rounded rectangle shadow
-    ctx.shadowColor = 'rgba(0, 0, 0, 0.5)';
-    ctx.shadowBlur = 40;
-    ctx.shadowOffsetX = 0;
-    ctx.shadowOffsetY = 20;
-
+    // Load artwork
+    let art: HTMLImageElement | null = null;
     if (song.cover_url) {
       try {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        await new Promise((resolve, reject) => {
-          img.onload = resolve;
-          img.onerror = reject;
-          img.src = song.cover_url!;
+        await new Promise((res, rej) => {
+          img.onload = res; img.onerror = rej; img.src = song.cover_url!;
         });
+        art = img;
+      } catch { art = null; }
+    }
 
-        // Draw rounded album art
-        ctx.save();
-        roundRect(ctx, coverX, coverY, coverSize, coverSize, 24);
-        ctx.clip();
-        ctx.drawImage(img, coverX, coverY, coverSize, coverSize);
-        ctx.restore();
-      } catch (e) {
-        // Draw placeholder
-        ctx.fillStyle = 'rgba(139, 92, 246, 0.3)';
-        roundRect(ctx, coverX, coverY, coverSize, coverSize, 24);
-        ctx.fill();
-        
-        // Music icon placeholder
-        ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
-        ctx.font = '120px system-ui';
-        ctx.textAlign = 'center';
-        ctx.fillText('🎵', coverX + coverSize / 2, coverY + coverSize / 2 + 40);
-        ctx.textAlign = 'left';
-      }
+    // Full-bleed blurred backdrop
+    if (art) {
+      ctx.save();
+      ctx.filter = 'blur(60px) saturate(140%) brightness(0.55)';
+      const ratio = Math.max(W / art.width, H / art.height);
+      const dw = art.width * ratio;
+      const dh = art.height * ratio;
+      ctx.drawImage(art, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      ctx.restore();
     } else {
-      ctx.fillStyle = 'rgba(139, 92, 246, 0.3)';
-      roundRect(ctx, coverX, coverY, coverSize, coverSize, 24);
-      ctx.fill();
+      const g = ctx.createLinearGradient(0, 0, W, H);
+      g.addColorStop(0, '#1a1320');
+      g.addColorStop(1, '#0A0A0C');
+      ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
     }
 
-    // Reset shadow
-    ctx.shadowColor = 'transparent';
+    // Darkening top & bottom
+    const topShade = ctx.createLinearGradient(0, 0, 0, H * 0.45);
+    topShade.addColorStop(0, 'rgba(0,0,0,0.7)');
+    topShade.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = topShade; ctx.fillRect(0, 0, W, H * 0.45);
 
-    // Draw song info
-    const textX = coverX + coverSize + 80;
-    const textMaxWidth = canvas.width - textX - 100;
+    const botShade = ctx.createLinearGradient(0, H * 0.45, 0, H);
+    botShade.addColorStop(0, 'rgba(0,0,0,0)');
+    botShade.addColorStop(0.6, 'rgba(0,0,0,0.75)');
+    botShade.addColorStop(1, 'rgba(0,0,0,0.95)');
+    ctx.fillStyle = botShade; ctx.fillRect(0, H * 0.45, W, H * 0.55);
 
-    // "Now Playing" label
-    ctx.fillStyle = 'rgba(139, 92, 246, 0.8)';
-    ctx.font = '600 20px system-ui, -apple-system, sans-serif';
-    ctx.fillText('NOW PLAYING', textX, canvas.height / 2 - 80);
+    // Masthead
+    const margin = 64;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.font = '700 22px "Helvetica Neue", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('UNIVERS FLOW', margin, 90);
+    ctx.fillStyle = '#FF2D55';
+    ctx.textAlign = 'right';
+    ctx.fillText('NOW PLAYING / VOL. 01', W - margin, 90);
+    ctx.textAlign = 'left';
 
-    // Song title
-    ctx.fillStyle = '#ffffff';
-    ctx.font = 'bold 52px system-ui, -apple-system, sans-serif';
-    const title = truncateText(ctx, song.title, textMaxWidth);
-    ctx.fillText(title, textX, canvas.height / 2 - 20);
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.moveTo(margin, 110);
+    ctx.lineTo(W - margin, 110);
+    ctx.stroke();
 
-    // Artist name
-    ctx.fillStyle = 'rgba(236, 72, 153, 1)';
-    ctx.font = '500 32px system-ui, -apple-system, sans-serif';
-    ctx.fillText(song.artist, textX, canvas.height / 2 + 35);
+    // Centered artwork tile (sharp)
+    const tile = 640;
+    const tx = (W - tile) / 2;
+    const ty = 175;
+    ctx.save();
+    ctx.shadowColor = 'rgba(0,0,0,0.6)';
+    ctx.shadowBlur = 50;
+    ctx.shadowOffsetY = 25;
+    roundRect(ctx, tx, ty, tile, tile, 28);
+    ctx.fillStyle = '#15151A';
+    ctx.fill();
+    ctx.restore();
 
-    // Album (if exists)
-    if (song.album) {
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.6)';
-      ctx.font = '24px system-ui, -apple-system, sans-serif';
-      ctx.fillText(song.album, textX, canvas.height / 2 + 80);
+    if (art) {
+      ctx.save();
+      roundRect(ctx, tx, ty, tile, tile, 28);
+      ctx.clip();
+      const ratio = Math.max(tile / art.width, tile / art.height);
+      const dw = art.width * ratio;
+      const dh = art.height * ratio;
+      ctx.drawImage(art, tx + (tile - dw) / 2, ty + (tile - dh) / 2, dw, dh);
+      ctx.restore();
     }
+    ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+    ctx.lineWidth = 1;
+    roundRect(ctx, tx + 0.5, ty + 0.5, tile - 1, tile - 1, 28);
+    ctx.stroke();
 
-    // Universal Univers Flow watermark — bottom-right corner
-    await drawUniversFlowWatermark(ctx, canvas.width, canvas.height, {
+    // Editorial headline
+    const headlineY = ty + tile + 95;
+    ctx.fillStyle = '#FFFFFF';
+    ctx.textAlign = 'center';
+    ctx.font = '900 76px Georgia, "Times New Roman", serif';
+    const titleLines = wrapText(ctx, song.title || 'Untitled', W - margin * 2, 2);
+    titleLines.forEach((line, i) => {
+      ctx.fillText(line, W / 2, headlineY + i * 82);
+    });
+
+    // Accent rule
+    const ruleY = headlineY + titleLines.length * 82 + 20;
+    ctx.strokeStyle = '#FF2D55';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(W / 2 - 40, ruleY);
+    ctx.lineTo(W / 2 + 40, ruleY);
+    ctx.stroke();
+
+    // Artist meta
+    ctx.fillStyle = 'rgba(255,255,255,0.88)';
+    ctx.font = '500 30px "Helvetica Neue", system-ui, sans-serif';
+    const meta = song.album ? `${song.artist}  ·  ${song.album}` : song.artist;
+    ctx.fillText(truncateText(ctx, meta, W - margin * 2), W / 2, ruleY + 50);
+
+    // Footer ticker
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.font = '600 18px "Helvetica Neue", system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText('STREAM · UNIVERSFLOW.IN', margin, H - 50);
+    ctx.textAlign = 'right';
+    ctx.fillText('FREE · NO ADS · LOSSLESS', W - margin, H - 50);
+    ctx.textAlign = 'left';
+
+    // Watermark pill
+    await drawUniversFlowWatermark(ctx, W, H - 90, {
       position: 'bottom-right',
       theme: 'light',
     });
 
-    // Generate image URL
     const url = canvas.toDataURL('image/png');
     setCardUrl(url);
     setGenerating(false);
   }, [song]);
+
+  const wrapText = (ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number) => {
+    const words = (text || '').split(/\s+/).filter(Boolean);
+    const lines: string[] = [];
+    let current = '';
+    for (const w of words) {
+      const test = current ? current + ' ' + w : w;
+      if (ctx.measureText(test).width > maxWidth) {
+        if (current) lines.push(current);
+        current = w;
+        if (lines.length === maxLines) break;
+      } else {
+        current = test;
+      }
+    }
+    if (current && lines.length < maxLines) lines.push(current);
+    if (lines.length === maxLines) {
+      let last = lines[maxLines - 1];
+      while (ctx.measureText(last + '…').width > maxWidth && last.length > 0) {
+        last = last.slice(0, -1);
+      }
+      if (last !== lines[maxLines - 1]) lines[maxLines - 1] = last + '…';
+    }
+    return lines;
+  };
 
   useEffect(() => {
     if (isOpen && song) {
