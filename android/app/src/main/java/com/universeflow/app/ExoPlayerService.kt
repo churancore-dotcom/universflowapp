@@ -160,9 +160,9 @@ class ExoPlayerService : MediaSessionService() {
         }
         try {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // Volume/Bluetooth broadcasts are sent by privileged system
-                // components. NOT_EXPORTED blocks some Android 13+ devices from
-                // delivering them, which made Smart Playback inconsistent.
+                // Bluetooth broadcasts are sent by privileged system components.
+                // NOT_EXPORTED blocks some Android 13+ devices from delivering
+                // them, which made Smart Playback inconsistent.
                 registerReceiver(smartReceiver, filter, Context.RECEIVER_EXPORTED)
             } else {
                 @Suppress("UnspecifiedRegisterReceiverFlag")
