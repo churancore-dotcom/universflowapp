@@ -16,7 +16,9 @@ import android.os.PowerManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
@@ -36,6 +38,7 @@ class ExoPlayerService : MediaSessionService() {
         private const val WAKELOCK_TAG = "UniverseFlow::ExoWakeLock"
         private const val WIFILOCK_TAG = "UniverseFlow::ExoWifiLock"
         private const val WAKELOCK_TIMEOUT_MS = 4L * 60L * 60L * 1000L
+        private const val HTTP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; UniverseFlow) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36"
     }
 
     var player: ExoPlayer? = null
@@ -75,7 +78,14 @@ class ExoPlayerService : MediaSessionService() {
             C.AUDIO_SESSION_ID_UNSET
         }
 
+        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
+            .setUserAgent(HTTP_USER_AGENT)
+            .setAllowCrossProtocolRedirects(true)
+            .setConnectTimeoutMs(12000)
+            .setReadTimeoutMs(20000)
+
         val builder = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory))
             .setAudioAttributes(audioAttrs, /* handleAudioFocus */ true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
