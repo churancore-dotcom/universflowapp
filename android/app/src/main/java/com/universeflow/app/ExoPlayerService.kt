@@ -127,6 +127,21 @@ class ExoPlayerService : MediaSessionService() {
         this.player = exo
         this.mediaSession = sessionBuilder.build()
 
+        // Explicitly install the default media notification provider so the
+        // lock screen / status bar player ALWAYS appears as soon as playback
+        // starts (some devices skip the auto-install path).
+        try {
+            val provider = DefaultMediaNotificationProvider.Builder(this)
+                .setChannelId("uf_playback")
+                .setChannelName(androidx.media3.session.R.string.default_notification_channel_name)
+                .setNotificationId(8801)
+                .build()
+            provider.setSmallIcon(R.mipmap.ic_launcher)
+            setMediaNotificationProvider(provider)
+        } catch (t: Throwable) {
+            android.util.Log.w("ExoPlayerService", "notification provider install failed: ${t.message}")
+        }
+
         ensureEffectsBound()
         registerSmartPlaybackReceiver()
 
