@@ -1189,7 +1189,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               // but they are not CORS-clean for WebAudio. If the user has EQ /
               // reverb / spatial enabled, skip this path and use the edge URL
               // below so stream-proxy can make the EQ chain work.
-              if (!getRuntimePremium() || !hasWebAudioEffects(getEQSettings())) {
+              if (isNativePlayerAvailable() || !getRuntimePremium() || !hasWebAudioEffects(getEQSettings())) {
                 const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
                 const native = await resolveYouTubeStreamOnDevice(videoId);
                 if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
