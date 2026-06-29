@@ -93,7 +93,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // taint/steal the element during startup. Keep EQ on the native
       // AudioEffect path while ExoPlayer is active; use WebAudio only after the
       // native mirror has genuinely fallen back to audible WebView playback.
-      if (isNativePlayerAvailable() && isNativeMirrorActive()) {
+      if (isNativePlayerAvailable()) {
         if (isAttached) bypassAudioElement(audioElement);
         return;
       }
