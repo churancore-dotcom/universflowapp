@@ -342,7 +342,7 @@ class ExoPlayerPlugin : Plugin() {
                     // phone IP and append them directly to ExoPlayer. This keeps
                     // background/lock-screen autoplay alive even if WebView JS is
                     // frozen by Android.
-                    val ordered = tracks.drop(startIndex + 1) + tracks.take(startIndex)
+                    val ordered = tracks.drop(startIndex + 1)
                     val warm = ordered.take(8).mapNotNull { t ->
                         val u = resolveTrackUrl(t, nativeTimeoutMs = 5200L) ?: return@mapNotNull null
                         mediaItemFor(t, u)
