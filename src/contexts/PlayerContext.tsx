@@ -11,7 +11,7 @@ import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
-import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError } from '@/lib/nativePlayer';
+import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -358,6 +358,15 @@ const getNativePlaybackVideoId = (song: Pick<Song, 'id' | 'audio_url'> & { video
   }
   return null;
 };
+
+const toNativeQueueTrack = (song: Song): NativeQueueTrack => ({
+  id: getSongIdentity(song),
+  title: song.title || '',
+  artist: song.artist || '',
+  artworkUrl: song.cover_url,
+  url: song.audio_url,
+  videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
+});
 
 const isKnownBrokenStreamUrl = (_url?: string | null) => {
   // Server-side probing decides liveness now; don't blanket-block any host here.

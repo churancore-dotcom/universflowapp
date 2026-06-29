@@ -27,8 +27,24 @@ export interface ExoPlaybackError {
   message: string;
 }
 
+export interface ExoMediaItemTransition {
+  mediaId: string;
+  reason?: number;
+}
+
+export interface NativeQueueTrack {
+  id: string;
+  title: string;
+  artist: string;
+  artworkUrl?: string;
+  url?: string;
+  videoId?: string;
+}
+
 interface ExoPlayerPluginShape {
   play: (opts: { url: string; title: string; artist: string; artworkUrl?: string }) => Promise<void>;
+  playQueue: (opts: { tracks: NativeQueueTrack[]; startIndex: number }) => Promise<void>;
+  preloadQueue: (opts: { tracks: NativeQueueTrack[]; limit?: number }) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   stop: () => Promise<void>;
@@ -45,8 +61,8 @@ interface ExoPlayerPluginShape {
   setVirtualizer: (opts: { strength: number }) => Promise<void>;
   setLoudnessEnhancer: (opts: { gainMb: number }) => Promise<void>;
   addListener: (
-    event: 'playbackStateChange' | 'playbackProgress' | 'playbackError',
-    cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError) => void,
+    event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
+    cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition) => void,
   ) => Promise<PluginListenerHandle>;
 }
 
