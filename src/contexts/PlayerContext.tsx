@@ -2391,6 +2391,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const togglePlay = useCallback(() => {
     if (!currentSong) return;
 
+    if (isNativePlayerAvailable()) {
+      if (isPlaying) {
+        setIsPlaying(false); wasPlayingRef.current = false;
+        void ExoPlayerPlugin.pause().catch(() => undefined);
+      } else {
+        setIsPlaying(true); wasPlayingRef.current = true;
+        void ExoPlayerPlugin.resume().catch(() => undefined);
+      }
+      return;
+    }
+
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try {
         if (isPlaying) { youtubePlayerRef.current.pauseVideo(); setIsPlaying(false); }
@@ -2420,6 +2431,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsPlaying(false);
     wasPlayingRef.current = false;
     markIntentionalPause();
+    if (isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.pause().catch(() => undefined);
+      return;
+    }
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.pauseVideo(); } catch { /* ignore */ }
       return;
@@ -2433,6 +2448,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!currentSong) return;
     setIsPlaying(true); // optimistic
     wasPlayingRef.current = true;
+    if (isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.resume().catch(() => undefined);
+      return;
+    }
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.playVideo(); } catch { /* ignore */ }
       return;
@@ -2455,6 +2474,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     teardownYouTubePlayback();
     wasPlayingRef.current = false;
+
+    if (isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.stop().catch(() => undefined);
+    }
 
     if (audioRef.current) {
       markIntentionalPause();
@@ -2502,7 +2525,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [queue, currentIndex, shuffle, repeat, getNextIndex, playSongAtIndex]);
 
   const prevSong = useCallback(() => {
-    if (!audioRef.current || queue.length === 0) return;
+    if (queue.length === 0) return;
 
     // Cancel crossfade
     if (crossfadeIntervalRef.current) {
@@ -2517,7 +2540,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // If more than 3 seconds in, restart current song
-    if (audioRef.current.currentTime > 3) {
+    if (!isNativePlayerAvailable() && audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
       setProgress(0);
     } else {
@@ -2528,6 +2551,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [queue, currentIndex, playSongAtIndex]);
 
   const seek = useCallback((time: number) => {
+    if (isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.seekTo({ positionMs: Math.max(0, Math.round(time * 1000)) }).catch(() => undefined);
+      setProgress(time);
+      return;
+    }
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.seekTo(time, true); } catch { /* ignore */ }
       setProgress(time);
@@ -2538,6 +2566,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setProgress(time);
     }
   }, []);
+
 
   // Sync volume to YT player when it changes
   useEffect(() => {
