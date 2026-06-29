@@ -324,6 +324,21 @@ const getYouTubeFallbackVideoId = (url?: string | null) => {
   return url?.replace('yt-video:', '').trim() || null;
 };
 
+const getNativePlaybackVideoId = (song: Pick<Song, 'id' | 'audio_url'> & { videoId?: string }): string | null => {
+  const fromFallback = getYouTubeFallbackVideoId(song.audio_url || '');
+  if (fromFallback && fromFallback.length === 11) return fromFallback;
+  const explicit = song.videoId;
+  if (typeof explicit === 'string' && explicit.length === 11) return explicit;
+  const id = song.id || '';
+  for (const prefix of ['ytm-', 'yt-', 'youtube-']) {
+    if (id.startsWith(prefix)) {
+      const v = id.slice(prefix.length);
+      if (v.length === 11) return v;
+    }
+  }
+  return null;
+};
+
 const isKnownBrokenStreamUrl = (_url?: string | null) => {
   // Server-side probing decides liveness now; don't blanket-block any host here.
   return false;
