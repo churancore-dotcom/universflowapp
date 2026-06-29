@@ -41,6 +41,18 @@ class ExoPlayerPlugin : Plugin() {
     private var listenerAttached = false
     private var listenerPlayer: Player? = null
 
+    private fun emitPlaybackState(player: Player) {
+        val name = when {
+            player.playbackState == Player.STATE_ENDED -> "ended"
+            player.playbackState == Player.STATE_IDLE -> "stopped"
+            player.isPlaying -> "playing"
+            player.playWhenReady && (player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY) -> "buffering"
+            player.playbackState == Player.STATE_BUFFERING -> "buffering"
+            else -> "paused"
+        }
+        notifyListeners("playbackStateChange", JSObject().put("state", name))
+    }
+
     @Volatile private var serviceConnected = false
     @Volatile private var serviceBindAttempted = false
     private val pendingCommands: MutableList<() -> Unit> = mutableListOf()
@@ -178,31 +190,15 @@ class ExoPlayerPlugin : Plugin() {
         if (listenerAttached && listenerPlayer === player) return
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
-                val name = when (state) {
-                    Player.STATE_IDLE -> "stopped"
-                    Player.STATE_BUFFERING -> "buffering"
-                    Player.STATE_READY -> if (player.playWhenReady) "playing" else "paused"
-                    Player.STATE_ENDED -> "ended"
-                    else -> "unknown"
-                }
-                notifyListeners("playbackStateChange", JSObject().put("state", name))
+                emitPlaybackState(player)
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                val stateName = if (isPlaying) {
-                    "playing"
-                } else if (player.playWhenReady && player.playbackState == Player.STATE_BUFFERING) {
-                    "buffering"
-                } else {
-                    "paused"
-                }
-                notifyListeners(
-                    "playbackStateChange",
-                    JSObject().put("state", stateName),
-                )
+                emitPlaybackState(player)
                 if (isPlaying) startProgress() else stopProgress()
             }
             override fun onPlayerError(error: PlaybackException) {
                 Log.e("ExoPlayerPlugin", "onPlayerError: ${error.message}")
+                stopProgress()
                 notifyListeners(
                     "playbackError",
                     JSObject().put("message", error.message ?: "playback error"),
@@ -219,6 +215,10 @@ class ExoPlayerPlugin : Plugin() {
         val r = object : Runnable {
             override fun run() {
                 val p = service()?.player ?: return
+                if (!p.isPlaying) {
+                    stopProgress()
+                    return
+                }
                 val data = JSObject().apply {
                     put("position", p.currentPosition.coerceAtLeast(0L))
                     val d = p.duration
@@ -255,6 +255,7 @@ class ExoPlayerPlugin : Plugin() {
                 call.reject("ExoPlayer player not ready")
             } else {
                 ensureListener(null)
+                stopProgress()
                 val metadata = MediaMetadata.Builder()
                     .setTitle(title)
                     .setArtist(artist)
@@ -264,6 +265,8 @@ class ExoPlayerPlugin : Plugin() {
                     .setUri(Uri.parse(url))
                     .setMediaMetadata(metadata)
                     .build()
+                player.stop()
+                player.clearMediaItems()
                 player.setMediaItem(item)
                 player.prepare()
                 player.playWhenReady = true
