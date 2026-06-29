@@ -60,21 +60,23 @@ class ExoPlayerPlugin : Plugin() {
             // action is set. Without it, onServiceConnected never fires.
             action = "androidx.media3.session.MediaSessionService"
         }
+        // IMPORTANT: plain startService() — NOT startForegroundService().
+        // Media3 promotes the service to FG itself once playback is active;
+        // calling startForegroundService here would arm Android's 5s
+        // startForeground deadline and crash the APK while the service is
+        // still warming up. bindService() with BIND_AUTO_CREATE is enough to
+        // create the service eagerly and give us a connection callback.
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                ctx.startForegroundService(intent)
-            } else {
-                ctx.startService(intent)
-            }
+            ctx.startService(intent)
         } catch (t: Throwable) {
             Log.w("ExoPlayerPlugin", "startService failed: ${t.message}")
-            try { ctx.startService(intent) } catch (_: Throwable) {}
         }
         try {
             ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
         } catch (t: Throwable) {
             Log.w("ExoPlayerPlugin", "bindService failed: ${t.message}")
         }
+
     }
 
     private fun service(): ExoPlayerService? = ServiceRegistry.exoService
