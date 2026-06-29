@@ -67,6 +67,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     clearNativeTakeoverTimer();
     pendingNativeUrl = null;
     nativeAudible = false;
+    void ExoPlayerPlugin.stop().catch(() => undefined);
     try {
       audio.muted = false;
       audio.volume = lastMasterVolume;

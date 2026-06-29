@@ -105,7 +105,7 @@ class InnerTubePlugin : Plugin() {
                     put("deviceMake", "Apple")
                     put("deviceModel", "iPhone16,2")
                     put("osName", "iPhone")
-                    put("osVersion", "18.3_2.22D82")
+                    put("osVersion", "18.3.2.22D82")
                     put("hl", "en")
                     put("gl", "US")
                     put(

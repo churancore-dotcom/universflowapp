@@ -235,14 +235,9 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
     if (isStreamProxyUrl(sourceUrl)) return false;
     if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return false;
 
-    // APK permanent guard: googlevideo URLs resolved on the phone are signed
-    // for the phone's IP. A backend proxy changes the IP and causes instant
-    // 403/silent failures. Native Android must always hand these directly to
-    // ExoPlayer.
-    if (isNativePlayerAvailable() && parsed.hostname.endsWith('googlevideo.com')) return false;
-
     // YouTube streams resolved by our edge function are signed for Supabase's
     // IP, not the user's device/browser. They must be fetched by stream-proxy.
+    // Phone-resolved URLs are excluded earlier by isNativeResolvedStreamUrl().
     if (parsed.hostname.endsWith('googlevideo.com')) return true;
 
     // For Premium EQ/effects, proxy external streams to guarantee a CORS-clean
@@ -419,6 +414,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const playRequestSeqRef = useRef(0);
   const activeSongIdentityRef = useRef<string | null>(null);
   const queueRef = useRef<Song[]>([]);
+  const currentIndexRef = useRef(0);
+  const shuffleRef = useRef(false);
+  const repeatRef = useRef<'off' | 'all' | 'one'>('off');
+  const volumeRef = useRef(volume);
   const endedFiredForSeqRef = useRef<number>(-1);
   // Auto-mix guard: prevents repeated extend calls while the network is in
   // flight, and remembers song-ids already added so we don't loop the same
@@ -429,6 +428,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const nativeRestoreAttemptedRef = useRef(false);
   const currentSongRef = useRef<Song | null>(null);
   useEffect(() => { currentSongRef.current = currentSong; }, [currentSong]);
+
+  useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
+  useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
+  useEffect(() => { repeatRef.current = repeat; }, [repeat]);
+  useEffect(() => { volumeRef.current = volume; }, [volume]);
 
 
   useEffect(() => {
@@ -529,11 +533,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const audio = new Audio();
     audio.volume = volume;
     audio.preload = 'auto';
-    // CRITICAL: set crossOrigin BEFORE the element ever receives a src so the
-    // WebAudio MediaElementSource is never tainted. Every remote stream is
-    // routed through our CORS-clean stream-proxy, so 'anonymous' is always
-    // safe and lets the EQ graph attach on the very first song.
-    audio.crossOrigin = 'anonymous';
     audio.setAttribute('playsinline', 'true');
     audio.setAttribute('webkit-playsinline', 'true');
     // iOS Safari + AirPlay: allow background/lockscreen playback handoff
@@ -561,7 +560,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const nextAudio = new Audio();
     nextAudio.volume = 0;
     nextAudio.preload = 'auto';
-    nextAudio.crossOrigin = 'anonymous';
     nextAudio.setAttribute('playsinline', 'true');
     nextAudio.setAttribute('webkit-playsinline', 'true');
     nextAudio.setAttribute('x-webkit-airplay', 'allow');
@@ -1517,7 +1515,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Set source and play immediately
     configureAudioElementSource(audioRef.current, buildStreamProxyUrl(audioUrl));
 
-    audioRef.current.volume = volume;
+    audioRef.current.volume = volumeRef.current;
     audioRef.current.currentTime = 0;
     
     audioRef.current.load();
@@ -1545,7 +1543,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
-  }, [volume, isPlayableUrl, resolveAudioUrl, playYouTubeFallback, teardownYouTubePlayback, publishNativeMusicControls, getNextIndex, shuffle, repeat, playbackSettingsVersion]);
+  }, [isPlayableUrl, resolveAudioUrl, teardownYouTubePlayback, publishNativeMusicControls, playbackSettingsVersion]);
 
   // Handle song end and crossfade
   useEffect(() => {
@@ -1568,7 +1566,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // same song. Only the first wins until the next play request bumps seq.
       if (endedFiredForSeqRef.current === playRequestSeqRef.current) return;
       endedFiredForSeqRef.current = playRequestSeqRef.current;
-      if (repeat === 'one') {
+      const activeRepeat = repeatRef.current;
+      const activeShuffle = shuffleRef.current;
+      const activeIndex = currentIndexRef.current;
+
+      if (activeRepeat === 'one') {
         audio.currentTime = 0;
         audio.play().catch(console.warn);
         return;
@@ -1583,19 +1585,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       // Move to next song immediately - no async operations
       const activeQueue = queueRef.current;
-      let nextIdx = getNextIndex(currentIndex, activeQueue.length, shuffle, repeat);
+      let nextIdx = getNextIndex(activeIndex, activeQueue.length, activeShuffle, activeRepeat);
       
       // If repeat is 'all' and we hit the end, loop back
-      if (nextIdx === null && repeat === 'all') {
+      if (nextIdx === null && activeRepeat === 'all') {
         nextIdx = 0;
       }
       
       if (nextIdx !== null && activeQueue.length > 0) {
         playSongAtIndex(nextIdx, activeQueue);
-      } else if (repeat === 'off' && activeQueue.length > 0) {
+      } else if (activeRepeat === 'off' && activeQueue.length > 0) {
         // End of queue — fire YouTube-style endless mix: pull more songs
         // (same artist → genre/mood → trending) and continue playing.
-        const seed = activeQueue[currentIndex] || currentSong;
+        const seed = activeQueue[activeIndex] || currentSongRef.current;
         extendQueueWithMix(seed).then((added) => {
           if (added.length > 0) {
             // Append happened via setQueueState; jump to the first new track.
@@ -1732,7 +1734,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       //    once with a forced cache-bust, then retry the same song. Only skip
       //    if the refreshed URL also fails. ──
       const activeQueue = queueRef.current;
-      const cur = activeQueue[currentIndex];
+      const activeIndex = currentIndexRef.current;
+      const cur = activeQueue[activeIndex];
       const activeIdentity = activeSongIdentityRef.current;
       const errorBelongsToActiveSong = cur && activeIdentity === getSongIdentity(cur);
       const looksStale =
@@ -1755,7 +1758,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (fresh && fresh !== cur.audio_url && !isYouTubeFallbackUrl(fresh)) {
             const refreshed = { ...cur, audio_url: fresh };
             const newQueue = [...activeQueue];
-            newQueue[currentIndex] = refreshed;
+            newQueue[activeIndex] = refreshed;
             queueRef.current = newQueue;
             setQueueState(newQueue);
             setCurrentSong(refreshed);
@@ -1790,7 +1793,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('timeupdate', handleTimeUpdate);
       audio.removeEventListener('error', handleAudioError);
     };
-  }, [currentIndex, queue, shuffle, repeat, crossfade, crossfadeDuration, crossfadeCurve, volume, gaplessPro, getNextIndex, playSongAtIndex, resolveAudioUrl, playYouTubeFallback, extendQueueWithMix, currentSong, playbackSettingsVersion]);
+  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, resolveAudioUrl, extendQueueWithMix, playbackSettingsVersion]);
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
   // YouTube-backed audio URLs expire ~6h after issue, and the OS can suspend
@@ -1937,10 +1940,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         if (audioRef.current) {
-          audioRef.current.volume = Math.max(0, Math.min(volume, volume * fadeOut));
+          const masterVolume = volumeRef.current;
+          audioRef.current.volume = Math.max(0, Math.min(masterVolume, masterVolume * fadeOut));
         }
         if (nextAudioRef.current) {
-          nextAudioRef.current.volume = Math.max(0, Math.min(volume, volume * fadeIn));
+          const masterVolume = volumeRef.current;
+          nextAudioRef.current.volume = Math.max(0, Math.min(masterVolume, masterVolume * fadeIn));
         }
 
         if (currentStep >= steps) {
@@ -1973,7 +1978,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }).catch(() => {
       isCrossfading.current = false;
     });
-  }, [queue, currentIndex, shuffle, repeat, crossfadeDuration, crossfadeCurve, volume, getNextIndex, isPlayableUrl]);
+  }, [queue, currentIndex, shuffle, repeat, crossfadeDuration, crossfadeCurve, getNextIndex, isPlayableUrl]);
 
   const playActualSong = useCallback(async (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     if (!audioRef.current) return;
@@ -2046,7 +2051,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Set audio source - use offline URL if available
     const playbackUrl = offlineUrl || buildStreamProxyUrl(playbackSource);
     configureAudioElementSource(audioRef.current, playbackUrl);
-    audioRef.current.volume = volume;
+    audioRef.current.volume = volumeRef.current;
     audioRef.current.currentTime = 0;
 
     // Load and play immediately
@@ -2116,7 +2121,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }).then(() => {});
       }).catch(() => {});
     }, 30000);
-  }, [isPlayableUrl, resolveAudioUrl, volume, playYouTubeFallback, teardownYouTubePlayback, publishNativeMusicControls, getNextIndex, shuffle, repeat, playSongAtIndex]);
+  }, [isPlayableUrl, resolveAudioUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex]);
 
   const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium
