@@ -306,6 +306,20 @@ class ExoPlayerPlugin : Plugin() {
         val firstTrack = tracks[startIndex]
         Log.d("ExoPlayerPlugin", "playQueue() index=$startIndex title=${firstTrack.title}")
 
+        // CRITICAL SPEED FIX: kick off resolution of the first track on a
+        // background thread RIGHT NOW, in parallel with the service-ready wait.
+        // When ExoPlayer's ResolvingDataSource asks for the URL a moment later
+        // it hits the in-memory cache and starts streaming immediately.
+        firstTrack.videoId?.takeIf { it.length == 11 }?.let { vid ->
+            Thread { NativeYouTubeResolver.resolve(vid, timeoutMs = 6000L) }.start()
+        }
+        // Also pre-warm the next 2 so back-to-back taps feel instant.
+        tracks.drop(startIndex + 1).take(2).forEach { t ->
+            t.videoId?.takeIf { it.length == 11 }?.let { vid ->
+                Thread { NativeYouTubeResolver.resolve(vid, timeoutMs = 6000L) }.start()
+            }
+        }
+
         val performPlay: () -> Unit = {
             val player = service()?.player
             if (player == null) {
