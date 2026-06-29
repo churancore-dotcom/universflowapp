@@ -453,7 +453,13 @@ class ExoPlayerPlugin : Plugin() {
 
     override fun handleOnDestroy() {
         stopProgress()
+        try {
+            context.applicationContext.unbindService(connection)
+        } catch (_: Throwable) {}
+        serviceConnected = false
         super.handleOnDestroy()
     }
+}
+
 }
 
