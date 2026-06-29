@@ -472,6 +472,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const nativeStartupSeqRef = useRef<number | null>(null);
   const nativeStartedForSeqRef = useRef<number | null>(null);
   const nativeStartupTimerRef = useRef<number | null>(null);
+  const nativeLastPlayIntentAtRef = useRef(0);
   const queueRef = useRef<Song[]>([]);
   const currentIndexRef = useRef(0);
   const shuffleRef = useRef(false);
@@ -495,6 +496,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       window.clearTimeout(nativeStartupTimerRef.current);
       nativeStartupTimerRef.current = null;
     }
+  }, []);
+
+  const markNativePlayIntent = useCallback((seq: number) => {
+    nativeStartupSeqRef.current = seq;
+    nativeStartedForSeqRef.current = null;
+    nativeLastPlayIntentAtRef.current = Date.now();
   }, []);
 
   useEffect(() => { currentIndexRef.current = currentIndex; }, [currentIndex]);
@@ -676,6 +683,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         } else {
           ExoPlayerPlugin.isPlaying()
             .then(({ isPlaying }) => {
+              if (!isPlaying && Date.now() - nativeLastPlayIntentAtRef.current < 15000) return;
               setIsPlaying(isPlaying);
               wasPlayingRef.current = isPlaying;
             })
@@ -717,6 +725,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (isNativePlayerAvailable()) {
         ExoPlayerPlugin.isPlaying()
           .then(({ isPlaying }) => {
+            if (!isPlaying && Date.now() - nativeLastPlayIntentAtRef.current < 15000) return;
             setIsPlaying(isPlaying);
             wasPlayingRef.current = isPlaying;
           })
