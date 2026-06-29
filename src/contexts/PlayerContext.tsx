@@ -1656,7 +1656,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       // Premium audio transitions are gated in the engine itself — never trust
       // localStorage/UI toggles because users can tamper with them in DevTools.
-      const premiumAudioTransitions = getRuntimePremium() && isAutoplayEnabled();
+      // Android native uses one authoritative ExoPlayer instance. Web crossfade
+      // swaps audioRef to nextAudioRef, which detaches nativeMirror and creates
+      // the exact auto-change/auto-stop behavior seen in APKs. Keep advanced
+      // overlaps web-only until a native ConcatenatingMediaSource/crossfade path
+      // exists.
+      const premiumAudioTransitions = !isNativePlayerAvailable() && getRuntimePremium() && isAutoplayEnabled();
       if (premiumAudioTransitions && crossfade && queue.length > 1 && audio.duration && !isCrossfading.current) {
         const timeLeft = audio.duration - audio.currentTime;
         if (timeLeft <= crossfadeDuration && timeLeft > 0 && crossfadeAttemptedForSeqRef.current !== playRequestSeqRef.current) {
@@ -1867,6 +1872,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Crossfade implementation
   const startCrossfade = useCallback((transitionSeconds = crossfadeDuration) => {
+    if (isNativePlayerAvailable()) return;
     if (!audioRef.current || !nextAudioRef.current || isCrossfading.current) return;
     if (crossfadeAttemptedForSeqRef.current === playRequestSeqRef.current) return;
     crossfadeAttemptedForSeqRef.current = playRequestSeqRef.current;
