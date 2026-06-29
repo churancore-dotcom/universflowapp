@@ -15,6 +15,8 @@ import { toast } from 'sonner';
 import { validatePhone, PHONE_DIGITS } from '@/lib/phoneValidator';
 import { FadeTransition } from '@/components/PageTransition';
 import SEOHead from '@/components/SEOHead';
+import { CountryCombobox } from '@/components/CountryCombobox';
+import { COUNTRIES, getCountry } from '@/lib/countries';
 
 function detectCountryCode(): string | undefined {
   try {
@@ -25,13 +27,6 @@ function detectCountryCode(): string | undefined {
 }
 
 type Mode = 'login' | 'signup';
-
-const DIAL_CODES: Array<[string, string, string]> = [
-  ['IN', '+91', '🇮🇳'], ['US', '+1', '🇺🇸'], ['GB', '+44', '🇬🇧'],
-  ['CA', '+1', '🇨🇦'], ['AU', '+61', '🇦🇺'], ['DE', '+49', '🇩🇪'],
-  ['FR', '+33', '🇫🇷'], ['BR', '+55', '🇧🇷'], ['JP', '+81', '🇯🇵'],
-  ['AE', '+971', '🇦🇪'],
-];
 
 function ageFromDob(dob: string): number | null {
   if (!dob) return null;
@@ -63,7 +58,7 @@ const ArtistAuth = () => {
 
   const isLogin = mode === 'login';
   const dial = useMemo(
-    () => DIAL_CODES.find(([iso]) => iso === dialIso) ?? DIAL_CODES[0],
+    () => getCountry(dialIso) ?? getCountry('IN') ?? COUNTRIES[0],
     [dialIso],
   );
   const age = ageFromDob(dob);
@@ -88,7 +83,7 @@ const ArtistAuth = () => {
     username.trim().length >= 3 &&
     /\S+@\S+\.\S+/.test(email);
 
-  const phoneCheck = useMemo(() => validatePhone(dial[0], phone), [dial, phone]);
+  const phoneCheck = useMemo(() => validatePhone(dial.code, phone), [dial, phone]);
 
   const signupValid =
     step1Valid &&
@@ -178,14 +173,14 @@ const ArtistAuth = () => {
         toast.error('No artist account found for this email. Please sign up as an artist first.');
         return;
       } else {
-        const fullPhone = `${dial[1]} ${phone.trim()}`;
+        const fullPhone = `${dial.dial} ${phone.trim()}`;
         const artistMetadata = {
           full_name: fullName.trim(),
           phone: fullPhone,
           dob,
           account_type: 'artist',
         };
-        const { error } = await signUp(email, password, username, dial[0], artistMetadata);
+        const { error } = await signUp(email, password, username, dial.code, artistMetadata);
         if (error) { toast.error(error.message); return; }
 
         try {
@@ -194,7 +189,7 @@ const ArtistAuth = () => {
             JSON.stringify({
               full_name: fullName.trim(),
               phone: fullPhone,
-              country_code: dial[0],
+              country_code: dial.code,
               dob,
               account_type: 'artist',
             }),
@@ -521,23 +516,20 @@ const ArtistAuth = () => {
                   <div>
                     <FieldLabel>Phone number</FieldLabel>
                     <div className="flex gap-2">
-                      <select
+                      <CountryCombobox
                         value={dialIso}
-                        onChange={(e) => setDialIso(e.target.value)}
-                        className="h-12 rounded-xl bg-white/[0.04] border-0 px-2 text-[13px] tabular-nums"
-                        aria-label="Country code"
-                      >
-                        {DIAL_CODES.map(([iso, code, flag]) => (
-                          <option key={iso} value={iso}>{flag} {code}</option>
-                        ))}
-                      </select>
+                        onChange={setDialIso}
+                        variant="dial"
+                        className="w-[118px] shrink-0"
+                        ariaLabel="Search country phone code"
+                      />
                       <IconInput icon={Phone} className="flex-1">
                         <Input
                           type="tel"
                           inputMode="numeric"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 15))}
-                          placeholder={`${PHONE_DIGITS[dial[0]] ?? 10}-digit mobile`}
+                          placeholder={`${PHONE_DIGITS[dial.code] ?? 'mobile'} number`}
                           className="pl-10 h-12 text-[14px] rounded-xl border-0 bg-white/[0.04]"
                           required
                           autoComplete="tel-national"

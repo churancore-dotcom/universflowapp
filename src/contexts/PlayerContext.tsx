@@ -324,6 +324,21 @@ const getYouTubeFallbackVideoId = (url?: string | null) => {
   return url?.replace('yt-video:', '').trim() || null;
 };
 
+const getNativePlaybackVideoId = (song: Pick<Song, 'id' | 'audio_url'> & { videoId?: string }): string | null => {
+  const fromFallback = getYouTubeFallbackVideoId(song.audio_url || '');
+  if (fromFallback && fromFallback.length === 11) return fromFallback;
+  const explicit = song.videoId;
+  if (typeof explicit === 'string' && explicit.length === 11) return explicit;
+  const id = song.id || '';
+  for (const prefix of ['ytm-', 'yt-', 'youtube-']) {
+    if (id.startsWith(prefix)) {
+      const v = id.slice(prefix.length);
+      if (v.length === 11) return v;
+    }
+  }
+  return null;
+};
+
 const isKnownBrokenStreamUrl = (_url?: string | null) => {
   // Server-side probing decides liveness now; don't blanket-block any host here.
   return false;
@@ -430,6 +445,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const shuffleRef = useRef(false);
   const repeatRef = useRef<'off' | 'all' | 'one'>('off');
   const volumeRef = useRef(volume);
+  const isPlayingRef = useRef(isPlaying);
   const endedFiredForSeqRef = useRef<number>(-1);
   // Auto-mix guard: prevents repeated extend calls while the network is in
   // flight, and remembers song-ids already added so we don't loop the same
@@ -445,6 +461,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
   useEffect(() => { repeatRef.current = repeat; }, [repeat]);
   useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
 
   useEffect(() => {
@@ -569,6 +586,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 
     const recoverBackgroundPlayback = () => {
+      if (isNativePlayerAvailable()) return;
       const a = audioRef.current;
       if (!a || !a.src || intentionalPauseRef.current) return;
       resumeAudioEngine();
@@ -594,6 +612,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const startBackgroundHeartbeat = () => {
+      if (isNativePlayerAvailable()) return;
       if (backgroundHeartbeatRef.current != null) return;
       // Hidden/background only: keep recovery fast enough for OEM WebViews that
       // silently stall within a few seconds, but stop the timer immediately when
@@ -610,6 +629,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Track playing state before going to background
     const handleVisibilityChange = () => {
+      if (isNativePlayerAvailable()) {
+        if (document.visibilityState === 'hidden') {
+          wasPlayingRef.current = isPlayingRef.current;
+          persistPlayerSnapshotRef.current();
+        } else {
+          ExoPlayerPlugin.isPlaying()
+            .then(({ isPlaying }) => {
+              setIsPlaying(isPlaying);
+              wasPlayingRef.current = isPlaying;
+            })
+            .catch(() => undefined);
+        }
+        return;
+      }
       if (document.visibilityState === 'hidden') {
         // Entering background — remember if we were playing
         wasPlayingRef.current = !!(audioRef.current && !audioRef.current.paused);
@@ -630,18 +663,33 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
 
     const handlePageHide = () => {
+      if (isNativePlayerAvailable()) {
+        wasPlayingRef.current = isPlayingRef.current;
+        persistPlayerSnapshotRef.current();
+        return;
+      }
       wasPlayingRef.current = !!(audioRef.current && !audioRef.current.paused);
       persistPlayerSnapshotRef.current();
       if (wasPlayingRef.current) startBackgroundHeartbeat();
     };
 
     const handlePageShow = () => {
+      if (isNativePlayerAvailable()) {
+        ExoPlayerPlugin.isPlaying()
+          .then(({ isPlaying }) => {
+            setIsPlaying(isPlaying);
+            wasPlayingRef.current = isPlaying;
+          })
+          .catch(() => undefined);
+        return;
+      }
       stopBackgroundHeartbeat();
       resumeAudioEngine();
       recoverBackgroundPlayback();
     };
     
     const handleFocus = () => {
+      if (isNativePlayerAvailable()) return;
       if (audioRef.current && audioRef.current.src && audioRef.current.paused && wasPlayingRef.current) {
         audioRef.current.play().catch(() => {});
       }
@@ -715,6 +763,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const mod = await import(/* @vite-ignore */ modName).catch(() => null) as CapacitorAppModule | null;
         if (!mod?.App) return;
         const handle = await mod.App.addListener('appStateChange', (state: { isActive: boolean }) => {
+          if (isNativePlayerAvailable()) {
+            if (!state?.isActive) {
+              wasPlayingRef.current = isPlayingRef.current;
+              persistPlayerSnapshotRef.current();
+              return;
+            }
+            ExoPlayerPlugin.isPlaying()
+              .then(({ isPlaying }) => {
+                setIsPlaying(isPlaying);
+                wasPlayingRef.current = isPlaying;
+              })
+              .catch(() => undefined);
+            return;
+          }
           if (!state?.isActive) {
             wasPlayingRef.current = !!(audioRef.current && !audioRef.current.paused);
             persistPlayerSnapshotRef.current();
@@ -2247,7 +2309,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // `yt-video:` can play through the YouTube iframe, but iframe audio cannot
     // be connected to WebAudio. Resolve it to a real stream before playback so
     // Premium EQ/effects can attach to the normal <audio> element.
-    if (!offlineUrl && (!isPlayableUrl(playbackSource) || isYouTubeFallbackUrl(playbackSource))) {
+    if (!isNativePlayerAvailable() && !offlineUrl && (!isPlayableUrl(playbackSource) || isYouTubeFallbackUrl(playbackSource))) {
       const resolved = await resolveAudioUrl(song);
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return; // user tapped another song first
       if (!resolved) {
@@ -2284,6 +2346,53 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const normalizedQueue = songsQueue?.map((queuedSong) =>
       getSongIdentity(queuedSong) === intendedIdentity ? { ...queuedSong, audio_url: playbackSource } : queuedSong,
     );
+
+    // Android APK: ExoPlayer is the only audible player. Do not start the
+    // WebView <audio> element here; it gets suspended/killed in background and
+    // fights the native session. Resolve YouTube IDs on-device, then play
+    // directly through the foreground MediaSessionService.
+    if (isNativePlayerAvailable()) {
+      try {
+        const videoId = getNativePlaybackVideoId(song as Song & { videoId?: string });
+        let playUrl = videoId ? null : (offlineUrl || playbackSource);
+        if (!playUrl) {
+          const res = await InnerTubePlugin.resolveAudio({ videoId: videoId! });
+          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          playUrl = res?.url || null;
+        }
+        if (!playUrl || isYouTubeFallbackUrl(playUrl)) throw new Error('no native playable url');
+        await ExoPlayerPlugin.play({
+          url: playUrl,
+          title: song.title || '',
+          artist: song.artist || '',
+          artworkUrl: song.cover_url || undefined,
+        });
+        if (normalizedQueue && normalizedQueue.length > 0) {
+          queueRef.current = normalizedQueue;
+          setQueueState(normalizedQueue);
+          const songIndex = normalizedQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
+          setCurrentIndex(songIndex >= 0 ? songIndex : 0);
+        } else {
+          const activeQueue = queueRef.current;
+          const existingIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
+          if (existingIndex === -1) {
+            const next = [...activeQueue, song];
+            queueRef.current = next;
+            setQueueState(next);
+            setCurrentIndex(activeQueue.length);
+          } else {
+            setCurrentIndex(existingIndex);
+          }
+        }
+      } catch (err) {
+        console.warn('[player/native] playActualSong failed', (err as Error)?.message);
+        if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity) {
+          setIsPlaying(false);
+          toast.error('Song unavailable');
+        }
+      }
+      return;
+    }
 
     // ── YouTube IFrame fallback path ──
     if (!offlineUrl && isYouTubeFallbackUrl(playbackSource)) {
