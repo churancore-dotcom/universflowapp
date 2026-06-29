@@ -40,6 +40,7 @@ class ExoPlayerPlugin : Plugin() {
     private var progressTimer: Runnable? = null
     private var listenerAttached = false
     private var listenerPlayer: Player? = null
+    @Volatile private var isStartingUp = false
 
     private fun emitPlaybackState(player: Player) {
         val name = when {
@@ -50,6 +51,9 @@ class ExoPlayerPlugin : Plugin() {
             player.playbackState == Player.STATE_BUFFERING -> "buffering"
             else -> "paused"
         }
+        // During a track swap ExoPlayer briefly emits IDLE/paused/ended for the
+        // old item. If JS receives that after a tap, it looks like an auto-pause.
+        if (isStartingUp && (name == "stopped" || name == "paused" || name == "ended")) return
         notifyListeners("playbackStateChange", JSObject().put("state", name))
     }
 
@@ -66,6 +70,10 @@ class ExoPlayerPlugin : Plugin() {
             Log.d("ExoPlayerPlugin", "ServiceConnection.onServiceDisconnected")
             serviceConnected = false
             serviceBindAttempted = false
+            listenerAttached = false
+            listenerPlayer = null
+            isStartingUp = false
+            stopProgress()
         }
     }
 
@@ -193,11 +201,13 @@ class ExoPlayerPlugin : Plugin() {
                 emitPlaybackState(player)
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (isPlaying) isStartingUp = false
                 emitPlaybackState(player)
                 if (isPlaying) startProgress() else stopProgress()
             }
             override fun onPlayerError(error: PlaybackException) {
                 Log.e("ExoPlayerPlugin", "onPlayerError: ${error.message}")
+                isStartingUp = false
                 stopProgress()
                 notifyListeners(
                     "playbackError",
@@ -251,9 +261,11 @@ class ExoPlayerPlugin : Plugin() {
             val player = service()?.player
             if (player == null) {
                 Log.e("ExoPlayerPlugin", "service ready but player == null")
+                isStartingUp = false
                 notifyListeners("playbackError", JSObject().put("message", "ExoPlayer player not ready"))
                 call.reject("ExoPlayer player not ready")
             } else {
+                isStartingUp = true
                 ensureListener(null)
                 stopProgress()
                 val metadata = MediaMetadata.Builder()
@@ -278,6 +290,7 @@ class ExoPlayerPlugin : Plugin() {
             timeoutMs = 3000L,
             onTimeout = {
                 Log.e("ExoPlayerPlugin", "ExoPlayer service did not connect within 3s")
+                isStartingUp = false
                 notifyListeners(
                     "playbackError",
                     JSObject().put("message", "ExoPlayer service did not become ready"),
