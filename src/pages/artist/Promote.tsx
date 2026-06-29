@@ -10,6 +10,7 @@ import { ArtistProfile, ArtistSong, fmt } from './_shared';
 import BentoCard from '@/components/artist/BentoCard';
 import { useToast } from '@/hooks/use-toast';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { drawUniversFlowWatermark } from '@/lib/shareWatermark';
 
 type Ctx = { profile: ArtistProfile | null; songs: ArtistSong[]; followers: number };
 
@@ -398,11 +399,6 @@ async function renderCard(
   ctx.textBaseline = 'middle';
   ctx.fillText('NEW', 158, 173);
 
-  // Brand
-  ctx.fillStyle = 'rgba(255,255,255,0.55)';
-  ctx.font = '600 26px ui-sans-serif, system-ui, sans-serif';
-  ctx.fillText('UNIVERSFLOW', W - 80 - ctx.measureText('UNIVERSFLOW').width, 173);
-
   // Title
   ctx.fillStyle = '#fff';
   ctx.font = '800 84px ui-sans-serif, system-ui, sans-serif';
@@ -423,6 +419,9 @@ async function renderCard(
   const cta = `▶  Listen on universflow.in/a/${profile.slug}`;
   const truncated = ellipsize(ctx, cta, W - 220);
   ctx.fillText(truncated, 120, 1675);
+
+  // Universal Univers Flow watermark — top-right so it stays clear of the CTA bar
+  await drawUniversFlowWatermark(ctx, W, H, { position: 'top-right', theme: 'light' });
 
   return canvas.toDataURL('image/png');
 }
