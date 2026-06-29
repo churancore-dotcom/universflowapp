@@ -1,15 +1,20 @@
 package com.universeflow.app
 
+import android.Manifest
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.ServiceConnection
+import android.content.pm.PackageManager
 import android.net.Uri
 
+import android.os.Build
 import android.os.Handler
 import android.os.IBinder
 import android.os.Looper
 import android.util.Log
+import androidx.core.app.ActivityCompat
+import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -37,6 +42,7 @@ class ExoPlayerPlugin : Plugin() {
     private var listenerPlayer: Player? = null
 
     @Volatile private var serviceConnected = false
+    @Volatile private var serviceBindAttempted = false
     private val pendingCommands: MutableList<() -> Unit> = mutableListOf()
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -52,14 +58,29 @@ class ExoPlayerPlugin : Plugin() {
 
     override fun load() {
         super.load()
+        ensureServiceAvailable()
+    }
+
+    private fun serviceIntent(ctx: Context): Intent = Intent(ctx, ExoPlayerService::class.java).apply {
+        // MediaSessionService.onBind() only returns a binder when this action is set.
+        action = "androidx.media3.session.MediaSessionService"
+    }
+
+    private fun ensureNotificationPermissionBestEffort() {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return
+        try {
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED) return
+            ActivityCompat.requestPermissions(activity, arrayOf(Manifest.permission.POST_NOTIFICATIONS), 8802)
+        } catch (t: Throwable) {
+            Log.w("ExoPlayerPlugin", "notification permission request skipped: ${t.message}")
+        }
+    }
+
+    private fun ensureServiceAvailable() {
         // Eagerly bring up the MediaSessionService so playback latency on the
         // very first tap is just the InnerTube resolve + ExoPlayer prepare.
         val ctx = context.applicationContext
-        val intent = Intent(ctx, ExoPlayerService::class.java).apply {
-            // MediaSessionService.onBind() only returns a binder when this
-            // action is set. Without it, onServiceConnected never fires.
-            action = "androidx.media3.session.MediaSessionService"
-        }
+        val intent = serviceIntent(ctx)
         // IMPORTANT: plain startService() — NOT startForegroundService().
         // Media3 promotes the service to FG itself once playback is active;
         // calling startForegroundService here would arm Android's 5s
@@ -71,12 +92,15 @@ class ExoPlayerPlugin : Plugin() {
         } catch (t: Throwable) {
             Log.w("ExoPlayerPlugin", "startService failed: ${t.message}")
         }
-        try {
-            ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
-        } catch (t: Throwable) {
-            Log.w("ExoPlayerPlugin", "bindService failed: ${t.message}")
+        if (!serviceBindAttempted || !serviceConnected) {
+            try {
+                serviceBindAttempted = true
+                ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+            } catch (t: Throwable) {
+                Log.w("ExoPlayerPlugin", "bindService failed: ${t.message}")
+                serviceBindAttempted = false
+            }
         }
-
     }
 
     private fun service(): ExoPlayerService? = ServiceRegistry.exoService
@@ -101,7 +125,13 @@ class ExoPlayerPlugin : Plugin() {
      * playbackError).
      */
     private fun runWhenReady(timeoutMs: Long, onTimeout: () -> Unit, block: () -> Unit) {
-        if (serviceConnected && service()?.player != null) {
+        ensureServiceAvailable()
+        // ServiceRegistry is the real in-process source of truth. Some Android
+        // builds create/start the MediaSessionService successfully but delay or
+        // skip the ServiceConnection callback during background transitions;
+        // requiring serviceConnected here caused the "Service ready timeout" and
+        // left playback silent. If the registry has a player, run immediately.
+        if (service()?.player != null) {
             runOnMain(block)
             return
         }
@@ -190,6 +220,7 @@ class ExoPlayerPlugin : Plugin() {
     fun play(call: PluginCall) {
         val url = call.getString("url")
         if (url.isNullOrBlank()) { call.reject("missing url"); return }
+        ensureNotificationPermissionBestEffort()
         val title = call.getString("title") ?: ""
         val artist = call.getString("artist") ?: ""
         val artwork = call.getString("artworkUrl")
