@@ -10,7 +10,7 @@ import {
   setNativeLoudnessEnhancer,
   setNativeVirtualizer,
 } from '@/lib/nativePlayer';
-import { isNativeMirrorActive } from '@/lib/nativeMirror';
+// nativeMirror removed — on Android, ExoPlayer always owns audio when available.
 
 // Web EQ band center frequencies — must mirror BAND_DEFS in audioEngine.ts.
 const WEB_BAND_FREQS_HZ = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
