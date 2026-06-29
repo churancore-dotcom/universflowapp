@@ -2379,13 +2379,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       preloadedNextIdRef.current = null;
     } catch { /* ignore */ }
 
-    // Update state immediately to prevent UI flicker
+    const useNativePlayback = isNativePlayerAvailable();
+
+    // Update state immediately to prevent UI flicker. Android waits for the
+    // native `playing` event before showing active playback/progress.
     setCurrentSong(song);
     currentSongRef.current = song;
     setDuration(song.duration || 0);
     setProgress(0);
-    setIsPlaying(true);
-    void publishNativeMusicControls(song, true, song.duration);
+    setIsPlaying(!useNativePlayback);
+    wasPlayingRef.current = !useNativePlayback;
+    void publishNativeMusicControls(song, !useNativePlayback, song.duration);
     
     let playbackSource = offlineUrl || song.audio_url;
 
@@ -2414,6 +2418,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return;
         }
         setIsPlaying(false);
+        wasPlayingRef.current = false;
         toast.error('This song could not start right now.');
         return;
       }
@@ -2434,8 +2439,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // WebView <audio> element here; it gets suspended/killed in background and
     // fights the native session. Resolve YouTube IDs on-device, then play
     // directly through the foreground MediaSessionService.
-    if (isNativePlayerAvailable()) {
+    if (useNativePlayback) {
       nativeStartupSeqRef.current = mySeq;
+      nativeStartedForSeqRef.current = null;
+      clearNativeStartupTimer();
       await ExoPlayerPlugin.stop().catch(() => undefined);
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
@@ -2449,6 +2456,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           artist: song.artist || '',
           artworkUrl: song.cover_url || undefined,
         });
+        clearNativeStartupTimer();
+        nativeStartupTimerRef.current = window.setTimeout(() => {
+          if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
+          console.warn('[player/native] startup timeout; retrying fallback for', song.title);
+          nativeStartupSeqRef.current = null;
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout', url: playUrl } }));
+        }, 12000);
         reapplyNativeEqSoon();
         if (normalizedQueue && normalizedQueue.length > 0) {
           queueRef.current = normalizedQueue;
@@ -2470,6 +2484,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } catch (err) {
         console.warn('[player/native] playActualSong failed', (err as Error)?.message);
         if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity) {
+          nativeStartupSeqRef.current = null;
+          clearNativeStartupTimer();
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: (err as Error)?.message } }));
         }
       }
