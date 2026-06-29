@@ -226,6 +226,7 @@ const configureAudioElementSource = (audio: HTMLAudioElement, sourceUrl: string)
   }
 
   audio.src = sourceUrl;
+  (audio as HTMLAudioElement & { __ufAssignedAt?: number }).__ufAssignedAt = Date.now();
   // Do not force-rebuild the WebAudio graph here. The audio element's real
   // media events (`loadstart`, `loadedmetadata`, `canplay`) already trigger the
   // EQ hook at the correct time; firing a microtask here caused repeated graph
@@ -1195,61 +1196,33 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (ytFallback) {
           const videoId = getYouTubeFallbackVideoId(ytFallback);
           if (videoId) {
-            // Race native residential-IP resolution against the edge resolver.
-            // The previous sequential order waited ~4s for native timeout before
-            // trying the edge, which is exactly why taps felt dead. First real
-            // stream wins; no duplicate retries on the critical startup path.
-            const candidates: Promise<{ url: string; native: boolean } | null>[] = [];
+            // Reliability-first Android fix: prefer the edge resolver +
+            // stream-proxy path as the primary source. The on-device native
+            // resolver returns phone-signed googlevideo URLs that Android
+            // WebView/Exo handoff could reject before the fallback had a chance,
+            // producing "This song could not start" for every tap. Native is now
+            // only a last-resort fallback when the edge resolver cannot return a
+            // proxy-playable URL.
+            try {
+              if (forceRefresh) invalidateYouTubeStream(videoId);
+              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
+              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
+                return resolved.streamUrl;
+              }
+            } catch { /* fall through to native fallback */ }
 
-            if (!opts.skipNative && (isNativePlayerAvailable() || !getRuntimePremium() || !hasWebAudioEffects(getEQSettings()))) {
-              candidates.push((async () => {
-                try {
-                  const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
-                  const native = await Promise.race([
-                    resolveYouTubeStreamOnDevice(videoId),
-                    new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 2600)),
-                  ]);
-                  if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
-                    return { url: native.streamUrl, native: true };
-                  }
-                } catch { /* ignore */ }
-                return null;
-              })());
-            }
-
-            candidates.push((async () => {
+            if (!opts.skipNative && !getRuntimePremium()) {
               try {
-                if (forceRefresh) invalidateYouTubeStream(videoId);
-                const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
-                if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
-                  return { url: resolved.streamUrl, native: false };
+                const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
+                const native = await Promise.race([
+                  resolveYouTubeStreamOnDevice(videoId),
+                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 2200)),
+                ]);
+                if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
+                  markNativeResolvedStreamUrl(native.streamUrl, videoId);
+                  return native.streamUrl;
                 }
               } catch { /* ignore */ }
-              return null;
-            })());
-
-            const winner = await new Promise<{ url: string; native: boolean } | null>((resolve) => {
-              let settled = false;
-              let remaining = candidates.length;
-              const done = (value: { url: string; native: boolean } | null) => {
-                if (settled) return;
-                if (value?.url) {
-                  settled = true;
-                  resolve(value);
-                  return;
-                }
-                remaining -= 1;
-                if (remaining <= 0) {
-                  settled = true;
-                  resolve(null);
-                }
-              };
-              candidates.forEach((candidate) => candidate.then(done).catch(() => done(null)));
-            });
-
-            if (winner?.url) {
-              if (winner.native) markNativeResolvedStreamUrl(winner.url, videoId);
-              return winner.url;
             }
           }
         }
@@ -1792,6 +1765,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const errorCode = audio.error?.code;
       const errorMessage = audio.error?.message ?? '';
+      const assignedAt = (audio as HTMLAudioElement & { __ufAssignedAt?: number }).__ufAssignedAt ?? 0;
+      if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
       // Ignore aborts triggered by intentional source swaps / pauses
       if (errorCode === MediaError.MEDIA_ERR_ABORTED) return;
       // Ignore "Empty src attribute" — fires during teardown / before a real
