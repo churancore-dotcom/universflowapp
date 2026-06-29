@@ -820,6 +820,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
             ExoPlayerPlugin.isPlaying()
               .then(({ isPlaying }) => {
+                if (!isPlaying && Date.now() - nativeLastPlayIntentAtRef.current < 15000) return;
                 setIsPlaying(isPlaying);
                 wasPlayingRef.current = isPlaying;
               })
@@ -1645,8 +1646,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // ── ANDROID NATIVE PATH ────────────────────────────────────────────────
     // Direct InnerTube → ExoPlayer. No audio element, no proxy, no WebView.
     if (useNativePlayback) {
-      nativeStartupSeqRef.current = mySeq;
-      nativeStartedForSeqRef.current = null;
+      markNativePlayIntent(mySeq);
       clearNativeStartupTimer();
 
       try {
@@ -2077,7 +2077,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setQueueState(queueRef.current);
           setCurrentSong(refreshed);
           currentSongRef.current = refreshed;
-          setIsPlaying(false);
+          markNativePlayIntent(seqAtRecoveryStart);
+          setIsPlaying(true);
+          wasPlayingRef.current = true;
           await ExoPlayerPlugin.play({
             url: fresh,
             title: refreshed.title || '',
@@ -2154,6 +2156,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const s = await ExoPlayerPlugin.addListener('playbackStateChange', (d) => {
           const data = d as ExoPlaybackState;
           const startupPending = nativeStartupSeqRef.current === playRequestSeqRef.current;
+          const recentPlayIntent = Date.now() - nativeLastPlayIntentAtRef.current < 15000;
           if (data.state === 'playing') {
             nativeStartedForSeqRef.current = playRequestSeqRef.current;
             nativeStartupSeqRef.current = null;
@@ -2163,10 +2166,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             reapplyNativeEqSoon();
           }
           else if (data.state === 'buffering') {
-            if (!startupPending) setIsPlaying(false);
+            setIsPlaying(true);
+            wasPlayingRef.current = true;
           }
-          else if (data.state === 'paused') { if (!startupPending) setIsPlaying(false); }
-          else if (data.state === 'stopped') { nativeStartupSeqRef.current = null; clearNativeStartupTimer(); if (!startupPending) setIsPlaying(false); }
+          else if (data.state === 'paused') { if (!startupPending && !recentPlayIntent) setIsPlaying(false); }
+          else if (data.state === 'stopped') { nativeStartupSeqRef.current = null; clearNativeStartupTimer(); if (!startupPending && !recentPlayIntent) setIsPlaying(false); }
           else if (data.state === 'ended') {
             nativeStartupSeqRef.current = null;
             clearNativeStartupTimer();
@@ -2499,8 +2503,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // fights the native session. Resolve YouTube IDs on-device, then play
     // directly through the foreground MediaSessionService.
     if (useNativePlayback) {
-      nativeStartupSeqRef.current = mySeq;
-      nativeStartedForSeqRef.current = null;
+      markNativePlayIntent(mySeq);
       clearNativeStartupTimer();
       await ExoPlayerPlugin.stop().catch(() => undefined);
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
@@ -2726,9 +2729,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (isNativePlayerAvailable()) {
       if (isPlaying) {
         nativeStartupSeqRef.current = null;
+        nativeLastPlayIntentAtRef.current = 0;
         setIsPlaying(false); wasPlayingRef.current = false;
         void ExoPlayerPlugin.pause().catch(() => undefined);
       } else {
+        markNativePlayIntent(playRequestSeqRef.current);
         setIsPlaying(true); wasPlayingRef.current = true;
         void ExoPlayerPlugin.resume().catch(() => undefined);
       }
@@ -2766,6 +2771,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     markIntentionalPause();
     if (isNativePlayerAvailable()) {
       nativeStartupSeqRef.current = null;
+      nativeLastPlayIntentAtRef.current = 0;
       void ExoPlayerPlugin.pause().catch(() => undefined);
       return;
     }
