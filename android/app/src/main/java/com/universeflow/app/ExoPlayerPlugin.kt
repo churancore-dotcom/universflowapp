@@ -29,6 +29,7 @@ class ExoPlayerPlugin : Plugin() {
     private val main = Handler(Looper.getMainLooper())
     private var progressTimer: Runnable? = null
     private var listenerAttached = false
+    private var listenerPlayer: Player? = null
 
     override fun load() {
         super.load()
@@ -46,9 +47,9 @@ class ExoPlayerPlugin : Plugin() {
     }
 
     private fun ensureListener(call: PluginCall?) {
-        if (listenerAttached) return
         val svc = service() ?: return
         val player = svc.player ?: return
+        if (listenerAttached && listenerPlayer === player) return
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 val name = when (state) {
@@ -75,6 +76,7 @@ class ExoPlayerPlugin : Plugin() {
             }
         })
         listenerAttached = true
+        listenerPlayer = player
         call?.let { ensureListener(null) }
     }
 
@@ -121,7 +123,6 @@ class ExoPlayerPlugin : Plugin() {
                 ctx.startService(intent)
             } catch (_: Throwable) {}
 
-            // Wait one tick if the service hasn't published its player yet.
             fun perform(): Boolean {
                 val player = service()?.player ?: return false
                 ensureListener(null)
@@ -140,10 +141,32 @@ class ExoPlayerPlugin : Plugin() {
                 return true
             }
 
-            if (!perform()) {
-                main.postDelayed({ perform(); call.resolve() }, 120)
-            } else {
+            // Wait for the MediaSessionService to publish its player. The old
+            // one-tick retry resolved even when the service was still null,
+            // leaving the WebView audio muted while no ExoPlayer was actually
+            // playing. That caused silent playback, false ended events, and
+            // auto-skips. Resolve only after playback is handed to ExoPlayer.
+            val startedAt = System.currentTimeMillis()
+            fun retryUntilReady() {
+                if (perform()) {
+                    call.resolve()
+                    return
+                }
+                if (System.currentTimeMillis() - startedAt >= 3500L) {
+                    call.reject("ExoPlayer service did not become ready")
+                    notifyListeners(
+                        "playbackError",
+                        JSObject().put("message", "ExoPlayer service did not become ready"),
+                    )
+                    return
+                }
+                main.postDelayed({ retryUntilReady() }, 80)
+            }
+
+            if (perform()) {
                 call.resolve()
+            } else {
+                main.postDelayed({ retryUntilReady() }, 80)
             }
         }
     }

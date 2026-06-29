@@ -235,6 +235,12 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
     if (isStreamProxyUrl(sourceUrl)) return false;
     if (sourceUrl.includes('/functions/v1/music-indexer?audio=')) return false;
 
+    // APK permanent guard: googlevideo URLs resolved on the phone are signed
+    // for the phone's IP. A backend proxy changes the IP and causes instant
+    // 403/silent failures. Native Android must always hand these directly to
+    // ExoPlayer.
+    if (isNativePlayerAvailable() && parsed.hostname.endsWith('googlevideo.com')) return false;
+
     // YouTube streams resolved by our edge function are signed for Supabase's
     // IP, not the user's device/browser. They must be fetched by stream-proxy.
     if (parsed.hostname.endsWith('googlevideo.com')) return true;
@@ -543,8 +549,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       attachNativeMirror(audio, {
         getSong: () => currentSongRef.current as never,
         onUnrecoverableError: () => {
-          // Surface skip to existing error path via a synthetic error event.
-          try { audio.dispatchEvent(new Event('error')); } catch { /* ignore */ }
+          // Native failed to take over. nativeMirror restores audible WebView
+          // playback, so do NOT dispatch a synthetic media error here — that was
+          // stopping the tapped song even though the fallback could still play.
         },
       });
       setNativeMirrorVolume(volume);
@@ -1188,7 +1195,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               // but they are not CORS-clean for WebAudio. If the user has EQ /
               // reverb / spatial enabled, skip this path and use the edge URL
               // below so stream-proxy can make the EQ chain work.
-              if (!getRuntimePremium() || !hasWebAudioEffects(getEQSettings())) {
+              if (isNativePlayerAvailable() || !getRuntimePremium() || !hasWebAudioEffects(getEQSettings())) {
                 const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
                 const native = await resolveYouTubeStreamOnDevice(videoId);
                 if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
@@ -1549,7 +1556,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setDuration(audio.duration || 0);
     };
 
-    const handleEnded = () => {
+    const handleEnded = (event?: Event) => {
+      // In the APK, ExoPlayer is the real audible player and the HTML element is
+      // only a muted shadow for UI state. Android WebView can fire premature
+      // `ended` on that shadow stream; accepting it makes the app skip to the
+      // next song while ExoPlayer is still buffering/playing. Only the dedicated
+      // native event may advance the queue while the shadow is muted.
+      if (isNativePlayerAvailable() && audio.muted && event?.type !== 'uf-native-ended') return;
       if (isCrossfading.current) return;
       // De-dupe: 'ended' + the timeupdate safety net could both fire for the
       // same song. Only the first wins until the next play request bumps seq.
@@ -1649,7 +1662,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       // Premium audio transitions are gated in the engine itself — never trust
       // localStorage/UI toggles because users can tamper with them in DevTools.
-      const premiumAudioTransitions = getRuntimePremium() && isAutoplayEnabled();
+      // Android native uses one authoritative ExoPlayer instance. Web crossfade
+      // swaps audioRef to nextAudioRef, which detaches nativeMirror and creates
+      // the exact auto-change/auto-stop behavior seen in APKs. Keep advanced
+      // overlaps web-only until a native ConcatenatingMediaSource/crossfade path
+      // exists.
+      const premiumAudioTransitions = !isNativePlayerAvailable() && getRuntimePremium() && isAutoplayEnabled();
       if (premiumAudioTransitions && crossfade && queue.length > 1 && audio.duration && !isCrossfading.current) {
         const timeLeft = audio.duration - audio.currentTime;
         if (timeLeft <= crossfadeDuration && timeLeft > 0 && crossfadeAttemptedForSeqRef.current !== playRequestSeqRef.current) {
@@ -1667,6 +1685,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       //    If we're within 0.25s of the end and not crossfading, force the
       //    ended pipeline so playlists keep flowing on APK.
       if (
+        !(isNativePlayerAvailable() && audio.muted) &&
         !isCrossfading.current &&
         audio.duration > 1 &&
         isFinite(audio.duration) &&
@@ -1693,6 +1712,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Ignore "Empty src attribute" — fires during teardown / before a real
       // src is assigned, and must NOT cause us to auto-skip the queue.
       if (!audio.src || audio.src === window.location.href || /empty src/i.test(errorMessage)) return;
+
+      // Android APK: ExoPlayer owns audible playback. The HTMLAudioElement is a
+      // muted shadow for UI/progress and can emit WebView-only CORS/network
+      // errors even while ExoPlayer is playing fine. Never let that shadow stop
+      // or skip the queue; real native failures are handled by nativeMirror's
+      // WebView fallback and then this handler only runs if fallback is audible.
+      if (isNativePlayerAvailable() && audio.muted) return;
 
       console.warn('[player] audio error:', errorCode, errorMessage);
       recordPerfEvent({
@@ -1749,6 +1775,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('uf-native-ended', handleEnded as EventListener);
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -1757,6 +1784,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('uf-native-ended', handleEnded as EventListener);
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('timeupdate', handleTimeUpdate);
@@ -1850,6 +1878,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Crossfade implementation
   const startCrossfade = useCallback((transitionSeconds = crossfadeDuration) => {
+    if (isNativePlayerAvailable()) return;
     if (!audioRef.current || !nextAudioRef.current || isCrossfading.current) return;
     if (crossfadeAttemptedForSeqRef.current === playRequestSeqRef.current) return;
     crossfadeAttemptedForSeqRef.current = playRequestSeqRef.current;
