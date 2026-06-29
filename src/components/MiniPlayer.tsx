@@ -126,7 +126,7 @@ const MiniPlayer = memo(function MiniPlayer() {
   if (!currentSong || lockscreenVisible) return null;
 
   const progressPercent = duration > 0 && isFinite(progress) && isFinite(duration) 
-    ? (progress / duration) * 100 
+    ? Math.min(100, Math.max(0, (progress / duration) * 100)) 
     : 0;
 
   const isSwipingLeft = dragX < -30;

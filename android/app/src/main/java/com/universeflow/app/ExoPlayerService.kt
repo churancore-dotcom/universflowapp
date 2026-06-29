@@ -16,6 +16,7 @@ import android.os.Build
 import android.os.PowerManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
+import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -57,7 +58,6 @@ class ExoPlayerService : MediaSessionService() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
     private var smartReceiver: BroadcastReceiver? = null
-    private var pausedByMute: Boolean = false
     private var pausedByBtDisconnect: Boolean = false
 
     override fun onCreate() {
@@ -88,8 +88,13 @@ class ExoPlayerService : MediaSessionService() {
         }
 
         exo.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (exo.playWhenReady && playbackState == Player.STATE_BUFFERING) acquireLocks()
+                if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) releaseLocks()
+                ensureEffectsBound()
+            }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) acquireLocks() else releaseLocks()
+                if (isPlaying || (exo.playWhenReady && exo.playbackState == Player.STATE_BUFFERING)) acquireLocks() else releaseLocks()
                 ensureEffectsBound()
             }
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
@@ -119,7 +124,11 @@ class ExoPlayerService : MediaSessionService() {
     }
 
     /**
-     * Pause-on-mute + resume-on-Bluetooth (Echo Music's "Smart Playback").
+     * Resume-on-Bluetooth smart playback.
+     * IMPORTANT: volume=0 must NOT pause the player — screen recordings and
+     * some Android builds dispatch transient zero-volume broadcasts while the
+     * app is locked/backgrounded, which looked exactly like background audio
+     * being killed.
      * Listens for volume changes and A2DP connect/disconnect.
      */
     private fun registerSmartPlaybackReceiver() {
@@ -129,14 +138,11 @@ class ExoPlayerService : MediaSessionService() {
                 val p = player ?: return
                 when (intent?.action) {
                     "android.media.VOLUME_CHANGED_ACTION" -> {
-                        val vol = am?.getStreamVolume(AudioManager.STREAM_MUSIC) ?: -1
-                        if (vol == 0 && p.isPlaying) {
-                            pausedByMute = true
-                            p.pause()
-                        } else if (vol > 0 && pausedByMute && !p.isPlaying) {
-                            pausedByMute = false
-                            p.play()
-                        }
+                        // Never pause music just because Android reports volume=0.
+                        // Some devices dispatch this while the app is backgrounded/
+                        // locked or while screen recording, which made playback look
+                        // like it was killed. Keep music alive like a normal player.
+                        am?.getStreamVolume(AudioManager.STREAM_MUSIC)
                     }
                     BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED -> {
                         val state = intent.getIntExtra(BluetoothA2dp.EXTRA_STATE, -1)
