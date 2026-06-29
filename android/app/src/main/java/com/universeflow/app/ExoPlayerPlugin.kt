@@ -313,54 +313,45 @@ class ExoPlayerPlugin : Plugin() {
                 notifyListeners("playbackError", JSObject().put("message", "ExoPlayer player not ready"))
                 call.reject("ExoPlayer player not ready")
             } else {
-                Thread {
-                    val firstUrl = resolveTrackUrl(firstTrack, nativeTimeoutMs = 5200L)
-                    if (playGeneration.get() != generation) {
-                        main.post { call.resolve() }
-                        return@Thread
-                    }
-                    if (firstUrl == null) {
-                        main.post {
-                            isStartingUp = false
-                            notifyListeners("playbackError", JSObject().put("message", "Could not resolve first track"))
-                            call.reject("Could not resolve first track")
-                        }
-                        return@Thread
-                    }
+                val firstUri = playbackUriFor(firstTrack)
+                if (firstUri == null) {
+                    isStartingUp = false
+                    notifyListeners("playbackError", JSObject().put("message", "First track has no playable URI"))
+                    call.reject("First track has no playable URI")
+                } else {
+                    isStartingUp = true
+                    ensureListener(null)
+                    stopProgress()
+                    player.stop()
+                    player.clearMediaItems()
+                    // Start the first track immediately. Resolution happens
+                    // inside the native ResolvingDataSource.
+                    player.setMediaItem(mediaItemFor(firstTrack, firstUri))
+                    player.prepare()
+                    player.playWhenReady = true
 
-                    main.post {
-                        if (playGeneration.get() != generation) {
-                            call.resolve()
-                            return@post
-                        }
-                        isStartingUp = true
-                        ensureListener(null)
-                        stopProgress()
-                        player.stop()
-                        player.clearMediaItems()
-                        player.setMediaItem(mediaItemFor(firstTrack, firstUrl))
-                        player.prepare()
-                        player.playWhenReady = true
-                        call.resolve()
-                    }
+                    // Append the rest of the queue as yt://<id> items so that
+                    // background autoplay keeps working even if WebView JS is
+                    // frozen by Android Doze.
+                    val rest = tracks.drop(startIndex + 1)
+                        .mapNotNull { t -> playbackUriFor(t)?.let { mediaItemFor(t, it) } }
+                    if (rest.isNotEmpty()) player.addMediaItems(rest)
 
-                    // Native queue preloading: resolve upcoming tracks from the
-                    // phone IP and append them directly to ExoPlayer. This keeps
-                    // background/lock-screen autoplay alive even if WebView JS is
-                    // frozen by Android.
-                    val ordered = tracks.drop(startIndex + 1)
-                    val warm = ordered.take(8).mapNotNull { t ->
-                        val u = resolveTrackUrl(t, nativeTimeoutMs = 5200L) ?: return@mapNotNull null
-                        mediaItemFor(t, u)
-                    }
-                    if (warm.isNotEmpty()) {
-                        main.post {
-                            if (playGeneration.get() != generation) return@post
-                            val p = service()?.player ?: return@post
-                            p.addMediaItems(warm)
+                    call.resolve()
+
+                    // Fire-and-forget background warm of the next few InnerTube
+                    // resolves so their googlevideo URLs are cached before
+                    // ExoPlayer needs them. This is a pure prefetch — does not
+                    // affect playback if it fails.
+                    Thread {
+                        if (playGeneration.get() != generation) return@Thread
+                        tracks.drop(startIndex + 1).take(5).forEach { t ->
+                            val v = t.videoId?.takeIf { it.length == 11 } ?: return@forEach
+                            if (playGeneration.get() != generation) return@Thread
+                            NativeYouTubeResolver.resolve(v, timeoutMs = 5200L)
                         }
-                    }
-                }.start()
+                    }.start()
+                }
             }
         }
 
