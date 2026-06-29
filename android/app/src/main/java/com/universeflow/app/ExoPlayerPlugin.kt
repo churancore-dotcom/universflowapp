@@ -24,14 +24,16 @@ import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
+import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * JS bridge for the on-device ExoPlayer media session.
  *
- * Methods: play, pause, resume, stop, seekTo, setVolume,
+ * Methods: play, playQueue, preloadQueue, pause, resume, stop, seekTo, setVolume,
  * getCurrentPosition, getDuration, isPlaying.
  *
- * Events: playbackStateChange, playbackProgress, playbackError.
+ * Events: playbackStateChange, playbackProgress, playbackError, mediaItemTransition.
  */
 @CapacitorPlugin(name = "ExoPlayer")
 class ExoPlayerPlugin : Plugin() {
@@ -41,6 +43,61 @@ class ExoPlayerPlugin : Plugin() {
     private var listenerAttached = false
     private var listenerPlayer: Player? = null
     @Volatile private var isStartingUp = false
+    private val playGeneration = AtomicLong(0L)
+
+    private data class NativeTrack(
+        val id: String,
+        val title: String,
+        val artist: String,
+        val artworkUrl: String?,
+        val url: String?,
+        val videoId: String?,
+    )
+
+    private fun isYouTubeFallback(url: String?): Boolean = url?.startsWith("yt-video:") == true
+
+    private fun directPlayableUrl(url: String?): String? {
+        if (url.isNullOrBlank()) return null
+        if (isYouTubeFallback(url)) return null
+        return if (url.startsWith("http") || url.startsWith("file:") || url.startsWith("content:")) url else null
+    }
+
+    private fun resolveTrackUrl(track: NativeTrack, nativeTimeoutMs: Long = 5200L): String? {
+        val vid = track.videoId?.takeIf { it.length == 11 }
+        if (vid != null) {
+            NativeYouTubeResolver.resolve(vid, nativeTimeoutMs)?.let { return it.url }
+        }
+        return directPlayableUrl(track.url)
+    }
+
+    private fun mediaItemFor(track: NativeTrack, resolvedUrl: String): MediaItem {
+        val metadata = MediaMetadata.Builder()
+            .setTitle(track.title)
+            .setArtist(track.artist)
+            .apply { if (!track.artworkUrl.isNullOrBlank()) setArtworkUri(Uri.parse(track.artworkUrl)) }
+            .build()
+        return MediaItem.Builder()
+            .setMediaId(track.id)
+            .setUri(Uri.parse(resolvedUrl))
+            .setMediaMetadata(metadata)
+            .build()
+    }
+
+    private fun parseTrack(obj: JSONObject?, fallbackIndex: Int): NativeTrack? {
+        if (obj == null) return null
+        val rawUrl = obj.optString("url", obj.optString("audio_url", "")).takeIf { it.isNotBlank() }
+        val explicitVideoId = obj.optString("videoId", "").takeIf { it.length == 11 }
+        val fallbackVideoId = rawUrl?.takeIf { it.startsWith("yt-video:") }?.removePrefix("yt-video:")?.takeIf { it.length == 11 }
+        val id = obj.optString("id", explicitVideoId ?: fallbackVideoId ?: rawUrl ?: "native-$fallbackIndex")
+        return NativeTrack(
+            id = id,
+            title = obj.optString("title", ""),
+            artist = obj.optString("artist", ""),
+            artworkUrl = obj.optString("artworkUrl", obj.optString("cover_url", "")).takeIf { it.isNotBlank() },
+            url = rawUrl,
+            videoId = explicitVideoId ?: fallbackVideoId,
+        )
+    }
 
     private fun emitPlaybackState(player: Player) {
         val name = when {
@@ -214,10 +271,117 @@ class ExoPlayerPlugin : Plugin() {
                     JSObject().put("message", error.message ?: "playback error"),
                 )
             }
+            override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                mediaItem?.let {
+                    notifyListeners(
+                        "mediaItemTransition",
+                        JSObject().put("mediaId", it.mediaId).put("reason", reason),
+                    )
+                }
+            }
         })
         listenerAttached = true
         listenerPlayer = player
         call?.let { ensureListener(null) }
+    }
+
+    @PluginMethod
+    fun playQueue(call: PluginCall) {
+        val generation = playGeneration.incrementAndGet()
+        ensureNotificationPermissionBestEffort()
+        val arr = call.getArray("tracks")
+        if (arr == null || arr.length() == 0) { call.reject("missing tracks"); return }
+        val startIndex = (call.getInt("startIndex") ?: 0).coerceIn(0, arr.length() - 1)
+        val tracks = mutableListOf<NativeTrack>()
+        for (i in 0 until arr.length()) {
+            parseTrack(arr.optJSONObject(i), i)?.let { tracks.add(it) }
+        }
+        if (tracks.isEmpty()) { call.reject("empty tracks"); return }
+        val firstTrack = tracks[startIndex]
+        Log.d("ExoPlayerPlugin", "playQueue() index=$startIndex title=${firstTrack.title}")
+
+        val performPlay: () -> Unit = {
+            val player = service()?.player
+            if (player == null) {
+                isStartingUp = false
+                notifyListeners("playbackError", JSObject().put("message", "ExoPlayer player not ready"))
+                call.reject("ExoPlayer player not ready")
+            } else {
+                Thread {
+                    val firstUrl = resolveTrackUrl(firstTrack, nativeTimeoutMs = 5200L)
+                    if (playGeneration.get() != generation) {
+                        main.post { call.resolve() }
+                        return@Thread
+                    }
+                    if (firstUrl == null) {
+                        main.post {
+                            isStartingUp = false
+                            notifyListeners("playbackError", JSObject().put("message", "Could not resolve first track"))
+                            call.reject("Could not resolve first track")
+                        }
+                        return@Thread
+                    }
+
+                    main.post {
+                        if (playGeneration.get() != generation) {
+                            call.resolve()
+                            return@post
+                        }
+                        isStartingUp = true
+                        ensureListener(null)
+                        stopProgress()
+                        player.stop()
+                        player.clearMediaItems()
+                        player.setMediaItem(mediaItemFor(firstTrack, firstUrl))
+                        player.prepare()
+                        player.playWhenReady = true
+                        call.resolve()
+                    }
+
+                    // Native queue preloading: resolve upcoming tracks from the
+                    // phone IP and append them directly to ExoPlayer. This keeps
+                    // background/lock-screen autoplay alive even if WebView JS is
+                    // frozen by Android.
+                    val ordered = tracks.drop(startIndex + 1)
+                    val warm = ordered.take(8).mapNotNull { t ->
+                        val u = resolveTrackUrl(t, nativeTimeoutMs = 5200L) ?: return@mapNotNull null
+                        mediaItemFor(t, u)
+                    }
+                    if (warm.isNotEmpty()) {
+                        main.post {
+                            if (playGeneration.get() != generation) return@post
+                            val p = service()?.player ?: return@post
+                            p.addMediaItems(warm)
+                        }
+                    }
+                }.start()
+            }
+        }
+
+        runWhenReady(
+            timeoutMs = 3000L,
+            onTimeout = {
+                isStartingUp = false
+                notifyListeners("playbackError", JSObject().put("message", "ExoPlayer service did not become ready"))
+                call.reject("ExoPlayer service did not become ready")
+            },
+            block = performPlay,
+        )
+    }
+
+    @PluginMethod
+    fun preloadQueue(call: PluginCall) {
+        val arr = call.getArray("tracks")
+        if (arr == null || arr.length() == 0) { call.resolve(); return }
+        Thread {
+            val max = minOf(arr.length(), call.getInt("limit") ?: 5)
+            for (i in 0 until max) {
+                val track = parseTrack(arr.optJSONObject(i), i) ?: continue
+                val vid = track.videoId
+                if (vid != null && vid.length == 11) NativeYouTubeResolver.resolve(vid, nativeTimeoutMs = 5200L)
+            }
+            call.resolve()
+        }.start()
     }
 
     private fun startProgress() {
@@ -249,6 +413,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun play(call: PluginCall) {
+        playGeneration.incrementAndGet()
         val url = call.getString("url")
         if (url.isNullOrBlank()) { call.reject("missing url"); return }
         ensureNotificationPermissionBestEffort()
@@ -323,6 +488,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun stop(call: PluginCall) {
+        playGeneration.incrementAndGet()
         runOnMain {
             service()?.player?.let {
                 it.stop()

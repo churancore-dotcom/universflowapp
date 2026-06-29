@@ -11,7 +11,7 @@ import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
-import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError } from '@/lib/nativePlayer';
+import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -358,6 +358,15 @@ const getNativePlaybackVideoId = (song: Pick<Song, 'id' | 'audio_url'> & { video
   }
   return null;
 };
+
+const toNativeQueueTrack = (song: Song): NativeQueueTrack => ({
+  id: getSongIdentity(song),
+  title: song.title || '',
+  artist: song.artist || '',
+  artworkUrl: song.cover_url,
+  url: song.audio_url,
+  videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
+});
 
 const isKnownBrokenStreamUrl = (_url?: string | null) => {
   // Server-side probing decides liveness now; don't blanket-block any host here.
@@ -1283,7 +1292,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // uses the phone's residential IP and returns a direct googlevideo
             // URL in ~300-600ms — no Supabase round-trip, no datacenter-IP
             // block. This is the Echo Music / NewPipe approach.
-            if (!opts.skipNative && !getRuntimePremium()) {
+            if (!opts.skipNative && isNativePlayerAvailable()) {
               try {
                 const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
                 const native = await Promise.race([
@@ -1340,6 +1349,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       : null;
     const videoId = getNativePlaybackVideoId(song as Song & { videoId?: string });
 
+    // Echo/NewPipe-style APK path: if this is a YouTube Music item, always try
+    // phone-side InnerTube FIRST. Backend/Supabase googlevideo URLs are signed
+    // for the server IP and are exactly what caused slow starts/IP blocks.
+    if (videoId && !opts.skipNativeFastPath) {
+      try {
+        const res = await Promise.race([
+          InnerTubePlugin.resolveAudio({ videoId }),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 5200)),
+        ]);
+        if (res?.url && !isYouTubeFallbackUrl(res.url)) {
+          markNativeResolvedStreamUrl(res.url, videoId);
+          return res.url;
+        }
+      } catch { /* fall through */ }
+    }
+
     if (directUrl && !opts.skipNativeFastPath) {
       let shouldRefreshYoutubeUrl = false;
       try {
@@ -1355,23 +1380,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
       if (fresh && !isYouTubeFallbackUrl(fresh)) return buildNativeExoPlayerUrl(fresh);
     } catch { /* fall through to direct URL */ }
-
-    // Last fallback only: true on-device YouTube resolution. These googlevideo
-    // URLs are signed for the phone IP, so they must stay direct. We do NOT use
-    // this as the primary path because some URLs still require signature/n-param
-    // transforms and can stall ExoPlayer at ~3s before failing.
-    if (videoId && !opts.skipNativeFastPath) {
-      try {
-        const res = await Promise.race([
-          InnerTubePlugin.resolveAudio({ videoId }),
-          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 3500)),
-        ]);
-        if (res?.url && !isYouTubeFallbackUrl(res.url)) {
-          markNativeResolvedStreamUrl(res.url, videoId);
-          return res.url;
-        }
-      } catch { /* fall through to direct URL */ }
-    }
 
     // Last resort for catalog uploads/direct CDN URLs. If this is a cloud-signed
     // googlevideo URL, buildStreamProxyUrl keeps the fetch on the signing side.
@@ -1627,25 +1635,29 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       nativeStartupSeqRef.current = mySeq;
       nativeStartedForSeqRef.current = null;
       clearNativeStartupTimer();
-      await ExoPlayerPlugin.stop().catch(() => undefined);
-      if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
       try {
-        const playUrl = await resolveNativePlaybackUrl(resolvedSong);
+        const nativeTracks = songQueue.map(toNativeQueueTrack);
+        if (nativeTracks.length > 0) {
+          await ExoPlayerPlugin.playQueue({ tracks: nativeTracks, startIndex: index });
+        } else {
+          const playUrl = await resolveNativePlaybackUrl(resolvedSong);
+          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          if (!playUrl) throw new Error('no native playable url');
+          await ExoPlayerPlugin.play({
+            url: playUrl,
+            title: resolvedSong.title || '',
+            artist: resolvedSong.artist || '',
+            artworkUrl: resolvedSong.cover_url || undefined,
+          });
+        }
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
-        if (!playUrl) throw new Error('no native playable url');
-        await ExoPlayerPlugin.play({
-          url: playUrl,
-          title: resolvedSong.title || '',
-          artist: resolvedSong.artist || '',
-          artworkUrl: resolvedSong.cover_url || undefined,
-        });
         clearNativeStartupTimer();
         nativeStartupTimerRef.current = window.setTimeout(() => {
           if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
           console.warn('[player/native] startup timeout; retrying fallback for', resolvedSong.title);
           nativeStartupSeqRef.current = null;
-          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout', url: playUrl } }));
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
         }, 12000);
         reapplyNativeEqSoon();
       } catch (err) {
@@ -2114,6 +2126,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let progressHandle: { remove: () => void } | undefined;
     let stateHandle: { remove: () => void } | undefined;
     let errorHandle: { remove: () => void } | undefined;
+    let transitionHandle: { remove: () => void } | undefined;
     let cancelled = false;
 
     (async () => {
@@ -2167,8 +2180,25 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           wasPlayingRef.current = false;
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: data.message } }));
         });
-        if (cancelled) { p.remove(); s.remove(); e.remove(); return; }
-        progressHandle = p; stateHandle = s; errorHandle = e;
+        const t = await ExoPlayerPlugin.addListener('mediaItemTransition', (d) => {
+          const data = d as ExoMediaItemTransition;
+          if (!data.mediaId) return;
+          const q = queueRef.current;
+          const nextIdx = q.findIndex((song) => getSongIdentity(song) === data.mediaId);
+          if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
+          const nextSong = q[nextIdx];
+          if (!nextSong) return;
+          activeSongIdentityRef.current = getSongIdentity(nextSong);
+          currentSongRef.current = nextSong;
+          currentIndexRef.current = nextIdx;
+          setCurrentSong(nextSong);
+          setCurrentIndex(nextIdx);
+          setProgress(0);
+          if (nextSong.duration) setDuration(nextSong.duration);
+          void publishNativeMusicControls(nextSong, true, nextSong.duration);
+        });
+        if (cancelled) { p.remove(); s.remove(); e.remove(); t.remove(); return; }
+        progressHandle = p; stateHandle = s; errorHandle = e; transitionHandle = t;
       } catch (err) {
         console.warn('[player/native] failed to attach listeners', (err as Error)?.message);
       }
@@ -2179,6 +2209,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { progressHandle?.remove(); } catch { /* noop */ }
       try { stateHandle?.remove(); } catch { /* noop */ }
       try { errorHandle?.remove(); } catch { /* noop */ }
+      try { transitionHandle?.remove(); } catch { /* noop */ }
     };
   }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer]);
 
