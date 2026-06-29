@@ -38,6 +38,8 @@ let progressUnlisten: (() => void) | null = null;
 let errorUnlisten: (() => void) | null = null;
 let lastMasterVolume = 1;
 let nativeAudible = false;
+let pendingNativeUrl: string | null = null;
+let nativeTakeoverTimer: number | null = null;
 
 const isPlayableHttpUrl = (url: string | null | undefined): url is string =>
   !!url && typeof url === 'string' && /^https?:\/\//i.test(url);
@@ -54,8 +56,18 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     } catch { /* ignore */ }
   };
 
+  const clearNativeTakeoverTimer = () => {
+    if (nativeTakeoverTimer != null) {
+      window.clearTimeout(nativeTakeoverTimer);
+      nativeTakeoverTimer = null;
+    }
+  };
+
   const restoreWebAudioFallback = () => {
+    clearNativeTakeoverTimer();
+    pendingNativeUrl = null;
     nativeAudible = false;
+    void ExoPlayerPlugin.stop().catch(() => undefined);
     try {
       audio.muted = false;
       audio.volume = lastMasterVolume;
@@ -70,11 +82,21 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     const artworkUrl = song?.thumbnail || song?.cover_url || song?.image_url || undefined;
     lastPlayCallAt = Date.now();
     nativeAudible = false;
-    muteShadowAudio();
+    pendingNativeUrl = url;
+    clearNativeTakeoverTimer();
     try {
       await ExoPlayerPlugin.play({ url, title, artist, artworkUrl });
-      nativeAudible = true;
-      muteShadowAudio();
+      // Do NOT mute the WebView shadow immediately. The native bridge resolves
+      // after ExoPlayer accepts the MediaItem, not after audio is actually
+      // audible. Muting here was the root cause of "tap song → silence → skip".
+      // We only mute after the native listener reports real `playing` below.
+      nativeTakeoverTimer = window.setTimeout(() => {
+        if (!nativeAudible && pendingNativeUrl === url) {
+          // Exo is still buffering/stuck; keep the user's song audible via the
+          // normal HTMLAudioElement instead of leaving the app silent.
+          restoreWebAudioFallback();
+        }
+      }, 5000);
     } catch (e) {
       console.warn('[nativeMirror] ExoPlayer.play failed', (e as Error)?.message);
       // Permanent safety net: if the native service cannot start, do NOT leave
@@ -87,7 +109,10 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
 
   // src changes → restart ExoPlayer
   audio.addEventListener('loadstart', () => {
-    const src = audio.currentSrc || audio.src;
+    // Use the assigned src, not currentSrc: currentSrc can change during CDN /
+    // googlevideo redirects and retrigger this path mid-song, which restarted
+    // ExoPlayer and caused auto-stops/auto-skips.
+    const src = audio.src;
     if (!isPlayableHttpUrl(src)) return;
     if (src === lastUrl) return;
     lastUrl = src;
@@ -118,8 +143,15 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
   });
 
   audio.addEventListener('emptied', () => {
-    lastUrl = null;
-    void ExoPlayerPlugin.stop().catch(() => undefined);
+    // `emptied` also fires during a legitimate `audio.load()` for the next
+    // source. Stopping ExoPlayer here races with startExo() and can stop every
+    // song right after it starts. Only stop when the element was truly cleared.
+    if (!audio.src) {
+      lastUrl = null;
+      pendingNativeUrl = null;
+      clearNativeTakeoverTimer();
+      void ExoPlayerPlugin.stop().catch(() => undefined);
+    }
   });
 
   // The HTML audio element is muted, so we forward MASTER volume changes via a
@@ -151,8 +183,17 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
 
     ExoPlayerPlugin.addListener('playbackStateChange', (data) => {
       const s = data as ExoPlaybackState;
+      if (s.state === 'playing' && pendingNativeUrl) {
+        nativeAudible = true;
+        pendingNativeUrl = null;
+        clearNativeTakeoverTimer();
+        muteShadowAudio();
+        return;
+      }
       if (s.state === 'ended') {
         nativeAudible = false;
+        pendingNativeUrl = null;
+        clearNativeTakeoverTimer();
         // Native ExoPlayer is authoritative on Android. Dispatch a dedicated
         // event so PlayerContext can ignore premature muted-WebView `ended`
         // events and only advance when ExoPlayer really finishes.
@@ -179,6 +220,11 @@ export function setNativeMirrorVolume(volume: number): void {
 export function stopNativeMirror(): void {
   if (!isNativePlayerAvailable()) return;
   lastUrl = null;
+  pendingNativeUrl = null;
+  if (nativeTakeoverTimer != null) {
+    window.clearTimeout(nativeTakeoverTimer);
+    nativeTakeoverTimer = null;
+  }
   nativeAudible = false;
   void ExoPlayerPlugin.stop().catch(() => undefined);
 }
@@ -187,6 +233,11 @@ export function disposeNativeMirror(): void {
   attached = false;
   listenersBound = false;
   nativeAudible = false;
+  pendingNativeUrl = null;
+  if (nativeTakeoverTimer != null) {
+    window.clearTimeout(nativeTakeoverTimer);
+    nativeTakeoverTimer = null;
+  }
   try { stateUnlisten?.(); } catch { /* ignore */ }
   try { progressUnlisten?.(); } catch { /* ignore */ }
   try { errorUnlisten?.(); } catch { /* ignore */ }
