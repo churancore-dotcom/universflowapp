@@ -1580,6 +1580,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // WebView even though ExoPlayer can play them, so never let this shadow
         // promise show a false "song can't play" or flip the UI to stopped.
         if (isNativePlayerAvailable() && isNativeMirrorActive()) return;
+        const assignedAt = (audioRef.current as (HTMLAudioElement & { __ufAssignedAt?: number }) | null)?.__ufAssignedAt ?? 0;
+        if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
         console.warn('Playback failed:', err.message);
         setIsPlaying(false);
         toast.error('This song could not start right now.');
@@ -2214,6 +2216,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // ExoPlayer takeover is pending/audible. Native failure is handled by
           // uf-native-playback-failed, not this HTMLAudioElement promise.
           if (isNativePlayerAvailable() && isNativeMirrorActive()) return;
+          const assignedAt = (audioRef.current as (HTMLAudioElement & { __ufAssignedAt?: number }) | null)?.__ufAssignedAt ?? 0;
+          if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
           setIsPlaying(false);
           toast.error('This song could not start right now.');
         }
