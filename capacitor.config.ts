@@ -6,8 +6,11 @@ const config: CapacitorConfig = {
   appName: 'Univers Flow',
   webDir: 'dist',
   server: {
-    // Hot reload from Lovable sandbox during development
-    url: 'https://5acaae55-bbc8-47a7-bd32-f3924d8ef986.lovableproject.com?forceHideBadge=true',
+    // Production-safe default: APKs must load the bundled dist assets, not a
+    // remote Lovable/dev server. Shipping server.url caused downloaded APKs to
+    // run mismatched web/native code, which broke playback plugins and made all
+    // songs fail. Use capacitor.config.dev.ts locally if hot-reload is needed.
+    androidScheme: 'https',
     cleartext: true,
   },
   plugins: {

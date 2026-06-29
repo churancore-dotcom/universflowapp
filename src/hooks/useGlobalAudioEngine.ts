@@ -10,6 +10,7 @@ import {
   setNativeLoudnessEnhancer,
   setNativeVirtualizer,
 } from '@/lib/nativePlayer';
+import { isNativeMirrorActive } from '@/lib/nativeMirror';
 
 // Web EQ band center frequencies — must mirror BAND_DEFS in audioEngine.ts.
 const WEB_BAND_FREQS_HZ = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
@@ -86,6 +87,16 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       pushNative(s, isPremium);
 
       const needsWebAudio = isPremium && hasWebAudioEffects(s);
+
+      // Android APK audible playback is ExoPlayer. Attaching WebAudio to the
+      // muted WebView shadow cannot affect what users hear, and it can also
+      // taint/steal the element during startup. Keep EQ on the native
+      // AudioEffect path while ExoPlayer is active; use WebAudio only after the
+      // native mirror has genuinely fallen back to audible WebView playback.
+      if (isNativePlayerAvailable() && isNativeMirrorActive()) {
+        if (isAttached) bypassAudioElement(audioElement);
+        return;
+      }
 
       // Background playback wins over an always-on transparent graph. Android
       // WebView commonly suspends AudioContext after lock/background, so keep
