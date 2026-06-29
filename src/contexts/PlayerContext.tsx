@@ -1183,7 +1183,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Pass `forceRefresh` to bypass any cached URL — used when a previously
   // cached URL just failed to play (stale Invidious link, expired token, etc).
   const resolveAudioUrl = useCallback(
-    async (song: Song, opts: { forceRefresh?: boolean } = {}): Promise<string | null> => {
+    async (song: Song, opts: { forceRefresh?: boolean; skipNative?: boolean } = {}): Promise<string | null> => {
       const ytFallback = isYouTubeFallbackUrl(song.audio_url) ? song.audio_url ?? null : null;
       // Skip resolution only when we already have a real (non-YT-iframe) URL.
       if (!opts.forceRefresh && isPlayableUrl(song.audio_url) && !ytFallback) {
@@ -1201,7 +1201,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // stream wins; no duplicate retries on the critical startup path.
             const candidates: Promise<{ url: string; native: boolean } | null>[] = [];
 
-            if (isNativePlayerAvailable() || !getRuntimePremium() || !hasWebAudioEffects(getEQSettings())) {
+            if (!opts.skipNative && (isNativePlayerAvailable() || !getRuntimePremium() || !hasWebAudioEffects(getEQSettings()))) {
               candidates.push((async () => {
                 try {
                   const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
