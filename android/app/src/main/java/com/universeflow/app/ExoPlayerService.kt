@@ -1,17 +1,12 @@
 package com.universeflow.app
 
 import android.app.PendingIntent
-import android.bluetooth.BluetoothA2dp
-import android.content.BroadcastReceiver
-import android.content.Context
 import android.content.Intent
-import android.content.IntentFilter
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.net.wifi.WifiManager
-import android.os.Build
 import android.os.PowerManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
@@ -58,8 +53,6 @@ class ExoPlayerService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
-    private var smartReceiver: BroadcastReceiver? = null
-    private var pausedByBtDisconnect: Boolean = false
 
     override fun onCreate() {
         super.onCreate()
@@ -88,7 +81,7 @@ class ExoPlayerService : MediaSessionService() {
         val builder = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
             .setAudioAttributes(audioAttrs, /* handleAudioFocus */ true)
-            .setHandleAudioBecomingNoisy(true)
+            .setHandleAudioBecomingNoisy(false)
             .setWakeMode(C.WAKE_MODE_NETWORK)
 
         val exo = builder.build().also { p ->
@@ -143,58 +136,8 @@ class ExoPlayerService : MediaSessionService() {
         }
 
         ensureEffectsBound()
-        registerSmartPlaybackReceiver()
 
         ServiceRegistry.exoService = this
-    }
-
-    /**
-     * Resume-on-Bluetooth smart playback.
-     * IMPORTANT: volume=0 must NOT pause the player — screen recordings and
-     * some Android builds dispatch transient zero-volume broadcasts while the
-     * app is locked/backgrounded, which looked exactly like background audio
-     * being killed.
-     * Listens for A2DP connect/disconnect.
-     */
-    private fun registerSmartPlaybackReceiver() {
-        smartReceiver = object : BroadcastReceiver() {
-            override fun onReceive(ctx: Context?, intent: Intent?) {
-                val p = player ?: return
-                when (intent?.action) {
-                    BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED -> {
-                        val state = intent.getIntExtra(BluetoothA2dp.EXTRA_STATE, -1)
-                        when (state) {
-                            BluetoothA2dp.STATE_DISCONNECTED -> {
-                                if (p.isPlaying) {
-                                    pausedByBtDisconnect = true
-                                    p.pause()
-                                }
-                            }
-                            BluetoothA2dp.STATE_CONNECTED -> {
-                                if (pausedByBtDisconnect && !p.isPlaying) {
-                                    pausedByBtDisconnect = false
-                                    p.play()
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        val filter = IntentFilter().apply {
-            addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
-        }
-        try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-                // Bluetooth broadcasts are sent by privileged system components.
-                // NOT_EXPORTED blocks some Android 13+ devices from delivering
-                // them, which made Smart Playback inconsistent.
-                registerReceiver(smartReceiver, filter, Context.RECEIVER_EXPORTED)
-            } else {
-                @Suppress("UnspecifiedRegisterReceiverFlag")
-                registerReceiver(smartReceiver, filter)
-            }
-        } catch (_: Throwable) { /* noop */ }
     }
 
     /** (Re)bind AudioEffects to the current player's session id. */
@@ -271,8 +214,6 @@ class ExoPlayerService : MediaSessionService() {
 
     override fun onDestroy() {
         ServiceRegistry.exoService = null
-        try { smartReceiver?.let { unregisterReceiver(it) } } catch (_: Throwable) {}
-        smartReceiver = null
         releaseEffects()
         try { mediaSession?.run { player.release(); release() } } catch (_: Throwable) {}
         mediaSession = null

@@ -111,7 +111,6 @@ class ExoPlayerPlugin : Plugin() {
             player.playbackState == Player.STATE_IDLE -> "stopped"
             player.isPlaying -> "playing"
             player.playWhenReady && (player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY) -> "buffering"
-            player.playbackState == Player.STATE_BUFFERING -> "buffering"
             else -> "paused"
         }
         // During a track swap ExoPlayer briefly emits IDLE/paused/ended for the
@@ -340,9 +339,9 @@ class ExoPlayerPlugin : Plugin() {
                     player.clearMediaItems()
                     // Start the first track immediately. Resolution happens
                     // inside the native ResolvingDataSource.
+                    player.playWhenReady = true
                     player.setMediaItem(mediaItemFor(firstTrack, firstUri))
                     player.prepare()
-                    player.playWhenReady = true
 
                     // Append the rest of the queue as yt://<id> items so that
                     // background autoplay keeps working even if WebView JS is
@@ -455,9 +454,9 @@ class ExoPlayerPlugin : Plugin() {
                     .build()
                 player.stop()
                 player.clearMediaItems()
+                player.playWhenReady = true
                 player.setMediaItem(item)
                 player.prepare()
-                player.playWhenReady = true
                 call.resolve()
             }
         }
@@ -481,7 +480,9 @@ class ExoPlayerPlugin : Plugin() {
     @PluginMethod
     fun pause(call: PluginCall) {
         runOnMain {
+            isStartingUp = false
             service()?.player?.playWhenReady = false
+            stopProgress()
             call.resolve()
         }
     }
@@ -491,6 +492,7 @@ class ExoPlayerPlugin : Plugin() {
         runOnMain {
             service()?.player?.let {
                 ensureListener(null)
+                if (!it.isPlaying) isStartingUp = true
                 it.playWhenReady = true
             }
             call.resolve()
@@ -547,7 +549,10 @@ class ExoPlayerPlugin : Plugin() {
     @PluginMethod
     fun isPlaying(call: PluginCall) {
         runOnMain {
-            val v = service()?.player?.isPlaying == true
+            val p = service()?.player
+            val v = p?.let {
+                it.isPlaying || (it.playWhenReady && (it.playbackState == Player.STATE_BUFFERING || it.playbackState == Player.STATE_READY))
+            } == true
             call.resolve(JSObject().put("isPlaying", v))
         }
     }
