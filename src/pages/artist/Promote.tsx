@@ -9,7 +9,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { ArtistProfile, ArtistSong, fmt } from './_shared';
 import BentoCard from '@/components/artist/BentoCard';
 import { useToast } from '@/hooks/use-toast';
-import { triggerHaptic } from '@/lib/haptics';
+import { triggerHaptic } from '@/hooks/useHaptics';
 
 type Ctx = { profile: ArtistProfile | null; songs: ArtistSong[]; followers: number };
 
