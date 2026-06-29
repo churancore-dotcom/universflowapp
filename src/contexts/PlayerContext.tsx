@@ -1568,7 +1568,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // ExoPlayer takes over. Some phone-signed YouTube/CDN URLs reject in
         // WebView even though ExoPlayer can play them, so never let this shadow
         // promise show a false "song can't play" or flip the UI to stopped.
-        if (isNativePlayerAvailable() && isNativeMirrorActive()) return;
+        if (isNativePlayerAvailable() && false) return;
         const assignedAt = (audioRef.current as (HTMLAudioElement & { __ufAssignedAt?: number }) | null)?.__ufAssignedAt ?? 0;
         if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
         console.warn('Playback failed:', err.message);
@@ -1771,7 +1771,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // let that shadow show "This song could not start" or stop the queue while
       // native takeover is pending/audible; nativeMirror emits a real failure
       // event below if ExoPlayer itself cannot play the URL.
-      if (isNativePlayerAvailable() && (audio.muted || isNativeMirrorActive())) return;
+      if (isNativePlayerAvailable() && (audio.muted || false)) return;
 
       console.warn('[player] audio error:', errorCode, errorMessage);
       recordPerfEvent({
@@ -2204,7 +2204,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Android APK: ignore WebView shadow play() rejection while native
           // ExoPlayer takeover is pending/audible. Native failure is handled by
           // uf-native-playback-failed, not this HTMLAudioElement promise.
-          if (isNativePlayerAvailable() && isNativeMirrorActive()) return;
+          if (isNativePlayerAvailable() && false) return;
           const assignedAt = (audioRef.current as (HTMLAudioElement & { __ufAssignedAt?: number }) | null)?.__ufAssignedAt ?? 0;
           if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
           setIsPlaying(false);
@@ -2488,7 +2488,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { youtubePlayerRef.current.setVolume?.(Math.round(volume * 100)); } catch { /* ignore */ }
     }
     if (isNativePlayerAvailable()) {
-      setNativeMirrorVolume(volume);
+      void ExoPlayerPlugin.setVolume({ volume }).catch(() => undefined);
     }
   }, [volume]);
 
