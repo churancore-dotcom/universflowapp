@@ -156,45 +156,91 @@ Deno.serve(async (req) => {
     const verifyUrl = `${APP_ORIGIN}/verify?token=${token}`;
     const safeName = escape(username);
 
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0a0a0b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
-  <div style="max-width:600px;margin:0 auto;padding:40px 20px">
-    <div style="background:linear-gradient(180deg,#15151a 0%,#0a0a0b 100%);border:1px solid rgba(255,255,255,0.08);border-radius:24px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.5)">
-      <div style="padding:48px 32px 8px;text-align:center">
-        <div style="font-size:30px;font-weight:700;letter-spacing:-0.6px;line-height:1">
-          <span style="background:linear-gradient(135deg,#FF2D55,#BF5AF2,#5E5CE6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#FF2D55">Univers</span><span style="color:#fff;font-weight:300;margin-left:4px">Flow</span>
-        </div>
-        <div style="margin-top:10px;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:#6e6e73">Premium Music Experience</div>
-      </div>
-      <div style="padding:36px 36px 8px;text-align:center">
-        <div style="display:inline-block;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#FF2D55,#BF5AF2);line-height:64px;font-size:30px;margin-bottom:18px">🎧</div>
-        <h1 style="margin:0 0 12px;font-size:26px;font-weight:700;letter-spacing:-0.4px">Welcome, ${safeName}</h1>
-        <p style="font-size:15px;line-height:1.6;color:#a1a1a6;margin:0 0 32px;max-width:440px;margin-left:auto;margin-right:auto">
-          Your account is ready. Tap below to confirm your email and dive into millions of songs, follow your favourite artists, and discover what's trending right now around the world.
-        </p>
-        <a href="${verifyUrl}"
-           style="display:inline-block;background:linear-gradient(135deg,#FF2D55,#BF5AF2);color:#fff;text-decoration:none;padding:16px 40px;border-radius:999px;font-weight:600;font-size:15px;letter-spacing:.01em;box-shadow:0 10px 30px rgba(255,45,85,0.35)">
-          Open Universflow
-        </a>
-        <p style="margin:18px 0 0;font-size:11px;color:#6e6e73">This link works once and expires in 24 hours.</p>
-      </div>
-      <div style="margin:40px 36px 0;padding:24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:16px">
-        <p style="margin:0 0 16px;font-size:12px;color:#6e6e73;letter-spacing:.05em;text-transform:uppercase;text-align:center">What's inside</p>
-        <table style="width:100%;border-collapse:collapse" cellspacing="0" cellpadding="0">
-          <tr><td style="padding:8px 0;font-size:14px;color:#e5e5ea">🎵 <span style="color:#a1a1a6">&nbsp;Millions of songs, ad-light</span></td></tr>
-          <tr><td style="padding:8px 0;font-size:14px;color:#e5e5ea">⭐ <span style="color:#a1a1a6">&nbsp;Follow artists & build playlists</span></td></tr>
-          <tr><td style="padding:8px 0;font-size:14px;color:#e5e5ea">🔥 <span style="color:#a1a1a6">&nbsp;Trending charts from around the globe</span></td></tr>
-          <tr><td style="padding:8px 0;font-size:14px;color:#e5e5ea">📥 <span style="color:#a1a1a6">&nbsp;Offline downloads on Premium</span></td></tr>
-        </table>
-      </div>
-      <div style="padding:32px 36px 36px;text-align:center">
-        <p style="margin:0;font-size:11px;color:#48484a;line-height:1.6">If you didn't create this account, you can safely ignore this email.</p>
-      </div>
-    </div>
-    <div style="text-align:center;margin-top:24px;font-size:11px;color:#48484a">
+    // Shared logo mark — a glassy "U" pill with the Universflow gradient.
+    // Inlined SVG so it renders even when remote images are blocked.
+    const LOGO = `<table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto"><tr><td style="background:linear-gradient(135deg,#FF2D55 0%,#BF5AF2 55%,#5E5CE6 100%);padding:14px 22px;border-radius:999px;box-shadow:0 12px 28px rgba(255,45,85,0.35)">
+        <span style="font:700 22px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:-0.4px;color:#fff;vertical-align:middle">◐</span>
+        <span style="font:700 20px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:.06em;color:#fff;margin-left:10px;vertical-align:middle;text-transform:uppercase">Universflow</span>
+      </td></tr></table>`;
+
+    const SHELL_OPEN = `<!doctype html><html><body style="margin:0;padding:0;background:#0a0a0b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
+  <div style="max-width:600px;margin:0 auto;padding:36px 18px">
+    <div style="text-align:center;margin-bottom:22px">${LOGO}</div>`;
+
+    const SHELL_CLOSE = `
+    <div style="text-align:center;margin-top:22px;font-size:11px;color:#48484a;line-height:1.7">
+      Sent to <span style="color:#6e6e73">${escape(email)}</span><br>
       © Universflow · <a href="https://universflow.in" style="color:#6e6e73;text-decoration:none">universflow.in</a>
     </div>
   </div>
 </body></html>`;
+
+    // ── Listener template ──────────────────────────────────────────────────
+    const listenerHtml = `${SHELL_OPEN}
+    <div style="background:linear-gradient(180deg,#15151a 0%,#0a0a0b 100%);border:1px solid rgba(255,255,255,0.08);border-radius:28px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.55)">
+      <div style="padding:44px 32px 8px;text-align:center;background:radial-gradient(120% 80% at 50% 0%,rgba(255,45,85,0.18) 0%,transparent 60%)">
+        <div style="display:inline-block;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:#FF8FB3;background:rgba(255,45,85,0.12);border:1px solid rgba(255,45,85,0.3);padding:6px 14px;border-radius:999px">Verify your email</div>
+        <h1 style="margin:24px 0 12px;font-size:32px;font-weight:700;letter-spacing:-0.6px;line-height:1.15">Hey ${safeName}, welcome in.</h1>
+        <p style="font-size:15px;line-height:1.65;color:#a1a1a6;margin:0 auto 30px;max-width:440px">
+          Your Universflow account is ready. Confirm this email and dive into millions of songs, follow your favourite artists, and discover what's trending right now around the world.
+        </p>
+        <a href="${verifyUrl}" style="display:inline-block;background:linear-gradient(135deg,#FF2D55,#BF5AF2);color:#fff;text-decoration:none;padding:16px 42px;border-radius:999px;font-weight:600;font-size:15px;letter-spacing:.01em;box-shadow:0 14px 34px rgba(255,45,85,0.4)">
+          Confirm & start listening
+        </a>
+        <p style="margin:16px 0 36px;font-size:11px;color:#6e6e73">Single-use link · expires in 24 hours</p>
+      </div>
+      <div style="margin:0 28px 28px;padding:22px 24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:18px">
+        <p style="margin:0 0 14px;font-size:11px;color:#6e6e73;letter-spacing:.16em;text-transform:uppercase;text-align:center">What's inside</p>
+        <table style="width:100%;border-collapse:collapse" cellspacing="0" cellpadding="0">
+          <tr><td style="padding:7px 0;font-size:14px;color:#e5e5ea">🎵 <span style="color:#a1a1a6">&nbsp;Millions of songs, ad-light</span></td></tr>
+          <tr><td style="padding:7px 0;font-size:14px;color:#e5e5ea">⭐ <span style="color:#a1a1a6">&nbsp;Follow artists & build playlists</span></td></tr>
+          <tr><td style="padding:7px 0;font-size:14px;color:#e5e5ea">🔥 <span style="color:#a1a1a6">&nbsp;Trending charts from around the globe</span></td></tr>
+          <tr><td style="padding:7px 0;font-size:14px;color:#e5e5ea">📥 <span style="color:#a1a1a6">&nbsp;Offline downloads on Premium</span></td></tr>
+        </table>
+      </div>
+      <div style="padding:0 32px 32px;text-align:center">
+        <p style="margin:0;font-size:11px;color:#48484a;line-height:1.7">Didn't sign up? You can safely ignore this email — nothing will happen.</p>
+      </div>
+    </div>${SHELL_CLOSE}`;
+
+    // ── Artist template — completely different look & copy ─────────────────
+    const artistHtml = `${SHELL_OPEN}
+    <div style="background:linear-gradient(180deg,#0d0a1a 0%,#0a0a0b 100%);border:1px solid rgba(191,90,242,0.18);border-radius:28px;overflow:hidden;box-shadow:0 30px 80px rgba(94,92,230,0.25)">
+      <div style="padding:44px 32px 8px;text-align:center;background:radial-gradient(120% 80% at 50% 0%,rgba(191,90,242,0.22) 0%,transparent 60%)">
+        <div style="display:inline-block;font-size:11px;letter-spacing:.34em;text-transform:uppercase;color:#D5B4FF;background:rgba(191,90,242,0.14);border:1px solid rgba(191,90,242,0.35);padding:6px 14px;border-radius:999px">Artist application · Verify email</div>
+        <h1 style="margin:24px 0 12px;font-size:30px;font-weight:700;letter-spacing:-0.6px;line-height:1.18">Welcome to Universflow for&nbsp;Artists, ${safeName}.</h1>
+        <p style="font-size:15px;line-height:1.65;color:#a1a1a6;margin:0 auto 30px;max-width:460px">
+          You're one tap away from your artist account. Confirm this email to continue your verification, upload your first track, and reach listeners worldwide.
+        </p>
+        <a href="${verifyUrl}" style="display:inline-block;background:linear-gradient(135deg,#BF5AF2,#5E5CE6);color:#fff;text-decoration:none;padding:16px 42px;border-radius:999px;font-weight:600;font-size:15px;letter-spacing:.01em;box-shadow:0 14px 34px rgba(94,92,230,0.42)">
+          Verify & continue application
+        </a>
+        <p style="margin:16px 0 36px;font-size:11px;color:#6e6e73">Single-use link · expires in 24 hours</p>
+      </div>
+      <div style="margin:0 28px 22px;padding:22px 24px;background:rgba(191,90,242,0.06);border:1px solid rgba(191,90,242,0.18);border-radius:18px">
+        <p style="margin:0 0 14px;font-size:11px;color:#D5B4FF;letter-spacing:.16em;text-transform:uppercase;text-align:center">Your artist toolkit</p>
+        <table style="width:100%;border-collapse:collapse" cellspacing="0" cellpadding="0">
+          <tr><td style="padding:7px 0;font-size:14px;color:#e5e5ea">🎙️ <span style="color:#a1a1a6">&nbsp;Verified artist profile & shareable link</span></td></tr>
+          <tr><td style="padding:7px 0;font-size:14px;color:#e5e5ea">📈 <span style="color:#a1a1a6">&nbsp;Live analytics — plays, saves, followers</span></td></tr>
+          <tr><td style="padding:7px 0;font-size:14px;color:#e5e5ea">🎨 <span style="color:#a1a1a6">&nbsp;Story cards, QR codes & smart bio link</span></td></tr>
+          <tr><td style="padding:7px 0;font-size:14px;color:#e5e5ea">🔔 <span style="color:#a1a1a6">&nbsp;Push your followers when you drop new music</span></td></tr>
+        </table>
+      </div>
+      <div style="margin:0 28px 28px;padding:18px 22px;background:rgba(255,255,255,0.03);border:1px dashed rgba(255,255,255,0.12);border-radius:16px">
+        <p style="margin:0;font-size:12.5px;color:#a1a1a6;line-height:1.6">
+          <strong style="color:#fff">Next step:</strong> after verifying, you'll be taken back to the verification flow exactly where you left off — your details are saved.
+        </p>
+      </div>
+      <div style="padding:0 32px 32px;text-align:center">
+        <p style="margin:0;font-size:11px;color:#48484a;line-height:1.7">Didn't start an artist application? You can safely ignore this email.</p>
+      </div>
+    </div>${SHELL_CLOSE}`;
+
+    const isArtist = accountType === 'artist';
+    const subject = isArtist
+      ? 'Verify your artist account · Universflow'
+      : 'Welcome to Universflow — verify your email 🎧';
+    const html = isArtist ? artistHtml : listenerHtml;
 
     const r = await fetch('https://api.resend.com/emails', {
       method: 'POST',
@@ -206,7 +252,7 @@ Deno.serve(async (req) => {
         from: FROM_ADDRESS,
         reply_to: REPLY_TO,
         to: [email],
-        subject: 'Welcome to Universflow 🎉',
+        subject,
         html,
       }),
     });
