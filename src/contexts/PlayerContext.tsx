@@ -445,6 +445,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const shuffleRef = useRef(false);
   const repeatRef = useRef<'off' | 'all' | 'one'>('off');
   const volumeRef = useRef(volume);
+  const isPlayingRef = useRef(isPlaying);
   const endedFiredForSeqRef = useRef<number>(-1);
   // Auto-mix guard: prevents repeated extend calls while the network is in
   // flight, and remembers song-ids already added so we don't loop the same
@@ -460,6 +461,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => { shuffleRef.current = shuffle; }, [shuffle]);
   useEffect(() => { repeatRef.current = repeat; }, [repeat]);
   useEffect(() => { volumeRef.current = volume; }, [volume]);
+  useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
 
   useEffect(() => {
