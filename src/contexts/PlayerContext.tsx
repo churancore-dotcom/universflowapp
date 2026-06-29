@@ -1368,7 +1368,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Last resort for catalog uploads/direct CDN URLs. If this is a cloud-signed
     // googlevideo URL, buildStreamProxyUrl keeps the fetch on the signing side.
     return directUrl ? buildNativeExoPlayerUrl(directUrl) : null;
-  }, [isPlayableUrl, resolveAudioUrl]);
+  }, [isPlayableUrl, resolveAudioUrl, playbackSettingsVersion]);
 
   // ── Preload NEXT queued track for zero-gap transitions ──
   // Whenever queue / current index changes, warm `nextAudioRef` with the upcoming
