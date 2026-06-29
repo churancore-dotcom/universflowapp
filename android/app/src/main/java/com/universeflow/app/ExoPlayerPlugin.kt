@@ -25,6 +25,7 @@ import com.getcapacitor.PluginCall
 import com.getcapacitor.PluginMethod
 import com.getcapacitor.annotation.CapacitorPlugin
 import org.json.JSONObject
+import java.util.concurrent.atomic.AtomicLong
 
 /**
  * JS bridge for the on-device ExoPlayer media session.
@@ -42,6 +43,7 @@ class ExoPlayerPlugin : Plugin() {
     private var listenerAttached = false
     private var listenerPlayer: Player? = null
     @Volatile private var isStartingUp = false
+    private val playGeneration = AtomicLong(0L)
 
     private data class NativeTrack(
         val id: String,
@@ -285,6 +287,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun playQueue(call: PluginCall) {
+        val generation = playGeneration.incrementAndGet()
         ensureNotificationPermissionBestEffort()
         val arr = call.getArray("tracks")
         if (arr == null || arr.length() == 0) { call.reject("missing tracks"); return }
@@ -306,6 +309,10 @@ class ExoPlayerPlugin : Plugin() {
             } else {
                 Thread {
                     val firstUrl = resolveTrackUrl(firstTrack, nativeTimeoutMs = 5200L)
+                    if (playGeneration.get() != generation) {
+                        main.post { call.resolve() }
+                        return@Thread
+                    }
                     if (firstUrl == null) {
                         main.post {
                             isStartingUp = false
@@ -316,6 +323,10 @@ class ExoPlayerPlugin : Plugin() {
                     }
 
                     main.post {
+                        if (playGeneration.get() != generation) {
+                            call.resolve()
+                            return@post
+                        }
                         isStartingUp = true
                         ensureListener(null)
                         stopProgress()
@@ -338,6 +349,7 @@ class ExoPlayerPlugin : Plugin() {
                     }
                     if (warm.isNotEmpty()) {
                         main.post {
+                            if (playGeneration.get() != generation) return@post
                             val p = service()?.player ?: return@post
                             p.addMediaItems(warm)
                         }
@@ -401,6 +413,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun play(call: PluginCall) {
+        playGeneration.incrementAndGet()
         val url = call.getString("url")
         if (url.isNullOrBlank()) { call.reject("missing url"); return }
         ensureNotificationPermissionBestEffort()
@@ -475,6 +488,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun stop(call: PluginCall) {
+        playGeneration.incrementAndGet()
         runOnMain {
             service()?.player?.let {
                 it.stop()
