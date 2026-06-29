@@ -2026,6 +2026,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           queueRef.current = nextQueue.length ? nextQueue : [refreshed];
           setQueueState(queueRef.current);
           setCurrentSong(refreshed);
+          currentSongRef.current = refreshed;
           setIsPlaying(true);
           await ExoPlayerPlugin.play({
             url: fresh,
