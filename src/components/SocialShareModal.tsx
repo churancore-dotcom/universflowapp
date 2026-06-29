@@ -370,7 +370,7 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
 
               {/* Preview Card */}
               <div className="p-5">
-                <div className="relative aspect-[1200/630] rounded-2xl overflow-hidden bg-black/50 mb-5">
+                <div className="relative aspect-[1080/1350] max-h-[55vh] mx-auto rounded-2xl overflow-hidden bg-black/50 mb-5">
                   {generating ? (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <motion.div 
