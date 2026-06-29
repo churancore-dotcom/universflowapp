@@ -1,7 +1,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Loader2, Upload, Check, ShieldCheck, Globe2, User, Link2, FileCheck2, Camera, Image as ImageIcon, Sparkles } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Loader2, Upload, Check, ShieldCheck, User, Link2, FileCheck2, Camera, Image as ImageIcon, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import SEOHead from '@/components/SEOHead';
@@ -28,6 +28,8 @@ import type { ArtistApplicationSafe } from '@/lib/artist';
 import ArtistLoading from './ArtistLoading';
 import { validatePhone, getDialCode, PHONE_DIGITS } from '@/lib/phoneValidator';
 import { validateSocialLink, atLeastNValidLinks, SocialPlatform } from '@/lib/socialLinkValidator';
+import { COUNTRIES as ALL_COUNTRIES, getCountry } from '@/lib/countries';
+import { CountryCombobox } from '@/components/CountryCombobox';
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 const TOTAL_STEPS = 6;
@@ -45,67 +47,7 @@ function getApplicationId(value: unknown): string | null {
   return typeof id === 'string' ? id : null;
 }
 
-// Wide country list. Order: Top-of-mind first, then alphabetical.
-const COUNTRIES: ReadonlyArray<readonly [string, string]> = [
-  ['IN', '🇮🇳 India'],
-  ['US', '🇺🇸 United States'],
-  ['GB', '🇬🇧 United Kingdom'],
-  ['CA', '🇨🇦 Canada'],
-  ['AU', '🇦🇺 Australia'],
-  ['AE', '🇦🇪 United Arab Emirates'],
-  ['DE', '🇩🇪 Germany'],
-  ['FR', '🇫🇷 France'],
-  ['IT', '🇮🇹 Italy'],
-  ['ES', '🇪🇸 Spain'],
-  ['NL', '🇳🇱 Netherlands'],
-  ['BE', '🇧🇪 Belgium'],
-  ['PT', '🇵🇹 Portugal'],
-  ['PL', '🇵🇱 Poland'],
-  ['SE', '🇸🇪 Sweden'],
-  ['NO', '🇳🇴 Norway'],
-  ['DK', '🇩🇰 Denmark'],
-  ['FI', '🇫🇮 Finland'],
-  ['IE', '🇮🇪 Ireland'],
-  ['CH', '🇨🇭 Switzerland'],
-  ['AT', '🇦🇹 Austria'],
-  ['CZ', '🇨🇿 Czechia'],
-  ['HU', '🇭🇺 Hungary'],
-  ['RO', '🇷🇴 Romania'],
-  ['GR', '🇬🇷 Greece'],
-  ['TR', '🇹🇷 Türkiye'],
-  ['RU', '🇷🇺 Russia'],
-  ['UA', '🇺🇦 Ukraine'],
-  ['JP', '🇯🇵 Japan'],
-  ['KR', '🇰🇷 South Korea'],
-  ['CN', '🇨🇳 China'],
-  ['HK', '🇭🇰 Hong Kong'],
-  ['SG', '🇸🇬 Singapore'],
-  ['MY', '🇲🇾 Malaysia'],
-  ['ID', '🇮🇩 Indonesia'],
-  ['TH', '🇹🇭 Thailand'],
-  ['VN', '🇻🇳 Vietnam'],
-  ['PH', '🇵🇭 Philippines'],
-  ['PK', '🇵🇰 Pakistan'],
-  ['BD', '🇧🇩 Bangladesh'],
-  ['LK', '🇱🇰 Sri Lanka'],
-  ['NP', '🇳🇵 Nepal'],
-  ['NZ', '🇳🇿 New Zealand'],
-  ['BR', '🇧🇷 Brazil'],
-  ['MX', '🇲🇽 Mexico'],
-  ['AR', '🇦🇷 Argentina'],
-  ['CL', '🇨🇱 Chile'],
-  ['CO', '🇨🇴 Colombia'],
-  ['PE', '🇵🇪 Peru'],
-  ['ZA', '🇿🇦 South Africa'],
-  ['NG', '🇳🇬 Nigeria'],
-  ['EG', '🇪🇬 Egypt'],
-  ['KE', '🇰🇪 Kenya'],
-  ['MA', '🇲🇦 Morocco'],
-  ['SA', '🇸🇦 Saudi Arabia'],
-  ['IL', '🇮🇱 Israel'],
-  ['QA', '🇶🇦 Qatar'],
-  ['XX', '🌍 Other / Not listed'],
-];
+// Full country list now lives in src/lib/countries.ts (ALL_COUNTRIES).
 
 const STEP_META: Record<Step, { label: string; icon: typeof User }> = {
   1: { label: 'About you',     icon: User },
@@ -347,7 +289,7 @@ export default function ArtistApply() {
         if (!prefilledCountry) {
           try {
             const cc = await detectCountrySilently();
-            if (cc && COUNTRIES.some(([c]) => c === cc)) setCountry(cc);
+            if (cc && ALL_COUNTRIES.some((c) => c.code === cc)) setCountry(cc);
           } catch { /* keep blank */ }
         }
       } catch (err) {
@@ -371,7 +313,7 @@ export default function ArtistApply() {
 
   const phoneCheck = country ? validatePhone(country, phone) : { ok: false, reason: '' };
   const linksCheck = atLeastNValidLinks({ instagram, youtube, spotify, apple_music: appleMusic }, 2);
-  const countryLabel = COUNTRIES.find(([c]) => c === country)?.[1] ?? country;
+  const countryLabel = getCountry(country) ? `${getCountry(country)!.flag} ${getCountry(country)!.name}` : country;
 
   const canNext = () => {
     if (step === 1) return stageName.trim().length >= 2 && !stageTaken && realName.trim().length >= 2 && !!country && phoneCheck.ok && !phoneTaken && !phoneChecking;
@@ -774,9 +716,14 @@ export default function ArtistApply() {
                   </Field>
                   <Field label={`Phone number${country ? ` · ${getDialCode(country)} (${PHONE_DIGITS[country] ?? '—'} digits)` : ''}`}>
                     <div className="flex gap-2">
-                      <span className="h-11 px-3 inline-flex items-center rounded-xl bg-white/[0.04] border border-white/10 text-[13px] tabular-nums text-muted-foreground shrink-0">
-                        {country ? getDialCode(country) : '+—'}
-                      </span>
+                      <CountryCombobox
+                        value={country}
+                        onChange={setCountry}
+                        variant="dial"
+                        disabled={isLockedReapply || signupLocked}
+                        ariaLabel="Phone country code"
+                        className="shrink-0"
+                      />
                       <Input
                         type="tel"
                         inputMode="numeric"
@@ -814,25 +761,17 @@ export default function ArtistApply() {
                     </p>
                   </Field>
                   <Field label="Country">
-                    <div className="relative">
-                      <Globe2 className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground pointer-events-none" />
-                      <select
-                        value={country}
-                        onChange={(e) => setCountry(e.target.value)}
-                        disabled={isLockedReapply || signupLocked}
-                        className={`flex h-11 w-full rounded-xl border border-white/10 bg-white/[0.03] pl-9 pr-3 py-2 text-sm appearance-none focus:outline-none focus:border-primary/50 ${
-                          !country ? 'text-muted-foreground' : ''
-                        }`}
-                      >
-                        <option value="" disabled>Select your country…</option>
-                        {COUNTRIES.map(([c, l]) => (
-                          <option key={c} value={c} className="bg-background text-foreground">{l}</option>
-                        ))}
-                      </select>
-                    </div>
+                    <CountryCombobox
+                      value={country}
+                      onChange={setCountry}
+                      variant="full"
+                      disabled={isLockedReapply || signupLocked}
+                      placeholder="Select your country…"
+                      ariaLabel="Country"
+                    />
                     {!country && (
                       <p className="mt-2 text-[11px] text-muted-foreground">
-                        We use this to ask for the right ID document.
+                        Search any country — we use this to ask for the right ID document.
                       </p>
                     )}
                   </Field>
