@@ -373,7 +373,7 @@ export default function ArtistApply() {
 
   const phoneCheck = country ? validatePhone(country, phone) : { ok: false, reason: '' };
   const linksCheck = atLeastNValidLinks({ instagram, youtube, spotify, apple_music: appleMusic }, 2);
-  const countryLabel = COUNTRIES.find(([c]) => c === country)?.[1] ?? country;
+  const countryLabel = getCountry(country) ? `${getCountry(country)!.flag} ${getCountry(country)!.name}` : country;
 
   const canNext = () => {
     if (step === 1) return stageName.trim().length >= 2 && !stageTaken && realName.trim().length >= 2 && !!country && phoneCheck.ok && !phoneTaken && !phoneChecking;
