@@ -1339,7 +1339,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           && parsed.hostname.endsWith('googlevideo.com')
           && !isNativeResolvedStreamUrl(directUrl);
       } catch { /* use direct URL */ }
-      if (!shouldRefreshYoutubeUrl) return buildStreamProxyUrl(directUrl);
+      if (!shouldRefreshYoutubeUrl) return buildNativeExoPlayerUrl(directUrl);
     }
 
     // Fast path: try true on-device YouTube resolution first, but never let it
@@ -1362,12 +1362,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     try {
       const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
-      if (fresh && !isYouTubeFallbackUrl(fresh)) return buildStreamProxyUrl(fresh);
+      if (fresh && !isYouTubeFallbackUrl(fresh)) return buildNativeExoPlayerUrl(fresh);
     } catch { /* fall through to direct URL */ }
 
     // Last resort for catalog uploads/direct CDN URLs. If this is a cloud-signed
     // googlevideo URL, buildStreamProxyUrl keeps the fetch on the signing side.
-    return directUrl ? buildStreamProxyUrl(directUrl) : null;
+    return directUrl ? buildNativeExoPlayerUrl(directUrl) : null;
   }, [isPlayableUrl, resolveAudioUrl]);
 
   // ── Preload NEXT queued track for zero-gap transitions ──
