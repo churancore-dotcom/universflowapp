@@ -145,12 +145,25 @@ class ExoPlayerPlugin : Plugin() {
             }
         }
         synchronized(pendingCommands) { pendingCommands.add(wrapper) }
+        val poll = object : Runnable {
+            override fun run() {
+                if (fired) return
+                if (service()?.player != null) {
+                    synchronized(pendingCommands) { pendingCommands.remove(wrapper) }
+                    runOnMain(wrapper)
+                } else {
+                    main.postDelayed(this, 100L)
+                }
+            }
+        }
+        main.postDelayed(poll, 100L)
         main.postDelayed({
             // If service still isn't ready and the command hasn't fired, drop
             // it and signal timeout.
             if (!fired) {
                 fired = true
                 synchronized(pendingCommands) { pendingCommands.remove(wrapper) }
+                main.removeCallbacks(poll)
                 Log.e("ExoPlayerPlugin", "Service ready timeout after ${timeoutMs}ms")
                 onTimeout()
             }
