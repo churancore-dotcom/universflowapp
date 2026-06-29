@@ -336,6 +336,24 @@ export default function ArtistApply() {
     })();
   }, [user, isLoading, navigate, isReapplyMode]);
 
+  // Auto-save the in-progress application draft (debounced). Skipped during
+  // reapply because that flow is locked to the existing submission's data.
+  useEffect(() => {
+    if (!user || !bootChecked || isLockedReapply) return;
+    const id = setTimeout(() => {
+      try {
+        localStorage.setItem(`uf_artist_apply_draft:${user.id}`, JSON.stringify({
+          stageName, realName, phone, country, bio,
+          instagram, youtube, spotify, appleMusic,
+          docType, agreeTerms, agreePrivacy, step,
+        }));
+      } catch { /* quota — ignore */ }
+    }, 400);
+    return () => clearTimeout(id);
+  }, [user, bootChecked, isLockedReapply, stageName, realName, phone, country, bio,
+      instagram, youtube, spotify, appleMusic, docType, agreeTerms, agreePrivacy, step]);
+
+
   // Update doc type when country changes — but never auto-pick if user hasn't chosen country yet.
   useEffect(() => {
     if (!country) { setDocType(null); return; }
