@@ -1782,7 +1782,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
-  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, playbackSettingsVersion]);
+  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, playbackSettingsVersion]);
 
   // Handle song end and crossfade
   useEffect(() => {
@@ -2610,7 +2610,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }).then(() => {});
       }).catch(() => {});
     }, 30000);
-  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex]);
+  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex, clearNativeStartupTimer]);
 
   const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium
@@ -2763,6 +2763,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     teardownYouTubePlayback();
     wasPlayingRef.current = false;
     nativeStartupSeqRef.current = null;
+    nativeStartedForSeqRef.current = null;
+    clearNativeStartupTimer();
 
     if (isNativePlayerAvailable()) {
       void ExoPlayerPlugin.stop().catch(() => undefined);
@@ -2787,7 +2789,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentIndex(0);
     setExpanded(false);
     activeSongIdentityRef.current = null;
-  }, [teardownYouTubePlayback, markIntentionalPause]);
+  }, [teardownYouTubePlayback, markIntentionalPause, clearNativeStartupTimer]);
 
   const nextSong = useCallback(async () => {
     if (queue.length === 0) return;
