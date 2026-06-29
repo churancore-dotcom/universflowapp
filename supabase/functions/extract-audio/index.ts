@@ -613,8 +613,10 @@ serve(async (req) => {
     const result = await extractFromYouTube(videoId);
 
     if (!result.success) {
-      return new Response(JSON.stringify(result),
-        { status: 503, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      // Return 200 with fallback signal so supabase.functions.invoke() doesn't
+      // throw "Edge function returned 503" and crash the player UI.
+      return new Response(JSON.stringify({ ...result, fallback: true }),
+        { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // ---------- Persist to cache (5h TTL, YouTube URLs valid ~6h) ----------
