@@ -511,6 +511,8 @@ export default function ArtistApply() {
       }
 
       try { sessionStorage.setItem('uf_artist_just_submitted', String(Date.now())); } catch { /* ignore */ }
+      // Draft is no longer needed once the application is in.
+      try { localStorage.removeItem(`uf_artist_apply_draft:${user.id}`); } catch { /* ignore */ }
       setSubmittedSuccess({ reapply: isLockedReapply });
       window.setTimeout(() => navigate('/artist/status', { replace: true }), 2600);
       return;
