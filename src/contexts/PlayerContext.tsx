@@ -1605,7 +1605,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Pick up any URL that the early-resolution step upgraded.
     const resolvedSong = songQueue[index] ?? song;
 
-    // Update state first for instant UI response
+    const useNativePlayback = isNativePlayerAvailable();
+
+    // Update state first for instant UI response. On Android, do NOT mark as
+    // playing yet: ExoPlayer must confirm `isPlaying=true`. Marking buffering as
+    // playing is what made the APK show fake progress around 3s with no audio.
     setCurrentSong(resolvedSong);
     setCurrentIndex(index);
     currentSongRef.current = resolvedSong;
@@ -1613,14 +1617,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     queueRef.current = songQueue;
     setDuration(resolvedSong.duration || 0);
     setProgress(0);
-    setIsPlaying(true);
-    wasPlayingRef.current = true;
-    void publishNativeMusicControls(resolvedSong, true, resolvedSong.duration);
+    setIsPlaying(!useNativePlayback);
+    wasPlayingRef.current = !useNativePlayback;
+    void publishNativeMusicControls(resolvedSong, !useNativePlayback, resolvedSong.duration);
 
     // ── ANDROID NATIVE PATH ────────────────────────────────────────────────
     // Direct InnerTube → ExoPlayer. No audio element, no proxy, no WebView.
-    if (isNativePlayerAvailable()) {
+    if (useNativePlayback) {
       nativeStartupSeqRef.current = mySeq;
+      nativeStartedForSeqRef.current = null;
+      clearNativeStartupTimer();
       await ExoPlayerPlugin.stop().catch(() => undefined);
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
@@ -1634,10 +1640,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           artist: resolvedSong.artist || '',
           artworkUrl: resolvedSong.cover_url || undefined,
         });
+        clearNativeStartupTimer();
+        nativeStartupTimerRef.current = window.setTimeout(() => {
+          if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
+          console.warn('[player/native] startup timeout; retrying fallback for', resolvedSong.title);
+          nativeStartupSeqRef.current = null;
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout', url: playUrl } }));
+        }, 12000);
         reapplyNativeEqSoon();
       } catch (err) {
         console.warn('[player/native] failed', (err as Error)?.message);
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+        nativeStartupSeqRef.current = null;
+        clearNativeStartupTimer();
         window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: (err as Error)?.message } }));
       }
       return;
