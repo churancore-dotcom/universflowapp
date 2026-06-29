@@ -1318,6 +1318,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       : null;
     const videoId = getNativePlaybackVideoId(song as Song & { videoId?: string });
 
+    if (directUrl && !opts.skipNativeFastPath) {
+      let shouldRefreshYoutubeUrl = false;
+      try {
+        const parsed = new URL(directUrl, window.location.href);
+        shouldRefreshYoutubeUrl = Boolean(videoId)
+          && parsed.hostname.endsWith('googlevideo.com')
+          && !isNativeResolvedStreamUrl(directUrl);
+      } catch { /* use direct URL */ }
+      if (!shouldRefreshYoutubeUrl) return buildStreamProxyUrl(directUrl);
+    }
+
     // Fast path: try true on-device YouTube resolution first, but never let it
     // be the only path. Many videos now require signature/n-param handling; when
     // the Kotlin resolver can't return a playable URL, we immediately fall back
