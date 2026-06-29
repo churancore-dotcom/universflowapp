@@ -214,7 +214,7 @@ const ArtistAuth = () => {
           { state: { email, username, next: '/artist/apply' }, replace: true },
         );
         supabase.functions
-          .invoke('send-verification-link', { body: { email, username } })
+          .invoke('send-verification-link', { body: { email, username, accountType: 'artist' } })
           .catch((er) => console.warn('verification email failed:', er));
       }
     } catch {
