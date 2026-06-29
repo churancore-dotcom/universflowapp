@@ -11,8 +11,7 @@ import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
-import { attachNativeMirror, setNativeMirrorVolume, stopNativeMirror, disposeNativeMirror, isNativeMirrorActive } from '@/lib/nativeMirror';
-import { isNativePlayerAvailable } from '@/lib/nativePlayer';
+import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError } from '@/lib/nativePlayer';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -554,20 +553,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     audioRef.current = audio;
     setAudioElement(audio);
 
-    // Android: mirror the HTMLAudioElement to ExoPlayer (MediaSessionService).
-    // ExoPlayer is the only audible source on native; the HTML element stays
-    // muted so existing EQ/lyrics/progress code keeps working unchanged.
-    if (isNativePlayerAvailable()) {
-      attachNativeMirror(audio, {
-        getSong: () => currentSongRef.current as never,
-        onUnrecoverableError: () => {
-          // Native failed to take over. nativeMirror restores audible WebView
-          // playback, so do NOT dispatch a synthetic media error here — that was
-          // stopping the tapped song even though the fallback could still play.
-        },
-      });
-      setNativeMirrorVolume(volume);
-    }
+    // Android native playback path is fully owned by ExoPlayer (see playSongAtIndex).
+    // We deliberately do NOT touch this HTMLAudioElement on Android — no muting,
+    // no mirroring. ExoPlayer plays directly; events drive React state via the
+    // dedicated subscription useEffect below.
 
     // Create second audio for crossfade
     const nextAudio = new Audio();
@@ -1480,6 +1469,63 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     wasPlayingRef.current = true;
     void publishNativeMusicControls(resolvedSong, true, resolvedSong.duration);
 
+    // ── ANDROID NATIVE PATH ────────────────────────────────────────────────
+    // Direct InnerTube → ExoPlayer. No audio element, no proxy, no WebView.
+    if (isNativePlayerAvailable()) {
+      const extractVideoId = (s: Song): string | null => {
+        const v1 = getYouTubeFallbackVideoId(s.audio_url || '');
+        if (v1 && v1.length === 11) return v1;
+        if (s.id?.startsWith('ytm-')) {
+          const v = s.id.slice(4);
+          if (v.length === 11) return v;
+        }
+        const anyId = (s as unknown as { videoId?: string }).videoId;
+        if (typeof anyId === 'string' && anyId.length === 11) return anyId;
+        // If audio_url is a direct http(s) stream (catalog upload, Audius), use as-is.
+        return null;
+      };
+
+      const directUrl = isPlayableUrl(resolvedSong.audio_url) && !isYouTubeFallbackUrl(resolvedSong.audio_url)
+        ? resolvedSong.audio_url
+        : null;
+      const videoId = directUrl ? null : extractVideoId(resolvedSong);
+      console.log('[player/native] tap', resolvedSong.title, 'directUrl?', !!directUrl, 'videoId:', videoId);
+
+      const skipForward = () => {
+        const q = queueRef.current;
+        const i = currentIndexRef.current;
+        const n = getNextIndex(i, q.length, shuffleRef.current, repeatRef.current);
+        if (n !== null) void playSongAtIndex(n, q);
+        else setIsPlaying(false);
+      };
+
+      try {
+        let playUrl = directUrl;
+        if (!playUrl) {
+          if (!videoId) throw new Error('no videoId');
+          const res = await InnerTubePlugin.resolveAudio({ videoId });
+          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          if (!res?.url) throw new Error('no url from InnerTube');
+          console.log('[player/native] resolved via', res.client, 'itag', res.itag);
+          playUrl = res.url;
+        }
+        await ExoPlayerPlugin.play({
+          url: playUrl,
+          title: resolvedSong.title || '',
+          artist: resolvedSong.artist || '',
+          artworkUrl: resolvedSong.cover_url || undefined,
+        });
+      } catch (err) {
+        console.warn('[player/native] failed', (err as Error)?.message);
+        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+        toast.error('Song unavailable');
+        window.setTimeout(skipForward, 1500);
+      }
+      return;
+    }
+    // ── END ANDROID NATIVE PATH ────────────────────────────────────────────
+
+
     // Resolve audio URL if needed
     let audioUrl = resolvedSong.audio_url;
     // `yt-video:` is only an iframe fallback marker, NOT an effect-capable
@@ -1579,7 +1625,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // ExoPlayer takes over. Some phone-signed YouTube/CDN URLs reject in
         // WebView even though ExoPlayer can play them, so never let this shadow
         // promise show a false "song can't play" or flip the UI to stopped.
-        if (isNativePlayerAvailable() && isNativeMirrorActive()) return;
+        if (isNativePlayerAvailable() && false) return;
         const assignedAt = (audioRef.current as (HTMLAudioElement & { __ufAssignedAt?: number }) | null)?.__ufAssignedAt ?? 0;
         if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
         console.warn('Playback failed:', err.message);
@@ -1782,7 +1828,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // let that shadow show "This song could not start" or stop the queue while
       // native takeover is pending/audible; nativeMirror emits a real failure
       // event below if ExoPlayer itself cannot play the URL.
-      if (isNativePlayerAvailable() && (audio.muted || isNativeMirrorActive())) return;
+      if (isNativePlayerAvailable() && (audio.muted || false)) return;
 
       console.warn('[player] audio error:', errorCode, errorMessage);
       recordPerfEvent({
@@ -1913,6 +1959,72 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       window.removeEventListener('uf-native-playback-failed', handleNativePlaybackFailed as EventListener);
     };
   }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, extendQueueWithMix, playbackSettingsVersion]);
+
+  // ── Android: subscribe to ExoPlayer events and drive React state directly.
+  useEffect(() => {
+    if (!isNativePlayerAvailable()) return;
+    let progressHandle: { remove: () => void } | undefined;
+    let stateHandle: { remove: () => void } | undefined;
+    let errorHandle: { remove: () => void } | undefined;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const p = await ExoPlayerPlugin.addListener('playbackProgress', (d) => {
+          const data = d as ExoPlaybackProgress;
+          const posSec = Math.max(0, (data.position || 0) / 1000);
+          const durSec = Math.max(0, (data.duration || 0) / 1000);
+          setProgress(posSec);
+          if (durSec > 0) setDuration(durSec);
+        });
+        const s = await ExoPlayerPlugin.addListener('playbackStateChange', (d) => {
+          const data = d as ExoPlaybackState;
+          if (data.state === 'playing') { setIsPlaying(true); wasPlayingRef.current = true; }
+          else if (data.state === 'paused') { setIsPlaying(false); }
+          else if (data.state === 'stopped') { setIsPlaying(false); }
+          else if (data.state === 'ended') {
+            const activeRepeat = repeatRef.current;
+            if (activeRepeat === 'one') {
+              void ExoPlayerPlugin.seekTo({ positionMs: 0 }).catch(() => undefined);
+              void ExoPlayerPlugin.resume().catch(() => undefined);
+              return;
+            }
+            const q = queueRef.current;
+            const i = currentIndexRef.current;
+            let nIdx = getNextIndex(i, q.length, shuffleRef.current, activeRepeat);
+            if (nIdx === null && activeRepeat === 'all') nIdx = 0;
+            if (nIdx !== null && q.length > 0) void playSongAtIndex(nIdx, q);
+            else setIsPlaying(false);
+          }
+        });
+        const e = await ExoPlayerPlugin.addListener('playbackError', (d) => {
+          const data = d as ExoPlaybackError;
+          console.warn('[player/native] ExoPlayer error:', data.message);
+          toast.error('Song unavailable');
+          const q = queueRef.current;
+          const i = currentIndexRef.current;
+          const nIdx = getNextIndex(i, q.length, shuffleRef.current, repeatRef.current);
+          if (nIdx !== null && q.length > 0) {
+            window.setTimeout(() => { if (!cancelled) void playSongAtIndex(nIdx, q); }, 1500);
+          } else {
+            setIsPlaying(false);
+          }
+        });
+        if (cancelled) { p.remove(); s.remove(); e.remove(); return; }
+        progressHandle = p; stateHandle = s; errorHandle = e;
+      } catch (err) {
+        console.warn('[player/native] failed to attach listeners', (err as Error)?.message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      try { progressHandle?.remove(); } catch { /* noop */ }
+      try { stateHandle?.remove(); } catch { /* noop */ }
+      try { errorHandle?.remove(); } catch { /* noop */ }
+    };
+  }, [getNextIndex, playSongAtIndex]);
+
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
   // YouTube-backed audio URLs expire ~6h after issue, and the OS can suspend
@@ -2215,7 +2327,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Android APK: ignore WebView shadow play() rejection while native
           // ExoPlayer takeover is pending/audible. Native failure is handled by
           // uf-native-playback-failed, not this HTMLAudioElement promise.
-          if (isNativePlayerAvailable() && isNativeMirrorActive()) return;
+          if (isNativePlayerAvailable() && false) return;
           const assignedAt = (audioRef.current as (HTMLAudioElement & { __ufAssignedAt?: number }) | null)?.__ufAssignedAt ?? 0;
           if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
           setIsPlaying(false);
@@ -2345,6 +2457,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const togglePlay = useCallback(() => {
     if (!currentSong) return;
 
+    if (isNativePlayerAvailable()) {
+      if (isPlaying) {
+        setIsPlaying(false); wasPlayingRef.current = false;
+        void ExoPlayerPlugin.pause().catch(() => undefined);
+      } else {
+        setIsPlaying(true); wasPlayingRef.current = true;
+        void ExoPlayerPlugin.resume().catch(() => undefined);
+      }
+      return;
+    }
+
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try {
         if (isPlaying) { youtubePlayerRef.current.pauseVideo(); setIsPlaying(false); }
@@ -2374,6 +2497,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsPlaying(false);
     wasPlayingRef.current = false;
     markIntentionalPause();
+    if (isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.pause().catch(() => undefined);
+      return;
+    }
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.pauseVideo(); } catch { /* ignore */ }
       return;
@@ -2387,6 +2514,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!currentSong) return;
     setIsPlaying(true); // optimistic
     wasPlayingRef.current = true;
+    if (isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.resume().catch(() => undefined);
+      return;
+    }
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.playVideo(); } catch { /* ignore */ }
       return;
@@ -2409,6 +2540,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     teardownYouTubePlayback();
     wasPlayingRef.current = false;
+
+    if (isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.stop().catch(() => undefined);
+    }
 
     if (audioRef.current) {
       markIntentionalPause();
@@ -2456,7 +2591,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [queue, currentIndex, shuffle, repeat, getNextIndex, playSongAtIndex]);
 
   const prevSong = useCallback(() => {
-    if (!audioRef.current || queue.length === 0) return;
+    if (queue.length === 0) return;
 
     // Cancel crossfade
     if (crossfadeIntervalRef.current) {
@@ -2471,7 +2606,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // If more than 3 seconds in, restart current song
-    if (audioRef.current.currentTime > 3) {
+    if (!isNativePlayerAvailable() && audioRef.current && audioRef.current.currentTime > 3) {
       audioRef.current.currentTime = 0;
       setProgress(0);
     } else {
@@ -2482,6 +2617,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [queue, currentIndex, playSongAtIndex]);
 
   const seek = useCallback((time: number) => {
+    if (isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.seekTo({ positionMs: Math.max(0, Math.round(time * 1000)) }).catch(() => undefined);
+      setProgress(time);
+      return;
+    }
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.seekTo(time, true); } catch { /* ignore */ }
       setProgress(time);
@@ -2493,13 +2633,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+
   // Sync volume to YT player when it changes
   useEffect(() => {
     if (youtubeActiveRef.current && youtubePlayerRef.current) {
       try { youtubePlayerRef.current.setVolume?.(Math.round(volume * 100)); } catch { /* ignore */ }
     }
     if (isNativePlayerAvailable()) {
-      setNativeMirrorVolume(volume);
+      void ExoPlayerPlugin.setVolume({ volume }).catch(() => undefined);
     }
   }, [volume]);
 

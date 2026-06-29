@@ -1,10 +1,15 @@
 package com.universeflow.app
 
 import android.content.ComponentName
+import android.content.Context
 import android.content.Intent
+import android.content.ServiceConnection
 import android.net.Uri
+
 import android.os.Handler
+import android.os.IBinder
 import android.os.Looper
+import android.util.Log
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
@@ -31,19 +36,96 @@ class ExoPlayerPlugin : Plugin() {
     private var listenerAttached = false
     private var listenerPlayer: Player? = null
 
-    override fun load() {
-        super.load()
-        // IMPORTANT: Do NOT start the MediaSessionService here.
-        // The service is started lazily inside play(), with plain startService()
-        // (not startForegroundService()) to avoid Android's 5-second foreground
-        // promotion crash path while streams are still resolving/buffering.
+    @Volatile private var serviceConnected = false
+    private val pendingCommands: MutableList<() -> Unit> = mutableListOf()
+    private val connection = object : ServiceConnection {
+        override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
+            Log.d("ExoPlayerPlugin", "ServiceConnection.onServiceConnected")
+            serviceConnected = true
+            drainPending()
+        }
+        override fun onServiceDisconnected(name: ComponentName?) {
+            Log.d("ExoPlayerPlugin", "ServiceConnection.onServiceDisconnected")
+            serviceConnected = false
+        }
     }
 
+    override fun load() {
+        super.load()
+        // Eagerly bring up the MediaSessionService so playback latency on the
+        // very first tap is just the InnerTube resolve + ExoPlayer prepare.
+        val ctx = context.applicationContext
+        val intent = Intent(ctx, ExoPlayerService::class.java).apply {
+            // MediaSessionService.onBind() only returns a binder when this
+            // action is set. Without it, onServiceConnected never fires.
+            action = "androidx.media3.session.MediaSessionService"
+        }
+        // IMPORTANT: plain startService() — NOT startForegroundService().
+        // Media3 promotes the service to FG itself once playback is active;
+        // calling startForegroundService here would arm Android's 5s
+        // startForeground deadline and crash the APK while the service is
+        // still warming up. bindService() with BIND_AUTO_CREATE is enough to
+        // create the service eagerly and give us a connection callback.
+        try {
+            ctx.startService(intent)
+        } catch (t: Throwable) {
+            Log.w("ExoPlayerPlugin", "startService failed: ${t.message}")
+        }
+        try {
+            ctx.bindService(intent, connection, Context.BIND_AUTO_CREATE)
+        } catch (t: Throwable) {
+            Log.w("ExoPlayerPlugin", "bindService failed: ${t.message}")
+        }
+
+    }
 
     private fun service(): ExoPlayerService? = ServiceRegistry.exoService
 
     private fun runOnMain(block: () -> Unit) {
         if (Looper.myLooper() == Looper.getMainLooper()) block() else main.post(block)
+    }
+
+    private fun drainPending() {
+        val copy: List<() -> Unit>
+        synchronized(pendingCommands) {
+            copy = pendingCommands.toList()
+            pendingCommands.clear()
+        }
+        copy.forEach { runOnMain(it) }
+    }
+
+    /**
+     * Run [block] now if the service is connected; otherwise queue it and run
+     * it as soon as onServiceConnected fires. If [timeoutMs] elapses with no
+     * connection, invokes [onTimeout] (typically: reject the PluginCall + emit
+     * playbackError).
+     */
+    private fun runWhenReady(timeoutMs: Long, onTimeout: () -> Unit, block: () -> Unit) {
+        if (serviceConnected && service()?.player != null) {
+            runOnMain(block)
+            return
+        }
+        val sentinel = object {}
+        var fired = false
+        val wrapper: () -> Unit = {
+            if (!fired) {
+                fired = true
+                block()
+            }
+        }
+        synchronized(pendingCommands) { pendingCommands.add(wrapper) }
+        main.postDelayed({
+            // If service still isn't ready and the command hasn't fired, drop
+            // it and signal timeout.
+            if (!fired) {
+                fired = true
+                synchronized(pendingCommands) { pendingCommands.remove(wrapper) }
+                Log.e("ExoPlayerPlugin", "Service ready timeout after ${timeoutMs}ms")
+                onTimeout()
+            }
+            // touch sentinel so kotlin doesn't elide the lambda
+            sentinel.hashCode()
+        }, timeoutMs)
     }
 
     private fun ensureListener(call: PluginCall?) {
@@ -69,6 +151,7 @@ class ExoPlayerPlugin : Plugin() {
                 if (isPlaying) startProgress() else stopProgress()
             }
             override fun onPlayerError(error: PlaybackException) {
+                Log.e("ExoPlayerPlugin", "onPlayerError: ${error.message}")
                 notifyListeners(
                     "playbackError",
                     JSObject().put("message", error.message ?: "playback error"),
@@ -110,21 +193,15 @@ class ExoPlayerPlugin : Plugin() {
         val title = call.getString("title") ?: ""
         val artist = call.getString("artist") ?: ""
         val artwork = call.getString("artworkUrl")
+        Log.d("ExoPlayerPlugin", "play() title=$title url=${url.take(80)}...")
 
-        runOnMain {
-            val ctx = context.applicationContext
-            // Make sure the service is up. Use plain startService(): this call
-            // comes from the foreground app, and Media3 can promote the service
-            // when playback is actually active. startForegroundService() is too
-            // fragile here because a slow network prepare can miss Android's
-            // 5-second startForeground deadline and crash the APK.
-            val intent = Intent(ctx, ExoPlayerService::class.java)
-            try {
-                ctx.startService(intent)
-            } catch (_: Throwable) {}
-
-            fun perform(): Boolean {
-                val player = service()?.player ?: return false
+        val performPlay: () -> Unit = {
+            val player = service()?.player
+            if (player == null) {
+                Log.e("ExoPlayerPlugin", "service ready but player == null")
+                notifyListeners("playbackError", JSObject().put("message", "ExoPlayer player not ready"))
+                call.reject("ExoPlayer player not ready")
+            } else {
                 ensureListener(null)
                 val metadata = MediaMetadata.Builder()
                     .setTitle(title)
@@ -138,38 +215,24 @@ class ExoPlayerPlugin : Plugin() {
                 player.setMediaItem(item)
                 player.prepare()
                 player.playWhenReady = true
-                return true
-            }
-
-            // Wait for the MediaSessionService to publish its player. The old
-            // one-tick retry resolved even when the service was still null,
-            // leaving the WebView audio muted while no ExoPlayer was actually
-            // playing. That caused silent playback, false ended events, and
-            // auto-skips. Resolve only after playback is handed to ExoPlayer.
-            val startedAt = System.currentTimeMillis()
-            fun retryUntilReady() {
-                if (perform()) {
-                    call.resolve()
-                    return
-                }
-                if (System.currentTimeMillis() - startedAt >= 3500L) {
-                    call.reject("ExoPlayer service did not become ready")
-                    notifyListeners(
-                        "playbackError",
-                        JSObject().put("message", "ExoPlayer service did not become ready"),
-                    )
-                    return
-                }
-                main.postDelayed({ retryUntilReady() }, 80)
-            }
-
-            if (perform()) {
                 call.resolve()
-            } else {
-                main.postDelayed({ retryUntilReady() }, 80)
             }
         }
+
+        runWhenReady(
+            timeoutMs = 3000L,
+            onTimeout = {
+                Log.e("ExoPlayerPlugin", "ExoPlayer service did not connect within 3s")
+                notifyListeners(
+                    "playbackError",
+                    JSObject().put("message", "ExoPlayer service did not become ready"),
+                )
+                call.reject("ExoPlayer service did not become ready")
+            },
+            block = performPlay,
+        )
     }
+
 
     @PluginMethod
     fun pause(call: PluginCall) {
@@ -390,6 +453,10 @@ class ExoPlayerPlugin : Plugin() {
 
     override fun handleOnDestroy() {
         stopProgress()
+        try {
+            context.applicationContext.unbindService(connection)
+        } catch (_: Throwable) {}
+        serviceConnected = false
         super.handleOnDestroy()
     }
 }

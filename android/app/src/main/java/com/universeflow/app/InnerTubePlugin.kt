@@ -1,5 +1,6 @@
 package com.universeflow.app
 
+import android.util.Log
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -16,6 +17,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+
 
 /**
  * On-device YouTube InnerTube resolver. Avoids datacenter-IP blocks that hit
@@ -154,7 +156,9 @@ class InnerTubePlugin : Plugin() {
     @PluginMethod
     fun resolveAudio(call: PluginCall) {
         val videoId = call.getString("videoId")
+        Log.d("InnerTube", "Resolving: $videoId")
         if (videoId.isNullOrBlank() || videoId.length != 11) {
+            Log.e("InnerTube", "invalid videoId: $videoId")
             call.reject("invalid videoId")
             return
         }
@@ -186,14 +190,18 @@ class InnerTubePlugin : Plugin() {
             try { latch.await(9, TimeUnit.SECONDS) } catch (_: Throwable) {}
             val w = winner.get()
             if (w != null) {
+                Log.d("InnerTube", "Resolved via ${w.third} (itag=${w.second}): ${w.first.take(80)}...")
                 call.resolve(JSObject().apply {
                     put("url", w.first); put("itag", w.second); put("client", w.third)
                 })
             } else {
-                call.reject("InnerTube resolve failed: ${errors.joinToString("; ").ifEmpty { "no playable stream" }}")
+                val joined = errors.joinToString("; ").ifEmpty { "no playable stream" }
+                Log.e("InnerTube", "All clients failed for $videoId: $joined")
+                call.reject("InnerTube resolve failed: $joined")
             }
         }.start()
     }
+
 
     private fun attempt(videoId: String, ctx: ClientCtx): Pair<String, Int>? {
         val body = JSONObject().apply {
