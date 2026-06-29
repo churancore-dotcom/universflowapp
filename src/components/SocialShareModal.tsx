@@ -158,10 +158,11 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
       ctx.fillText(song.album, textX, canvas.height / 2 + 80);
     }
 
-    // App branding
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-    ctx.font = '600 18px system-ui, -apple-system, sans-serif';
-    ctx.fillText('🎧 UniversFlow', textX, canvas.height / 2 + 140);
+    // Universal Univers Flow watermark — bottom-right corner
+    await drawUniversFlowWatermark(ctx, canvas.width, canvas.height, {
+      position: 'bottom-right',
+      theme: 'light',
+    });
 
     // Generate image URL
     const url = canvas.toDataURL('image/png');
