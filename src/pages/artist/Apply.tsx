@@ -286,6 +286,41 @@ export default function ArtistApply() {
           }
         } catch { /* ignore */ }
 
+        // Resume in-progress draft from a previous session (same user). We
+        // keep this in localStorage so artists who leave mid-flow — even after
+        // signing out — can pick up exactly where they left off. Files are not
+        // restorable; they must be reselected on the file steps.
+        try {
+          const draftRaw = localStorage.getItem(`uf_artist_apply_draft:${user.id}`);
+          if (draftRaw) {
+            const d = JSON.parse(draftRaw) as Partial<{
+              stageName: string; realName: string; phone: string; country: string; bio: string;
+              instagram: string; youtube: string; spotify: string; appleMusic: string;
+              docType: IdDocType | null; agreeTerms: boolean; agreePrivacy: boolean; step: Step;
+            }>;
+            if (d.stageName) setStageName(d.stageName);
+            if (d.realName) setRealName(d.realName);
+            if (d.country) setCountry(d.country);
+            if (d.phone != null) setPhone(d.phone);
+            if (d.bio) setBio(d.bio);
+            if (d.instagram) setInstagram(d.instagram);
+            if (d.youtube) setYoutube(d.youtube);
+            if (d.spotify) setSpotify(d.spotify);
+            if (d.appleMusic) setAppleMusic(d.appleMusic);
+            if (d.docType) setDocType(d.docType);
+            if (d.agreeTerms) setAgreeTerms(true);
+            if (d.agreePrivacy) setAgreePrivacy(true);
+            // Resume on the saved step, but cap at step 3 — steps 4 (face),
+            // 5 (photo) and 6 (submit) all need files we can't restore.
+            if (typeof d.step === 'number' && d.step >= 1 && d.step <= 3) {
+              setStep(Math.min(d.step, 3) as Step);
+            }
+            if (d.stageName || d.realName) {
+              toast.success("Welcome back — we've restored your application.");
+            }
+          }
+        } catch { /* ignore corrupt draft */ }
+
         if (!prefilledCountry) {
           try {
             const cc = await detectCountrySilently();
@@ -300,6 +335,24 @@ export default function ArtistApply() {
       }
     })();
   }, [user, isLoading, navigate, isReapplyMode]);
+
+  // Auto-save the in-progress application draft (debounced). Skipped during
+  // reapply because that flow is locked to the existing submission's data.
+  useEffect(() => {
+    if (!user || !bootChecked || isLockedReapply) return;
+    const id = setTimeout(() => {
+      try {
+        localStorage.setItem(`uf_artist_apply_draft:${user.id}`, JSON.stringify({
+          stageName, realName, phone, country, bio,
+          instagram, youtube, spotify, appleMusic,
+          docType, agreeTerms, agreePrivacy, step,
+        }));
+      } catch { /* quota — ignore */ }
+    }, 400);
+    return () => clearTimeout(id);
+  }, [user, bootChecked, isLockedReapply, stageName, realName, phone, country, bio,
+      instagram, youtube, spotify, appleMusic, docType, agreeTerms, agreePrivacy, step]);
+
 
   // Update doc type when country changes — but never auto-pick if user hasn't chosen country yet.
   useEffect(() => {
@@ -458,6 +511,8 @@ export default function ArtistApply() {
       }
 
       try { sessionStorage.setItem('uf_artist_just_submitted', String(Date.now())); } catch { /* ignore */ }
+      // Draft is no longer needed once the application is in.
+      try { localStorage.removeItem(`uf_artist_apply_draft:${user.id}`); } catch { /* ignore */ }
       setSubmittedSuccess({ reapply: isLockedReapply });
       window.setTimeout(() => navigate('/artist/status', { replace: true }), 2600);
       return;

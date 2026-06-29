@@ -10,7 +10,7 @@ import { useDownloads } from '@/contexts/DownloadContext';
 import BottomNav from '@/components/BottomNav';
 import CreatePlaylistModal from '@/components/CreatePlaylistModal';
 
-import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection';
+// FollowedArtistSongsSection intentionally not imported — removed from Liked tab.
 import LikeButton from '@/components/LikeButton';
 import DownloadButton from '@/components/DownloadButton';
 import { TabTransition } from '@/components/PageTransition';
@@ -301,11 +301,6 @@ const Library = () => {
 
             {/* Content — scrollable */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto pb-32" style={{ WebkitOverflowScrolling: 'touch' }}>
-              {!isOffline && likedSongs.length > 0 && activeTab === 'liked' && (
-                <div className="mb-4">
-                  <FollowedArtistSongsSection songs={likedSongs} />
-                </div>
-              )}
               <TabsContent value="liked" className="mt-0 h-full">
                 <h2 className="sr-only">Liked Songs</h2>
                 {loading ? (
