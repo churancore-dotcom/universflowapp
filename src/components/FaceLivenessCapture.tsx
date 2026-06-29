@@ -88,6 +88,7 @@ export default function FaceLivenessCapture({
   const [flash, setFlash] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [slowHelp, setSlowHelp] = useState(false);
+  const modelRetryRef = useRef(0);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
