@@ -29,6 +29,7 @@ class ExoPlayerPlugin : Plugin() {
     private val main = Handler(Looper.getMainLooper())
     private var progressTimer: Runnable? = null
     private var listenerAttached = false
+    private var listenerPlayer: Player? = null
 
     override fun load() {
         super.load()
@@ -46,9 +47,9 @@ class ExoPlayerPlugin : Plugin() {
     }
 
     private fun ensureListener(call: PluginCall?) {
-        if (listenerAttached) return
         val svc = service() ?: return
         val player = svc.player ?: return
+        if (listenerAttached && listenerPlayer === player) return
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 val name = when (state) {
@@ -75,6 +76,7 @@ class ExoPlayerPlugin : Plugin() {
             }
         })
         listenerAttached = true
+        listenerPlayer = player
         call?.let { ensureListener(null) }
     }
 
