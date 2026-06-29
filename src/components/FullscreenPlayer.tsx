@@ -166,8 +166,8 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
 
   const liveProgress = isFinite(progress) ? progress : 0;
   const safeProgress = dragProgress !== null ? dragProgress : liveProgress;
-  const safeDuration = isFinite(duration) && duration > 0 ? duration : 100;
-  const timeRemaining = safeDuration - safeProgress;
+  const safeDuration = isFinite(duration) && duration > 0 ? duration : Math.max(safeProgress + 1, 100);
+  const timeRemaining = Math.max(0, safeDuration - safeProgress);
   const showLikeAction = canLikeSong(currentSong);
   const showDownloadAction = canDownloadSong(currentSong);
   const isPlaybackOnlyStream = isIndexedSong(currentSong);
