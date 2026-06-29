@@ -16,9 +16,7 @@ import android.os.PowerManager
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
-import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 
@@ -78,14 +76,16 @@ class ExoPlayerService : MediaSessionService() {
             C.AUDIO_SESSION_ID_UNSET
         }
 
-        val httpDataSourceFactory = DefaultHttpDataSource.Factory()
-            .setUserAgent(HTTP_USER_AGENT)
-            .setAllowCrossProtocolRedirects(true)
-            .setConnectTimeoutMs(12000)
-            .setReadTimeoutMs(20000)
+        // Echo-style media pipeline: yt://<videoId> URIs are resolved lazily by
+        // InnerTube on-device, and resolved audio is persisted in a 512MB LRU
+        // disk cache so replays are instant and expired URLs auto-refresh.
+        val mediaSourceFactory = NativeMediaSourceFactory.build(this)
+
+        // Prewarm the InnerTube connection so first-tap latency is minimal.
+        NativeYouTubeResolver.warm()
 
         val builder = ExoPlayer.Builder(this)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(httpDataSourceFactory))
+            .setMediaSourceFactory(mediaSourceFactory)
             .setAudioAttributes(audioAttrs, /* handleAudioFocus */ true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
@@ -262,6 +262,9 @@ class ExoPlayerService : MediaSessionService() {
         mediaSession = null
         player = null
         releaseLocks()
+        // Keep the SimpleCache alive across service restarts; only release
+        // when the process dies. NativeMediaSourceFactory.release() is
+        // intentionally NOT called here.
         super.onDestroy()
     }
 }
