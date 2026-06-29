@@ -350,80 +350,140 @@ async function renderCard(
   const ctx = canvas.getContext('2d')!;
   const v = VARIANTS[variant];
 
-  // Background gradient
-  const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, v.from);
-  g.addColorStop(1, v.to);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // 1. Base
+  ctx.fillStyle = '#0A0A0C';
+  ctx.fillRect(0, 0, W, H);
 
-  // Soft blurred cover backdrop
+  // 2. Full-bleed blurred artwork backdrop
   if (song.cover_url) {
     try {
       const img = await loadImage(song.cover_url);
       ctx.save();
-      ctx.globalAlpha = 0.35;
-      (ctx as any).filter = 'blur(40px) saturate(140%)';
+      (ctx as any).filter = 'blur(70px) saturate(140%) brightness(0.5)';
       const s = Math.max(W / img.width, H / img.height);
       const dw = img.width * s, dh = img.height * s;
       ctx.drawImage(img, (W - dw) / 2, (H - dh) / 2, dw, dh);
       ctx.restore();
     } catch { /* ignore */ }
+  } else {
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, v.from); g.addColorStop(1, v.to);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
   }
-  // Bottom darken
+
+  // 3. Top + bottom shading
+  const topShade = ctx.createLinearGradient(0, 0, 0, H * 0.35);
+  topShade.addColorStop(0, 'rgba(0,0,0,0.7)');
+  topShade.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = topShade; ctx.fillRect(0, 0, W, H * 0.35);
   const dim = ctx.createLinearGradient(0, H * 0.45, 0, H);
   dim.addColorStop(0, 'rgba(0,0,0,0)');
-  dim.addColorStop(1, 'rgba(0,0,0,0.75)');
-  ctx.fillStyle = dim; ctx.fillRect(0, 0, W, H);
+  dim.addColorStop(0.55, 'rgba(0,0,0,0.75)');
+  dim.addColorStop(1, 'rgba(0,0,0,0.97)');
+  ctx.fillStyle = dim; ctx.fillRect(0, H * 0.45, W, H * 0.55);
 
-  // Cover thumb (large, centered)
-  const coverSize = 720;
+  // 4. Masthead
+  const margin = 80;
+  ctx.fillStyle = '#FFFFFF';
+  ctx.font = '700 30px "Helvetica Neue", system-ui, sans-serif';
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
+  ctx.fillText('UNIVERS FLOW', margin, 130);
+  ctx.fillStyle = v.chip;
+  ctx.textAlign = 'right';
+  ctx.fillText('NEW RELEASE / VOL. 01', W - margin, 130);
+  ctx.textAlign = 'left';
+  ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.moveTo(margin, 155); ctx.lineTo(W - margin, 155); ctx.stroke();
+
+  // 5. Centered artwork tile (sharp)
+  const coverSize = 760;
   const cx = (W - coverSize) / 2;
-  const cy = 360;
-  drawRoundedRect(ctx, cx - 8, cy - 8, coverSize + 16, coverSize + 16, 48);
-  ctx.fillStyle = 'rgba(255,255,255,0.08)'; ctx.fill();
+  const cy = 260;
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.65)';
+  ctx.shadowBlur = 60; ctx.shadowOffsetY = 30;
+  drawRoundedRect(ctx, cx, cy, coverSize, coverSize, 40);
+  ctx.fillStyle = '#15151A'; ctx.fill();
+  ctx.restore();
   if (song.cover_url) {
     try {
       const img = await loadImage(song.cover_url);
       drawRoundedImage(ctx, img, cx, cy, coverSize, coverSize, 40);
-    } catch { /* leave placeholder */ }
-  } else {
-    drawRoundedRect(ctx, cx, cy, coverSize, coverSize, 40);
-    ctx.fillStyle = '#1a1a1f'; ctx.fill();
+    } catch { /* placeholder */ }
   }
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  drawRoundedRect(ctx, cx + 0.5, cy + 0.5, coverSize - 1, coverSize - 1, 40);
+  ctx.stroke();
 
-  // Chip — NEW
-  ctx.fillStyle = v.chip;
-  drawRoundedRect(ctx, 80, 140, 200, 64, 32); ctx.fill();
-  ctx.fillStyle = variant === 'mono' ? '#000' : '#fff';
-  ctx.font = '700 28px ui-sans-serif, system-ui, sans-serif';
-  ctx.textBaseline = 'middle';
-  ctx.fillText('NEW', 158, 173);
+  // 6. Serif editorial headline
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.font = '900 92px Georgia, "Times New Roman", serif';
+  const titleY = cy + coverSize + 140;
+  const titleLines = wrapMagText(ctx, song.title, W - margin * 2, 2);
+  titleLines.forEach((line, i) => ctx.fillText(line, W / 2, titleY + i * 100));
 
-  // Title
-  ctx.fillStyle = '#fff';
-  ctx.font = '800 84px ui-sans-serif, system-ui, sans-serif';
-  ctx.textBaseline = 'alphabetic';
-  wrapText(ctx, song.title, 80, 1280, W - 160, 96, 2);
+  // 7. Accent rule
+  const ruleY = titleY + titleLines.length * 100 + 30;
+  ctx.strokeStyle = v.chip;
+  ctx.lineWidth = 4;
+  ctx.beginPath();
+  ctx.moveTo(W / 2 - 50, ruleY); ctx.lineTo(W / 2 + 50, ruleY); ctx.stroke();
 
-  // Artist
-  ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.font = '500 42px ui-sans-serif, system-ui, sans-serif';
-  ctx.fillText(profile.stage_name, 80, 1440);
+  // 8. Artist
+  ctx.fillStyle = 'rgba(255,255,255,0.9)';
+  ctx.font = '500 44px "Helvetica Neue", system-ui, sans-serif';
+  ctx.fillText(profile.stage_name, W / 2, ruleY + 70);
 
-  // CTA bar
-  drawRoundedRect(ctx, 80, 1620, W - 160, 110, 55);
+  // 9. CTA pill
+  const ctaY = H - 280;
+  drawRoundedRect(ctx, margin, ctaY, W - margin * 2, 120, 60);
   ctx.fillStyle = '#fff'; ctx.fill();
   ctx.fillStyle = '#000';
-  ctx.font = '700 36px ui-sans-serif, system-ui, sans-serif';
   ctx.textBaseline = 'middle';
-  const cta = `▶  Listen on universflow.in/a/${profile.slug}`;
-  const truncated = ellipsize(ctx, cta, W - 220);
-  ctx.fillText(truncated, 120, 1675);
+  ctx.textAlign = 'center';
+  ctx.font = '700 38px "Helvetica Neue", system-ui, sans-serif';
+  const cta = `▶  LISTEN · universflow.in/a/${profile.slug}`;
+  ctx.fillText(ellipsize(ctx, cta, W - margin * 2 - 80), W / 2, ctaY + 60);
+  ctx.textBaseline = 'alphabetic';
+  ctx.textAlign = 'left';
 
-  // Universal Univers Flow watermark — top-right so it stays clear of the CTA bar
-  await drawUniversFlowWatermark(ctx, W, H, { position: 'top-right', theme: 'light' });
+  // 10. Footer ticker
+  ctx.fillStyle = 'rgba(255,255,255,0.6)';
+  ctx.font = '600 22px "Helvetica Neue", system-ui, sans-serif';
+  ctx.fillText('FREE · NO ADS · LOSSLESS', margin, H - 70);
+  ctx.textAlign = 'right';
+  ctx.fillText('SHARE / TAG @UNIVERSFLOW', W - margin, H - 70);
+  ctx.textAlign = 'left';
+
+  // 11. Watermark — top-right safe zone
+  await drawUniversFlowWatermark(ctx, W, H - 160, { position: 'top-right', theme: 'light' });
 
   return canvas.toDataURL('image/png');
+}
+
+function wrapMagText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number, maxLines: number): string[] {
+  const words = (text || '').split(/\s+/).filter(Boolean);
+  const lines: string[] = [];
+  let cur = '';
+  for (const w of words) {
+    const test = cur ? cur + ' ' + w : w;
+    if (ctx.measureText(test).width > maxWidth) {
+      if (cur) lines.push(cur);
+      cur = w;
+      if (lines.length === maxLines) break;
+    } else cur = test;
+  }
+  if (cur && lines.length < maxLines) lines.push(cur);
+  if (lines.length === maxLines) {
+    let last = lines[maxLines - 1];
+    while (ctx.measureText(last + '…').width > maxWidth && last.length > 0) last = last.slice(0, -1);
+    if (last !== lines[maxLines - 1]) lines[maxLines - 1] = last + '…';
+  }
+  return lines;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {

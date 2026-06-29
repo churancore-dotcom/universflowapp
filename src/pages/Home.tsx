@@ -307,14 +307,14 @@ const Home = () => {
 
 
               {!isOffline && <FreshReleasesSection songs={allSongs} enabled={homeReady} />}
+              {/* Followed artists rail — restored above Trending */}
+              {!isOffline && <FollowedArtistSongsSection songs={allSongs} />}
               {!isOffline && <TrendingNowSection songs={allSongs} enabled={homeReady} />}
               {/* Discovery — Featured Artists */}
               {!isOffline && <FeaturedArtistsSection />}
               {!isOffline && <MadeForYouSection />}
               {/* Viral Now Rail — live country chart, real data */}
               {!isOffline && <CountryViralSection />}
-              {/* Followed artists rail — sits below Trending (per user request) */}
-              {!isOffline && <FollowedArtistSongsSection songs={allSongs} />}
 
               {/* Saved songs only when offline — uploaded catalog is hidden from online Home */}
               {isOffline && allSongs.length > 0 && (
