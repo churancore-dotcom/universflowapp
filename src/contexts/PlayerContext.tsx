@@ -252,10 +252,11 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
     // Phone-resolved URLs are excluded earlier by isNativeResolvedStreamUrl().
     if (parsed.hostname.endsWith('googlevideo.com')) return true;
 
-    // For Premium EQ/effects, proxy external streams to guarantee a CORS-clean
-    // MediaElementSource. Flat playback stays direct for fastest start and more
-    // reliable Android background playback.
-    return getRuntimePremium() && hasWebAudioEffects(getEQSettings());
+    // Always proxy external streams. This keeps the first byte CORS-clean, so
+    // the WebAudio/EQ graph can attach instantly when the user enables effects
+    // later; otherwise one raw load can permanently taint the element for that
+    // song and make the equalizer look dead.
+    return true;
   } catch {
     return false;
   }
