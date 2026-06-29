@@ -262,6 +262,9 @@ class ExoPlayerService : MediaSessionService() {
         mediaSession = null
         player = null
         releaseLocks()
+        // Keep the SimpleCache alive across service restarts; only release
+        // when the process dies. NativeMediaSourceFactory.release() is
+        // intentionally NOT called here.
         super.onDestroy()
     }
 }
