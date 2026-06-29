@@ -1337,7 +1337,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     try {
-        const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
+      const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
       if (fresh && !isYouTubeFallbackUrl(fresh)) return buildStreamProxyUrl(fresh);
     } catch { /* fall through to direct URL */ }
 
