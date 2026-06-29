@@ -543,8 +543,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       attachNativeMirror(audio, {
         getSong: () => currentSongRef.current as never,
         onUnrecoverableError: () => {
-          // Surface skip to existing error path via a synthetic error event.
-          try { audio.dispatchEvent(new Event('error')); } catch { /* ignore */ }
+          // Native failed to take over. nativeMirror restores audible WebView
+          // playback, so do NOT dispatch a synthetic media error here — that was
+          // stopping the tapped song even though the fallback could still play.
         },
       });
       setNativeMirrorVolume(volume);
@@ -1549,7 +1550,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setDuration(audio.duration || 0);
     };
 
-    const handleEnded = () => {
+    const handleEnded = (event?: Event) => {
+      // In the APK, ExoPlayer is the real audible player and the HTML element is
+      // only a muted shadow for UI state. Android WebView can fire premature
+      // `ended` on that shadow stream; accepting it makes the app skip to the
+      // next song while ExoPlayer is still buffering/playing. Only the dedicated
+      // native event may advance the queue while the shadow is muted.
+      if (isNativePlayerAvailable() && audio.muted && event?.type !== 'uf-native-ended') return;
       if (isCrossfading.current) return;
       // De-dupe: 'ended' + the timeupdate safety net could both fire for the
       // same song. Only the first wins until the next play request bumps seq.
@@ -1667,6 +1674,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       //    If we're within 0.25s of the end and not crossfading, force the
       //    ended pipeline so playlists keep flowing on APK.
       if (
+        !(isNativePlayerAvailable() && audio.muted) &&
         !isCrossfading.current &&
         audio.duration > 1 &&
         isFinite(audio.duration) &&
@@ -1749,6 +1757,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     audio.addEventListener('loadedmetadata', handleLoadedMetadata);
     audio.addEventListener('ended', handleEnded);
+    audio.addEventListener('uf-native-ended', handleEnded as EventListener);
     audio.addEventListener('play', handlePlay);
     audio.addEventListener('pause', handlePause);
     audio.addEventListener('timeupdate', handleTimeUpdate);
@@ -1757,6 +1766,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => {
       audio.removeEventListener('loadedmetadata', handleLoadedMetadata);
       audio.removeEventListener('ended', handleEnded);
+      audio.removeEventListener('uf-native-ended', handleEnded as EventListener);
       audio.removeEventListener('play', handlePlay);
       audio.removeEventListener('pause', handlePause);
       audio.removeEventListener('timeupdate', handleTimeUpdate);

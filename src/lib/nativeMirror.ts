@@ -36,6 +36,8 @@ let listenersBound = false;
 let stateUnlisten: (() => void) | null = null;
 let progressUnlisten: (() => void) | null = null;
 let errorUnlisten: (() => void) | null = null;
+let lastMasterVolume = 1;
+let nativeAudible = false;
 
 const isPlayableHttpUrl = (url: string | null | undefined): url is string =>
   !!url && typeof url === 'string' && /^https?:\/\//i.test(url);
@@ -45,13 +47,21 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
   if (attached) return; // single primary element only
   attached = true;
 
-  // ExoPlayer is the only audible output on native. Mute the HTML element but
-  // keep it loading & ticking so timeupdate/ended/loadedmetadata still drive
-  // the React state machine.
-  try {
-    audio.muted = true;
-    audio.volume = 0;
-  } catch { /* ignore */ }
+  const muteShadowAudio = () => {
+    try {
+      audio.muted = true;
+      audio.volume = 0;
+    } catch { /* ignore */ }
+  };
+
+  const restoreWebAudioFallback = () => {
+    nativeAudible = false;
+    try {
+      audio.muted = false;
+      audio.volume = lastMasterVolume;
+      if (audio.src && audio.paused) void audio.play().catch(() => undefined);
+    } catch { /* ignore */ }
+  };
 
   const startExo = async (url: string) => {
     const song = opts.getSong();
@@ -59,10 +69,19 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     const artist = song?.artist || song?.author || '';
     const artworkUrl = song?.thumbnail || song?.cover_url || song?.image_url || undefined;
     lastPlayCallAt = Date.now();
+    nativeAudible = false;
+    muteShadowAudio();
     try {
       await ExoPlayerPlugin.play({ url, title, artist, artworkUrl });
+      nativeAudible = true;
+      muteShadowAudio();
     } catch (e) {
       console.warn('[nativeMirror] ExoPlayer.play failed', (e as Error)?.message);
+      // Permanent safety net: if the native service cannot start, do NOT leave
+      // the only active HTMLAudioElement muted. Fall back to audible WebView
+      // playback instead of creating silent tracks that auto-advance.
+      restoreWebAudioFallback();
+      opts.onUnrecoverableError?.();
     }
   };
 
@@ -76,12 +95,14 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
   });
 
   audio.addEventListener('play', () => {
+    if (!nativeAudible) return;
     // Avoid duplicate play() right after a fresh start.
     if (Date.now() - lastPlayCallAt < 500) return;
     void ExoPlayerPlugin.resume().catch(() => undefined);
   });
 
   audio.addEventListener('pause', () => {
+    if (!nativeAudible) return;
     // System / WebView background throttling fires `pause` even though the user
     // didn't pause. ExoPlayer is what keeps audible playback alive in the
     // background, so we ignore pause events fired while the page is hidden.
@@ -91,6 +112,7 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
   });
 
   audio.addEventListener('seeked', () => {
+    if (!nativeAudible) return;
     const positionMs = Math.max(0, Math.floor(audio.currentTime * 1000));
     void ExoPlayerPlugin.seekTo({ positionMs }).catch(() => undefined);
   });
@@ -130,10 +152,11 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
     ExoPlayerPlugin.addListener('playbackStateChange', (data) => {
       const s = data as ExoPlaybackState;
       if (s.state === 'ended') {
-        // Let HTMLAudioElement's own 'ended' handler advance the queue. If the
-        // element didn't naturally fire ended (background WebView stall), we
-        // dispatch one synthetically.
-        if (!audio.ended) audio.dispatchEvent(new Event('ended'));
+        nativeAudible = false;
+        // Native ExoPlayer is authoritative on Android. Dispatch a dedicated
+        // event so PlayerContext can ignore premature muted-WebView `ended`
+        // events and only advance when ExoPlayer really finishes.
+        audio.dispatchEvent(new Event('uf-native-ended'));
       }
     }).then((h) => { stateUnlisten = () => h.remove(); }).catch(() => undefined);
 
@@ -148,18 +171,21 @@ export function attachNativeMirror(audio: HTMLAudioElement, opts: AttachOptions)
 export function setNativeMirrorVolume(volume: number): void {
   if (!isNativePlayerAvailable()) return;
   const v = Math.max(0, Math.min(1, volume));
+  lastMasterVolume = v;
   void ExoPlayerPlugin.setVolume({ volume: v }).catch(() => undefined);
 }
 
 export function stopNativeMirror(): void {
   if (!isNativePlayerAvailable()) return;
   lastUrl = null;
+  nativeAudible = false;
   void ExoPlayerPlugin.stop().catch(() => undefined);
 }
 
 export function disposeNativeMirror(): void {
   attached = false;
   listenersBound = false;
+  nativeAudible = false;
   try { stateUnlisten?.(); } catch { /* ignore */ }
   try { progressUnlisten?.(); } catch { /* ignore */ }
   try { errorUnlisten?.(); } catch { /* ignore */ }
