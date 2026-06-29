@@ -1351,28 +1351,27 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!shouldRefreshYoutubeUrl) return buildNativeExoPlayerUrl(directUrl);
     }
 
-    // Fast path: try true on-device YouTube resolution first, but never let it
-    // be the only path. Many videos now require signature/n-param handling; when
-    // the Kotlin resolver can't return a playable URL, we immediately fall back
-    // to the normal resolver chain (JioSaavn + edge proxy) and still play through
-    // ExoPlayer so background audio keeps working.
+    try {
+      const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
+      if (fresh && !isYouTubeFallbackUrl(fresh)) return buildNativeExoPlayerUrl(fresh);
+    } catch { /* fall through to direct URL */ }
+
+    // Last fallback only: true on-device YouTube resolution. These googlevideo
+    // URLs are signed for the phone IP, so they must stay direct. We do NOT use
+    // this as the primary path because some URLs still require signature/n-param
+    // transforms and can stall ExoPlayer at ~3s before failing.
     if (videoId && !opts.skipNativeFastPath) {
       try {
         const res = await Promise.race([
           InnerTubePlugin.resolveAudio({ videoId }),
-          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 6500)),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 3500)),
         ]);
         if (res?.url && !isYouTubeFallbackUrl(res.url)) {
           markNativeResolvedStreamUrl(res.url, videoId);
           return res.url;
         }
-      } catch { /* fall through to backend/JioSaavn resolver */ }
+      } catch { /* fall through to direct URL */ }
     }
-
-    try {
-      const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
-      if (fresh && !isYouTubeFallbackUrl(fresh)) return buildNativeExoPlayerUrl(fresh);
-    } catch { /* fall through to direct URL */ }
 
     // Last resort for catalog uploads/direct CDN URLs. If this is a cloud-signed
     // googlevideo URL, buildStreamProxyUrl keeps the fetch on the signing side.
