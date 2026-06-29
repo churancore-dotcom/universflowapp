@@ -611,29 +611,30 @@ export default function FaceLivenessCapture({
       <canvas ref={captureCanvasRef} className="hidden" />
       <canvas ref={sampleCanvasRef} className="hidden" />
 
-      {slowHelp && phase === 'preflight' && (
-        <div className="rounded-2xl p-3.5 bg-yellow-500/10 border border-yellow-500/30 text-yellow-100 flex items-center justify-between gap-3">
-          <div className="text-[12.5px] leading-snug">
-            Trouble capturing? Try better lighting or move a little closer.
-          </div>
+      {phase === 'preflight' && (
+        <div className="space-y-2">
+          {slowHelp && (
+            <div className="rounded-2xl p-3 bg-white/[0.04] border border-white/10 text-[12px] text-white/80 leading-snug">
+              Trouble auto-capturing? Tap <span className="font-semibold text-white">Capture now</span> — we'll use the current frame.
+            </div>
+          )}
           <button
             type="button"
-            onClick={() => { setSlowHelp(false); onFail?.('user-gave-up'); restart(); }}
-            className="shrink-0 h-9 px-3 rounded-lg text-[12px] font-semibold bg-yellow-400/90 text-black"
+            onClick={() => { void doCapture(); }}
+            disabled={!videoReady}
+            className="w-full h-12 rounded-xl font-semibold text-white inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            style={{ background: '#FF2D55' }}
           >
-            <RotateCcw className="inline w-3.5 h-3.5 mr-1" /> Restart
+            <Camera className="w-4 h-4" /> Capture now
+          </button>
+          <button
+            type="button"
+            onClick={restart}
+            className="w-full h-10 rounded-xl text-[12.5px] text-muted-foreground hover:text-white border border-white/10 hover:border-white/25 transition"
+          >
+            <X className="inline w-3.5 h-3.5 mr-1.5" /> Cancel
           </button>
         </div>
-      )}
-
-      {phase === 'preflight' && (
-        <button
-          type="button"
-          onClick={restart}
-          className="w-full h-10 rounded-xl text-[12.5px] text-muted-foreground hover:text-white border border-white/10 hover:border-white/25 transition"
-        >
-          <X className="inline w-3.5 h-3.5 mr-1.5" /> Cancel
-        </button>
       )}
     </div>
   );
