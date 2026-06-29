@@ -299,6 +299,19 @@ const buildStreamProxyUrl = (sourceUrl: string) => {
   return wrapStreamUrl(sourceUrl, { force: true });
 };
 
+const buildNativeExoPlayerUrl = (sourceUrl: string) => {
+  if (!sourceUrl || !sourceUrl.startsWith('http')) return sourceUrl;
+  if (isStreamProxyUrl(sourceUrl) || isNativeResolvedStreamUrl(sourceUrl)) return sourceUrl;
+  try {
+    const parsed = new URL(sourceUrl, typeof window !== 'undefined' ? window.location.href : 'http://localhost');
+    // Edge-resolved googlevideo URLs are signed for Supabase's IP, so Android
+    // ExoPlayer must fetch them through stream-proxy. Normal CDN/upload URLs do
+    // not need CORS in ExoPlayer and should stay direct for fastest startup.
+    if (parsed.hostname.endsWith('googlevideo.com')) return buildStreamProxyUrl(sourceUrl);
+  } catch { /* keep original URL */ }
+  return sourceUrl;
+};
+
 const isAudioProxyUrl = (url?: string | null) =>
   isStreamProxyUrl(url) || Boolean(url?.includes('/functions/v1/music-indexer?audio='));
 
