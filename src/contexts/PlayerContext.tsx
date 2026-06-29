@@ -1960,6 +1960,72 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, extendQueueWithMix, playbackSettingsVersion]);
 
+  // ── Android: subscribe to ExoPlayer events and drive React state directly.
+  useEffect(() => {
+    if (!isNativePlayerAvailable()) return;
+    let progressHandle: { remove: () => void } | undefined;
+    let stateHandle: { remove: () => void } | undefined;
+    let errorHandle: { remove: () => void } | undefined;
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const p = await ExoPlayerPlugin.addListener('playbackProgress', (d) => {
+          const data = d as ExoPlaybackProgress;
+          const posSec = Math.max(0, (data.position || 0) / 1000);
+          const durSec = Math.max(0, (data.duration || 0) / 1000);
+          setProgress(posSec);
+          if (durSec > 0) setDuration(durSec);
+        });
+        const s = await ExoPlayerPlugin.addListener('playbackStateChange', (d) => {
+          const data = d as ExoPlaybackState;
+          if (data.state === 'playing') { setIsPlaying(true); wasPlayingRef.current = true; }
+          else if (data.state === 'paused') { setIsPlaying(false); }
+          else if (data.state === 'stopped') { setIsPlaying(false); }
+          else if (data.state === 'ended') {
+            const activeRepeat = repeatRef.current;
+            if (activeRepeat === 'one') {
+              void ExoPlayerPlugin.seekTo({ positionMs: 0 }).catch(() => undefined);
+              void ExoPlayerPlugin.resume().catch(() => undefined);
+              return;
+            }
+            const q = queueRef.current;
+            const i = currentIndexRef.current;
+            let nIdx = getNextIndex(i, q.length, shuffleRef.current, activeRepeat);
+            if (nIdx === null && activeRepeat === 'all') nIdx = 0;
+            if (nIdx !== null && q.length > 0) void playSongAtIndex(nIdx, q);
+            else setIsPlaying(false);
+          }
+        });
+        const e = await ExoPlayerPlugin.addListener('playbackError', (d) => {
+          const data = d as ExoPlaybackError;
+          console.warn('[player/native] ExoPlayer error:', data.message);
+          toast.error('Song unavailable');
+          const q = queueRef.current;
+          const i = currentIndexRef.current;
+          const nIdx = getNextIndex(i, q.length, shuffleRef.current, repeatRef.current);
+          if (nIdx !== null && q.length > 0) {
+            window.setTimeout(() => { if (!cancelled) void playSongAtIndex(nIdx, q); }, 1500);
+          } else {
+            setIsPlaying(false);
+          }
+        });
+        if (cancelled) { p.remove(); s.remove(); e.remove(); return; }
+        progressHandle = p; stateHandle = s; errorHandle = e;
+      } catch (err) {
+        console.warn('[player/native] failed to attach listeners', (err as Error)?.message);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      try { progressHandle?.remove(); } catch { /* noop */ }
+      try { stateHandle?.remove(); } catch { /* noop */ }
+      try { errorHandle?.remove(); } catch { /* noop */ }
+    };
+  }, [getNextIndex, playSongAtIndex]);
+
+
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
   // YouTube-backed audio URLs expire ~6h after issue, and the OS can suspend
   // the audio element if the URL goes stale while in background. We:
