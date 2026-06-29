@@ -461,28 +461,26 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               <VolumeSlider value={volume} onChange={setVolume} />
 
               {vibeSuggestions.length > 0 && (
-                <div className="space-y-2">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-white/40 px-1">{suggestionsLabel}</p>
-                  <div className="flex gap-2 overflow-x-auto hide-scrollbar pb-1 -mx-1 px-1">
-                    {vibeSuggestions.map((song) => (
-                      <button
-                        key={song.id}
-                        type="button"
-                        onClick={() => { triggerHaptic('selection'); playSong(song, undefined, queue); }}
-                        className="w-32 flex-shrink-0 rounded-2xl bg-white/5 p-2 text-left active:scale-[0.96] transition-transform"
-                      >
-                        <div className="mb-2 aspect-square overflow-hidden rounded-xl bg-white/10">
-                          {song.cover_url ? (
-                            <img src={song.cover_url} alt={`${song.title} cover art`} className="h-full w-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="flex h-full w-full items-center justify-center text-white/30">♪</div>
-                          )}
-                        </div>
-                        <p className="truncate text-[12px] font-semibold text-white/90">{song.title}</p>
-                        <p className="truncate text-[10px] text-white/45">{song.mood || song.genre || song.artist}</p>
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex items-center gap-2 -mx-1 px-1 overflow-x-auto hide-scrollbar">
+                  <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-[0.18em] text-white/40 pr-1">{suggestionsLabel}</span>
+                  {vibeSuggestions.map((song) => (
+                    <button
+                      key={song.id}
+                      type="button"
+                      onClick={() => { triggerHaptic('selection'); playSong(song, undefined, queue); }}
+                      className="group flex items-center gap-2 flex-shrink-0 rounded-full bg-white/5 hover:bg-white/10 pl-1 pr-3 py-1 active:scale-[0.96] transition-all max-w-[180px]"
+                      aria-label={`Play ${song.title}`}
+                    >
+                      <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-white/10">
+                        {song.cover_url ? (
+                          <img src={song.cover_url} alt="" className="h-full w-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="flex h-full w-full items-center justify-center text-[10px] text-white/30">♪</div>
+                        )}
+                      </div>
+                      <span className="truncate text-[11px] font-medium text-white/85">{song.title}</span>
+                    </button>
+                  ))}
                 </div>
               )}
 
