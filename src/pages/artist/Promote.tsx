@@ -10,6 +10,7 @@ import { ArtistProfile, ArtistSong, fmt } from './_shared';
 import BentoCard from '@/components/artist/BentoCard';
 import { useToast } from '@/hooks/use-toast';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { drawUniversFlowWatermark } from '@/lib/shareWatermark';
 
 type Ctx = { profile: ArtistProfile | null; songs: ArtistSong[]; followers: number };
 
