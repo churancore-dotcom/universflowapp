@@ -6,7 +6,6 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
-import android.media.AudioManager
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
 import android.media.audiofx.LoudnessEnhancer
@@ -129,21 +128,13 @@ class ExoPlayerService : MediaSessionService() {
      * some Android builds dispatch transient zero-volume broadcasts while the
      * app is locked/backgrounded, which looked exactly like background audio
      * being killed.
-     * Listens for volume changes and A2DP connect/disconnect.
+     * Listens for A2DP connect/disconnect.
      */
     private fun registerSmartPlaybackReceiver() {
-        val am = getSystemService(Context.AUDIO_SERVICE) as? AudioManager
         smartReceiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context?, intent: Intent?) {
                 val p = player ?: return
                 when (intent?.action) {
-                    "android.media.VOLUME_CHANGED_ACTION" -> {
-                        // Never pause music just because Android reports volume=0.
-                        // Some devices dispatch this while the app is backgrounded/
-                        // locked or while screen recording, which made playback look
-                        // like it was killed. Keep music alive like a normal player.
-                        am?.getStreamVolume(AudioManager.STREAM_MUSIC)
-                    }
                     BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED -> {
                         val state = intent.getIntExtra(BluetoothA2dp.EXTRA_STATE, -1)
                         when (state) {
@@ -165,7 +156,6 @@ class ExoPlayerService : MediaSessionService() {
             }
         }
         val filter = IntentFilter().apply {
-            addAction("android.media.VOLUME_CHANGED_ACTION")
             addAction(BluetoothA2dp.ACTION_CONNECTION_STATE_CHANGED)
         }
         try {
