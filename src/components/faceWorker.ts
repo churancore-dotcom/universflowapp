@@ -82,21 +82,34 @@ function pickBlend(arr: { categoryName?: string; displayName?: string; score: nu
   return 0;
 }
 
+// Multiple CDN mirrors. Android WebView occasionally drops the first
+// jsdelivr request; we cycle through fastly + unpkg + gcore before giving up.
 const WASM_CDNS = [
   'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm',
-  'https://unpkg.com/@mediapipe/tasks-vision@0.10.35/wasm',
   'https://fastly.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm',
+  'https://unpkg.com/@mediapipe/tasks-vision@0.10.35/wasm',
+  'https://gcore.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm',
+  'https://testingcf.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/wasm',
 ];
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error('timeout')), ms);
+    p.then(v => { clearTimeout(t); resolve(v); }, e => { clearTimeout(t); reject(e); });
+  });
+}
 
 async function loadFilesetWithFallback() {
   let lastErr: unknown = null;
-  for (const url of WASM_CDNS) {
-    for (let attempt = 0; attempt < 2; attempt++) {
+  // 3 full passes over the CDN list so flaky mobile networks have plenty of
+  // chances to succeed before we surface an error to the user.
+  for (let pass = 0; pass < 3; pass++) {
+    for (const url of WASM_CDNS) {
       try {
-        return await FilesetResolver.forVisionTasks(url);
+        return await withTimeout(FilesetResolver.forVisionTasks(url), 12_000);
       } catch (e) {
         lastErr = e;
-        await new Promise((r) => setTimeout(r, 250 * (attempt + 1)));
+        await new Promise((r) => setTimeout(r, 300 + pass * 400));
       }
     }
   }

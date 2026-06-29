@@ -88,6 +88,7 @@ export default function FaceLivenessCapture({
   const [flash, setFlash] = useState(false);
   const [videoReady, setVideoReady] = useState(false);
   const [slowHelp, setSlowHelp] = useState(false);
+  const modelRetryRef = useRef(0);
 
   useEffect(() => { phaseRef.current = phase; }, [phase]);
 
@@ -198,6 +199,14 @@ export default function FaceLivenessCapture({
       return;
     }
     if (data?.type === 'error') {
+      // Auto-retry the model load twice before showing the error UI. Mobile
+      // networks frequently drop the first WASM fetch; the user shouldn't
+      // have to tap Retry for what is almost always a transient blip.
+      if (modelRetryRef.current < 2) {
+        modelRetryRef.current += 1;
+        try { workerRef.current?.postMessage({ type: 'init' }); } catch { /* noop */ }
+        return;
+      }
       setErr('Could not load the face model. Check your internet and tap Retry.');
       setPhase('error');
       return;
@@ -340,6 +349,7 @@ export default function FaceLivenessCapture({
     progressRef.current = 0;
     qualityRef.current = 'noface';
     capturedRef.current = false;
+    modelRetryRef.current = 0;
     setErr(null);
     setSlowHelp(false);
     setPhase('idle');
