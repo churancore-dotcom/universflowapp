@@ -550,7 +550,9 @@ class ExoPlayerPlugin : Plugin() {
     fun isPlaying(call: PluginCall) {
         runOnMain {
             val p = service()?.player
-            val v = p?.isPlaying == true || (p?.playWhenReady == true && (p.playbackState == Player.STATE_BUFFERING || p.playbackState == Player.STATE_READY))
+            val v = p?.let {
+                it.isPlaying || (it.playWhenReady && (it.playbackState == Player.STATE_BUFFERING || it.playbackState == Player.STATE_READY))
+            } == true
             call.resolve(JSObject().put("isPlaying", v))
         }
     }
