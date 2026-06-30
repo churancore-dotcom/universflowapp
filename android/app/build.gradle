@@ -56,6 +56,11 @@ dependencies {
     implementation 'androidx.media3:media3-session:1.4.1'
     implementation 'androidx.media3:media3-ui:1.4.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    // Rhino JS engine — used by PlayerJsManager to run YouTube's
+    // signatureCipher + n-param functions ON DEVICE, exactly like NewPipe
+    // does. This is what lets us race the WEB client and stop relying on
+    // pre-signed mobile/TV streams that YouTube throttles.
+    implementation 'org.mozilla:rhino:1.7.15'
 }
 
 apply from: 'capacitor.build.gradle'

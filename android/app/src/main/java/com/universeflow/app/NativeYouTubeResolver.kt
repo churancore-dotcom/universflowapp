@@ -10,6 +10,8 @@ import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.URLDecoder
+import java.net.URLEncoder
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
@@ -22,9 +24,12 @@ data class NativeResolvedStream(val url: String, val itag: Int, val client: Stri
  * Shared on-device YouTube resolver used by BOTH the Capacitor InnerTube plugin
  * and ExoPlayerPlugin's native playlist preloader.
  *
- * This mirrors the Echo/NewPipe architecture: requests are made from the user's
- * phone IP with mobile/TV InnerTube clients, cached in memory for 5h, and fed
- * directly into ExoPlayer. No Supabase/datacenter hop is needed for APK playback.
+ * Echo / NewPipe-style architecture:
+ *  - InnerTube /player POST from the user's phone IP
+ *  - Race ANDROID_VR / IOS / TVHTML5 / ANDROID_MUSIC / WEB clients in parallel
+ *  - For WEB streams (which are wrapped in signatureCipher + an n-param), use
+ *    PlayerJsManager to decipher both on-device via Rhino — no backend hop.
+ *  - 5h in-memory cache; results fed directly into ExoPlayer.
  */
 object NativeYouTubeResolver {
     private const val TAG = "NativeYouTubeResolver"
@@ -32,10 +37,15 @@ object NativeYouTubeResolver {
     private const val CACHE_TTL_MS = 5L * 60L * 60L * 1000L
 
     private data class CachedStream(val url: String, val itag: Int, val client: String, val ts: Long)
-    private data class ClientCtx(val name: String, val jsonContext: JSONObject, val userAgent: String)
+    private data class ClientCtx(
+        val name: String,
+        val jsonContext: JSONObject,
+        val userAgent: String,
+        val needsSts: Boolean = false,
+    )
 
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
-    private val raceExecutor = Executors.newFixedThreadPool(4)
+    private val raceExecutor = Executors.newFixedThreadPool(6)
 
     private val http: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -66,6 +76,8 @@ object NativeYouTubeResolver {
                         .build(),
                 ).execute().use { /* drain */ }
             } catch (_: Throwable) { /* best effort */ }
+            // Prime player.js so the first WEB-client resolve doesn't pay for it.
+            try { PlayerJsManager.getSts() } catch (_: Throwable) {}
         }.start()
     }
 
@@ -167,22 +179,40 @@ object NativeYouTubeResolver {
             })
         }
 
+        val webCtx = JSONObject().apply {
+            put("client", JSONObject().apply {
+                put("clientName", "WEB")
+                put("clientVersion", "2.20241008.00.00")
+                put("hl", "en")
+                put("gl", "US")
+                put("userAgent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
+            })
+        }
+
         return listOf(
             ClientCtx("ANDROID_VR", androidVrCtx, "com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12L; GB) gzip"),
             ClientCtx("IOS", iosCtx, "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X)"),
             ClientCtx("TVHTML5_SIMPLY_EMBEDDED_PLAYER", tvCtx, "Mozilla/5.0 (PlayStation 4 5.55) AppleWebKit/601.2 (KHTML, like Gecko)"),
             ClientCtx("ANDROID_MUSIC", androidMusicCtx, "com.google.android.apps.youtube.music/7.29.52 (Linux; U; Android 15) gzip"),
+            // WEB requires sts + sig/n deciphering — only race it if PlayerJsManager is ready.
+            ClientCtx("WEB", webCtx, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36", needsSts = true),
         )
     }
 
     private fun attempt(videoId: String, ctx: ClientCtx): Pair<String, Int>? {
+        val sts: String? = if (ctx.needsSts) PlayerJsManager.getSts() else null
+        if (ctx.needsSts && sts == null) return null  // WEB without sts is hopeless.
+
         val body = JSONObject().apply {
             put("context", ctx.jsonContext)
             put("videoId", videoId)
             put("contentCheckOk", true)
             put("racyCheckOk", true)
             put("playbackContext", JSONObject().apply {
-                put("contentPlaybackContext", JSONObject().apply { put("html5Preference", "HTML5_PREF_WANTS") })
+                put("contentPlaybackContext", JSONObject().apply {
+                    put("html5Preference", "HTML5_PREF_WANTS")
+                    if (sts != null) put("signatureTimestamp", sts.toInt())
+                })
             })
         }.toString()
 
@@ -202,11 +232,11 @@ object NativeYouTubeResolver {
             val status = json.optJSONObject("playabilityStatus")?.optString("status")
             if (status != null && status != "OK") return null
             val adaptive = json.optJSONObject("streamingData")?.optJSONArray("adaptiveFormats") ?: JSONArray()
-            return pickBestAudio(adaptive)
+            return pickBestAudio(adaptive, ctx.name)
         }
     }
 
-    private fun pickBestAudio(adaptive: JSONArray): Pair<String, Int>? {
+    private fun pickBestAudio(adaptive: JSONArray, clientName: String): Pair<String, Int>? {
         var best251: Pair<String, Int>? = null
         var best140: Pair<String, Int>? = null
         var bestOther: Pair<String, Int>? = null
@@ -216,10 +246,9 @@ object NativeYouTubeResolver {
             val f = adaptive.optJSONObject(i) ?: continue
             val mime = f.optString("mimeType", "")
             if (!mime.startsWith("audio/")) continue
-            val url = f.optString("url", "")
-            if (url.isEmpty()) continue
             val itag = f.optInt("itag", 0)
             val bitrate = f.optInt("bitrate", 0)
+            val url = resolveFormatUrl(f) ?: continue
             when (itag) {
                 251 -> best251 = url to itag
                 140 -> best140 = url to itag
@@ -229,6 +258,74 @@ object NativeYouTubeResolver {
                 }
             }
         }
-        return best251 ?: best140 ?: bestOther
+        val picked = best251 ?: best140 ?: bestOther
+        if (picked == null) Log.d(TAG, "no audio formats from $clientName")
+        return picked
+    }
+
+    /**
+     * Resolves a streamingData format into a fully signed, n-decoded URL.
+     *  - Plain `url=` formats (mobile/TV clients): only need n-param rewrite.
+     *  - `signatureCipher=...&s=...&sp=sig&url=...` (WEB client): need both
+     *    sig deciphering and n-param rewrite via PlayerJsManager.
+     * Returns null if any required step fails — caller falls back to next client.
+     */
+    private fun resolveFormatUrl(f: JSONObject): String? {
+        val direct = f.optString("url", "")
+        val cipher = f.optString("signatureCipher", "").ifEmpty { f.optString("cipher", "") }
+        val baseUrl: String
+        val maybeSig: String?
+        val sigParamName: String
+
+        if (direct.isNotEmpty()) {
+            baseUrl = direct
+            maybeSig = null
+            sigParamName = "sig"
+        } else if (cipher.isNotEmpty()) {
+            val parts = parseQuery(cipher)
+            val u = parts["url"] ?: return null
+            val s = parts["s"] ?: return null
+            val sp = parts["sp"] ?: "signature"
+            val decoded = PlayerJsManager.decipherSignature(s) ?: return null
+            baseUrl = u
+            maybeSig = decoded
+            sigParamName = sp
+        } else {
+            return null
+        }
+
+        // n-param rewrite (throttling). Applies to both plain and ciphered URLs.
+        val withN = rewriteNParam(baseUrl) ?: return null
+        return if (maybeSig != null) appendQueryParam(withN, sigParamName, maybeSig) else withN
+    }
+
+    private fun rewriteNParam(url: String): String? {
+        val nIdx = url.indexOf("&n=").takeIf { it >= 0 } ?: url.indexOf("?n=").takeIf { it >= 0 }
+            ?: return url  // no n-param — nothing to do
+        val start = nIdx + 3
+        val end = url.indexOf('&', start).let { if (it < 0) url.length else it }
+        val original = url.substring(start, end)
+        val decoded = try { URLDecoder.decode(original, "UTF-8") } catch (_: Throwable) { original }
+        val rewritten = PlayerJsManager.decipherNParam(decoded) ?: return null
+        val encoded = try { URLEncoder.encode(rewritten, "UTF-8") } catch (_: Throwable) { rewritten }
+        return url.substring(0, start) + encoded + url.substring(end)
+    }
+
+    private fun appendQueryParam(url: String, key: String, value: String): String {
+        val sep = if (url.contains('?')) '&' else '?'
+        val encoded = try { URLEncoder.encode(value, "UTF-8") } catch (_: Throwable) { value }
+        return "$url$sep$key=$encoded"
+    }
+
+    private fun parseQuery(qs: String): Map<String, String> {
+        val out = HashMap<String, String>()
+        for (pair in qs.split('&')) {
+            val eq = pair.indexOf('=')
+            if (eq <= 0) continue
+            val k = pair.substring(0, eq)
+            val v = pair.substring(eq + 1)
+            out[k] = try { URLDecoder.decode(v, "UTF-8") } catch (_: Throwable) { v }
+        }
+        return out
     }
 }

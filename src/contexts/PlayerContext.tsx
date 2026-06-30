@@ -1302,7 +1302,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // uses the phone's residential IP and returns a direct googlevideo
             // URL in ~300-600ms — no Supabase round-trip, no datacenter-IP
             // block. This is the Echo Music / NewPipe approach.
-            if (!opts.skipNative && isNativePlayerAvailable()) {
+            const tryNative = async (): Promise<string | null> => {
+              if (opts.skipNative || !isNativePlayerAvailable()) return null;
               try {
                 const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
                 const native = await Promise.race([
@@ -1313,11 +1314,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                   markNativeResolvedStreamUrl(native.streamUrl, videoId);
                   return native.streamUrl;
                 }
-              } catch { /* fall through to edge resolver */ }
+              } catch { /* fall through */ }
+              return null;
+            };
+
+            const firstNative = await tryNative();
+            if (firstNative) return firstNative;
+
+            // Phase B: on Android, give the on-device resolver ONE retry
+            // before falling to the edge resolver. Edge URLs are signed for
+            // Supabase's IP and trigger the throttling/IP-block path we are
+            // trying to escape — every avoided hop counts.
+            if (isNativePlayerAvailable()) {
+              const secondNative = await tryNative();
+              if (secondNative) return secondNative;
             }
 
             // FALLBACK: Supabase edge resolver + stream-proxy (web users, or
-            // when on-device resolution failed for this particular videoId).
+            // when on-device resolution failed twice for this particular videoId).
             try {
               if (forceRefresh) invalidateYouTubeStream(videoId);
               const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
