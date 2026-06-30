@@ -126,6 +126,25 @@ object NativeYouTubeResolver {
         return c
     }
 
+    /**
+     * Allow an external resolver (e.g. JioSaavn) to seed a directly-playable
+     * URL keyed by the YouTube videoId. ExoPlayer's ResolvingDataSource asks
+     * for `yt://<videoId>` and will now get this URL back with zero network
+     * calls — same fast path as a YT cache hit.
+     */
+    fun putCached(videoId: String, url: String, source: String) {
+        if (videoId.length != 11 || url.isBlank()) return
+        streamCache[videoId] = CachedStream(url, /* itag */ 0, source, System.currentTimeMillis())
+    }
+
+    /** Stale cache for emergency fallback (within 30 min past TTL). */
+    fun getStale(videoId: String): NativeResolvedStream? {
+        val c = streamCache[videoId] ?: return null
+        val age = System.currentTimeMillis() - c.ts
+        if (age > CACHE_TTL_MS + 30L * 60L * 1000L) return null
+        return NativeResolvedStream(c.url, c.itag, c.client)
+    }
+
     private fun buildClients(): List<ClientCtx> {
         val androidVrCtx = JSONObject().apply {
             put("client", JSONObject().apply {
