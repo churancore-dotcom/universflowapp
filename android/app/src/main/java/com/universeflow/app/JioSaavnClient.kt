@@ -85,12 +85,20 @@ object JioSaavnClient {
                         sb.toString()
                     } ?: more.optString("singers", "")
 
-                // Match: normalized titles equal AND at least one artist token overlap.
+                // Strict match: normalized titles equal AND artist token Jaccard >= 0.70.
+                // When the caller has no artist string, require exact title equality only
+                // (still safer than the old "any overlap" rule because title must equal).
                 if (norm(cTitle) != targetTitle) continue
                 val cArtistTokens = tokens(cArtist)
-                val overlap = cArtistTokens.any { it in targetArtistTokens } ||
-                    targetArtistTokens.isEmpty()
-                if (!overlap) continue
+                if (targetArtistTokens.isNotEmpty()) {
+                    val inter = cArtistTokens.intersect(targetArtistTokens).size.toDouble()
+                    val union = (cArtistTokens + targetArtistTokens).size.toDouble()
+                    val jaccard = if (union == 0.0) 0.0 else inter / union
+                    if (jaccard < 0.70) {
+                        Log.d(TAG, "skip JioSaavn hit (jaccard=$jaccard) cArtist='$cArtist' target='$artist'")
+                        continue
+                    }
+                }
 
                 val bitrate = more.optInt("320kbps", 0).let { if (it == 1) 320 else 160 }
                 val resolved = buildStreamUrl(encrypted, bitrate) ?: continue
