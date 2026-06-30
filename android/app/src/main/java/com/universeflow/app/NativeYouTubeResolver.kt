@@ -81,6 +81,13 @@ object NativeYouTubeResolver {
         }.start()
     }
 
+    /** Returns a cached entry if present and within TTL — no network. */
+    fun peek(videoId: String): NativeResolvedStream? {
+        if (videoId.length != 11) return null
+        val c = getCached(videoId) ?: return null
+        return NativeResolvedStream(c.url, c.itag, c.client)
+    }
+
     fun resolve(videoId: String, timeoutMs: Long = 5200L): NativeResolvedStream? {
         if (videoId.length != 11) return null
         getCached(videoId)?.let { return NativeResolvedStream(it.url, it.itag, it.client) }
