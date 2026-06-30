@@ -21,6 +21,7 @@ export default function FaceLivenessCapture({
   const streamRef = useRef<MediaStream | null>(null);
   const autoTimerRef = useRef<number | null>(null);
   const capturedRef = useRef(false);
+  const readyRef = useRef(false);
 
   const [phase, setPhase] = useState<Phase>('idle');
   const [err, setErr] = useState<string | null>(null);
@@ -124,6 +125,7 @@ export default function FaceLivenessCapture({
     setErr(null);
     setVideoReady(false);
     capturedRef.current = false;
+    readyRef.current = false;
     setPhase('starting');
 
     try {
@@ -147,6 +149,8 @@ export default function FaceLivenessCapture({
       video.srcObject = stream;
 
       const markReady = () => {
+        if (readyRef.current) return;
+        readyRef.current = true;
         setVideoReady(true);
         setPhase('ready');
         startAutoCapture();
@@ -157,7 +161,7 @@ export default function FaceLivenessCapture({
       await video.play().catch(() => undefined);
 
       window.setTimeout(() => {
-        if (!videoReady && video.readyState >= 2 && phase !== 'ready') markReady();
+        if (!readyRef.current && video.readyState >= 2) markReady();
       }, 700);
     } catch (e: unknown) {
       teardown();
@@ -183,6 +187,7 @@ export default function FaceLivenessCapture({
   const restart = () => {
     teardown();
     capturedRef.current = false;
+    readyRef.current = false;
     setErr(null);
     setFlash(false);
     setVideoReady(false);
