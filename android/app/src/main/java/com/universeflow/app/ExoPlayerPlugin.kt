@@ -366,9 +366,8 @@ class ExoPlayerPlugin : Plugin() {
                     Thread {
                         if (playGeneration.get() != generation) return@Thread
                         tracks.drop(startIndex + 1).take(5).forEach { t ->
-                            val v = t.videoId?.takeIf { it.length == 11 } ?: return@forEach
                             if (playGeneration.get() != generation) return@Thread
-                            NativeYouTubeResolver.resolve(v, timeoutMs = 5200L)
+                            MasterResolver.resolve(t.videoId, t.title, t.artist, timeoutMs = 5200L)
                         }
                     }.start()
                 }
