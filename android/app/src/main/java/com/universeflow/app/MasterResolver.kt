@@ -30,11 +30,9 @@ object MasterResolver {
         artist: String?,
         timeoutMs: Long = 5200L,
     ): Resolved? {
-        // Cache check first via the YT resolver — covers both YT and seeded
-        // JioSaavn entries since both use videoId as the key.
+        // Cache check first — covers both YT and seeded JioSaavn entries.
         if (!videoId.isNullOrBlank() && videoId.length == 11) {
-            NativeYouTubeResolver.resolve(videoId, timeoutMs = 0L)?.let { hit ->
-                // resolve() with timeout=0 just returns a cached value if any.
+            NativeYouTubeResolver.peek(videoId)?.let { hit ->
                 return Resolved(hit.url, hit.client, System.currentTimeMillis() + 60_000L)
             }
         }
