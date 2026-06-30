@@ -60,9 +60,9 @@ class StreamResolverPlugin : Plugin() {
             val o = arr.optJSONObject(i) ?: continue
             list.add(
                 Triple(
-                    o.optString("videoId", null).takeIf { !it.isNullOrBlank() },
-                    o.optString("title", null).takeIf { !it.isNullOrBlank() },
-                    o.optString("artist", null).takeIf { !it.isNullOrBlank() },
+                    o.optString("videoId", "").takeIf { it.isNotBlank() },
+                    o.optString("title", "").takeIf { it.isNotBlank() },
+                    o.optString("artist", "").takeIf { it.isNotBlank() },
                 ),
             )
         }
