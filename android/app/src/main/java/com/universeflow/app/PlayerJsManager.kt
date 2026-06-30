@@ -125,11 +125,11 @@ object PlayerJsManager {
         // 3. Locate signature decipher function name. NewPipe maintains
         //    several alternative patterns; we keep them ordered by frequency.
         val sigFnName = listOf(
-            """\b([a-zA-Z0-9$_]+)&&\(b=a\.get\("n"\)\)""",         // (rare alias)
-            """\bm=([a-zA-Z0-9$_]{1,})\(decodeURIComponent\(h\.s\)\)""",
-            """\bc&&\(c=([a-zA-Z0-9$_]{1,})\(decodeURIComponent\(c\)\)""",
-            """([a-zA-Z0-9$_]+)\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(""\)""",
-            """\bfunction\s+([a-zA-Z0-9$_]+)\s*\(a\)\s*\{\s*a=a\.split\(""\)""",
+            """\b([a-zA-Z0-9${'$'}_]+)&&\(b=a\.get\("n"\)\)""",         // (rare alias)
+            """\bm=([a-zA-Z0-9${'$'}_]{1,})\(decodeURIComponent\(h\.s\)\)""",
+            """\bc&&\(c=([a-zA-Z0-9${'$'}_]{1,})\(decodeURIComponent\(c\)\)""",
+            """([a-zA-Z0-9${'$'}_]+)\s*=\s*function\(\s*a\s*\)\s*\{\s*a\s*=\s*a\.split\(""\)""",
+            """\bfunction\s+([a-zA-Z0-9${'$'}_]+)\s*\(a\)\s*\{\s*a=a\.split\(""\)""",
         ).firstNotNullOfOrNull { Regex(it).find(playerJs)?.groupValues?.getOrNull(1) }
 
         val sigFnSource = sigFnName?.let { name ->
@@ -142,7 +142,7 @@ object PlayerJsManager {
             if (!m.find()) null else {
                 val fnBody = m.group()
                 // helper object: first call inside body like `Aa.XX(a,1)` → object name `Aa`
-                val helperName = Regex("""([a-zA-Z0-9$_]{2,})\.[a-zA-Z0-9$_]{2,}\(a,\d+\)""")
+                val helperName = Regex("""([a-zA-Z0-9${'$'}_]{2,})\.[a-zA-Z0-9${'$'}_]{2,}\(a,\d+\)""")
                     .find(fnBody)?.groupValues?.getOrNull(1)
                 val helperSource = helperName?.let {
                     Regex("""var\s+""" + Regex.escape(it) + """=\{[\s\S]*?\};""").find(playerJs)?.value
@@ -158,8 +158,8 @@ object PlayerJsManager {
 
         // 4. n-param throttling function.
         val nFnRefName = listOf(
-            """\.get\("n"\)\)&&\(b=([a-zA-Z0-9$_]+)(?:\[(\d+)\])?\([a-zA-Z]\)""",
-            """&&\(b=([a-zA-Z0-9$_]+)(?:\[(\d+)\])?\(""",
+            """\.get\("n"\)\)&&\(b=([a-zA-Z0-9${'$'}_]+)(?:\[(\d+)\])?\([a-zA-Z]\)""",
+            """&&\(b=([a-zA-Z0-9${'$'}_]+)(?:\[(\d+)\])?\(""",
         ).firstNotNullOfOrNull { Regex(it).find(playerJs)?.groupValues?.getOrNull(1) }
 
         val nFnName: String?
@@ -168,7 +168,7 @@ object PlayerJsManager {
             nFnName = null; nFnSource = null
         } else {
             // The ref might be an array, e.g. `var Bpa=[Vpa];` so resolve it.
-            val resolved = Regex("""var\s+""" + Regex.escape(nFnRefName) + """\s*=\s*\[([a-zA-Z0-9$_]+)\]""")
+            val resolved = Regex("""var\s+""" + Regex.escape(nFnRefName) + """\s*=\s*\[([a-zA-Z0-9${'$'}_]+)\]""")
                 .find(playerJs)?.groupValues?.getOrNull(1) ?: nFnRefName
             nFnName = resolved
             val nPattern = Pattern.compile(
