@@ -20,6 +20,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(AudioFocusPlugin::class.java)
         registerPlugin(InnerTubePlugin::class.java)
         registerPlugin(ExoPlayerPlugin::class.java)
+        registerPlugin(StreamResolverPlugin::class.java)
         super.onCreate(savedInstanceState)
 
         // CAMERA permission is deferred until the WebView face-liveness step

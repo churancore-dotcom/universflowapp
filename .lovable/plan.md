@@ -1,79 +1,64 @@
-# YouTube Music–Backed Search, Home & Player
+## Goal
+Replace the current Supabase/web-resolution pipeline on Android with a native Kotlin resolver chain (JioSaavn → InnerTube → emergency fallback) feeding directly into ExoPlayer in a foreground Service. Zero UI changes.
 
-Goal: every track the user sees and hears comes from `yt-music-search` + `extract-audio`. No mock/seeded catalog. UI stays identical.
+## Files to create
 
-## Part 1 — Search (already mostly wired)
+1. **`android/app/src/main/java/com/universeflow/app/resolver/StreamResult.kt`**
+   - Data class: `url`, `itag`, `bitrate`, `source` ("youtube" | "jiosaavn" | "edge"), `expiresAt`, `mimeType`.
+   - Sealed `StreamResolutionException` hierarchy (NotFound, Network, Cipher, Parse).
 
-`src/pages/Search.tsx` already calls `yt-music-search` and renders title/artist/thumbnail/duration. Changes:
-- Remove residual fallbacks to JioSaavn / `stream_songs` / `chart_tracks` lookups inside the Songs tab so results are 100% YouTube Music.
-- Keep the "Artists" tab unchanged (verified Universflow profiles + Last.fm).
+2. **`android/app/src/main/java/com/universeflow/app/resolver/StreamCache.kt`**
+   - `LruCache<String, StreamResult>` capacity 50, keyed by normalized track id (`yt:<videoId>` / `js:<saavnId>`).
+   - `get()` returns null if `expiresAt < now`; `getStale()` returns within 30-min grace for emergency fallback.
 
-## Part 2 — Play any result
+3. **`android/app/src/main/java/com/universeflow/app/resolver/JioSaavnClient.kt`**
+   - `searchAndResolve(title, artist): StreamResult?` calls `https://www.jiosaavn.com/api.php?__call=autocomplete.get` + `song.getDetails`.
+   - Confidence match: normalized title equality + artist token overlap ≥1.
+   - Decrypts the `encrypted_media_url` via JioSaavn's DES key (`38346591`) to direct CDN URL; sets `expiresAt = now + 6h`.
 
-Tap handler resolves audio through one path:
-1. Look up `localStorage` cache for `ytm:stream:<videoId>`.
-2. If miss → `supabase.functions.invoke('extract-audio', { body: { videoId } })`.
-3. Pass `{ id: videoId, title, artist, cover_url, audio_url, duration }` to `PlayerContext.playSong()` — same shape it already accepts.
+4. **`android/app/src/main/java/com/universeflow/app/resolver/InnerTubeClient.kt`**
+   - POST `https://music.youtube.com/youtubei/v1/player?key=AIzaSyAOghZGza2MQSZkY_zfZ370N-PUdXEo8AI`.
+   - Body uses `ANDROID_MUSIC` context (clientVersion `7.27.52`, androidSdkVersion 34, hl/gl).
+   - Headers: Content-Type, UA matching `com.google.android.apps.youtube.music/7.27.52`, `X-Goog-Api-Format-Version: 2`.
+   - OkHttp 10s timeout.
 
-Mini-player and full-player already read `currentSong.{title,artist,cover_url}`, no UI changes.
+5. **`android/app/src/main/java/com/universeflow/app/resolver/YouTubeStreamResolver.kt`**
+   - `resolveStream(videoId): StreamResult` — parses `streamingData.adaptiveFormats`, prefers itag 251 then 140, extracts `url` or deciphers `signatureCipher` via existing `PlayerJsManager`.
+   - Sets `expiresAt` from URL's `expire` param.
 
-## Part 3 — Purge mock data
+6. **`android/app/src/main/java/com/universeflow/app/resolver/MasterResolver.kt`**
+   - `resolve(track: TrackHint): StreamResult` — chain: cache → JioSaavn (if title+artist provided) → YouTube → stale cache → throw.
+   - `prefetch(tracks: List<TrackHint>)` — `async/awaitAll` on IO dispatcher, up to first 5.
 
-DB state today: `songs=0`, `artist_songs=5` (real uploads, keep), `stream_songs=2714` (cache, keep — it's the URL cache), `chart_tracks=1700` (auto-aggregated, but UI now ignores).
+7. **`android/app/src/main/java/com/universeflow/app/StreamResolverPlugin.kt`**
+   - `@CapacitorPlugin(name = "StreamResolver")` exposing `resolveStream({ videoId, title, artist })` returning `{ url, source }` for UI use only (lyrics, share, download).
 
-Code changes:
-- `HomeBento`, `GlobalTopTracksSection`, `PremiumFirstSection`, `FollowedArtistSongsSection`, `ChartSection`, `FreshReleasesSection`, `TrendingNowSection`, `AllSongsSection` — stop reading `songs` / `stream_songs` / `chart_tracks` as a content source. They become thin wrappers around the new YTM rail hook (Part 6).
-- `Home.tsx` `HOME_SONGS_QUERY_KEY` query that pulls from `songs` is removed.
-- `artist_songs` (real Universflow uploads) keep their dedicated rail.
+## Files to modify
 
-`stream_songs` table is *retained* — it's the persistent stream URL cache shared with the new 6h client cache.
+8. **`ExoPlayerPlugin.kt` / `NativeMediaSourceFactory.kt`**
+   - Replace `NativeYouTubeResolver.resolve()` calls with `MasterResolver.resolve()`.
+   - Tap-to-play path: cache hit → immediate `setMediaItem/prepare/play`; miss → IO resolve → main-thread play. Remove any Supabase edge call from this hot path (keep only in `MasterResolver` as last-resort).
+   - Add `prefetch(videoIds, titles, artists)` JS-callable method invoking `MasterResolver.prefetch`.
 
-## Part 4 — 6h client cache
+9. **`ExoPlayerService.kt`**
+   - Keep `MasterResolver` + `StreamCache` as service-scoped singletons (survive Activity recreation).
+   - Audit: no auto-`pause()` after `prepare()`, no pause on `AUDIOFOCUS_LOSS_TRANSIENT` (duck only), `foregroundServiceType="mediaPlayback"` confirmed in manifest, `startForeground()` on first play.
 
-New helper `src/lib/ytmStreamCache.ts`:
-```ts
-get(videoId) → { url, expiresAt } | null   // returns null if older than 6h
-set(videoId, url)                          // stores { url, ts: Date.now() }
-invalidate(videoId)
-```
-Storage key namespace `ytm:stream:v1:<videoId>`. TTL = 6 * 60 * 60 * 1000.
+10. **`MainActivity.kt`** — register `StreamResolverPlugin`.
 
-## Part 5 — Error handling & retry
+11. **`android/app/build.gradle`** — already has OkHttp + Rhino; no new deps needed.
 
-In `PlayerContext.playSong()` (audio element error / 403 / 410 path):
-1. On `audio.onerror` or HTTP failure, `invalidate(videoId)` and re-invoke `extract-audio` once.
-2. While resolving, set existing `isLoading` flag so the player shows its current spinner.
-3. If second attempt fails → toast "Couldn't load this track" and skip to next.
+## JS-side change (minimal)
 
-## Part 6 — Home rails from YTM
+12. **`src/lib/nativeStreamResolver.ts`** (or wherever the resolver bridge lives) — on Android, call `prefetch` for first 5 visible songs in list components that already render rails; route tap-to-play through native plugin without Supabase round-trip. **No UI changes.**
 
-New hook `src/hooks/useYtmRail.ts`:
-- `useYtmRail(query, { ttlMinutes: 60 })` → React Query wrapper around `yt-music-search`.
-- Localstorage-backed cache key `ytm:rail:v1:<query>` for instant paint.
+## Verification
 
-Rails:
-| Section | Query |
-|---|---|
-| Trending Now | `trending india 2026` |
-| New Releases | `new releases 2026` |
-| Top Charts | `top charts india` |
-| Made For You | derived: take last-5 from `recently_played` → query = `${artist} ${title} mix` round-robin, dedupe |
-
-Component edits (data swap only, no markup changes):
-- `HomeBento.tsx`, `TrendingNowSection.tsx`, `FreshReleasesSection.tsx`, `ChartSection.tsx`, `GlobalTopTracksSection.tsx`, `PremiumFirstSection.tsx`, new `MadeForYouSection.tsx` (replaces personalized rail if one exists).
-
-`feedPersonalizer.ts` reranking still applies on top of the YTM rails.
-
-## Technical details
-
-- All edge function calls go through the existing `supabase.functions.invoke` client (auth + CORS already set).
-- `extract-audio` already returns `{ audio_url, expires_in? }` — we ignore server TTL and enforce client 6h cap.
-- Make-For-You falls back to `trending india 2026` for users with empty `recently_played`.
-- Cache writes are wrapped in `try/catch` for Safari private-mode quota errors.
-- Bump `SEARCH_CACHE_NAMESPACE` once more so old JioSaavn-mixed results are evicted.
+- `./gradlew :app:compileDebugKotlin` passes (run via `code--exec`).
+- Manual smoke after build: tap song → audio in <1s for cached, <2s cold; lock screen → keeps playing; rotate → keeps playing.
 
 ## Out of scope
 
-- No UI/visual changes.
-- No changes to artist upload flow, library, downloads, premium, or admin.
-- `chart_tracks` table left in place (used by admin analytics) — just no longer surfaced on Home.
+- All UI/layout/theme code.
+- Web (non-Android) playback path is unchanged.
+- iOS — no changes.
