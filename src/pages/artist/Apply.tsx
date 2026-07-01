@@ -172,6 +172,7 @@ export default function ArtistApply() {
   const [phoneTaken, setPhoneTaken] = useState<boolean>(false);
   const [phoneChecking, setPhoneChecking] = useState<boolean>(false);
   const [stageTaken, setStageTaken] = useState<boolean>(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocKey | null>(null);
 
   // Live duplicate check: phone number already used by another artist
   useEffect(() => {
