@@ -949,7 +949,7 @@ export default function ArtistApply() {
                     />
                     <span className="text-[12.5px] leading-relaxed">
                       I agree to the{' '}
-                      <Link to="/legal/artist-terms" className="underline text-primary">Artist Terms</Link>{' '}
+                      <button type="button" onClick={() => setLegalDoc('artist-terms')} className="underline text-primary font-medium">Artist Terms</button>{' '}
                       and confirm I have the right to publish the music I will upload.
                     </span>
                   </label>
@@ -962,7 +962,7 @@ export default function ArtistApply() {
                     />
                     <span className="text-[12.5px] leading-relaxed">
                       I agree to the{' '}
-                      <Link to="/legal/artist-privacy" className="underline text-primary">Artist Privacy Policy</Link>,
+                      <button type="button" onClick={() => setLegalDoc('artist-privacy')} className="underline text-primary font-medium">Artist Privacy Policy</button>,
                       including that my ID will be deleted after review.
                     </span>
                   </label>
@@ -971,6 +971,8 @@ export default function ArtistApply() {
             </motion.section>
           </AnimatePresence>
         </main>
+
+        <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)} />
 
         {/* Sticky bottom CTA */}
         <div
