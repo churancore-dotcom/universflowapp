@@ -155,11 +155,13 @@ object JioSaavnClient {
 
     private fun norm(s: String): String =
         s.lowercase(Locale.US)
-            .replace(Regex("\\(.*?\\)"), " ")
-            .replace(Regex("\\[.*?]"), " ")
-            .replace(Regex("[^a-z0-9 ]"), " ")
+            // Do NOT strip parens/brackets — "(Live)", "(Acoustic)", "(Slowed)"
+            // are load-bearing signals we must preserve so version variants
+            // never collapse into the studio master's normalized title.
+            .replace(Regex("[^a-z0-9() \\[\\]]"), " ")
             .replace(Regex("\\s+"), " ")
             .trim()
+
 
     private fun tokens(s: String): Set<String> =
         norm(s).split(' ').filter { it.length >= 3 }.toSet()
