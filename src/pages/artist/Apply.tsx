@@ -30,6 +30,7 @@ import { validatePhone, getDialCode, PHONE_DIGITS } from '@/lib/phoneValidator';
 import { validateSocialLink, atLeastNValidLinks, SocialPlatform } from '@/lib/socialLinkValidator';
 import { COUNTRIES as ALL_COUNTRIES, getCountry } from '@/lib/countries';
 import { CountryCombobox } from '@/components/CountryCombobox';
+import LegalSheet, { type LegalDocKey } from '@/components/LegalSheet';
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 const TOTAL_STEPS = 6;
@@ -171,6 +172,7 @@ export default function ArtistApply() {
   const [phoneTaken, setPhoneTaken] = useState<boolean>(false);
   const [phoneChecking, setPhoneChecking] = useState<boolean>(false);
   const [stageTaken, setStageTaken] = useState<boolean>(false);
+  const [legalDoc, setLegalDoc] = useState<LegalDocKey | null>(null);
 
   // Live duplicate check: phone number already used by another artist
   useEffect(() => {
@@ -947,7 +949,7 @@ export default function ArtistApply() {
                     />
                     <span className="text-[12.5px] leading-relaxed">
                       I agree to the{' '}
-                      <Link to="/legal/artist-terms" className="underline text-primary">Artist Terms</Link>{' '}
+                      <button type="button" onClick={() => setLegalDoc('artist-terms')} className="underline text-primary font-medium">Artist Terms</button>{' '}
                       and confirm I have the right to publish the music I will upload.
                     </span>
                   </label>
@@ -960,7 +962,7 @@ export default function ArtistApply() {
                     />
                     <span className="text-[12.5px] leading-relaxed">
                       I agree to the{' '}
-                      <Link to="/legal/artist-privacy" className="underline text-primary">Artist Privacy Policy</Link>,
+                      <button type="button" onClick={() => setLegalDoc('artist-privacy')} className="underline text-primary font-medium">Artist Privacy Policy</button>,
                       including that my ID will be deleted after review.
                     </span>
                   </label>
@@ -969,6 +971,8 @@ export default function ArtistApply() {
             </motion.section>
           </AnimatePresence>
         </main>
+
+        <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)} />
 
         {/* Sticky bottom CTA */}
         <div

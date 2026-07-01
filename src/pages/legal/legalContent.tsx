@@ -3,7 +3,7 @@ import { ReactNode } from 'react';
 export const USER_TERMS_UPDATED = '17 June 2026';
 export const ARTIST_TERMS_UPDATED = '17 June 2026';
 
-export const SUPPORT_EMAIL = 'support@universflow.in';
+export const SUPPORT_EMAIL = 'universflow.in@gmail.com';
 export const COMPANY_DISPLAY = 'Universflow';
 
 export const UserTermsBody = (): ReactNode => (
