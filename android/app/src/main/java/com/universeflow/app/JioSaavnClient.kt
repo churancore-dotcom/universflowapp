@@ -49,6 +49,16 @@ object JioSaavnClient {
 
     fun searchAndResolve(title: String, artist: String): SaavnHit? {
         if (title.isBlank()) return null
+        // Require an artist signal — without it we cannot safely disambiguate
+        // covers, live versions, lyric uploads, remixes, etc.
+        if (artist.isBlank()) return null
+        // Reject titles that clearly signal a specific version so we don't silently
+        // swap a live/acoustic/slowed/remix upload for the studio master.
+        val versionMarker = Regex(
+            "\\b(live|acoustic|unplugged|remix|slowed|reverb|sped\\s*up|nightcore|karaoke|instrumental|cover|lofi|lo-?fi|8d|mashup|lyric[s]?\\s*video|extended|edit|mix|version|reprise)\\b",
+            RegexOption.IGNORE_CASE,
+        )
+        if (versionMarker.containsMatchIn(title)) return null
         return try {
             val q = "$title $artist".trim()
             val url = "https://www.jiosaavn.com/api.php" +
@@ -67,6 +77,8 @@ object JioSaavnClient {
             val results = json.optJSONArray("results") ?: return null
             val targetTitle = norm(title)
             val targetArtistTokens = tokens(artist)
+            if (targetArtistTokens.isEmpty()) return null
+
 
             for (i in 0 until results.length()) {
                 val item = results.optJSONObject(i) ?: continue
