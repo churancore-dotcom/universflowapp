@@ -473,6 +473,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const nativeStartedForSeqRef = useRef<number | null>(null);
   const nativeStartupTimerRef = useRef<number | null>(null);
   const nativeLastPlayIntentAtRef = useRef(0);
+  // Track native progress movement so a spurious `paused` state doesn't flip
+  // the UI to a Play button while ExoPlayer keeps advancing the timeline.
+  const nativeLastProgressAtRef = useRef(0);
+  const nativeLastPositionMsRef = useRef(0);
   const queueRef = useRef<Song[]>([]);
   const currentIndexRef = useRef(0);
   const shuffleRef = useRef(false);
@@ -2164,6 +2168,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const data = d as ExoPlaybackProgress;
           const posSec = Math.max(0, (data.position || 0) / 1000);
           const durSec = Math.max(0, (data.duration || 0) / 1000);
+          const posMs = Math.round(posSec * 1000);
+          if (posMs !== nativeLastPositionMsRef.current) {
+            nativeLastPositionMsRef.current = posMs;
+            nativeLastProgressAtRef.current = Date.now();
+            // Progress is genuinely advancing — if the UI slipped into a
+            // paused state from a stale native event, correct it now.
+            if (!isPlayingRef.current) setIsPlaying(true);
+          }
           setProgress(posSec);
           if (durSec > 0) setDuration(durSec);
         });
@@ -2171,6 +2183,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const data = d as ExoPlaybackState;
           const startupPending = nativeStartupSeqRef.current === playRequestSeqRef.current;
           const recentPlayIntent = Date.now() - nativeLastPlayIntentAtRef.current < 15000;
+          // If the native pipeline is still ticking the position forward, a
+          // `paused` event is almost certainly a transient buffer/seek — the
+          // player is not actually paused. Verify via ExoPlayerPlugin.isPlaying()
+          // before flipping the UI.
+          const progressMovingRecently = Date.now() - nativeLastProgressAtRef.current < 1500;
           if (data.state === 'playing') {
             nativeStartedForSeqRef.current = playRequestSeqRef.current;
             nativeStartupSeqRef.current = null;
@@ -2183,8 +2200,27 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             setIsPlaying(true);
             wasPlayingRef.current = true;
           }
-          else if (data.state === 'paused') { if (!startupPending && !recentPlayIntent) setIsPlaying(false); }
-          else if (data.state === 'stopped') { nativeStartupSeqRef.current = null; clearNativeStartupTimer(); if (!startupPending && !recentPlayIntent) setIsPlaying(false); }
+          else if (data.state === 'paused' || data.state === 'stopped') {
+            if (data.state === 'stopped') { nativeStartupSeqRef.current = null; clearNativeStartupTimer(); }
+            if (startupPending || recentPlayIntent) return;
+            if (progressMovingRecently) {
+              // Re-check authoritatively after a short delay; only flip if
+              // ExoPlayer confirms it really is paused.
+              window.setTimeout(() => {
+                ExoPlayerPlugin.isPlaying()
+                  .then(({ isPlaying: reallyPlaying }) => {
+                    if (!reallyPlaying) {
+                      setIsPlaying(false);
+                      wasPlayingRef.current = false;
+                    }
+                  })
+                  .catch(() => undefined);
+              }, 450);
+              return;
+            }
+            setIsPlaying(false);
+            wasPlayingRef.current = false;
+          }
           else if (data.state === 'ended') {
             nativeStartupSeqRef.current = null;
             clearNativeStartupTimer();

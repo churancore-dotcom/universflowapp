@@ -10,6 +10,7 @@ import { usePremium } from '@/hooks/usePremium';
 import { toast } from 'sonner';
 import { resume as engineResume, type StudioSpaceId } from '@/lib/audioEngine';
 import { useEngineState } from '@/hooks/useGlobalAudioEngine';
+import { isNativePlayerAvailable } from '@/lib/nativePlayer';
 import { getEQSettings, isEqActive, setEQSettings, useEQSettings } from '@/lib/eqSettings';
 
 interface StudioSpace {
@@ -89,13 +90,17 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { currentSong } = usePlayer();
   const engineMode = useEngineState();
   const isConnected = engineMode === 'processed';
+  // On Android APK, ExoPlayer owns audio and EQ is applied via native
+  // AudioEffect chain — WebAudio engine intentionally stays in "direct" mode.
+  // Surface that as "Connected" so users don't see a perpetual "Connecting…".
+  const nativeAudio = isNativePlayerAvailable();
   const settings = useEQSettings();
   const bands = defaultBands.map((b, i) => ({ ...b, gain: settings.bands[i] ?? 0 }));
   const { bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight, headphoneSurround, activePreset } = settings;
   const effectsActive = isEqActive(settings);
   const connectionLabel = !currentSong
     ? 'Play a song to connect'
-    : isConnected
+    : isConnected || nativeAudio
       ? 'Connected'
       : effectsActive
         ? engineMode === 'unsupported'
