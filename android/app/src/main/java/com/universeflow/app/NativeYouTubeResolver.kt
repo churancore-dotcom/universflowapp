@@ -144,6 +144,11 @@ object NativeYouTubeResolver {
         streamCache[videoId] = CachedStream(url, /* itag */ 0, source, System.currentTimeMillis())
     }
 
+    /** Drop a cached entry so the next resolve() re-hits InnerTube. */
+    fun invalidate(videoId: String) {
+        if (videoId.length == 11) streamCache.remove(videoId)
+    }
+
     /** Stale cache for emergency fallback (within 30 min past TTL). */
     fun getStale(videoId: String): NativeResolvedStream? {
         val c = streamCache[videoId] ?: return null
