@@ -473,6 +473,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const nativeStartedForSeqRef = useRef<number | null>(null);
   const nativeStartupTimerRef = useRef<number | null>(null);
   const nativeLastPlayIntentAtRef = useRef(0);
+  // Track native progress movement so a spurious `paused` state doesn't flip
+  // the UI to a Play button while ExoPlayer keeps advancing the timeline.
+  const nativeLastProgressAtRef = useRef(0);
+  const nativeLastPositionMsRef = useRef(0);
   const queueRef = useRef<Song[]>([]);
   const currentIndexRef = useRef(0);
   const shuffleRef = useRef(false);
