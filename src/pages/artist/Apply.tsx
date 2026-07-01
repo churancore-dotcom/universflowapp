@@ -30,6 +30,7 @@ import { validatePhone, getDialCode, PHONE_DIGITS } from '@/lib/phoneValidator';
 import { validateSocialLink, atLeastNValidLinks, SocialPlatform } from '@/lib/socialLinkValidator';
 import { COUNTRIES as ALL_COUNTRIES, getCountry } from '@/lib/countries';
 import { CountryCombobox } from '@/components/CountryCombobox';
+import LegalSheet, { type LegalDocKey } from '@/components/LegalSheet';
 
 type Step = 1 | 2 | 3 | 4 | 5 | 6;
 const TOTAL_STEPS = 6;
