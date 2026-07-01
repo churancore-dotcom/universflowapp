@@ -81,9 +81,13 @@ Deno.serve(async (req) => {
     return json({ ok: true, notified: 0 });
   }
 
-  const deepLink = body.song_id
-    ? `/a/${prof.slug}?song=${body.song_id}`
-    : `/a/${prof.slug}`;
+  const songId = typeof body.song_id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(body.song_id)
+    ? body.song_id
+    : null;
+  const safeSlug = encodeURIComponent(prof.slug);
+  const deepLink = songId
+    ? `/a/${safeSlug}?song=${encodeURIComponent(songId)}`
+    : `/a/${safeSlug}`;
 
   // Send via existing RPC (security definer, talks to system push edge fn)
   const { error: pushErr } = await admin.rpc('notify_system_push', {
