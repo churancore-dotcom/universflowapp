@@ -10,6 +10,7 @@ import { usePremium } from '@/hooks/usePremium';
 import { toast } from 'sonner';
 import { resume as engineResume, type StudioSpaceId } from '@/lib/audioEngine';
 import { useEngineState } from '@/hooks/useGlobalAudioEngine';
+import { isNativePlayerAvailable } from '@/lib/nativePlayer';
 import { getEQSettings, isEqActive, setEQSettings, useEQSettings } from '@/lib/eqSettings';
 
 interface StudioSpace {
