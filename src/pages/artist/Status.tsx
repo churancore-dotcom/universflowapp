@@ -332,6 +332,10 @@ export default function ArtistStatus() {
             >
               <RotateCw className="w-4 h-4 mr-1.5" /> Re-submit verification
             </Button>
+            <p className="mt-3 text-[11.5px] text-center text-muted-foreground/80 leading-relaxed">
+              Think this decision was wrong? Reach us at{' '}
+              <a href="mailto:universflow.in@gmail.com" className="text-primary underline">universflow.in@gmail.com</a>
+            </p>
           </BentoCard>
         )}
 
