@@ -19,7 +19,24 @@ import com.getcapacitor.annotation.CapacitorPlugin
 class StreamResolverPlugin : Plugin() {
 
     @PluginMethod
-    fun resolveStream(call: PluginCall) {
+    fun resolveStream(call: PluginCall) = runResolve(call)
+
+    /**
+     * Echo-style API alias. JS callers do:
+     *   StreamResolver.resolve({ videoId, title, artist })
+     * and get back `{ url, source, client, expiresAt }`.
+     */
+    @PluginMethod
+    fun resolve(call: PluginCall) = runResolve(call)
+
+    @PluginMethod
+    fun invalidate(call: PluginCall) {
+        val videoId = call.getString("videoId") ?: ""
+        if (videoId.length == 11) NativeYouTubeResolver.invalidate(videoId)
+        call.resolve()
+    }
+
+    private fun runResolve(call: PluginCall) {
         val videoId = call.getString("videoId")
         val title = call.getString("title")
         val artist = call.getString("artist")
@@ -29,16 +46,18 @@ class StreamResolverPlugin : Plugin() {
         }
         Thread {
             val r = try {
-                MasterResolver.resolve(videoId, title, artist, timeoutMs = 5200L)
+                MasterResolver.resolve(videoId, title, artist, timeoutMs = 6000L)
             } catch (t: Throwable) {
                 null
             }
             if (r == null) {
                 call.reject("resolution failed")
             } else {
+                val client = r.source.substringAfter("youtube:", r.source)
                 val out = JSObject()
                     .put("url", r.url)
                     .put("source", r.source)
+                    .put("client", client)
                     .put("expiresAt", r.expiresAt)
                 call.resolve(out)
             }
