@@ -101,6 +101,8 @@ object JioSaavnClient {
                 // When the caller has no artist string, require exact title equality only
                 // (still safer than the old "any overlap" rule because title must equal).
                 if (norm(cTitle) != targetTitle) continue
+                if (versionMarker.containsMatchIn(cTitle)) continue
+
                 val cArtistTokens = tokens(cArtist)
                 if (targetArtistTokens.isNotEmpty()) {
                     val inter = cArtistTokens.intersect(targetArtistTokens).size.toDouble()
