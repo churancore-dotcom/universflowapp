@@ -4,7 +4,9 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import android.os.Bundle
+import android.view.View
 import android.webkit.PermissionRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
@@ -23,13 +25,26 @@ class MainActivity : BridgeActivity() {
         registerPlugin(StreamResolverPlugin::class.java)
         super.onCreate(savedInstanceState)
 
-        // CAMERA permission is deferred until the WebView face-liveness step
-        // calls getUserMedia(); see onPermissionRequest below.
+        // Warm up the native resolver (OkHttp pool + visitorData) as soon as
+        // the app launches so the very first song plays instantly instead of
+        // paying connection setup on the first tap.
+        try { NativeYouTubeResolver.warm() } catch (_: Throwable) {}
+
         bridge.webView?.let { web: WebView ->
             web.settings.javaScriptEnabled = true
             web.settings.mediaPlaybackRequiresUserGesture = false
             web.settings.allowFileAccess = true
             web.settings.allowContentAccess = true
+            // Aggressive WebView tuning so the shell paints fast, like EchoMusic.
+            web.settings.cacheMode = WebSettings.LOAD_DEFAULT
+            web.settings.domStorageEnabled = true
+            web.settings.databaseEnabled = true
+            web.settings.loadsImagesAutomatically = true
+            web.settings.blockNetworkImage = false
+            // Draw immediately with a transparent background — kills the white
+            // flash between the splash screen and the first paint of the shell.
+            web.setBackgroundColor(0x00000000)
+            web.visibility = View.VISIBLE
             web.webChromeClient = object : BridgeWebChromeClient(bridge) {
                 override fun onPermissionRequest(request: PermissionRequest) {
                     runOnUiThread {
