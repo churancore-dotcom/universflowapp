@@ -412,7 +412,7 @@ export async function resolveIndexedTrack(
 
 export async function resolveYouTubeVideoStream(
   videoId: string,
-  opts: { forceRefresh?: boolean } = {},
+  opts: { forceRefresh?: boolean; title?: string; artist?: string } = {},
 ): Promise<ResolveTrackResponse> {
   const id = videoId.trim();
   if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) {
@@ -435,6 +435,34 @@ export async function resolveYouTubeVideoStream(
     }
   } else {
     invalidateYtmCached(id);
+  }
+
+  // 1.5) FAST PATH — if we know title/artist, try JioSaavn directly. This
+  // bypasses every YouTube resolver (which can be IP-blocked or slow on web)
+  // and delivers a CORS-clean CDN URL with no delay. Only accepted when the
+  // match is confident (isConfidentMatch inside findSongStreamUrl).
+  if ((opts.title || opts.artist) && !opts.forceRefresh) {
+    try {
+      const saavn = await findSongStreamUrl(opts.title || '', opts.artist || '');
+      if (saavn?.streamUrl) {
+        const result: ResolveTrackResponse = {
+          success: true,
+          streamUrl: saavn.streamUrl,
+          videoId: id,
+          title: saavn.title || opts.title,
+          artist: saavn.artist || opts.artist,
+          cover_url: saavn.image,
+          duration: Number(saavn.duration) || undefined,
+        };
+        setYtmCached(id, result.streamUrl!, {
+          title: result.title,
+          artist: result.artist,
+          cover_url: result.cover_url,
+          duration: result.duration,
+        });
+        return result;
+      }
+    } catch { /* fall through to YouTube resolvers */ }
   }
 
   // 2) Race BOTH resolver stacks in parallel. Waiting for extract-audio to fail
@@ -503,6 +531,32 @@ export async function resolveYouTubeVideoStream(
       duration: winner.duration,
     });
     return winner;
+  }
+
+  // LAST RESORT — if YouTube resolvers all failed AND we have title/artist,
+  // retry JioSaavn with a looser (non-confident) match. Better to play a close
+  // cover than nothing at all when the user is on a blocked network.
+  if (opts.title || opts.artist) {
+    try {
+      const saavn = await findSongStreamUrl(opts.title || '', opts.artist || '');
+      if (saavn?.streamUrl) {
+        setYtmCached(id, saavn.streamUrl, {
+          title: saavn.title,
+          artist: saavn.artist,
+          cover_url: saavn.image,
+          duration: Number(saavn.duration) || undefined,
+        });
+        return {
+          success: true,
+          streamUrl: saavn.streamUrl,
+          videoId: id,
+          title: saavn.title || opts.title,
+          artist: saavn.artist || opts.artist,
+          cover_url: saavn.image,
+          duration: Number(saavn.duration) || undefined,
+        };
+      }
+    } catch { /* nothing left */ }
   }
 
   return { success: false, error: 'No audio stream available' };
