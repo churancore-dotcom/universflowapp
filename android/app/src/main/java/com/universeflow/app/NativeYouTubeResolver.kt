@@ -24,12 +24,21 @@ data class NativeResolvedStream(val url: String, val itag: Int, val client: Stri
  * Shared on-device YouTube resolver used by BOTH the Capacitor InnerTube plugin
  * and ExoPlayerPlugin's native playlist preloader.
  *
- * Echo / NewPipe-style architecture:
- *  - InnerTube /player POST from the user's phone IP
- *  - Race ANDROID_VR / IOS / TVHTML5 / ANDROID_MUSIC / WEB clients in parallel
- *  - For WEB streams (which are wrapped in signatureCipher + an n-param), use
- *    PlayerJsManager to decipher both on-device via Rhino — no backend hop.
- *  - 5h in-memory cache; results fed directly into ExoPlayer.
+ * Clean-room implementation of the InnerTube technique used by NewPipe /
+ * EchoMusic / InnerTune. Only PUBLIC constants (client IDs, endpoint path,
+ * header names) are borrowed — no GPL source is reproduced.
+ *
+ * Strategy (updated 2026):
+ *  - Race ANDROID_VR (1.61.48 + 1.43.32), IOS (21.03.x), ANDROID_MUSIC,
+ *    ANDROID_CREATOR on-device in parallel. All are PoToken-free.
+ *  - WEB / WEB_REMIX are NOT in the race: YouTube now returns SABR-only
+ *    responses for those clients, requires PoToken from a BotGuard WebView,
+ *    and the effort/quality tradeoff isn't worth it for audio-only playback.
+ *  - Each request carries X-YouTube-Client-Name / -Version / X-Goog-Visitor-Id
+ *    headers so YouTube's edge routes it as a genuine mobile client.
+ *  - visitorData is fetched once at warm-up and cached for process lifetime.
+ *  - SABR responses (empty adaptiveFormats + serverAbrStreamingUrl) are
+ *    detected and treated as failure so the race moves on immediately.
  */
 object NativeYouTubeResolver {
     private const val TAG = "NativeYouTubeResolver"
@@ -39,6 +48,8 @@ object NativeYouTubeResolver {
     private data class CachedStream(val url: String, val itag: Int, val client: String, val ts: Long)
     private data class ClientCtx(
         val name: String,
+        val clientId: String,          // numeric string for X-YouTube-Client-Name
+        val clientVersion: String,     // for X-YouTube-Client-Version
         val jsonContext: JSONObject,
         val userAgent: String,
         val needsSts: Boolean = false,
@@ -62,6 +73,34 @@ object NativeYouTubeResolver {
             .build()
     }
 
+    // ── visitorData: session identifier that makes InnerTube trust us. ─────
+    // Fetched from the response header `X-Goog-Visitor-Id` of any InnerTube
+    // call, or from the ytcfg block on youtube.com. Cached for process life.
+    @Volatile private var visitorData: String? = null
+
+    private fun fetchVisitorData(): String? {
+        visitorData?.let { return it }
+        return try {
+            val req = Request.Builder()
+                .url("https://www.youtube.com/sw.js_data")
+                .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36")
+                .header("Accept-Language", "en-US,en;q=0.9")
+                .build()
+            http.newCall(req).execute().use { resp ->
+                val body = resp.body?.string() ?: return null
+                // Response starts with `)]}'` XSSI prefix; strip and parse.
+                val json = body.substringAfter(")]}'").trim()
+                // visitorData appears as `["<visitor-data-b64>"]` inside a
+                // nested structure — a simple regex is sufficient and matches
+                // the field regardless of layout changes.
+                val m = Regex("\"([A-Za-z0-9_%\\-]{40,})\"").find(json)
+                val v = m?.groupValues?.get(1)
+                if (v != null) visitorData = v
+                v
+            }
+        } catch (_: Throwable) { null }
+    }
+
     @Volatile private var warmed = false
 
     fun warm() {
@@ -76,8 +115,8 @@ object NativeYouTubeResolver {
                         .build(),
                 ).execute().use { /* drain */ }
             } catch (_: Throwable) { /* best effort */ }
-            // Prime player.js so the first WEB-client resolve doesn't pay for it.
-            try { PlayerJsManager.getSts() } catch (_: Throwable) {}
+            // Prefetch visitorData so first resolve doesn't pay for it.
+            try { fetchVisitorData() } catch (_: Throwable) {}
         }.start()
     }
 
@@ -157,82 +196,93 @@ object NativeYouTubeResolver {
         return NativeResolvedStream(c.url, c.itag, c.client)
     }
 
+    // ── Client definitions ─────────────────────────────────────────────────
+    // Constants below are public InnerTube protocol facts:
+    //   • numeric clientId is YouTube's INNERTUBE_CONTEXT_CLIENT_NAME enum
+    //   • clientVersion strings match current shipping mobile apps
+    //   • userAgent strings follow Google's documented app UA format
+    // No GPL source is reproduced; only public spec values.
     private fun buildClients(): List<ClientCtx> {
-        val androidVrCtx = JSONObject().apply {
-            put("client", JSONObject().apply {
-                put("clientName", "ANDROID_VR")
-                put("clientVersion", "1.60.19")
-                put("deviceMake", "Oculus")
-                put("deviceModel", "Quest 3")
-                put("androidSdkVersion", 32)
-                put("osName", "Android")
-                put("osVersion", "12L")
-                put("hl", "en")
-                put("gl", "US")
-                put("userAgent", "com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12L; GB) gzip")
-            })
+        val visitor = visitorData  // may be null on first call; that's fine
+
+        fun ctxJson(client: JSONObject): JSONObject = JSONObject().apply {
+            if (visitor != null) client.put("visitorData", visitor)
+            put("client", client)
         }
 
-        val iosCtx = JSONObject().apply {
-            put("client", JSONObject().apply {
-                put("clientName", "IOS")
-                put("clientVersion", "20.10.4")
-                put("deviceMake", "Apple")
-                put("deviceModel", "iPhone16,2")
-                put("osName", "iPhone")
-                put("osVersion", "18.3.2.22D82")
-                put("hl", "en")
-                put("gl", "US")
-                put("userAgent", "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X)")
-            })
-        }
+        // ANDROID_VR 1.61.48 — primary PoToken-free client (Meta Quest UA).
+        val vr161 = ctxJson(JSONObject().apply {
+            put("clientName", "ANDROID_VR")
+            put("clientVersion", "1.61.48")
+            put("deviceMake", "Oculus")
+            put("deviceModel", "Quest 3")
+            put("androidSdkVersion", 32)
+            put("osName", "Android")
+            put("osVersion", "12L")
+            put("hl", "en"); put("gl", "US")
+        })
 
-        val tvCtx = JSONObject().apply {
-            put("client", JSONObject().apply {
-                put("clientName", "TVHTML5_SIMPLY_EMBEDDED_PLAYER")
-                put("clientVersion", "2.0")
-                put("hl", "en")
-                put("gl", "US")
-                put("userAgent", "Mozilla/5.0 (PlayStation 4 5.55) AppleWebKit/601.2 (KHTML, like Gecko)")
-            })
-        }
+        // ANDROID_VR 1.43.32 — older but still accepted; useful when 1.61 is
+        // rate-limited on a given edge node.
+        val vr143 = ctxJson(JSONObject().apply {
+            put("clientName", "ANDROID_VR")
+            put("clientVersion", "1.43.32")
+            put("deviceMake", "Oculus")
+            put("deviceModel", "Quest 2")
+            put("androidSdkVersion", 32)
+            put("osName", "Android")
+            put("osVersion", "12L")
+            put("hl", "en"); put("gl", "US")
+        })
 
-        val androidMusicCtx = JSONObject().apply {
-            put("client", JSONObject().apply {
-                put("clientName", "ANDROID_MUSIC")
-                put("clientVersion", "7.29.52")
-                put("androidSdkVersion", 35)
-                put("osName", "Android")
-                put("osVersion", "15")
-                put("hl", "en")
-                put("gl", "US")
-                put("userAgent", "com.google.android.apps.youtube.music/7.29.52 (Linux; U; Android 15) gzip")
-            })
-        }
+        // IOS 21.03.2 — Apple attestation, no PoToken required.
+        val ios = ctxJson(JSONObject().apply {
+            put("clientName", "IOS")
+            put("clientVersion", "21.03.2")
+            put("deviceMake", "Apple")
+            put("deviceModel", "iPhone16,2")
+            put("osName", "iPhone")
+            put("osVersion", "18.7.2.22H124")
+            put("hl", "en"); put("gl", "US")
+        })
 
-        val webCtx = JSONObject().apply {
-            put("client", JSONObject().apply {
-                put("clientName", "WEB")
-                put("clientVersion", "2.20241008.00.00")
-                put("hl", "en")
-                put("gl", "US")
-                put("userAgent", "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36")
-            })
-        }
+        // ANDROID_MUSIC — good for music-specific responses.
+        val androidMusic = ctxJson(JSONObject().apply {
+            put("clientName", "ANDROID_MUSIC")
+            put("clientVersion", "7.29.52")
+            put("androidSdkVersion", 35)
+            put("osName", "Android")
+            put("osVersion", "15")
+            put("hl", "en"); put("gl", "US")
+        })
+
+        // ANDROID_CREATOR — Creator Studio client; PoToken-free.
+        val androidCreator = ctxJson(JSONObject().apply {
+            put("clientName", "ANDROID_CREATOR")
+            put("clientVersion", "24.45.100")
+            put("androidSdkVersion", 34)
+            put("osName", "Android")
+            put("osVersion", "14")
+            put("hl", "en"); put("gl", "US")
+        })
 
         return listOf(
-            ClientCtx("ANDROID_VR", androidVrCtx, "com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12L; GB) gzip"),
-            ClientCtx("IOS", iosCtx, "com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X)"),
-            ClientCtx("TVHTML5_SIMPLY_EMBEDDED_PLAYER", tvCtx, "Mozilla/5.0 (PlayStation 4 5.55) AppleWebKit/601.2 (KHTML, like Gecko)"),
-            ClientCtx("ANDROID_MUSIC", androidMusicCtx, "com.google.android.apps.youtube.music/7.29.52 (Linux; U; Android 15) gzip"),
-            // WEB requires sts + sig/n deciphering — only race it if PlayerJsManager is ready.
-            ClientCtx("WEB", webCtx, "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36", needsSts = true),
+            ClientCtx("ANDROID_VR", "76", "1.61.48", vr161,
+                "com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip"),
+            ClientCtx("ANDROID_VR_1_43", "76", "1.43.32", vr143,
+                "com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12L; GB) gzip"),
+            ClientCtx("IOS", "5", "21.03.2", ios,
+                "com.google.ios.youtube/21.03.2 (iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X)"),
+            ClientCtx("ANDROID_MUSIC", "21", "7.29.52", androidMusic,
+                "com.google.android.apps.youtube.music/7.29.52 (Linux; U; Android 15) gzip"),
+            ClientCtx("ANDROID_CREATOR", "14", "24.45.100", androidCreator,
+                "com.google.android.apps.youtube.creator/24.45.100 (Linux; U; Android 14) gzip"),
         )
     }
 
     private fun attempt(videoId: String, ctx: ClientCtx): Pair<String, Int>? {
         val sts: String? = if (ctx.needsSts) PlayerJsManager.getSts() else null
-        if (ctx.needsSts && sts == null) return null  // WEB without sts is hopeless.
+        if (ctx.needsSts && sts == null) return null
 
         val body = JSONObject().apply {
             put("context", ctx.jsonContext)
@@ -247,22 +297,39 @@ object NativeYouTubeResolver {
             })
         }.toString()
 
-        val req = Request.Builder()
+        val reqBuilder = Request.Builder()
             .url(ENDPOINT)
             .header("Content-Type", "application/json")
             .header("User-Agent", ctx.userAgent)
             .header("Origin", "https://www.youtube.com")
             .header("X-Goog-Api-Format-Version", "2")
+            .header("X-YouTube-Client-Name", ctx.clientId)
+            .header("X-YouTube-Client-Version", ctx.clientVersion)
+        visitorData?.let { reqBuilder.header("X-Goog-Visitor-Id", it) }
+        val req = reqBuilder
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
 
         http.newCall(req).execute().use { resp ->
+            // Opportunistically pick up visitorData if the server issued one.
+            if (visitorData == null) {
+                resp.header("X-Goog-Visitor-Id")?.let { visitorData = it }
+            }
             if (!resp.isSuccessful) return null
             val raw = resp.body?.string() ?: return null
             val json = JSONObject(raw)
             val status = json.optJSONObject("playabilityStatus")?.optString("status")
             if (status != null && status != "OK") return null
-            val adaptive = json.optJSONObject("streamingData")?.optJSONArray("adaptiveFormats") ?: JSONArray()
+            val streamingData = json.optJSONObject("streamingData") ?: return null
+            val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
+            // SABR detection: empty adaptiveFormats + serverAbrStreamingUrl
+            // means YouTube served a SABR manifest instead of progressive
+            // URLs. ExoPlayer can't consume that directly — bail so the race
+            // continues with a mobile client that returns real URLs.
+            if (adaptive.length() == 0 && streamingData.has("serverAbrStreamingUrl")) {
+                Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
+                return null
+            }
             return pickBestAudio(adaptive, ctx.name)
         }
     }
@@ -296,9 +363,9 @@ object NativeYouTubeResolver {
 
     /**
      * Resolves a streamingData format into a fully signed, n-decoded URL.
-     *  - Plain `url=` formats (mobile/TV clients): only need n-param rewrite.
-     *  - `signatureCipher=...&s=...&sp=sig&url=...` (WEB client): need both
-     *    sig deciphering and n-param rewrite via PlayerJsManager.
+     *  - Plain `url=` formats (mobile clients): only need n-param rewrite.
+     *  - `signatureCipher=...` (WEB, if we ever add it back): need both sig
+     *    deciphering and n-param rewrite via PlayerJsManager.
      * Returns null if any required step fails — caller falls back to next client.
      */
     private fun resolveFormatUrl(f: JSONObject): String? {
