@@ -1725,27 +1725,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           queueRef.current = nextQueue;
           setQueueState(nextQueue);
         } else {
-          const fallbackVideoId = getYouTubeFallbackVideoId(resolvedSong.audio_url);
-          if (fallbackVideoId && isNativePlayerAvailable()) {
-            console.warn('Could not resolve direct audio for:', song.title, '— using YouTube fallback');
-            toast.info('Direct audio failed — playing fallback source.');
-            void playYouTubeFallback(
-              fallbackVideoId,
-              () => {
-                const activeQueue = queueRef.current;
-                const activeIndex = currentIndexRef.current;
-                const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
-                if (nextIdx !== null) void playSongAtIndex(nextIdx, activeQueue);
-                else setIsPlaying(false);
-              },
-              mySeq,
-              intendedIdentity,
-            );
-            return;
-          }
-          // Web: skip the YouTube iframe fallback (triggers YouTube's
-          // "Sign in to confirm you're not a bot" verification when hit from
-          // datacenter IPs). Auto-advance to the next track instead of stalling.
+          // Native + Web: no more YouTube iframe fallback. If every resolver
+          // (JioSaavn → InnerTube native → edge extractors) fails, skip the
+          // track. The iframe path triggered YouTube's bot-check and made the
+          // APK feel broken. Native ExoPlayer + NativeYouTubeResolver handle
+          // 100% of playback on Android.
           console.warn('Could not resolve audio for:', song.title, '— skipping to next');
           toast.error(`Skipped: ${song.title} (unavailable)`);
           setIsPlaying(false);
@@ -1770,25 +1754,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // EQ/native background playback may be unavailable on this fallback, but the
     // user still gets audio while the resolver/proxies recover.
     if (isYouTubeFallbackUrl(audioUrl)) {
-      const fallbackVideoId = getYouTubeFallbackVideoId(audioUrl);
-      if (fallbackVideoId && isNativePlayerAvailable()) {
-        toast.info('Direct audio failed — playing fallback source.');
-        void playYouTubeFallback(
-          fallbackVideoId,
-          () => {
-            const activeQueue = queueRef.current;
-            const activeIndex = currentIndexRef.current;
-            const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
-            if (nextIdx !== null) void playSongAtIndex(nextIdx, activeQueue);
-            else setIsPlaying(false);
-          },
-          mySeq,
-          intendedIdentity,
-        );
-        return;
-      }
-      // Web: never fall through to the YouTube iframe — it triggers YouTube's
-      // datacenter-IP bot verification. Skip to the next track instead.
+      // Native + Web: never use the YouTube iframe. Skip the song.
       setIsPlaying(false);
       toast.error('Song unavailable — skipping');
       const activeQueue2 = queueRef.current;
