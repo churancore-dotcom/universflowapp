@@ -477,7 +477,7 @@ const Search = () => {
 
   useEffect(() => {
     indexedResults.slice(0, 6).forEach((track) => {
-      if (track.videoId) prefetchYouTubeVideoStream(track.videoId);
+      if (track.videoId) prefetchYouTubeVideoStream(track.videoId, { title: track.title, artist: track.artist });
       else prefetchIndexedTrack(track.artist, track.title);
     });
   }, [indexedResults]);
