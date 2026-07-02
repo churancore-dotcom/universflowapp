@@ -156,14 +156,16 @@ function isConfidentMatch(song: SaavnSong, title: string, artist = ''): boolean 
   const titleMatches = songTitle === wantedTitle || songTitle.includes(wantedTitle) || wantedTitle.includes(songTitle);
   if (!titleMatches) return false;
 
-  // When we know the artist, avoid returning a popular but unrelated JioSaavn
-  // result. If this fast path is not confident, the player falls back to the
-  // stricter backend resolver instead of playing the wrong track.
-  if (wantedArtist && songArtist && !songArtist.includes(wantedArtist)) {
+  // Loosened: prefer instant CORS-clean JioSaavn CDN playback over a YouTube
+  // fallback that will hit IP-blocked edge functions on web. If artists don't
+  // overlap, still accept an exact title match. Otherwise a low score (>=45)
+  // is enough — we would rather stream a plausible match instantly than stall.
+  if (wantedArtist && songArtist && !songArtist.includes(wantedArtist)
+      && !wantedArtist.split(' ').some((tok) => tok.length > 2 && songArtist.includes(tok))) {
     return songTitle === wantedTitle;
   }
 
-  return scoreSong(song, title, artist) >= 65;
+  return scoreSong(song, title, artist) >= 45;
 }
 
 /**

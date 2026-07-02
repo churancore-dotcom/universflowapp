@@ -1726,7 +1726,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setQueueState(nextQueue);
         } else {
           const fallbackVideoId = getYouTubeFallbackVideoId(resolvedSong.audio_url);
-          if (fallbackVideoId) {
+          if (fallbackVideoId && isNativePlayerAvailable()) {
             console.warn('Could not resolve direct audio for:', song.title, '— using YouTube fallback');
             toast.info('Direct audio failed — playing fallback source.');
             void playYouTubeFallback(
@@ -1743,8 +1743,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             );
             return;
           }
-          console.warn('Could not resolve audio for:', song.title);
+          // Web: skip the YouTube iframe fallback (triggers YouTube's
+          // "Sign in to confirm you're not a bot" verification when hit from
+          // datacenter IPs). Auto-advance to the next track instead of stalling.
+          console.warn('Could not resolve audio for:', song.title, '— skipping to next');
+          toast.error(`Skipped: ${song.title} (unavailable)`);
           setIsPlaying(false);
+          const activeQueue = queueRef.current;
+          const activeIndex = currentIndexRef.current;
+          const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
+          if (nextIdx !== null) void playSongAtIndex(nextIdx, activeQueue);
           return;
         }
       } catch {
@@ -1763,7 +1771,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // user still gets audio while the resolver/proxies recover.
     if (isYouTubeFallbackUrl(audioUrl)) {
       const fallbackVideoId = getYouTubeFallbackVideoId(audioUrl);
-      if (fallbackVideoId) {
+      if (fallbackVideoId && isNativePlayerAvailable()) {
         toast.info('Direct audio failed — playing fallback source.');
         void playYouTubeFallback(
           fallbackVideoId,
@@ -1779,8 +1787,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         );
         return;
       }
+      // Web: never fall through to the YouTube iframe — it triggers YouTube's
+      // datacenter-IP bot verification. Skip to the next track instead.
       setIsPlaying(false);
-      toast.error('Song unavailable');
+      toast.error('Song unavailable — skipping');
+      const activeQueue2 = queueRef.current;
+      const activeIndex2 = currentIndexRef.current;
+      const nextIdx2 = getNextIndex(activeIndex2, activeQueue2.length, shuffleRef.current, repeatRef.current);
+      if (nextIdx2 !== null) void playSongAtIndex(nextIdx2, activeQueue2);
       return;
     }
 
@@ -2799,10 +2813,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     if (!audioRef.current) return;
-    if (audioRef.current.paused) {
+    const el = audioRef.current;
+    // Guard: if the audio element has no source yet (still resolving) or is
+    // mid state-transition, treat the tap as a "play intent" and let the
+    // resolver's playback trigger take over — do NOT call play() on an empty
+    // src (throws) or race pause() against a pending play() (AbortError).
+    const hasSrc = !!el.currentSrc || !!el.src;
+    if (el.paused) {
+      if (!hasSrc) {
+        // Nothing loaded yet — just record intent, resolver will start playback.
+        setIsPlaying(true);
+        wasPlayingRef.current = true;
+        return;
+      }
       setIsPlaying(true); // optimistic — listener will revert if play() rejects
       wasPlayingRef.current = true;
-      audioRef.current.play().catch(err => {
+      el.play().catch(err => {
         wasPlayingRef.current = false;
         setIsPlaying(false);
         console.warn('Play failed:', err?.message);
@@ -2811,7 +2837,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setIsPlaying(false);
       wasPlayingRef.current = false;
       markIntentionalPause();
-      audioRef.current.pause();
+      el.pause();
     }
   }, [currentSong, isPlaying, markIntentionalPause, markNativePlayIntent]);
 
