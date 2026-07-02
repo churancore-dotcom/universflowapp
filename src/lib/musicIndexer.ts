@@ -596,11 +596,11 @@ export function prefetchIndexedTrack(artist: string, title: string) {
   void resolveIndexedTrack(artist, title).catch(() => null);
 }
 
-export function prefetchYouTubeVideoStream(videoId?: string | null) {
+export function prefetchYouTubeVideoStream(videoId?: string | null, hint?: { title?: string; artist?: string }) {
   const id = (videoId || '').trim();
   if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) return;
   if (getYtmCached(id)?.url) return;
-  void resolveYouTubeVideoStream(id).catch(() => null);
+  void resolveYouTubeVideoStream(id, hint || {}).catch(() => null);
 }
 
 // ── Artist directory (with real PFPs from Deezer) ──
