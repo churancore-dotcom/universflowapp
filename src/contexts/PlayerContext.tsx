@@ -982,7 +982,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const wasPlaying = !a.paused;
         const at = a.currentTime;
         const seqAtResolve = playRequestSeqRef.current;
-        resolveYouTubeVideoStream(videoId, { forceRefresh: true })
+        resolveYouTubeVideoStream(videoId, { forceRefresh: true, title: currentSong?.title, artist: currentSong?.artist })
           .then((result) => {
             if (seqAtResolve !== playRequestSeqRef.current || !result?.streamUrl || isYouTubeFallbackUrl(result.streamUrl)) return;
             const proxied = buildStreamProxyUrl(result.streamUrl);
