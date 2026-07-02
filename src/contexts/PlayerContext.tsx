@@ -1338,7 +1338,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // when on-device resolution failed twice for this particular videoId).
             try {
               if (forceRefresh) invalidateYouTubeStream(videoId);
-              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
+              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh, title: song.title, artist: song.artist });
               if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
                 return resolved.streamUrl;
               }
