@@ -2,7 +2,7 @@ import { memo, useCallback, useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 // NOTE: This component is now mounted ONCE at App level via GlobalPlayerLayer
 // to prevent flicker on route changes. Do not re-mount it inside individual pages.
-import { Play, Pause, SkipForward, X } from 'lucide-react';
+import { Play, Pause, SkipForward, SkipBack, X } from 'lucide-react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { triggerHaptic } from '@/hooks/useHaptics';
@@ -275,6 +275,15 @@ const MiniPlayer = memo(function MiniPlayer() {
 
             {/* Controls with play/pause animation */}
             <div className="flex items-center gap-0">
+              <motion.button
+                className="w-10 h-10 min-w-[40px] rounded-full flex items-center justify-center"
+                onClick={(e) => { e.stopPropagation(); handlePrevSong(); }}
+                aria-label="Previous song"
+                whileTap={{ scale: 0.85, x: -3 }}
+                transition={{ type: "spring", stiffness: 500, damping: 20 }}
+              >
+                <SkipBack className="w-5 h-5 text-black" fill="black" />
+              </motion.button>
               <motion.button
                 className="w-12 h-12 min-w-[48px] rounded-full flex items-center justify-center"
                 onClick={handleTogglePlay}
