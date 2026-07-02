@@ -982,7 +982,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const wasPlaying = !a.paused;
         const at = a.currentTime;
         const seqAtResolve = playRequestSeqRef.current;
-        resolveYouTubeVideoStream(videoId, { forceRefresh: true })
+        resolveYouTubeVideoStream(videoId, { forceRefresh: true, title: currentSong?.title, artist: currentSong?.artist })
           .then((result) => {
             if (seqAtResolve !== playRequestSeqRef.current || !result?.streamUrl || isYouTubeFallbackUrl(result.streamUrl)) return;
             const proxied = buildStreamProxyUrl(result.streamUrl);
@@ -1338,7 +1338,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // when on-device resolution failed twice for this particular videoId).
             try {
               if (forceRefresh) invalidateYouTubeStream(videoId);
-              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh });
+              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh, title: song.title, artist: song.artist });
               if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
                 return resolved.streamUrl;
               }
@@ -1448,7 +1448,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     } else if (upcoming.source === 'indexed' || upcoming.audio_url === 'resolving') {
       preloadedNextIdRef.current = upcoming.id;
       const upcomingVideoId = getYouTubeFallbackVideoId(upcoming.audio_url) || (upcoming.id?.startsWith('ytm-') ? upcoming.id.slice(4) : null);
-      if (upcomingVideoId) prefetchYouTubeVideoStream(upcomingVideoId);
+      if (upcomingVideoId) prefetchYouTubeVideoStream(upcomingVideoId, { title: upcoming.title, artist: upcoming.artist });
       else prefetchIndexedTrack(upcoming.artist, upcoming.title);
       resolveAudioUrl(upcoming).then((resolved) => {
         if (!resolved || preloadedNextIdRef.current !== upcoming.id) return;
@@ -1476,7 +1476,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const afterNext = queue[nextNextIdx];
       if (afterNext && (afterNext.source === 'indexed' || afterNext.audio_url === 'resolving')) {
         const afterNextVideoId = getYouTubeFallbackVideoId(afterNext.audio_url) || (afterNext.id?.startsWith('ytm-') ? afterNext.id.slice(4) : null);
-        if (afterNextVideoId) prefetchYouTubeVideoStream(afterNextVideoId);
+        if (afterNextVideoId) prefetchYouTubeVideoStream(afterNextVideoId, { title: afterNext.title, artist: afterNext.artist });
         else prefetchIndexedTrack(afterNext.artist, afterNext.title);
       }
     }
