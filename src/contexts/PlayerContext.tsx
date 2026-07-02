@@ -1476,7 +1476,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const afterNext = queue[nextNextIdx];
       if (afterNext && (afterNext.source === 'indexed' || afterNext.audio_url === 'resolving')) {
         const afterNextVideoId = getYouTubeFallbackVideoId(afterNext.audio_url) || (afterNext.id?.startsWith('ytm-') ? afterNext.id.slice(4) : null);
-        if (afterNextVideoId) prefetchYouTubeVideoStream(afterNextVideoId);
+        if (afterNextVideoId) prefetchYouTubeVideoStream(afterNextVideoId, { title: afterNext.title, artist: afterNext.artist });
         else prefetchIndexedTrack(afterNext.artist, afterNext.title);
       }
     }
