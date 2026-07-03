@@ -80,6 +80,15 @@ export async function uploadKycFile(
   return uploadFile(KYC_BUCKET, path, compressed);
 }
 
+// Uploads the single live-face liveness capture to the private KYC bucket.
+// This is the only KYC-style upload the artist application flow makes now
+// that government ID documents have been removed.
+export async function uploadLivenessCapture(userId: string, file: File): Promise<string> {
+  const compressed = await compressKyc(file);
+  const path = `${userId}/${Date.now()}-${uniqueUploadId()}-liveness.jpg`;
+  return uploadFile(KYC_BUCKET, path, compressed);
+}
+
 export async function uploadArtistPhoto(userId: string, file: File): Promise<string> {
   const compressed = await compressPhoto(file);
   const path = `artist-photos/${userId}/${Date.now()}-${uniqueUploadId()}.webp`;

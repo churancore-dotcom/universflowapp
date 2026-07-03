@@ -287,8 +287,9 @@ export type Database = {
           id: string
           id_doc_back_path: string | null
           id_doc_front_path: string | null
-          id_doc_type: Database["public"]["Enums"]["id_doc_type"]
+          id_doc_type: Database["public"]["Enums"]["id_doc_type"] | null
           id_image_hash: string | null
+          music_platform_url: string | null
           name_match_score: number | null
           ocr_extracted_name: string | null
           phone: string
@@ -315,8 +316,9 @@ export type Database = {
           id?: string
           id_doc_back_path?: string | null
           id_doc_front_path?: string | null
-          id_doc_type: Database["public"]["Enums"]["id_doc_type"]
+          id_doc_type?: Database["public"]["Enums"]["id_doc_type"] | null
           id_image_hash?: string | null
+          music_platform_url?: string | null
           name_match_score?: number | null
           ocr_extracted_name?: string | null
           phone: string
@@ -343,8 +345,9 @@ export type Database = {
           id?: string
           id_doc_back_path?: string | null
           id_doc_front_path?: string | null
-          id_doc_type?: Database["public"]["Enums"]["id_doc_type"]
+          id_doc_type?: Database["public"]["Enums"]["id_doc_type"] | null
           id_image_hash?: string | null
+          music_platform_url?: string | null
           name_match_score?: number | null
           ocr_extracted_name?: string | null
           phone?: string
@@ -391,6 +394,7 @@ export type Database = {
           created_at: string
           id: string
           is_verified: boolean
+          music_platform_url: string | null
           slug: string
           social_links: Json
           stage_name: string
@@ -408,6 +412,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_verified?: boolean
+          music_platform_url?: string | null
           slug: string
           social_links?: Json
           stage_name: string
@@ -425,6 +430,7 @@ export type Database = {
           created_at?: string
           id?: string
           is_verified?: boolean
+          music_platform_url?: string | null
           slug?: string
           social_links?: Json
           stage_name?: string
@@ -2118,10 +2124,7 @@ export type Database = {
         Args: {
           p_application_id: string
           p_artist_photo_path: string
-          p_id_doc_back_path: string
-          p_id_doc_front_path: string
-          p_id_doc_type: Database["public"]["Enums"]["id_doc_type"]
-          p_id_image_hash: string
+          p_music_platform_url: string
           p_selfie_path: string
           p_social_links: Json
         }
@@ -2138,10 +2141,7 @@ export type Database = {
         Args: {
           p_artist_photo_path: string
           p_country_code: string
-          p_id_doc_back_path: string
-          p_id_doc_front_path: string
-          p_id_doc_type: Database["public"]["Enums"]["id_doc_type"]
-          p_id_image_hash: string
+          p_music_platform_url: string
           p_phone: string
           p_phone_hash: string
           p_real_name: string

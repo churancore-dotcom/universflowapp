@@ -7,6 +7,7 @@ import {
   Music2, Sparkles,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import confetti from 'canvas-confetti';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -68,6 +69,7 @@ export default function ArtistUpload() {
   const [lyricsSynced, setLyricsSynced] = useState('');
   const [cover, setCover] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
+  const [justPublished, setJustPublished] = useState<null | { id: string; title: string; coverUrl: string | null }>(null);
 
   const coverPreview = useFilePreview(cover);
   const linkState: LinkValidation | null = useMemo(
@@ -94,6 +96,30 @@ export default function ArtistUpload() {
     else setStep('details');
   };
 
+  const resetForm = () => {
+    setStreamUrl(''); setTitle(''); setGenre('');
+    setLyricsPlain(''); setLyricsSynced(''); setCover(null);
+    setStep('source');
+  };
+
+  const fireCelebration = () => {
+    const fire = (origin: { x: number; y: number }, particleCount: number, opts: confetti.Options = {}) => {
+      confetti({
+        particleCount, spread: 80, startVelocity: 50, ticks: 220, gravity: 0.85, scalar: 1,
+        origin, disableForReducedMotion: true,
+        colors: ['#FF2D55', '#FF6B8A', '#FFD166', '#34C759', '#FFFFFF'],
+        ...opts,
+      });
+    };
+    fire({ x: 0.5, y: 0.3 }, 110, { spread: 110, startVelocity: 60 });
+    window.setTimeout(() => fire({ x: 0.08, y: 0.55 }, 55, { angle: 60 }), 180);
+    window.setTimeout(() => fire({ x: 0.92, y: 0.55 }, 55, { angle: 120 }), 220);
+    window.setTimeout(() => fire({ x: 0.5, y: 0.4 }, 70, { spread: 150, startVelocity: 30, gravity: 1.1, scalar: 1.15 }), 520);
+    if (typeof navigator !== 'undefined' && 'vibrate' in navigator) {
+      try { navigator.vibrate([20, 60, 24, 60, 20]); } catch { /* ignore */ }
+    }
+  };
+
   const save = async () => {
     if (!title.trim() || !linkState?.ok) return;
     setSaving(true);
@@ -110,12 +136,16 @@ export default function ArtistUpload() {
           lyrics_synced: lyricsSynced.trim() || null,
           lyrics_source: lyricsPlain.trim() || lyricsSynced.trim() ? 'artist' : null,
         })
-        .select('id')
+        .select('id, title, cover_url')
         .single();
       if (error) throw error;
       if (!data?.id) throw new Error('Insert returned no row — check artist permissions.');
-      toast.success('Song published ✓');
-      navigate('/artist/studio/songs', { replace: true });
+      // Show inline celebration on the upload screen, then reset the form
+      // so artists can upload the next song without navigating away.
+      setJustPublished({ id: data.id, title: data.title, coverUrl: data.cover_url ?? null });
+      fireCelebration();
+      toast.success('Song published 🎉');
+      resetForm();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not publish song.';
       console.error('[artist-upload] publish failed:', e);
@@ -124,6 +154,7 @@ export default function ArtistUpload() {
       setSaving(false);
     }
   };
+
 
   return (
     <div className="max-w-2xl mx-auto px-5 pt-5 pb-12">
