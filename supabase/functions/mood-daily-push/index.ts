@@ -117,7 +117,7 @@ Deno.serve(async (req) => {
       // Pick a real viral track matching mood region; fallback to global
       const { data: picks } = await admin
         .from("chart_tracks")
-        .select("title, artist, deep_link, country_code")
+        .select("title, artist, country_code")
         .or(country ? `country_code.eq.${country},country_code.is.null` : "country_code.is.null")
         .order("rank", { ascending: true })
         .limit(20);
@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
           user_ids: [p.user_id],
           title: tpl.title,
           body: tpl.body(pick.title, pick.artist),
-          deep_link: pick.deep_link || `/search?q=${encodeURIComponent(pick.title + " " + pick.artist)}`,
+          deep_link: `/search?q=${encodeURIComponent(pick.title + " " + pick.artist)}`,
           system_token: secret.value,
         }),
       });
