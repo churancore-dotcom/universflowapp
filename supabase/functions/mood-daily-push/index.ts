@@ -141,7 +141,7 @@ Deno.serve(async (req) => {
           user_ids: [p.user_id],
           title: tpl.title,
           body: tpl.body(pick.title, pick.artist),
-          deep_link: pick.deep_link || `/search?q=${encodeURIComponent(pick.title + " " + pick.artist)}`,
+          deep_link: `/search?q=${encodeURIComponent(pick.title + " " + pick.artist)}`,
           system_token: secret.value,
         }),
       });
