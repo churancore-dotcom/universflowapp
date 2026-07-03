@@ -177,6 +177,63 @@ export default function ArtistUpload() {
         </div>
       </div>
 
+      {/* Just published — big animated celebration card on the same screen */}
+      <AnimatePresence>
+        {justPublished && (
+          <motion.div
+            key={justPublished.id}
+            initial={{ opacity: 0, y: 12, scale: 0.96 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -8, scale: 0.98 }}
+            transition={{ type: 'spring', stiffness: 220, damping: 22 }}
+            className="mt-5 relative overflow-hidden rounded-3xl p-5"
+            style={{
+              background: 'linear-gradient(145deg, rgba(255,45,85,0.28) 0%, rgba(52,199,89,0.16) 60%, rgba(10,10,12,0.9) 100%)',
+              border: '0.5px solid rgba(255,255,255,0.1)',
+              boxShadow: '0 30px 80px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08)',
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-16 h-16 rounded-2xl overflow-hidden bg-black/40 shrink-0 ring-1 ring-white/15 grid place-items-center">
+                {justPublished.coverUrl
+                  ? <img src={justPublished.coverUrl} alt="" className="w-full h-full object-cover" />
+                  : <Music2 className="w-6 h-6 text-white/70" />}
+              </div>
+              <div className="flex-1 min-w-0">
+                <motion.p
+                  initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
+                  className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/85"
+                >
+                  🎉 🎆 🎇 🎊  Published!
+                </motion.p>
+                <p className="mt-1 font-display text-[20px] leading-none tracking-tight truncate">
+                  {justPublished.title}
+                </p>
+                <p className="mt-1.5 text-[11.5px] text-white/75">
+                  Live on your artist page. Views, likes and plays will start updating instantly.
+                </p>
+              </div>
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-2">
+              <Button
+                variant="ghost"
+                className="h-10 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-white text-[12.5px]"
+                onClick={() => navigate('/artist/studio/songs')}
+              >
+                View all songs
+              </Button>
+              <Button
+                className="h-10 rounded-xl text-[12.5px] font-semibold text-white"
+                style={{ background: '#FF2D55' }}
+                onClick={() => { setJustPublished(null); }}
+              >
+                Upload another
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Progress rail */}
       <ProgressRail index={stepIndex} />
 
