@@ -1,7 +1,10 @@
 import { useEffect, useId, useRef, useState } from 'react';
-import { useNavigate, Link, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowLeft, ArrowRight, Loader2, Upload, Check, ShieldCheck, User, Link2, FileCheck2, Camera, Image as ImageIcon, Sparkles } from 'lucide-react';
+import {
+  ArrowLeft, ArrowRight, Loader2, Upload, Check, ShieldCheck, User,
+  Music, Camera, Image as ImageIcon, Sparkles, ExternalLink,
+} from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
 import SEOHead from '@/components/SEOHead';
@@ -16,26 +19,26 @@ import type { Json } from '@/integrations/supabase/types';
 import { detectCountrySilently } from '@/lib/geoCountry';
 import { useFilePreview } from '@/lib/useFilePreview';
 import {
-  ID_DOC_LABELS,
-  IdDocType,
-  docsForCountry,
   getArtistReapplyState,
   getMyApplication,
   uploadArtistPhoto,
-  uploadKycFile,
+  uploadLivenessCapture,
 } from '@/lib/artist';
 import type { ArtistApplicationSafe } from '@/lib/artist';
 import ArtistLoading from './ArtistLoading';
 import { validatePhone, getDialCode, PHONE_DIGITS } from '@/lib/phoneValidator';
 import { validateSocialLink, atLeastNValidLinks, SocialPlatform } from '@/lib/socialLinkValidator';
+import { validateMusicPlatformUrl } from '@/lib/musicPlatformValidator';
 import { COUNTRIES as ALL_COUNTRIES, getCountry } from '@/lib/countries';
 import { CountryCombobox } from '@/components/CountryCombobox';
 import LegalSheet, { type LegalDocKey } from '@/components/LegalSheet';
 
-type Step = 1 | 2 | 3 | 4 | 5 | 6;
-const TOTAL_STEPS = 6;
+type Step = 1 | 2 | 3 | 4 | 5;
+const TOTAL_STEPS = 5;
 
-type SocialLinksDraft = { instagram?: unknown; youtube?: unknown; spotify?: unknown; apple_music?: unknown; bio?: unknown };
+type SocialLinksDraft = {
+  instagram?: unknown; youtube?: unknown; spotify?: unknown; apple_music?: unknown; bio?: unknown;
+};
 
 function asSocialLinks(value: Json | null): SocialLinksDraft {
   return value && typeof value === 'object' && !Array.isArray(value) ? value : {};
@@ -48,22 +51,16 @@ function getApplicationId(value: unknown): string | null {
   return typeof id === 'string' ? id : null;
 }
 
-// Full country list now lives in src/lib/countries.ts (ALL_COUNTRIES).
-
 const STEP_META: Record<Step, { label: string; icon: typeof User }> = {
-  1: { label: 'About you',     icon: User },
-  2: { label: 'Your music',    icon: Link2 },
-  3: { label: 'Verify ID',     icon: FileCheck2 },
-  4: { label: 'Face check',    icon: Camera },
-  5: { label: 'Profile photo', icon: ImageIcon },
-  6: { label: 'Submit',        icon: Sparkles },
+  1: { label: 'About you',      icon: User },
+  2: { label: 'Your music',     icon: Music },
+  3: { label: 'Live face check', icon: Camera },
+  4: { label: 'Profile photo',  icon: ImageIcon },
+  5: { label: 'Submit',         icon: Sparkles },
 };
 
 function FilePicker({
-  label,
-  file,
-  onPick,
-  accept = 'image/*',
+  label, file, onPick, accept = 'image/*',
 }: {
   label: string;
   file: File | null;
@@ -117,13 +114,9 @@ function FilePicker({
           accept={accept}
           className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0"
           aria-label={label}
-          // NOTE: the real input must receive the user's tap directly. Android
-          // WebView can ignore programmatic `.click()` on file inputs, so this
-          // opacity-0 overlay is intentionally above the whole upload tile.
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null;
             onPick(f);
-            // Reset so picking the same file again still fires onChange.
             e.target.value = '';
           }}
         />
@@ -144,29 +137,23 @@ export default function ArtistApply() {
   const [existingApp, setExistingApp] = useState<ArtistApplicationSafe | null>(null);
   const isLockedReapply = isReapplyMode && !!existingApp;
 
-  // form
+  // form state
   const [stageName, setStageName] = useState('');
   const [realName, setRealName] = useState('');
   const [phone, setPhone] = useState('');
-  const [country, setCountry] = useState(''); // NO default. User must pick.
+  const [country, setCountry] = useState('');
   const [bio, setBio] = useState('');
+  const [musicPlatformUrl, setMusicPlatformUrl] = useState('');
   const [instagram, setInstagram] = useState('');
   const [youtube, setYoutube] = useState('');
   const [spotify, setSpotify] = useState('');
   const [appleMusic, setAppleMusic] = useState('');
 
-  const [docType, setDocType] = useState<IdDocType | null>(null);
-  const [docFront, setDocFront] = useState<File | null>(null);
-  const [docBack, setDocBack] = useState<File | null>(null);
-  const [selfie, setSelfie] = useState<File | null>(null);
   const [photo, setPhoto] = useState<File | null>(null);
-
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [livenessShots, setLivenessShots] = useState<LivenessShots | null>(null);
-  // True when phone+country came from the verified signup step. Re-typing
-  // those mid-application would let users break the link to their verified
-  // identity, so we lock them.
+
   const [signupLocked, setSignupLocked] = useState(false);
   const [handlePreview, setHandlePreview] = useState<{ slug: string; taken: boolean } | null>(null);
   const [phoneTaken, setPhoneTaken] = useState<boolean>(false);
@@ -174,7 +161,9 @@ export default function ArtistApply() {
   const [stageTaken, setStageTaken] = useState<boolean>(false);
   const [legalDoc, setLegalDoc] = useState<LegalDocKey | null>(null);
 
-  // Live duplicate check: phone number already used by another artist
+  const musicCheck = validateMusicPlatformUrl(musicPlatformUrl);
+
+  // Live duplicate check: phone number
   useEffect(() => {
     if (isLockedReapply) { setPhoneTaken(false); return; }
     if (!country || !validatePhone(country, phone).ok) { setPhoneTaken(false); return; }
@@ -195,7 +184,7 @@ export default function ArtistApply() {
     return () => { cancelled = true; clearTimeout(t); setPhoneChecking(false); };
   }, [phone, country, isLockedReapply]);
 
-  // Live duplicate check: stage name already used by another pending/approved artist
+  // Live duplicate check: stage name
   useEffect(() => {
     if (isLockedReapply) { setStageTaken(false); return; }
     const name = stageName.trim();
@@ -210,9 +199,7 @@ export default function ArtistApply() {
     return () => { cancelled = true; clearTimeout(t); };
   }, [stageName, isLockedReapply]);
 
-  // Live preview of the public artist link. Same stage names are allowed — the
-  // backend appends -2, -3… so two artists named "KAYO" never collide. We just
-  // show the user what their real shareable link will be so there's no surprise.
+  // Slug preview
   useEffect(() => {
     const raw = stageName.trim();
     if (raw.length < 2) { setHandlePreview(null); return; }
@@ -227,7 +214,6 @@ export default function ArtistApply() {
           .limit(20);
         if (cancelled) return;
         const taken = new Set((data ?? []).map((r) => (r.slug || '').toLowerCase()));
-        // If reapply, our own existing slug shouldn't count as "taken".
         if (!taken.has(base)) { setHandlePreview({ slug: base, taken: false }); return; }
         let i = 2; let candidate = `${base}-${i}`;
         while (taken.has(candidate) && i < 50) { i += 1; candidate = `${base}-${i}`; }
@@ -264,6 +250,7 @@ export default function ArtistApply() {
           setSpotify(typeof links.spotify === 'string' ? links.spotify : '');
           setAppleMusic(typeof links.apple_music === 'string' ? links.apple_music : '');
           setBio(typeof links.bio === 'string' ? links.bio : '');
+          setMusicPlatformUrl((existing as { music_platform_url?: string | null }).music_platform_url ?? '');
           setBootChecked(true);
           return;
         }
@@ -288,34 +275,31 @@ export default function ArtistApply() {
           }
         } catch { /* ignore */ }
 
-        // Resume in-progress draft from a previous session (same user). We
-        // keep this in localStorage so artists who leave mid-flow — even after
-        // signing out — can pick up exactly where they left off. Files are not
-        // restorable; they must be reselected on the file steps.
         try {
           const draftRaw = localStorage.getItem(`uf_artist_apply_draft:${user.id}`);
           if (draftRaw) {
             const d = JSON.parse(draftRaw) as Partial<{
               stageName: string; realName: string; phone: string; country: string; bio: string;
+              musicPlatformUrl: string;
               instagram: string; youtube: string; spotify: string; appleMusic: string;
-              docType: IdDocType | null; agreeTerms: boolean; agreePrivacy: boolean; step: Step;
+              agreeTerms: boolean; agreePrivacy: boolean; step: Step;
             }>;
             if (d.stageName) setStageName(d.stageName);
             if (d.realName) setRealName(d.realName);
             if (d.country) setCountry(d.country);
             if (d.phone != null) setPhone(d.phone);
             if (d.bio) setBio(d.bio);
+            if (d.musicPlatformUrl) setMusicPlatformUrl(d.musicPlatformUrl);
             if (d.instagram) setInstagram(d.instagram);
             if (d.youtube) setYoutube(d.youtube);
             if (d.spotify) setSpotify(d.spotify);
             if (d.appleMusic) setAppleMusic(d.appleMusic);
-            if (d.docType) setDocType(d.docType);
             if (d.agreeTerms) setAgreeTerms(true);
             if (d.agreePrivacy) setAgreePrivacy(true);
-            // Resume on the saved step, but cap at step 3 — steps 4 (face),
-            // 5 (photo) and 6 (submit) all need files we can't restore.
-            if (typeof d.step === 'number' && d.step >= 1 && d.step <= 3) {
-              setStep(Math.min(d.step, 3) as Step);
+            // Resume on the saved step, but cap at step 2 — face/photo/submit need
+            // files or camera we can't restore across sessions.
+            if (typeof d.step === 'number' && d.step >= 1 && d.step <= 2) {
+              setStep(Math.min(d.step, 2) as Step);
             }
             if (d.stageName || d.realName) {
               toast.success("Welcome back — we've restored your application.");
@@ -338,55 +322,38 @@ export default function ArtistApply() {
     })();
   }, [user, isLoading, navigate, isReapplyMode]);
 
-  // Auto-save the in-progress application draft (debounced). Skipped during
-  // reapply because that flow is locked to the existing submission's data.
+  // Auto-save draft
   useEffect(() => {
     if (!user || !bootChecked || isLockedReapply) return;
     const id = setTimeout(() => {
       try {
         localStorage.setItem(`uf_artist_apply_draft:${user.id}`, JSON.stringify({
           stageName, realName, phone, country, bio,
+          musicPlatformUrl,
           instagram, youtube, spotify, appleMusic,
-          docType, agreeTerms, agreePrivacy, step,
+          agreeTerms, agreePrivacy, step,
         }));
       } catch { /* quota — ignore */ }
     }, 400);
     return () => clearTimeout(id);
   }, [user, bootChecked, isLockedReapply, stageName, realName, phone, country, bio,
-      instagram, youtube, spotify, appleMusic, docType, agreeTerms, agreePrivacy, step]);
-
-
-  // Update doc type when country changes — but never auto-pick if user hasn't chosen country yet.
-  useEffect(() => {
-    if (!country) { setDocType(null); return; }
-    const options = docsForCountry(country);
-    if (!docType || !options.includes(docType)) setDocType(options[0]);
-  }, [country]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const needsBack = docType !== 'pan' && docType !== 'passport';
-  const allowedDocs = country ? docsForCountry(country) : [];
+      musicPlatformUrl, instagram, youtube, spotify, appleMusic, agreeTerms, agreePrivacy, step]);
 
   const phoneCheck = country ? validatePhone(country, phone) : { ok: false, reason: '' };
-  const linksCheck = atLeastNValidLinks({ instagram, youtube, spotify, apple_music: appleMusic }, 2);
+  // At least 1 additional social link is required (Instagram, YouTube, etc)
+  const linksCheck = atLeastNValidLinks({ instagram, youtube, spotify, apple_music: appleMusic }, 1);
   const countryLabel = getCountry(country) ? `${getCountry(country)!.flag} ${getCountry(country)!.name}` : country;
 
   const canNext = () => {
     if (step === 1) return stageName.trim().length >= 2 && !stageTaken && realName.trim().length >= 2 && !!country && phoneCheck.ok && !phoneTaken && !phoneChecking;
-    if (step === 2) return linksCheck.ok;
-    if (step === 3) return !!docType && !!docFront && (!needsBack || !!docBack) && !!selfie;
-    if (step === 4) return !!livenessShots;
-    if (step === 5) return !!photo;
+    if (step === 2) return musicCheck.ok && linksCheck.ok;
+    if (step === 3) return !!livenessShots;
+    if (step === 4) return !!photo;
     return agreeTerms && agreePrivacy;
   };
 
   const handleBack = async () => {
-    if (step > 1) {
-      setStep((s) => (s - 1) as Step);
-      return;
-    }
-
-    // /artist/apply is protected and /auth redirects signed-in users away.
-    // Sign out first so the About You back button actually lands on Auth.
+    if (step > 1) { setStep((s) => (s - 1) as Step); return; }
     try {
       localStorage.removeItem('uf_artist_signup');
       localStorage.removeItem('uf_post_verify_next');
@@ -399,6 +366,21 @@ export default function ArtistApply() {
     if (!user) return;
     if (!agreeTerms || !agreePrivacy) {
       toast.error('Please accept the Artist Terms and Privacy Policy.');
+      return;
+    }
+    if (!livenessShots) {
+      toast.error('Complete the live face check first.');
+      setStep(3);
+      return;
+    }
+    if (!photo) {
+      toast.error('Add your profile photo.');
+      setStep(4);
+      return;
+    }
+    if (!musicCheck.ok) {
+      toast.error(musicCheck.reason || 'Add a valid music-platform artist page URL.');
+      setStep(2);
       return;
     }
     setSubmitting(true);
@@ -419,22 +401,11 @@ export default function ArtistApply() {
       }
 
       const blobToFile = (b: Blob, name: string) => new File([b], name, { type: b.type || 'image/jpeg' });
-      // Single high-res 720×720 liveness capture. The downstream Gemini face
-      // match in `artist-verify-checks` only ever reads face_shots[0], so we
-      // upload one file instead of four identical copies.
-      const faceUploads = livenessShots
-        ? [await uploadKycFile(user.id, 'selfie', blobToFile(livenessShots.capture, 'face-capture.jpg'))]
-        : [];
-
-      const [frontPath, backPath, selfiePath, photoUrl] = await Promise.all([
-        docFront ? uploadKycFile(user.id, 'front', docFront) : Promise.resolve(null),
-        needsBack && docBack ? uploadKycFile(user.id, 'back', docBack) : Promise.resolve(null),
-        selfie ? uploadKycFile(user.id, 'selfie', selfie) : Promise.resolve(null),
-        photo ? uploadArtistPhoto(user.id, photo) : Promise.resolve(null),
+      const [selfiePath, photoUrl] = await Promise.all([
+        uploadLivenessCapture(user.id, blobToFile(livenessShots.capture, 'face-capture.jpg')),
+        uploadArtistPhoto(user.id, photo),
       ]);
 
-      // Anti-duplicate hashes (sha256). Phone is hashed in E.164 form so the
-      // same number typed two different ways still collides.
       const sha256Hex = async (data: ArrayBuffer | string) => {
         const buf = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
         const digest = await crypto.subtle.digest('SHA-256', buf);
@@ -442,7 +413,6 @@ export default function ArtistApply() {
       };
       const phoneE164 = phoneCheck.e164 || `${getDialCode(country)}${phone.replace(/\D/g, '')}`;
       const phoneHash = await sha256Hex(phoneE164.toLowerCase());
-      const idImageHash = docFront ? await sha256Hex(await docFront.arrayBuffer()) : null;
 
       const socialLinks = {
         instagram: instagram.trim() || null,
@@ -450,24 +420,17 @@ export default function ArtistApply() {
         spotify: spotify.trim() || null,
         apple_music: appleMusic.trim() || null,
         bio: bio.trim() || null,
-        face_shots: faceUploads,
+        face_shots: [selfiePath],
+        music_platform: musicCheck.platform,
       };
-
-      if (!docType) {
-        toast.error('Please choose a valid ID document type.');
-        return;
-      }
 
       const { data: inserted, error } = isLockedReapply
         ? await supabase.rpc('reapply_artist_application', {
             p_application_id: existingApp.id,
             p_social_links: socialLinks,
-            p_id_doc_type: docType,
-            p_id_doc_front_path: frontPath,
-            p_id_doc_back_path: backPath,
+            p_music_platform_url: musicCheck.normalized,
             p_selfie_path: selfiePath,
             p_artist_photo_path: photoUrl,
-            p_id_image_hash: idImageHash ?? '',
           })
         : await supabase.rpc('submit_artist_application', {
             p_stage_name: stageName.trim(),
@@ -475,17 +438,13 @@ export default function ArtistApply() {
             p_phone: phoneE164,
             p_country_code: country,
             p_social_links: socialLinks,
-            p_id_doc_type: docType,
-            p_id_doc_front_path: frontPath ?? '',
-            p_id_doc_back_path: backPath ?? '',
-            p_selfie_path: selfiePath ?? '',
-            p_artist_photo_path: photoUrl ?? '',
+            p_music_platform_url: musicCheck.normalized,
+            p_selfie_path: selfiePath,
+            p_artist_photo_path: photoUrl,
             p_phone_hash: phoneHash,
-            p_id_image_hash: idImageHash ?? '',
           });
 
       if (error) {
-        // Surface friendly errors for the new anti-abuse rules.
         const msg = error.message || '';
         if (msg.includes('re-apply 7 days') || msg.includes('re-submit after') || msg.includes('Next attempt allowed')) {
           toast.error(msg);
@@ -504,7 +463,6 @@ export default function ArtistApply() {
         return;
       }
 
-      // Kick off automated verification in the background — non-blocking.
       const applicationId = getApplicationId(inserted);
       if (applicationId) {
         supabase.functions
@@ -513,7 +471,6 @@ export default function ArtistApply() {
       }
 
       try { sessionStorage.setItem('uf_artist_just_submitted', String(Date.now())); } catch { /* ignore */ }
-      // Draft is no longer needed once the application is in.
       try { localStorage.removeItem(`uf_artist_apply_draft:${user.id}`); } catch { /* ignore */ }
       setSubmittedSuccess({ reapply: isLockedReapply });
       window.setTimeout(() => navigate('/artist/status', { replace: true }), 2600);
@@ -526,7 +483,6 @@ export default function ArtistApply() {
     }
   };
 
-  // Premium celebration: confetti bursts + native haptics when success screen shows.
   const celebratedRef = useRef(false);
   useEffect(() => {
     if (!submittedSuccess || celebratedRef.current) return;
@@ -534,26 +490,17 @@ export default function ArtistApply() {
 
     const fire = (origin: { x: number; y: number }, particleCount: number, opts: confetti.Options = {}) => {
       confetti({
-        particleCount,
-        spread: 70,
-        startVelocity: 45,
-        ticks: 200,
-        gravity: 0.9,
-        scalar: 0.95,
-        origin,
-        disableForReducedMotion: true,
+        particleCount, spread: 70, startVelocity: 45, ticks: 200, gravity: 0.9, scalar: 0.95,
+        origin, disableForReducedMotion: true,
         colors: ['#FF2D55', '#FF6B8A', '#FFD166', '#34C759', '#FFFFFF'],
         ...opts,
       });
     };
-
-    // Center burst, then two side cannons — staggered for that real confetti feel.
     fire({ x: 0.5, y: 0.35 }, 90, { spread: 100, startVelocity: 55 });
     window.setTimeout(() => fire({ x: 0.1, y: 0.55 }, 55, { angle: 60 }), 180);
     window.setTimeout(() => fire({ x: 0.9, y: 0.55 }, 55, { angle: 120 }), 220);
     window.setTimeout(() => fire({ x: 0.5, y: 0.4 }, 60, { spread: 140, startVelocity: 35, gravity: 1.1, scalar: 1.1 }), 520);
 
-    // Subtle haptic pattern — native on Capacitor, web fallback via Vibration API.
     (async () => {
       try {
         const { Haptics, ImpactStyle, NotificationType } = await import('@capacitor/haptics');
@@ -565,12 +512,10 @@ export default function ArtistApply() {
         }
       }
     })();
-
     return () => { try { confetti.reset(); } catch { /* ignore */ } };
   }, [submittedSuccess]);
 
   if (isLoading || !bootChecked) return <ArtistLoading label="Preparing your application…" />;
-
 
   if (submittedSuccess) {
     return (
@@ -583,10 +528,7 @@ export default function ArtistApply() {
         <div className="min-h-[100dvh] bg-background text-foreground flex flex-col items-center justify-center px-6 py-10 relative overflow-hidden">
           <div
             className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                'radial-gradient(ellipse at 50% 0%, hsl(340 100% 55% / 0.20) 0%, transparent 55%)',
-            }}
+            style={{ background: 'radial-gradient(ellipse at 50% 0%, hsl(340 100% 55% / 0.20) 0%, transparent 55%)' }}
           />
           <motion.div
             className="relative z-10 w-full max-w-sm text-center"
@@ -606,7 +548,6 @@ export default function ArtistApply() {
             >
               <Check className="w-12 h-12 text-white" strokeWidth={2.4} />
             </motion.div>
-
             <h1 className="text-[26px] leading-none font-display tracking-tight mt-7 mb-2">
               {submittedSuccess.reapply ? 'Re-submitted ✓' : 'Application submitted'}
             </h1>
@@ -615,7 +556,6 @@ export default function ArtistApply() {
                 ? 'Your updated details are now in our review queue.'
                 : "We've received your details. Auto-verification is running right now."}
             </p>
-
             <div
               className="rounded-[24px] p-5 mt-7 space-y-4 text-left"
               style={{
@@ -626,7 +566,7 @@ export default function ArtistApply() {
               }}
             >
               {[
-                { icon: Sparkles, text: <>Auto-checks running on your <strong className="text-foreground">ID & socials</strong></> },
+                { icon: Sparkles, text: <>Auto-checks running on your <strong className="text-foreground">face, socials & artist page</strong></> },
                 { icon: ShieldCheck, text: <>Our team reviews within <strong className="text-foreground">1–3 days</strong></> },
                 { icon: Check, text: <>You'll get a notification the moment we decide</> },
               ].map((item, i) => {
@@ -653,7 +593,6 @@ export default function ArtistApply() {
                 );
               })}
             </div>
-
             <motion.p
               className="mt-6 text-[11.5px] text-muted-foreground/70 inline-flex items-center gap-2"
               initial={{ opacity: 0 }}
@@ -668,7 +607,6 @@ export default function ArtistApply() {
     );
   }
 
-
   const meta = STEP_META[step];
   const StepIcon = meta.icon;
 
@@ -676,11 +614,10 @@ export default function ArtistApply() {
     <FadeTransition>
       <SEOHead
         title="Apply as Artist — Universflow"
-        description="Become a verified Universflow artist. Submit ID, get reviewed in 1–3 days, then publish your music."
+        description="Become a verified Universflow artist. Live face check, social & music-platform verification. No government ID needed."
         path="/artist/apply"
       />
       <div className="min-h-[100dvh] bg-background text-foreground pb-36">
-        {/* Header with title + dot progress */}
         <header
           className="sticky top-0 z-20 bg-background/85 backdrop-blur-xl border-b border-white/5"
           style={{ paddingTop: 'env(safe-area-inset-top)' }}
@@ -694,7 +631,9 @@ export default function ArtistApply() {
               <ArrowLeft className="w-5 h-5" />
             </button>
             <div className="flex-1 min-w-0">
-              <h1 className="text-[15px] font-semibold tracking-tight leading-tight truncate">{isLockedReapply ? 'Re-submit Verification' : 'Apply as Artist'}</h1>
+              <h1 className="text-[15px] font-semibold tracking-tight leading-tight truncate">
+                {isLockedReapply ? 'Re-submit Verification' : 'Apply as Artist'}
+              </h1>
               <p className="text-[11px] text-muted-foreground leading-tight truncate">{meta.label}</p>
             </div>
             <div className="flex items-center gap-1">
@@ -716,7 +655,6 @@ export default function ArtistApply() {
         </header>
 
         <main className="max-w-md mx-auto px-5 pt-5 pb-2">
-          {/* Step header pill */}
           <div className="mb-5 flex items-center gap-3">
             <div className="w-11 h-11 rounded-2xl bg-primary/12 border border-primary/20 flex items-center justify-center">
               <StepIcon className="w-5 h-5 text-primary" />
@@ -747,8 +685,9 @@ export default function ArtistApply() {
                   <div className="flex items-start gap-3 p-4 rounded-2xl bg-primary/8 border border-primary/15">
                     <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                     <p className="text-[12.5px] leading-relaxed text-foreground/90">
-                      Verification takes <strong>1–3 days</strong>. Your ID is encrypted, kept private,
-                      and <strong>auto-deleted after review</strong>.
+                      Verification takes <strong>1–3 days</strong>. No government ID required —
+                      we verify you with a <strong>live face check</strong>, your <strong>music-platform artist page</strong>,
+                      and your <strong>social handle</strong>.
                     </p>
                   </div>
                   <Field label="Stage / Artist name">
@@ -768,8 +707,11 @@ export default function ArtistApply() {
                       </p>
                     )}
                   </Field>
-                  <Field label="Legal full name">
-                    <Input value={realName} onChange={(e) => setRealName(e.target.value)} placeholder="As shown on ID" maxLength={80} disabled={isLockedReapply} />
+                  <Field label="Legal / real name">
+                    <Input value={realName} onChange={(e) => setRealName(e.target.value)} placeholder="Full name" maxLength={80} disabled={isLockedReapply} />
+                    <p className="mt-1 text-[10.5px] text-muted-foreground/70">
+                      Kept private — we cross-check it with your public artist page handle.
+                    </p>
                   </Field>
                   <Field label={`Phone number${country ? ` · ${getDialCode(country)} (${PHONE_DIGITS[country] ?? '—'} digits)` : ''}`}>
                     <div className="flex gap-2">
@@ -797,9 +739,7 @@ export default function ArtistApply() {
                       </p>
                     )}
                     {country && phoneCheck.ok && phoneChecking && (
-                      <p className="mt-1.5 text-[11.5px] text-muted-foreground leading-snug">
-                        Checking availability…
-                      </p>
+                      <p className="mt-1.5 text-[11.5px] text-muted-foreground leading-snug">Checking availability…</p>
                     )}
                     {country && phoneCheck.ok && !phoneChecking && phoneTaken && (
                       <p className="mt-1.5 text-[11.5px] text-rose-300 leading-snug">
@@ -826,11 +766,6 @@ export default function ArtistApply() {
                       placeholder="Select your country…"
                       ariaLabel="Country"
                     />
-                    {!country && (
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        Search any country — we use this to ask for the right ID document.
-                      </p>
-                    )}
                   </Field>
                   <Field label="Short bio (optional)">
                     <Textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={300} placeholder="What you make, where you're from…" rows={3} />
@@ -840,10 +775,46 @@ export default function ArtistApply() {
 
               {step === 2 && (
                 <>
-                  <p className="text-[12.5px] text-muted-foreground -mt-1">
-                    Paste at least <strong>2 real artist profile links</strong> so we can match them to your ID.
-                    Plain handles, fake text, or random URLs won&apos;t pass.
-                  </p>
+                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-primary/8 border border-primary/15">
+                    <Music className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                    <p className="text-[12.5px] leading-relaxed text-foreground/90">
+                      Paste your <strong>real artist page</strong> on any music platform.
+                      We open the link, check the artist name matches yours, and reject fake links instantly.
+                    </p>
+                  </div>
+
+                  <Field label="Music-platform artist page (required)">
+                    <div className="relative">
+                      <Input
+                        value={musicPlatformUrl}
+                        onChange={(e) => setMusicPlatformUrl(e.target.value)}
+                        placeholder="https://open.spotify.com/artist/…  ·  Apple Music, YouTube Music, Deezer, JioSaavn…"
+                        inputMode="url"
+                        spellCheck={false}
+                        autoCapitalize="off"
+                        autoCorrect="off"
+                      />
+                    </div>
+                    {musicPlatformUrl.trim().length > 0 && !musicCheck.ok && (
+                      <p className="mt-1.5 text-[11.5px] text-rose-300 leading-snug">{musicCheck.reason}</p>
+                    )}
+                    {musicCheck.ok && (
+                      <div className="mt-1.5 flex items-center gap-2 text-[11.5px] text-emerald-300">
+                        <Check className="w-3.5 h-3.5" />
+                        Recognised as {musicCheck.label}
+                        <a href={musicCheck.normalized} target="_blank" rel="noreferrer" className="ml-auto inline-flex items-center gap-1 underline text-muted-foreground hover:text-foreground">
+                          Open <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    )}
+                  </Field>
+
+                  <div className="pt-2">
+                    <p className="text-[12.5px] text-muted-foreground -mt-1">
+                      Add at least <strong>1 more social link</strong> where your artist handle matches.
+                    </p>
+                  </div>
+
                   <LinkField platform="instagram" value={instagram} onChange={setInstagram} placeholder="https://instagram.com/yourhandle" />
                   <LinkField platform="youtube" value={youtube} onChange={setYoutube} placeholder="https://youtube.com/@yourchannel" />
                   <LinkField platform="spotify" value={spotify} onChange={setSpotify} placeholder="https://open.spotify.com/artist/…" />
@@ -856,61 +827,19 @@ export default function ArtistApply() {
 
               {step === 3 && (
                 <>
-                  {!country ? (
-                    <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-[12.5px] text-amber-200">
-                      Pick your country in Step 1 first so we can show the right ID options.
-                    </div>
-                  ) : (
-                    <>
-                      <div className="p-4 rounded-2xl bg-primary/10 border border-primary/25 text-[12.5px] text-foreground/90 leading-relaxed">
-                        You picked <strong>{countryLabel}</strong>. We only accept{' '}
-                        <strong>{countryLabel.replace(/^[^\s]+\s/, '')}</strong>-issued ID documents.
-                        Submitting an ID from any other country will get your application rejected instantly.
-                      </div>
-                      <Field label="Document type">
-                        <div className="space-y-2">
-                          {allowedDocs.map((d) => (
-                            <button
-                              key={d}
-                              type="button"
-                              onClick={() => setDocType(d)}
-                              className={`w-full h-12 px-4 rounded-xl text-[13.5px] font-medium border transition flex items-center justify-between ${
-                                docType === d
-                                  ? 'bg-primary/15 text-foreground border-primary'
-                                  : 'bg-white/[0.03] border-white/10 text-muted-foreground'
-                              }`}
-                            >
-                              <span>{ID_DOC_LABELS[d]}</span>
-                              {docType === d && <Check className="w-4 h-4 text-primary" />}
-                            </button>
-                          ))}
-                        </div>
-                      </Field>
-                      <FilePicker label="ID — front" file={docFront} onPick={setDocFront} />
-                      {needsBack && <FilePicker label="ID — back" file={docBack} onPick={setDocBack} />}
-                      <FilePicker label="Selfie holding the same ID" file={selfie} onPick={setSelfie} />
-                      <p className="text-[11.5px] text-muted-foreground leading-relaxed">
-                        Files are compressed on-device, stored privately, and deleted right after review.
-                      </p>
-                    </>
-                  )}
-                </>
-              )}
-
-              {step === 4 && (
-                <>
                   <div className="flex items-start gap-3 p-4 rounded-2xl bg-primary/8 border border-primary/15">
                     <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
                     <p className="text-[12.5px] leading-relaxed text-foreground/90">
-                      Quick face check. Just look at the camera and hold still for about a second — we'll snap one photo automatically to confirm you're a real person.
+                      We use your camera to confirm you're a real person — <strong>blink twice, then smile</strong>.
+                      Nothing is uploaded until the check passes.
                     </p>
                   </div>
                   {livenessShots ? (
                     <div className="rounded-2xl p-4 bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-3">
                       <Check className="w-5 h-5 text-emerald-300" />
                       <div className="flex-1">
-                        <p className="text-[13px] font-semibold text-emerald-200">Face check complete</p>
-                        <p className="text-[11.5px] text-emerald-200/80">Photo captured. Tap Continue.</p>
+                        <p className="text-[13px] font-semibold text-emerald-200">Live face check passed</p>
+                        <p className="text-[11.5px] text-emerald-200/80">Real-human liveness confirmed. Tap Continue.</p>
                       </div>
                       <button type="button" onClick={() => setLivenessShots(null)} className="text-[11.5px] text-emerald-200 underline">Redo</button>
                     </div>
@@ -920,7 +849,7 @@ export default function ArtistApply() {
                 </>
               )}
 
-              {step === 5 && (
+              {step === 4 && (
                 <>
                   <p className="text-[12.5px] text-muted-foreground -mt-1">
                     A clean, high-quality photo of you. This becomes your public profile picture once verified.
@@ -929,7 +858,7 @@ export default function ArtistApply() {
                 </>
               )}
 
-              {step === 6 && (
+              {step === 5 && (
                 <>
                   <div className="rounded-2xl p-4 bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20">
                     <div className="flex items-center gap-2 mb-1.5">
@@ -962,8 +891,7 @@ export default function ArtistApply() {
                     />
                     <span className="text-[12.5px] leading-relaxed">
                       I agree to the{' '}
-                      <button type="button" onClick={() => setLegalDoc('artist-privacy')} className="underline text-primary font-medium">Artist Privacy Policy</button>,
-                      including that my ID will be deleted after review.
+                      <button type="button" onClick={() => setLegalDoc('artist-privacy')} className="underline text-primary font-medium">Artist Privacy Policy</button>.
                     </span>
                   </label>
                 </>
@@ -974,7 +902,6 @@ export default function ArtistApply() {
 
         <LegalSheet doc={legalDoc} onClose={() => setLegalDoc(null)} />
 
-        {/* Sticky bottom CTA */}
         <div
           className="fixed bottom-0 inset-x-0 z-20 bg-gradient-to-t from-background via-background/95 to-transparent pt-6 px-5"
           style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 20px)' }}
@@ -1046,4 +973,3 @@ function LinkField({
     </Field>
   );
 }
-
