@@ -578,7 +578,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500"
                   />
                   <div className="flex justify-between mt-1">
-                    {speedMarks.map(s => (
+                    {[0.5, 1, 1.5, 2].map(s => (
                       <span key={s} className="text-[10px] text-muted-foreground/50">{s}x</span>
                     ))}
                   </div>
