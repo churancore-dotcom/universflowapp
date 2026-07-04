@@ -14,7 +14,7 @@ interface LyricsResponse {
   success: boolean;
   synced?: string | null;
   plain?: string | null;
-  source?: 'artist' | 'lrclib' | 'kugou' | 'netease' | 'genius' | null;
+  source?: 'artist' | 'lrclib' | 'kugou' | 'netease' | 'qqmusic' | 'lyricsovh' | 'genius' | null;
   geniusUrl?: string | null;
   error?: string;
 }
