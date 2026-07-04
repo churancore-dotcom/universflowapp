@@ -94,6 +94,7 @@ export default function FaceLivenessCapture({
   const captureCanvasRef = useRef<HTMLCanvasElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const rafRef = useRef<number | null>(null);
+
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const capturedRef = useRef(false);
   const stopLoopRef = useRef(false);
