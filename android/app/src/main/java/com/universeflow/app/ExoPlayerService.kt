@@ -206,8 +206,10 @@ class ExoPlayerService : MediaSessionService() {
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? = mediaSession
 
     override fun onTaskRemoved(rootIntent: Intent?) {
+        // NEVER stop the service on swipe-away if the player has any content
+        // loaded — user must be able to resume from lock screen / notification.
         val p = player
-        if (p == null || !p.playWhenReady || p.mediaItemCount == 0) {
+        if (p == null || p.mediaItemCount == 0) {
             stopSelf()
         }
         super.onTaskRemoved(rootIntent)
