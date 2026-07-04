@@ -40,44 +40,40 @@ const baseSong = {
 };
 
 // ---- Fake Supabase client -------------------------------------------------
-const state = {
+const state = vi.hoisted(() => ({
   songs: [] as Row[],
   handlers: [] as Handler[],
-  rpc: vi.fn(async (fn: string, args: { _song_id: string }) => {
-    const s = state.songs.find((x) => x.id === args._song_id);
-    if (!s) return { data: null, error: null };
-    if (fn === 'increment_artist_song_play') s.play_count = (s.play_count as number) + 1;
-    if (fn === 'increment_artist_song_view') s.view_count = (s.view_count as number) + 1;
-    if (fn === 'increment_artist_song_download') s.download_count = (s.download_count as number) + 1;
-    emit('UPDATE', s);
-    return { data: null, error: null };
-  }),
-};
+  rpc: null as unknown as ReturnType<typeof vi.fn>,
+}));
 
 function emit(eventType: 'INSERT' | 'UPDATE' | 'DELETE', row: Row) {
   for (const h of state.handlers) h({ eventType, new: row, old: row });
 }
 
-function makeQuery(table: string, resultOverride?: unknown) {
-  const q: Record<string, unknown> = {};
-  const chain = () => q;
-  q.select = vi.fn((_c?: string, opts?: { count?: string; head?: boolean }) => {
-    if (table === 'artist_followers' && opts?.head)
-      q.then = (r: (v: { count: number }) => void) => r({ count: 0 });
-    return q;
-  });
-  q.eq = vi.fn(chain);
-  q.order = vi.fn(() => Promise.resolve({ data: state.songs, error: null }));
-  q.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
-  // Fallback thenable for followers count query
-  if (table === 'artist_followers') {
-    (q as { then: unknown }).then = (r: (v: { count: number; error: null }) => void) =>
-      r({ count: 0, error: null });
-  }
-  return q;
-}
-
 vi.mock('@/integrations/supabase/client', () => {
+  state.rpc = vi.fn(async (fn: string, args: { _song_id: string }) => {
+    const s = state.songs.find((x) => x.id === args._song_id) as Record<string, unknown> | undefined;
+    if (!s) return { data: null, error: null };
+    if (fn === 'increment_artist_song_play') s.play_count = (s.play_count as number) + 1;
+    if (fn === 'increment_artist_song_view') s.view_count = (s.view_count as number) + 1;
+    if (fn === 'increment_artist_song_download') s.download_count = (s.download_count as number) + 1;
+    for (const h of state.handlers) h({ eventType: 'UPDATE', new: s, old: s });
+    return { data: null, error: null };
+  });
+
+  const makeQuery = (table: string) => {
+    const q: Record<string, unknown> = {};
+    q.select = vi.fn(() => q);
+    q.eq = vi.fn(() => q);
+    q.order = vi.fn(() => Promise.resolve({ data: state.songs, error: null }));
+    q.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
+    if (table === 'artist_followers') {
+      (q as { then: unknown }).then = (r: (v: { count: number; error: null }) => void) =>
+        r({ count: 0, error: null });
+    }
+    return q;
+  };
+
   const channel = {
     on: vi.fn(function on(_evt: string, cfg: { table: string }, handler: Handler) {
       if (cfg.table === 'artist_songs') state.handlers.push(handler);
@@ -90,10 +86,11 @@ vi.mock('@/integrations/supabase/client', () => {
       from: vi.fn((table: string) => makeQuery(table)),
       channel: vi.fn(() => channel),
       removeChannel: vi.fn(),
-      rpc: state.rpc,
+      rpc: (...args: unknown[]) => state.rpc(...args),
     },
   };
 });
+
 
 // Import AFTER the mock is registered.
 import { useArtistLive } from '@/pages/artist/useArtistLive';
