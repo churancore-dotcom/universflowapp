@@ -340,17 +340,22 @@ export default function ArtistApply() {
       musicPlatformUrl, instagram, youtube, spotify, appleMusic, agreeTerms, agreePrivacy, step]);
 
   const phoneCheck = country ? validatePhone(country, phone) : { ok: false, reason: '' };
-  // At least 1 additional social link is required (Instagram, YouTube, etc)
+  // Both Instagram AND YouTube are now required — dual-handle cross-check is the
+  // strongest anti-impersonation signal without government ID.
+  const instagramCheck = validateSocialLink('instagram', instagram);
+  const youtubeCheck = validateSocialLink('youtube', youtube);
+  const dualSocialsOk = !!instagram.trim() && !!youtube.trim() && instagramCheck.ok && youtubeCheck.ok;
   const linksCheck = atLeastNValidLinks({ instagram, youtube, spotify, apple_music: appleMusic }, 1);
   const countryLabel = getCountry(country) ? `${getCountry(country)!.flag} ${getCountry(country)!.name}` : country;
 
   const canNext = () => {
     if (step === 1) return stageName.trim().length >= 2 && !stageTaken && realName.trim().length >= 2 && !!country && phoneCheck.ok && !phoneTaken && !phoneChecking;
-    if (step === 2) return musicCheck.ok && linksCheck.ok;
+    if (step === 2) return musicCheck.ok && dualSocialsOk && linksCheck.ok;
     if (step === 3) return !!livenessShots;
     if (step === 4) return !!photo;
     return agreeTerms && agreePrivacy;
   };
+
 
   const handleBack = async () => {
     if (step > 1) { setStep((s) => (s - 1) as Step); return; }
