@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Disc3, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Mic2, Home, Building2, Church, Trophy, Moon, Crown, Sparkles, Guitar, Drum, Piano, Car, Speaker, Dumbbell, Focus, PartyPopper, Film, Gamepad2, Podcast, Flame, Snowflake, Sun } from 'lucide-react';
+import { X, Disc3, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Mic2, Home, Building2, Church, Trophy, Moon, Crown, Wand2, Guitar, Drum, Piano, Car, Speaker, Dumbbell, Focus, PartyPopper, Film, Gamepad2, Podcast, Flame, Snowflake, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -58,7 +58,7 @@ interface Preset {
 // Grouped visually: Smart, Genre, Vibe, Space/Device.
 const presets: Preset[] = [
   // — Smart —
-  { id: 'auto',         name: 'Auto EQ',      icon: Sparkles,   bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
+  { id: 'auto',         name: 'Auto EQ',      icon: Wand2,      bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
   { id: 'flat',         name: 'Flat',         icon: Music2,     bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
 
   // — Bass / Treble sculpting —
@@ -87,8 +87,8 @@ const presets: Preset[] = [
   { id: 'latin',        name: 'Latin',        icon: Music2,     bands: [4, 3, 0, 0, -1, -1, -1, 0, 3, 4], bassBoost: 20 },
   { id: 'lofi',         name: 'Lo-Fi',        icon: Disc3,      bands: [4, 3, 2, 1, 0, -1, -3, -4, -5, -6], bassBoost: 25, reverb: 18 },
   { id: 'indie',        name: 'Indie',        icon: Guitar,     bands: [2, 2, 1, 1, 1, 1, 2, 2, 2, 1], bassBoost: 12 },
-  { id: 'kpop',         name: 'K-Pop',        icon: Sparkles,   bands: [3, 4, 2, 0, 0, 1, 2, 4, 4, 3], bassBoost: 28 },
-  { id: 'bollywood',    name: 'Bollywood',    icon: Sparkles,   bands: [3, 3, 2, 1, 1, 2, 3, 3, 2, 1], bassBoost: 22 },
+  { id: 'kpop',         name: 'K-Pop',        icon: Crown,   bands: [3, 4, 2, 0, 0, 1, 2, 4, 4, 3], bassBoost: 28 },
+  { id: 'bollywood',    name: 'Bollywood',    icon: Flame,   bands: [3, 3, 2, 1, 1, 2, 3, 3, 2, 1], bassBoost: 22 },
   { id: 'punjabi',      name: 'Punjabi',      icon: Drum,       bands: [6, 5, 3, 1, 0, 0, 1, 2, 3, 3], bassBoost: 50 },
 
   // — Vibe / Mood —
