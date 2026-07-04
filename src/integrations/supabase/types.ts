@@ -292,6 +292,8 @@ export type Database = {
           music_platform_url: string | null
           name_match_score: number | null
           ocr_extracted_name: string | null
+          ownership_code: string | null
+          ownership_verified_at: string | null
           phone: string
           phone_hash: string | null
           real_name: string
@@ -321,6 +323,8 @@ export type Database = {
           music_platform_url?: string | null
           name_match_score?: number | null
           ocr_extracted_name?: string | null
+          ownership_code?: string | null
+          ownership_verified_at?: string | null
           phone: string
           phone_hash?: string | null
           real_name: string
@@ -350,6 +354,8 @@ export type Database = {
           music_platform_url?: string | null
           name_match_score?: number | null
           ocr_extracted_name?: string | null
+          ownership_code?: string | null
+          ownership_verified_at?: string | null
           phone?: string
           phone_hash?: string | null
           real_name?: string
