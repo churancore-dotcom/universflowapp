@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, ArrowRight, Loader2, Upload, Check, ShieldCheck, User,
-  Music, Camera, Image as ImageIcon, ShieldCheck, ExternalLink,
+  Music, Camera, Image as ImageIcon, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
