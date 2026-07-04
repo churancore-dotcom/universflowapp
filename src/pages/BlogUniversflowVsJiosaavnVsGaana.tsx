@@ -7,7 +7,7 @@ import {
   Headphones,
   IndianRupee,
   ChevronRight,
-
+  Music2,
   Shield,
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
