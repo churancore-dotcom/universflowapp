@@ -81,8 +81,9 @@ class ExoPlayerService : MediaSessionService() {
         val builder = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
             .setAudioAttributes(audioAttrs, /* handleAudioFocus */ true)
-            .setHandleAudioBecomingNoisy(false)
+            .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
+            .setPauseAtEndOfMediaItems(false)
 
         val exo = builder.build().also { p ->
             if (sessionId != C.AUDIO_SESSION_ID_UNSET) {
