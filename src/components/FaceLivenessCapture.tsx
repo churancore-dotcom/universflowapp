@@ -98,6 +98,11 @@ export default function FaceLivenessCapture({
   const landmarkerRef = useRef<FaceLandmarker | null>(null);
   const capturedRef = useRef(false);
   const stopLoopRef = useRef(false);
+  // Tracks whether the RAF detection loop is already running so overlapping
+  // markReady() invocations (onloadedmetadata + onplaying + 700ms fallback)
+  // don't spawn multiple concurrent detection loops that fight over the FSM.
+  const readyRef = useRef(false);
+
 
   // Blink FSM — count rising edges (closed → open transitions).
   const blinkStateRef = useRef<'open' | 'closed'>('open');
@@ -293,9 +298,11 @@ export default function FaceLivenessCapture({
     setVideoReady(false);
     capturedRef.current = false;
     stopLoopRef.current = false;
+    readyRef.current = false;
     blinkCountRef.current = 0;
     blinkStateRef.current = 'open';
     positionSinceRef.current = null;
+
     setPhase('loading-model');
     setHint('Loading face model…');
 
@@ -331,7 +338,8 @@ export default function FaceLivenessCapture({
       video.srcObject = stream;
 
       const markReady = () => {
-        if (videoReady) return;
+        if (readyRef.current) return;
+        readyRef.current = true;
         setVideoReady(true);
         setPhase('position');
         phaseRef.current = 'position';
@@ -343,8 +351,9 @@ export default function FaceLivenessCapture({
       video.onplaying = markReady;
       await video.play().catch(() => undefined);
       window.setTimeout(() => {
-        if (!videoReady && video.readyState >= 2) markReady();
+        if (!readyRef.current && video.readyState >= 2) markReady();
       }, 700);
+
     } catch (e) {
       teardown();
       const er = e as { name?: string; message?: string };
