@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { canDownloadSong, getDownloadUnavailableMessage } from '@/lib/songSupport';
 import { resolveIndexedTrack } from '@/lib/musicIndexer';
 import { getRuntimePremium } from '@/lib/premiumState';
+import { supabase } from '@/integrations/supabase/client';
 
 // Build a proxy URL for cross-origin streams that fail direct fetch.
 // Uses the same music-indexer audio proxy that the player uses.
