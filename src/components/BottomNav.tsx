@@ -90,10 +90,10 @@ const BottomNav = memo(function BottomNav() {
                   navigate(item.path);
                 }}
                 whileTap={{ scale: 0.9 }}
-                className="relative flex items-center justify-center h-11 rounded-full"
+                className="relative flex items-center justify-center h-10 rounded-full shrink-0"
                 animate={{
-                  paddingLeft: isActive ? 16 : 14,
-                  paddingRight: isActive ? 18 : 14,
+                  paddingLeft: isActive ? 12 : 11,
+                  paddingRight: isActive ? 14 : 11,
                 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 32 }}
               >
@@ -111,9 +111,9 @@ const BottomNav = memo(function BottomNav() {
                   />
                 )}
 
-                <div className="relative flex items-center gap-1.5">
+                <div className="relative flex items-center gap-1">
                   <Icon
-                    className={`w-[22px] h-[22px] transition-colors duration-200 ${
+                    className={`w-5 h-5 transition-colors duration-200 ${
                       isActive ? 'text-white' : 'text-white/65'
                     }`}
                     strokeWidth={isActive ? 2.2 : 1.9}
