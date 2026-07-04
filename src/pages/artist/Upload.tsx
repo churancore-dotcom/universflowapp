@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image as ImageIcon, Loader2, Upload as UploadIcon, Link2, CheckCircle2,
   AlertCircle, Cloud, HardDrive, ArrowLeft, ArrowRight, Play, Pause,
-  Music2, Sparkles,
+  Music2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
@@ -642,7 +642,7 @@ function WaveformPreview({
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-[10.5px] uppercase tracking-[0.2em] text-primary/90 font-semibold flex items-center gap-1.5">
-            <Sparkles className="w-3 h-3" /> Preview
+            <Play className="w-3 h-3" /> Preview
           </p>
           <p className="text-[14px] font-semibold truncate mt-0.5 font-display">{title}</p>
         </div>

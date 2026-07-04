@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import {
   IndianRupee, TrendingUp, CheckCircle2, Clock, XCircle, Crown,
-  Users, Repeat, BarChart3, Sparkles,
+  Users, Repeat, BarChart3, DollarSign,
 } from 'lucide-react';
 
 type Row = {
@@ -101,7 +101,7 @@ const RevenueInsights = () => {
   const maxDay = Math.max(1, ...m.days.map((d) => d.sum));
 
   const headline = [
-    { icon: Sparkles, label: 'MRR (normalized)', value: fmtINR(m.mrr), sub: 'Monthly run-rate', tone: 'from-emerald-500 to-teal-400' },
+    { icon: DollarSign, label: 'MRR (normalized)', value: fmtINR(m.mrr), sub: 'Monthly run-rate', tone: 'from-emerald-500 to-teal-400' },
     { icon: IndianRupee, label: 'Lifetime Revenue', value: fmtINR(m.total), sub: `${m.approved.length} payments`, tone: 'from-primary to-accent' },
     { icon: TrendingUp, label: 'Last 30 days', value: fmtINR(m.r30), sub: fmtINR(m.r7) + ' last 7d', tone: 'from-blue-500 to-cyan-400' },
     { icon: Users, label: 'Active Premium', value: compact(activeSubs), sub: `${m.conversion.toFixed(1)}% of ${compact(totalUsers)} users`, tone: 'from-fuchsia-500 to-pink-400' },

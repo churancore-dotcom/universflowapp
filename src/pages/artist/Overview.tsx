@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'recharts';
 import {
   Music2, Heart, Eye, Users, TrendingUp, TrendingDown, Upload, BarChart3,
-  UserCog, Bell, Sparkles, ExternalLink, Headphones, ArrowUpRight, Globe2,
+  UserCog, Bell, ExternalLink, Headphones, ArrowUpRight, Globe2,
   Play, BadgeCheck,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -255,7 +255,7 @@ export default function Overview() {
         {top && (top.play_count > 0 || top.like_count > 0) && (
           <BentoCard className="col-span-6 sm:col-span-4 p-4" delay={0.16}>
             <p className="text-[10.5px] uppercase tracking-[0.2em] text-primary/90 font-semibold flex items-center gap-1.5">
-              <Sparkles className="w-3 h-3" /> Top track this period
+              <TrendingUp className="w-3 h-3" /> Top track this period
             </p>
             <div className="mt-3 flex items-center gap-3">
               <div className="w-16 h-16 rounded-2xl overflow-hidden bg-black/40 shrink-0 ring-1 ring-white/10">

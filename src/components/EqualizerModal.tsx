@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Disc3, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Mic2, Home, Building2, Church, Trophy, Moon, Crown, Sparkles, Guitar, Drum, Piano, Car, Speaker, Dumbbell, Focus, PartyPopper, Film, Gamepad2, Podcast, Flame, Snowflake, Sun } from 'lucide-react';
+import { X, Disc3, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Mic2, Home, Building2, Church, Trophy, Moon, Crown, Wand2, Guitar, Drum, Piano, Car, Speaker, Dumbbell, Focus, PartyPopper, Film, Gamepad2, Podcast, Flame, Snowflake, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
@@ -58,7 +58,7 @@ interface Preset {
 // Grouped visually: Smart, Genre, Vibe, Space/Device.
 const presets: Preset[] = [
   // — Smart —
-  { id: 'auto',         name: 'Auto EQ',      icon: Sparkles,   bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
+  { id: 'auto',         name: 'Auto EQ',      icon: Wand2,      bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
   { id: 'flat',         name: 'Flat',         icon: Music2,     bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
 
   // — Bass / Treble sculpting —
@@ -87,8 +87,8 @@ const presets: Preset[] = [
   { id: 'latin',        name: 'Latin',        icon: Music2,     bands: [4, 3, 0, 0, -1, -1, -1, 0, 3, 4], bassBoost: 20 },
   { id: 'lofi',         name: 'Lo-Fi',        icon: Disc3,      bands: [4, 3, 2, 1, 0, -1, -3, -4, -5, -6], bassBoost: 25, reverb: 18 },
   { id: 'indie',        name: 'Indie',        icon: Guitar,     bands: [2, 2, 1, 1, 1, 1, 2, 2, 2, 1], bassBoost: 12 },
-  { id: 'kpop',         name: 'K-Pop',        icon: Sparkles,   bands: [3, 4, 2, 0, 0, 1, 2, 4, 4, 3], bassBoost: 28 },
-  { id: 'bollywood',    name: 'Bollywood',    icon: Sparkles,   bands: [3, 3, 2, 1, 1, 2, 3, 3, 2, 1], bassBoost: 22 },
+  { id: 'kpop',         name: 'K-Pop',        icon: Crown,   bands: [3, 4, 2, 0, 0, 1, 2, 4, 4, 3], bassBoost: 28 },
+  { id: 'bollywood',    name: 'Bollywood',    icon: Flame,   bands: [3, 3, 2, 1, 1, 2, 3, 3, 2, 1], bassBoost: 22 },
   { id: 'punjabi',      name: 'Punjabi',      icon: Drum,       bands: [6, 5, 3, 1, 0, 0, 1, 2, 3, 3], bassBoost: 50 },
 
   // — Vibe / Mood —
@@ -307,7 +307,18 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     );
   }
 
-  const speedMarks = [0.5, 1, 1.5, 2];
+  // Live spectrum bars in header — purely decorative, animates when playing.
+  const spectrum = useMemo(() => Array.from({ length: 22 }, (_, i) => i), []);
+
+  const presetGroups: { label: string; ids: string[] }[] = [
+    { label: 'Smart',      ids: ['auto', 'flat'] },
+    { label: 'Bass · Treble', ids: ['bass-boost','deep-bass','super-bass','treble-boost','crystal','vocal','v-shape'] },
+    { label: 'Genre',      ids: ['pop','rock','metal','hiphop','rnb','edm','phonk','dance','jazz','classical','acoustic','country','reggae','latin','lofi','indie','kpop','bollywood','punjabi'] },
+    { label: 'Vibe',       ids: ['late-night','chill','focus','workout','party','sunrise'] },
+    { label: 'Immersive',  ids: ['8d-audio','surround','headphones','concert','stadium-live','cathedral','studio','vinyl'] },
+    { label: 'Device',     ids: ['car','small-spkr','earbuds','tv','gaming','podcast'] },
+  ];
+  const presetById = new Map(presets.map((p) => [p.id, p]));
 
   return (
     <AnimatePresence>
@@ -318,7 +329,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
         exit={{ opacity: 0 }}
       >
         <motion.div
-          className="absolute inset-0 bg-black/60 backdrop-blur-xl"
+          className="absolute inset-0 bg-black/70 backdrop-blur-2xl"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -326,92 +337,142 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
         />
 
         <motion.div
-          className="relative w-full max-w-lg mx-4 mb-4 rounded-3xl overflow-hidden bg-background border border-white/10"
+          className="relative w-full max-w-lg mx-4 mb-4 rounded-[28px] overflow-hidden border border-white/10 shadow-[0_30px_80px_-20px_rgba(0,0,0,0.9)]"
+          style={{ background: 'linear-gradient(180deg, #0b0b10 0%, #0f0d14 100%)' }}
           initial={{ y: '100%', opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: '100%', opacity: 0 }}
           transition={iosSpring}
         >
-          {/* Header */}
-          <div className="relative overflow-hidden p-5 uf-rose-gradient">
+          {/* Exclusive header — obsidian glass + live spectrum */}
+          <div className="relative overflow-hidden">
             {currentSong?.cover_url && (
               <img
                 src={currentSong.cover_url}
                 alt=""
                 aria-hidden
-                className="absolute inset-y-0 right-0 h-full w-2/3 object-cover pointer-events-none"
-                style={{ filter: 'blur(18px) saturate(140%)', opacity: 0.45, WebkitMaskImage: 'linear-gradient(to left, #000 30%, transparent 100%)', maskImage: 'linear-gradient(to left, #000 30%, transparent 100%)' }}
+                className="absolute inset-0 h-full w-full object-cover pointer-events-none"
+                style={{ filter: 'blur(38px) saturate(180%)', opacity: 0.55 }}
               />
             )}
-            <div className="relative z-10 flex items-center justify-between">
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="w-11 h-11 rounded-2xl flex items-center justify-center bg-black shadow-lg shrink-0">
-                <Waves className="w-5 h-5 text-white" />
+            <div
+              aria-hidden
+              className="absolute inset-0 pointer-events-none"
+              style={{ background: 'linear-gradient(180deg, rgba(10,10,14,0.45) 0%, rgba(10,10,14,0.85) 70%, rgba(10,10,14,0.95) 100%)' }}
+            />
+            <div
+              aria-hidden
+              className="absolute -top-20 -left-16 h-64 w-64 rounded-full pointer-events-none"
+              style={{ background: 'radial-gradient(circle, hsl(var(--primary) / 0.35), transparent 60%)', filter: 'blur(20px)' }}
+            />
+
+            <div className="relative z-10 px-5 pt-5 pb-4">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="relative w-11 h-11 rounded-2xl grid place-items-center shrink-0"
+                       style={{ background: 'linear-gradient(140deg, hsl(var(--primary)), hsl(340 100% 62%))', boxShadow: '0 10px 30px -8px hsl(var(--primary) / 0.55)' }}>
+                    <Waves className="w-5 h-5 text-white" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[10px] font-bold uppercase tracking-[0.28em] bg-clip-text text-transparent"
+                       style={{ backgroundImage: 'linear-gradient(90deg, hsl(var(--primary)), hsl(38 100% 68%))' }}>
+                      Exclusive · Studio Sound
+                    </p>
+                    <h2 className="text-white text-[26px] leading-none font-display tracking-[0.02em] mt-1">EQUALIZER</h2>
+                    <p className="text-[11px] text-white/60 font-medium truncate flex items-center gap-1.5 mt-1.5">
+                      <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-400 shadow-[0_0_8px_hsl(142_70%_55%)]' : effectsActive ? 'bg-amber-400 animate-pulse' : 'bg-white/30'}`} />
+                      {connectionLabel}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <motion.button onClick={handleReset} className="w-10 h-10 rounded-full grid place-items-center bg-white/5 border border-white/10 backdrop-blur" whileTap={{ scale: 0.94 }}>
+                    <RotateCcw className="w-4 h-4 text-white/70" />
+                  </motion.button>
+                  <motion.button onClick={onClose} className="w-10 h-10 rounded-full grid place-items-center bg-white text-black" whileTap={{ scale: 0.94 }}>
+                    <X className="w-5 h-5" />
+                  </motion.button>
+                </div>
               </div>
-              <div className="min-w-0">
-                <p className="text-black/60 text-[10px] font-extrabold uppercase tracking-[0.18em]">Studio sound</p>
-                <h2 className="text-black text-[30px] leading-none font-display tracking-wide">EQUALIZER</h2>
-                <p className="text-xs text-black/70 font-semibold truncate flex items-center gap-1">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-black' : effectsActive ? 'bg-black/50 animate-pulse' : 'bg-black/30'}`} />
-                  {connectionLabel}
-                </p>
+
+              {/* Live spectrum viz */}
+              <div className="h-14 flex items-end justify-between gap-[3px]">
+                {spectrum.map((i) => {
+                  const gain = bands[Math.min(bands.length - 1, Math.round((i / spectrum.length) * (bands.length - 1)))].gain;
+                  const base = 22 + (gain + 12) * 2; // map -12..+12 → 22..70 px
+                  return (
+                    <motion.span
+                      key={i}
+                      className="flex-1 rounded-full"
+                      style={{ background: 'linear-gradient(180deg, hsl(var(--primary)) 0%, hsl(340 100% 65%) 100%)', minWidth: 3, opacity: 0.85 }}
+                      animate={isConnected || nativeAudio ? { height: [base * 0.6, base, base * 0.75, base * 1.05, base * 0.8] } : { height: base * 0.5 }}
+                      transition={isConnected || nativeAudio ? { duration: 1.1 + (i % 4) * 0.15, repeat: Infinity, ease: 'easeInOut', delay: i * 0.03 } : {}}
+                    />
+                  );
+                })}
               </div>
             </div>
-            <div className="flex items-center gap-2">
-              <motion.button onClick={handleReset} className="w-10 h-10 rounded-full flex items-center justify-center bg-black/15" whileTap={{ scale: 0.95 }}>
-                <RotateCcw className="w-4 h-4 text-black/70" />
-              </motion.button>
-              <motion.button onClick={onClose} className="w-10 h-10 rounded-full flex items-center justify-center bg-black text-white" whileTap={{ scale: 0.95 }}>
-                <X className="w-5 h-5" />
-              </motion.button>
-            </div>
-            </div>
+
+            <div className="relative z-10 h-px w-full" style={{ background: 'linear-gradient(90deg, transparent, hsl(var(--primary) / 0.5), transparent)' }} />
           </div>
 
-          <div className="p-5 space-y-5 max-h-[70vh] overflow-y-auto">
+          <div className="p-5 space-y-6 max-h-[68vh] overflow-y-auto">
               {!isConnected && currentSong && engineMode === 'unsupported' && (
                 <div
-                  className="rounded-2xl px-4 py-3 text-xs text-muted-foreground"
-                  style={{
-                    background: 'rgba(28, 28, 30, 0.8)',
-                    border: '1px solid rgba(255, 255, 255, 0.06)',
-                  }}
+                  className="rounded-2xl px-4 py-3 text-xs text-white/60"
+                  style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}
                 >
                   Equalizer settings are saved. This device/browser could not open WebAudio processing for the current stream.
                 </div>
               )}
 
-            {/* Full sound-mode presets */}
-            <div>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-[0.18em] text-primary mb-3">Sound modes</h3>
-              <div className="grid grid-cols-3 gap-2">
-                {presets.map((preset) => {
-                  const Icon = preset.icon;
-                  const isSelected = activePreset === preset.id;
-                  return (
-                    <motion.button
-                      key={preset.id}
-                      onClick={() => handlePresetSelect(preset)}
-                      className="relative flex min-h-[76px] flex-col items-center justify-center gap-2 py-3 px-2 rounded-xl overflow-hidden transition-all"
-                      style={{
-                        background: isSelected
-                          ? 'linear-gradient(135deg, hsl(var(--primary)), hsl(18 100% 82%))'
-                          : 'hsl(var(--card))',
-                        border: isSelected
-                          ? '1px solid hsl(var(--primary) / 0.6)'
-                          : '1px solid rgba(255, 255, 255, 0.06)',
-                      }}
-                      whileTap={{ scale: 0.96 }}
-                    >
-                      <Icon className={`w-5 h-5 ${isSelected ? 'text-primary-foreground' : 'text-muted-foreground'}`} />
-                      <span className={`text-[11px] font-medium leading-tight text-center ${isSelected ? 'text-primary-foreground' : 'text-muted-foreground'}`}>
-                        {preset.name}
-                      </span>
-                    </motion.button>
-                  );
-                })}
+            {/* Grouped sound-mode presets — exclusive tiles */}
+            {presetGroups.map((group) => (
+              <div key={group.label}>
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/50">{group.label}</span>
+                  <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.12), transparent)' }} />
+                </div>
+                <div className="grid grid-cols-4 gap-2">
+                  {group.ids.map((id) => {
+                    const preset = presetById.get(id);
+                    if (!preset) return null;
+                    const Icon = preset.icon;
+                    const isSelected = activePreset === preset.id;
+                    return (
+                      <motion.button
+                        key={preset.id}
+                        onClick={() => handlePresetSelect(preset)}
+                        className="relative flex min-h-[74px] flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl overflow-hidden"
+                        style={{
+                          background: isSelected
+                            ? 'linear-gradient(160deg, hsl(var(--primary)) 0%, hsl(340 100% 60%) 100%)'
+                            : 'linear-gradient(160deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.02) 100%)',
+                          border: isSelected
+                            ? '1px solid hsl(var(--primary) / 0.9)'
+                            : '1px solid rgba(255,255,255,0.06)',
+                          boxShadow: isSelected ? '0 10px 30px -10px hsl(var(--primary) / 0.65), inset 0 1px 0 rgba(255,255,255,0.2)' : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                        }}
+                        whileTap={{ scale: 0.94 }}
+                      >
+                        {isSelected && (
+                          <motion.span
+                            aria-hidden
+                            className="absolute inset-0 pointer-events-none"
+                            style={{ background: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.35), transparent 55%)' }}
+                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                          />
+                        )}
+                        <Icon className={`w-[18px] h-[18px] relative z-10 ${isSelected ? 'text-white drop-shadow-[0_1px_6px_rgba(255,255,255,0.6)]' : 'text-white/70'}`} />
+                        <span className={`relative z-10 text-[10.5px] font-semibold leading-tight text-center ${isSelected ? 'text-white' : 'text-white/75'}`}>
+                          {preset.name}
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            ))}
 
             {/* 10-Band Equalizer */}
             <div>
@@ -517,7 +578,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500"
                   />
                   <div className="flex justify-between mt-1">
-                    {speedMarks.map(s => (
+                    {[0.5, 1, 1.5, 2].map(s => (
                       <span key={s} className="text-[10px] text-muted-foreground/50">{s}x</span>
                     ))}
                   </div>

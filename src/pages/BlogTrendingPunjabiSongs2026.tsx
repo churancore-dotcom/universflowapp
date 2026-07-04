@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Play, Music2, Flame, Headphones, ChevronRight, Sparkles } from "lucide-react";
+import { Play, Music2, Flame, Headphones, ChevronRight } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 
 const PAGE_URL = "https://universflow.in/blog/trending-punjabi-songs-2026";
@@ -90,7 +90,7 @@ const BlogTrendingPunjabiSongs2026 = () => {
 
       <section className="px-5 py-8 max-w-3xl mx-auto">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <Sparkles className="w-5 h-5 text-rose-400" /> Top Punjabi artists right now
+          <Flame className="w-5 h-5 text-rose-400" /> Top Punjabi artists right now
         </h2>
         <div className="grid gap-3">
           {ARTISTS.map((a) => (

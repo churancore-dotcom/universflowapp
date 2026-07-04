@@ -1,5 +1,5 @@
 import { Link } from "react-router-dom";
-import { Download, CheckCircle2, XCircle, Music2, WifiOff, Headphones, IndianRupee, ChevronRight, Shield, Sparkles } from "lucide-react";
+import { Download, CheckCircle2, XCircle, Music2, WifiOff, Headphones, IndianRupee, ChevronRight, Shield } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 
 const PAGE_URL = "https://universflow.in/blog/free-music-download-apps-india";
@@ -262,7 +262,7 @@ const BlogFreeMusicDownloadAppsIndia = () => {
                       {app.name}
                       {app.highlight && (
                         <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/20 text-rose-200 text-[10px] uppercase tracking-wider px-2 py-0.5">
-                          <Sparkles className="h-3 w-3" /> Editor's pick
+                          <CheckCircle2 className="h-3 w-3" /> Editor's pick
                         </span>
                       )}
                     </h3>

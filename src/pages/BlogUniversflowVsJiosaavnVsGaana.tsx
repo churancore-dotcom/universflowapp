@@ -7,7 +7,7 @@ import {
   Headphones,
   IndianRupee,
   ChevronRight,
-  Sparkles,
+  Music2,
   Shield,
 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
@@ -207,7 +207,7 @@ const BlogUniversflowVsJiosaavnVsGaana = () => {
                   <th className="text-left font-medium px-4 py-3">Feature</th>
                   <th className="text-center font-medium px-3 py-3">
                     <span className="inline-flex items-center gap-1 text-rose-300">
-                      <Sparkles className="h-3 w-3" /> Universflow
+                      <Music2 className="h-3 w-3" /> Universflow
                     </span>
                   </th>
                   <th className="text-center font-medium px-3 py-3">JioSaavn</th>

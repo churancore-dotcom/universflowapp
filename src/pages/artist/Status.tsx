@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   ArrowLeft, ArrowRight, RotateCw, LogOut, Send, ScanFace,
-  ShieldCheck, Sparkles, BadgeCheck, XCircle, Headphones,
+  ShieldCheck, BadgeCheck, XCircle, Headphones,
 } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import { FadeTransition } from '@/components/PageTransition';
@@ -344,7 +344,7 @@ export default function ArtistStatus() {
           <BentoCard className="p-5 mb-4" delay={0.08}>
             <div className="flex items-center gap-3 mb-3">
               <div className="w-9 h-9 rounded-full grid place-items-center bg-primary/15 text-primary">
-                <Sparkles className="w-4 h-4" />
+                <BadgeCheck className="w-4 h-4" />
               </div>
               <div>
                 <p className="text-[14px] font-semibold tracking-tight">While you wait</p>

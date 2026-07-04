@@ -2,7 +2,7 @@ import { memo, useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   WifiOff, Play, Pause, Music, Shuffle, Download, LogIn,
-  Search, Sparkles, Clock, ListMusic, ChevronRight, Radio,
+  Search, Clock, ListMusic, ChevronRight, Radio,
 } from 'lucide-react';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
@@ -152,7 +152,7 @@ const OfflinePlayerShell = memo(function OfflinePlayerShell() {
             <div className="flex items-start justify-between gap-3">
               <div>
                 <div className="flex items-center gap-1.5 mb-2">
-                  <Sparkles className="w-3.5 h-3.5 text-primary" />
+                  <Radio className="w-3.5 h-3.5 text-primary" />
                   <span className="text-[10px] tracking-[0.2em] uppercase text-primary font-semibold">
                     Saved for you
                   </span>

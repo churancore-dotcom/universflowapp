@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, ArrowRight, Loader2, Upload, Check, ShieldCheck, User,
-  Music, Camera, Image as ImageIcon, Sparkles, ExternalLink,
+  Music, Camera, Image as ImageIcon, ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
@@ -56,7 +56,7 @@ const STEP_META: Record<Step, { label: string; icon: typeof User }> = {
   2: { label: 'Your music',     icon: Music },
   3: { label: 'Live face check', icon: Camera },
   4: { label: 'Profile photo',  icon: ImageIcon },
-  5: { label: 'Submit',         icon: Sparkles },
+  5: { label: 'Submit',         icon: ShieldCheck },
 };
 
 function FilePicker({
@@ -584,7 +584,7 @@ export default function ArtistApply() {
               }}
             >
               {[
-                { icon: Sparkles, text: <>Auto-checks running on your <strong className="text-foreground">face, socials & artist page</strong></> },
+                { icon: ShieldCheck, text: <>Auto-checks running on your <strong className="text-foreground">face, socials & artist page</strong></> },
                 { icon: ShieldCheck, text: <>Our team reviews within <strong className="text-foreground">1–3 days</strong></> },
                 { icon: Check, text: <>You'll get a notification the moment we decide</> },
               ].map((item, i) => {
@@ -922,7 +922,7 @@ export default function ArtistApply() {
                 <>
                   <div className="rounded-2xl p-4 bg-gradient-to-br from-primary/15 to-primary/5 border border-primary/20">
                     <div className="flex items-center gap-2 mb-1.5">
-                      <Sparkles className="w-4 h-4 text-primary" />
+                      <ShieldCheck className="w-4 h-4 text-primary" />
                       <p className="text-[13px] font-semibold">Almost done</p>
                     </div>
                     <p className="text-[12.5px] text-foreground/80 leading-relaxed">
