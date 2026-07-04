@@ -26,6 +26,11 @@ const today = new Date().toISOString().slice(0, 10);
 const staticEntries: SitemapEntry[] = [
   { path: "/", lastmod: today, changefreq: "daily", priority: "1.0" },
   { path: "/get", lastmod: today, changefreq: "weekly", priority: "0.9" },
+  { path: "/download", lastmod: today, changefreq: "weekly", priority: "0.9" },
+  { path: "/app", lastmod: today, changefreq: "weekly", priority: "0.85" },
+  { path: "/apk", lastmod: today, changefreq: "weekly", priority: "0.85" },
+  { path: "/welcome", lastmod: today, changefreq: "monthly", priority: "0.5" },
+  { path: "/verify", lastmod: today, changefreq: "monthly", priority: "0.3" },
   { path: "/premium", lastmod: today, changefreq: "monthly", priority: "0.8" },
   { path: "/artists", lastmod: today, changefreq: "weekly", priority: "0.85" },
   { path: "/support", lastmod: today, changefreq: "monthly", priority: "0.65" },
