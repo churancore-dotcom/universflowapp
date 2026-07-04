@@ -153,6 +153,17 @@ export default function ArtistApply() {
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
   const [livenessShots, setLivenessShots] = useState<LivenessShots | null>(null);
+  const [ownershipConfirmed, setOwnershipConfirmed] = useState(false);
+
+  // A short per-user code the artist temporarily pastes into their
+  // music-platform bio. Reviewers open the URL and verify the code is
+  // present — proves they actually control that artist page.
+  const ownershipCode = useMemo(() => {
+    if (!user?.id) return '';
+    const base = user.id.replace(/-/g, '').toUpperCase();
+    return `UF-${base.slice(0, 4)}-${base.slice(4, 8)}`;
+  }, [user?.id]);
+
 
   const [signupLocked, setSignupLocked] = useState(false);
   const [handlePreview, setHandlePreview] = useState<{ slug: string; taken: boolean } | null>(null);
