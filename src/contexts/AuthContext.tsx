@@ -34,14 +34,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isAdmin, setIsAdmin] = useState(false);
   const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isOffline, setIsOffline] = useState(typeof navigator !== 'undefined' ? !navigator.onLine : false);
+  // Trust navigator.onLine only for the "true" (online) signal. It reports
+  // false positives constantly (Capacitor webviews, brief network transitions,
+  // VPN handoffs), so we always verify an "offline" claim with a real reachability
+  // ping before locking the user into the offline shell.
+  const [isOffline, setIsOffline] = useState(false);
 
   useEffect(() => {
-    const onOnline = () => setIsOffline(false);
-    const onOffline = () => setIsOffline(true);
+    let cancelled = false;
+    let verifyTimer: ReturnType<typeof setTimeout> | null = null;
+
+    const reachable = async (): Promise<boolean> => {
+      const targets = [
+        'https://www.google.com/generate_204',
+        'https://cloudflare.com/cdn-cgi/trace',
+        'https://www.gstatic.com/generate_204',
+      ];
+      const controller = new AbortController();
+      const t = setTimeout(() => controller.abort(), 3500);
+      try {
+        const results = await Promise.allSettled(
+          targets.map((u) =>
+            fetch(u, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal })
+          )
+        );
+        clearTimeout(t);
+        // no-cors → opaque responses resolve fulfilled even on 204/opaque
+        return results.some((r) => r.status === 'fulfilled');
+      } catch {
+        clearTimeout(t);
+        return false;
+      }
+    };
+
+    const verifyOffline = () => {
+      if (verifyTimer) clearTimeout(verifyTimer);
+      // Debounce: brief flaps shouldn't kick users to the offline page.
+      verifyTimer = setTimeout(async () => {
+        const ok = await reachable();
+        if (cancelled) return;
+        setIsOffline(!ok);
+      }, 1500);
+    };
+
+    const onOnline = () => {
+      if (verifyTimer) clearTimeout(verifyTimer);
+      setIsOffline(false);
+    };
+    const onOffline = () => verifyOffline();
+
     window.addEventListener('online', onOnline);
     window.addEventListener('offline', onOffline);
+
+    // On boot: if the browser claims offline, verify before trusting it.
+    if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      verifyOffline();
+    }
+
     return () => {
+      cancelled = true;
+      if (verifyTimer) clearTimeout(verifyTimer);
       window.removeEventListener('online', onOnline);
       window.removeEventListener('offline', onOffline);
     };
