@@ -128,10 +128,9 @@ const AUDIO_PROXY_ALLOWED_HOST_SUFFIXES = [
   '.f5.si',
   '.thepixora.com',
   '.yewtu.be',
-  'co.wuk.sh',
-  '.co.wuk.sh',
   'cobalt.tools',
   '.cobalt.tools',
+
   '.saavncdn.com',
 ];
 
@@ -210,18 +209,19 @@ const YOUTUBE_API_KEY_2 = Deno.env.get('YOUTUBE_API_KEY_2') || '';
 const YOUTUBE_API_KEYS = [YOUTUBE_API_KEY, YOUTUBE_API_KEY_2].filter(Boolean);
 const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 
-// ── Instance lists (verified working May 2026) ──
+// ── Instance lists (refreshed 2026-07; pruned pipedapi.tokhmi.xyz, api.piped.yt) ──
 
 const PIPED_INSTANCES = [
   'https://api.piped.private.coffee',
-  'https://pipedapi.tokhmi.xyz',
   'https://pipedapi.moomoo.me',
   'https://pipedapi.syncpundit.io',
   'https://api-piped.mha.fi',
   'https://pipedapi.leptons.xyz',
   'https://pipedapi.r4fo.com',
-  'https://api.piped.yt',
+  'https://pipedapi.kavin.rocks',
+  'https://pipedapi.adminforge.de',
 ];
+
 
 const INVIDIOUS_INSTANCES = [
   'https://inv.thepixora.com',
@@ -1074,9 +1074,10 @@ async function pickBestPipedStream(data: Record<string, any>, instance: string) 
 }
 
 // Cobalt API — extracts direct audio URL from a YouTube videoId.
-// Tries co.wuk.sh first, then cobalt.tools as fallback. Silent on failure.
+// co.wuk.sh was retired (NXDOMAIN) — use cobalt.tools + community mirrors.
 async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } | null> {
-  const endpoints = ['https://co.wuk.sh/api/json', 'https://cobalt.tools/api/json'];
+  const endpoints = ['https://cobalt.tools/api/json', 'https://api.cobalt.tools/api/json'];
+
   const body = JSON.stringify({
     url: `https://www.youtube.com/watch?v=${videoId}`,
     isAudioOnly: true,
