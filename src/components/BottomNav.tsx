@@ -79,6 +79,8 @@ const BottomNav = memo(function BottomNav() {
         transition={{ type: 'spring', stiffness: 380, damping: 32 }}
       >
         <div
+          role="tablist"
+          aria-label="App sections"
           className="pointer-events-auto relative flex flex-nowrap items-center gap-0.5 px-1.5 py-1.5 rounded-full overflow-hidden w-auto max-w-full"
           style={{
             background: 'linear-gradient(180deg, hsl(0 0% 8% / 0.92) 0%, hsl(0 0% 4% / 0.96) 100%)',
