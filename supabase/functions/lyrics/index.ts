@@ -14,7 +14,7 @@ interface LyricsResponse {
   success: boolean;
   synced?: string | null;
   plain?: string | null;
-  source?: 'artist' | 'lrclib' | 'kugou' | 'netease' | 'genius' | null;
+  source?: 'artist' | 'lrclib' | 'kugou' | 'netease' | 'qqmusic' | 'lyricsovh' | 'genius' | null;
   geniusUrl?: string | null;
   error?: string;
 }
@@ -277,13 +277,60 @@ async function fetchGeniusUrl(artist: string, title: string): Promise<string | n
   }
 }
 
+// ───────── QQ Music (huge CJK + regional catalog, plain text) ─────────
+async function fetchQQMusic(artist: string, title: string): Promise<{ synced?: string; plain?: string } | null> {
+  try {
+    const q = encodeURIComponent(`${clean(title)} ${clean(artist)}`);
+    const search = await fetch(
+      `https://c.y.qq.com/soso/fcgi-bin/client_search_cp?w=${q}&format=json&n=5&p=1`,
+      { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://y.qq.com/' } },
+    );
+    if (!search.ok) return null;
+    const raw = await search.text();
+    const j = JSON.parse(raw.replace(/^callback\(|\)$/g, ''));
+    const song = j?.data?.song?.list?.[0];
+    if (!song?.songmid) return null;
+    const lr = await fetch(
+      `https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${encodeURIComponent(song.songmid)}&format=json&nobase64=1`,
+      { headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://y.qq.com/' } },
+    );
+    if (!lr.ok) return null;
+    const lj = await lr.json();
+    const lrc = sanitizeLrc(decodeHtml(String(lj?.lyric || '')).trim(), artist, title);
+    if (!lrc || lrc.length < 10) return null;
+    const plain = plainFromLrc(lrc, artist, title);
+    return { synced: lrc.includes('[') ? lrc : undefined, plain };
+  } catch {
+    return null;
+  }
+}
+
+// ───────── Lyrics.ovh (broad Western plain-text fallback) ─────────
+async function fetchLyricsOvh(artist: string, title: string): Promise<{ plain?: string } | null> {
+  try {
+    const r = await fetch(
+      `https://api.lyrics.ovh/v1/${encodeURIComponent(clean(artist))}/${encodeURIComponent(clean(title))}`,
+      { headers: { 'User-Agent': 'Universflow/1.0' } },
+    );
+    if (!r.ok) return null;
+    const j = await r.json();
+    const plain = String(j?.lyrics || '').trim();
+    if (!plain || plain.length < 15) return null;
+    return { plain };
+  } catch {
+    return null;
+  }
+}
+
 async function fetchParallelProviders(artist: string, title: string, duration?: number): Promise<ProviderLyrics | null> {
   const started = Date.now();
   let bestPlain: ProviderLyrics | null = null;
   const providers: Array<Promise<ProviderLyrics | null>> = [
-    withTimeout(fetchLrclib(artist, title, duration), 2300).then((result) => result ? ({ ...result, source: 'lrclib' as const }) : null),
-    withTimeout(fetchKugou(artist, title, duration), 2600).then((result) => result ? ({ ...result, source: 'kugou' as const }) : null),
-    withTimeout(fetchNetease(artist, title), 2600).then((result) => result ? ({ ...result, source: 'netease' as const }) : null),
+    withTimeout(fetchLrclib(artist, title, duration), 3200).then((r) => r ? ({ ...r, source: 'lrclib' as const }) : null),
+    withTimeout(fetchKugou(artist, title, duration), 3000).then((r) => r ? ({ ...r, source: 'kugou' as const }) : null),
+    withTimeout(fetchNetease(artist, title), 3000).then((r) => r ? ({ ...r, source: 'netease' as const }) : null),
+    withTimeout(fetchQQMusic(artist, title), 3000).then((r) => r ? ({ ...r, source: 'qqmusic' as const }) : null),
+    withTimeout(fetchLyricsOvh(artist, title), 3000).then((r) => r ? ({ ...r, source: 'lyricsovh' as const }) : null),
   ];
 
   const pending = providers.map((promise, index) => ({ index, promise: promise.then((result) => ({ result, index })) }));
@@ -294,7 +341,7 @@ async function fetchParallelProviders(artist: string, title: string, duration?: 
 
     if (result?.synced) return result;
     if (result?.plain && !bestPlain) bestPlain = result;
-    if (bestPlain && Date.now() - started > 1400) return bestPlain;
+    if (bestPlain && Date.now() - started > 1800) return bestPlain;
   }
   return bestPlain;
 }

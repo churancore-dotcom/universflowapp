@@ -333,8 +333,17 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
       (phraseHit ? 80 : 0) +
       (allTokens ? 60 : 0) +
       (exactArtist ? 90 : 0); // small bonus, never beats a title match
+    // Originality bonuses/penalties: reward clean canonical uploads,
+    // penalize noisy titles (parenthetical clutter, remaster/remix suffixes,
+    // long promotional strings) so REAL tracks sit above duplicates.
+    const rawTitle = String(track.title || '');
+    const parenNoise = (rawTitle.match(/\([^)]{4,}\)|\[[^\]]{4,}\]/g) || []).length;
+    const noiseWords = /\b(remaster(ed)?|reissue|version|edit|extended|radio\s*edit|deluxe|expanded|bonus|hd|hq|full\s*audio|full\s*song|full\s*hd|official\s*audio)\b/i.test(rawTitle) ? 1 : 0;
+    const cleanBonus = parenNoise === 0 && noiseWords === 0 ? 40 : 0;
+    const noisePenalty = parenNoise * 25 + noiseWords * 35 + (rawTitle.length > 60 ? 20 : 0);
+    const artistUploadBonus = (track as any).source === 'artist_upload' ? 600 : 0;
     const wrongArtistPenalty = artistIntent && tokens.length >= 2 && titleTokenHits > 0 && artistTokenHits === 0 && !phraseHit ? 260 : 0;
-    const score = base + relevance + popularity - wrongArtistPenalty - index * 0.6;
+    const score = base + relevance + popularity + cleanBonus + artistUploadBonus - noisePenalty - wrongArtistPenalty - index * 0.6;
     const existing = rows.get(key);
     if (!existing || score > existing.score || (score === existing.score && sourcePriority > existing.sourcePriority)) {
       rows.set(key, { track, score, firstSeen: existing?.firstSeen ?? firstSeen++, sourcePriority });
