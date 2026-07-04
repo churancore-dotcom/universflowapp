@@ -65,7 +65,7 @@ vi.mock('@/integrations/supabase/client', () => {
     const q: Record<string, unknown> = {};
     q.select = vi.fn(() => q);
     q.eq = vi.fn(() => q);
-    q.order = vi.fn(() => Promise.resolve({ data: state.songs, error: null }));
+    q.order = vi.fn(() => Promise.resolve({ data: [...state.songs], error: null }));
     q.maybeSingle = vi.fn(() => Promise.resolve({ data: null, error: null }));
     if (table === 'artist_followers') {
       (q as { then: unknown }).then = (r: (v: { count: number; error: null }) => void) =>
