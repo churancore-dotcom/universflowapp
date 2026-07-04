@@ -35,18 +35,19 @@ function checkLocalAnonRateLimit(ip: string, maxPerMinute: number): boolean {
   return true;
 }
 
-// Piped instances — refreshed 2026-06. Verified from kavin.rocks/instances + community list.
+// Piped instances — refreshed 2026-07. Pruned stale hosts (api.piped.yt returning HTML/errors).
 const PIPED_INSTANCES = [
   'https://pipedapi.kavin.rocks',
   'https://api.piped.private.coffee',
   'https://pipedapi.leptons.xyz',
   'https://pipedapi.r4fo.com',
-  'https://api.piped.yt',
   'https://pipedapi.reallyaweso.me',
   'https://pipedapi.darkness.services',
   'https://pipedapi.drgns.space',
   'https://pipedapi.ducks.party',
+  'https://pipedapi.adminforge.de',
 ];
+
 
 // Invidious instances — refreshed 2026-06.
 const INVIDIOUS_INSTANCES = [
