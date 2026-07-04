@@ -67,6 +67,7 @@ const BottomNav = memo(function BottomNav() {
   return (
     <AnimatePresence>
       <motion.nav
+        aria-label="Primary"
         className="fixed left-0 right-0 z-50 pointer-events-none flex justify-center"
         style={{
           bottom: 'calc(env(safe-area-inset-bottom, 0px) + 12px)',
