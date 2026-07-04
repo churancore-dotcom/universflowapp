@@ -110,12 +110,13 @@ describe('artist metrics smoke test', () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     expect(result.current.songs).toHaveLength(0);
 
-    // 1. Publish a song → realtime INSERT
+    // 1. Publish a song → realtime INSERT (row registered for RPC lookup only)
     act(() => {
       const row = { ...baseSong };
-      state.songs.push(row);
       emit('INSERT', row);
+      state.songs.push(row);
     });
+
     await waitFor(() => expect(result.current.songs).toHaveLength(1));
     const s0 = result.current.songs[0];
     expect(s0.play_count).toBe(0);
