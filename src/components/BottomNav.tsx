@@ -102,7 +102,7 @@ const BottomNav = memo(function BottomNav() {
             />
           )}
 
-          {navItems.map((item) => {
+          {navItems.map((item, idx) => {
             const path = location.pathname;
             const isHomeRoute = path === '/' || path === '/index' || path === '/home';
             const isActive = item.path === '/home' ? isHomeRoute : path === item.path || path.startsWith(item.path + '/');
@@ -111,15 +111,20 @@ const BottomNav = memo(function BottomNav() {
             return (
               <motion.button
                 key={item.path}
+                ref={(el) => { tabRefs.current[idx] = el; }}
                 type="button"
+                role="tab"
                 aria-label={item.label}
+                aria-selected={isActive}
                 aria-current={isActive ? 'page' : undefined}
+                tabIndex={isActive || (activeIndex === -1 && idx === 0) ? 0 : -1}
                 onClick={() => {
                   triggerHaptic('selection');
                   navigate(item.path);
                 }}
+                onKeyDown={(e) => handleKeyDown(e, idx)}
                 whileTap={{ scale: 0.9 }}
-                className="relative flex items-center justify-center h-10 rounded-full shrink-0"
+                className="relative flex items-center justify-center h-11 min-w-11 rounded-full shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black/60"
                 animate={{
                   paddingLeft: isActive ? 12 : 11,
                   paddingRight: isActive ? 14 : 11,
