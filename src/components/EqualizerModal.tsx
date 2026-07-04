@@ -1,6 +1,6 @@
-import { useState, useCallback, useEffect, memo } from 'react';
+import { useState, useCallback, useEffect, memo, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Disc3, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Mic2, Home, Building2, Church, Trophy, Moon, Crown } from 'lucide-react';
+import { X, Disc3, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Mic2, Home, Building2, Church, Trophy, Moon, Crown, Sparkles, Guitar, Drum, Piano, Car, Speaker, Dumbbell, Focus, PartyPopper, Film, Gamepad2, Podcast, Flame, Snowflake, Sun } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
