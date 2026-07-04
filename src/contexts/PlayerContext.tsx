@@ -2687,6 +2687,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           action: 'stream',
           score_weight: 3,
         }).then(() => {});
+        // Bump artist_songs.play_count so the artist dashboard sees plays
+        // arriving in real time. The RPC no-ops if the id doesn't match a
+        // live artist_songs row, so it's safe for catalog/YT ids too.
+        if (isCatalogUuid) {
+          supabase.rpc('increment_artist_song_play', { _song_id: song.id })
+            .then(() => {}, () => {});
+        }
+
       }).catch(() => {});
     }, 30000);
   }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent]);

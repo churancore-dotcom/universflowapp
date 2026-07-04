@@ -419,11 +419,19 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Update state
       setDownloads(prev => [...prev, downloadedSong]);
       setBlobUrls(prev => ({ ...prev, [song.id]: blobUrl }));
-      
+
       setDownloadProgress(prev => ({
         ...prev,
         [song.id]: { songId: song.id, progress: 100, status: 'completed' }
       }));
+
+      // Bump artist_songs.download_count for artist tracks so the artist
+      // dashboard reflects real downloads live. RPC no-ops for non-artist ids.
+      if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(song.id)) {
+        supabase.rpc('increment_artist_song_download', { _song_id: song.id })
+          .then(() => {}, () => {});
+      }
+
 
       // Remove from progress after animation
       setTimeout(() => {
