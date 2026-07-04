@@ -361,7 +361,7 @@ export default function ArtistApply() {
 
   const canNext = () => {
     if (step === 1) return stageName.trim().length >= 2 && !stageTaken && realName.trim().length >= 2 && !!country && phoneCheck.ok && !phoneTaken && !phoneChecking;
-    if (step === 2) return musicCheck.ok && dualSocialsOk && linksCheck.ok;
+    if (step === 2) return musicCheck.ok && dualSocialsOk && linksCheck.ok && ownershipConfirmed;
     if (step === 3) return !!livenessShots;
     if (step === 4) return !!photo;
     return agreeTerms && agreePrivacy;
