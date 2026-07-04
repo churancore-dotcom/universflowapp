@@ -2,7 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
 import {
   Link as LinkIcon, QrCode, Image as ImageIcon, Megaphone, Copy, Check,
-  Download, Share2, Music2, Loader2, ExternalLink, Sparkles, AlertCircle,
+  Download, Share2, Music2, Loader2, ExternalLink, Flame, AlertCircle,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { supabase } from '@/integrations/supabase/client';
@@ -614,7 +614,7 @@ function NotifyFollowers({
         Push a notification to every one of your followers. To respect their inbox, you can do this <strong className="text-white/85">once every 24 hours</strong>.
       </p>
       <div className="rounded-xl bg-black/30 ring-1 ring-white/10 p-3 mb-3 flex items-start gap-2.5">
-        <Sparkles className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
+        <Flame className="w-4 h-4 text-rose-400 mt-0.5 shrink-0" />
         <div className="text-[12px] leading-snug text-white/80">
           {selected
             ? <>Will be sent as: <span className="text-white">“{stageName} dropped <em>{selected.title}</em>”</span> → opens your artist page.</>

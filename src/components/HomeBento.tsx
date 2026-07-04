@@ -2,7 +2,7 @@ import React, { memo, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pause, Play, ChevronRight, Sparkles } from 'lucide-react';
+import { Pause, Play, ChevronRight, Music2 } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -438,7 +438,7 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
             className="rounded-3xl p-4 border border-white/[0.06] bg-card h-[178px] flex items-center justify-center"
           >
             <div className="flex items-center gap-2 text-white/40 text-[11px]">
-              <Sparkles className="w-3.5 h-3.5" />
+              <Music2 className="w-3.5 h-3.5" />
               <span>No new releases yet</span>
             </div>
           </motion.div>
