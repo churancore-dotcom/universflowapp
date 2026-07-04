@@ -44,6 +44,26 @@ const BottomNav = memo(function BottomNav() {
     };
   }, []);
 
+  const activeIndex = navItems.findIndex((item) => {
+    const path = location.pathname;
+    const isHome = path === '/' || path === '/index' || path === '/home';
+    return item.path === '/home' ? isHome : path === item.path || path.startsWith(item.path + '/');
+  });
+
+  const handleKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
+    let next = -1;
+    if (e.key === 'ArrowRight') next = (idx + 1) % navItems.length;
+    else if (e.key === 'ArrowLeft') next = (idx - 1 + navItems.length) % navItems.length;
+    else if (e.key === 'Home') next = 0;
+    else if (e.key === 'End') next = navItems.length - 1;
+    if (next >= 0) {
+      e.preventDefault();
+      tabRefs.current[next]?.focus();
+      triggerHaptic('selection');
+      navigate(navItems[next].path);
+    }
+  }, [navigate]);
+
   return (
     <AnimatePresence>
       <motion.nav
