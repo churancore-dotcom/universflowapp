@@ -204,6 +204,23 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
 
   const handlePresetSelect = useCallback((preset: Preset) => {
+    if (preset.id === 'auto') {
+      const chosenId = pickAutoPreset(currentSong);
+      const target = presets.find((p) => p.id === chosenId) || preset;
+      setEQSettings({
+        bands: target.bands,
+        bassBoost: target.bassBoost,
+        reverb: target.reverb ?? 0,
+        spatialAudio: !!target.spatialAudio,
+        studioSpace: target.studioSpace ?? 'off',
+        lateNight: !!target.lateNight,
+        headphoneSurround: !!target.headphoneSurround,
+        playbackSpeed: 1,
+        activePreset: 'auto',
+      });
+      toast.success(`Auto EQ · ${target.name}`);
+      return;
+    }
     setEQSettings({
       bands: preset.bands,
       bassBoost: preset.bassBoost,
@@ -216,7 +233,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       activePreset: preset.id,
     });
     toast.success(`${preset.name} preset applied`);
-  }, []);
+  }, [currentSong]);
 
   const handleReset = useCallback(() => {
     setEQSettings({
