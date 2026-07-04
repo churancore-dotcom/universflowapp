@@ -438,7 +438,9 @@ export default function ArtistApply() {
         bio: bio.trim() || null,
         face_shots: [selfiePath],
         music_platform: musicCheck.platform,
+        ownership_code: ownershipCode,
       };
+
 
       const { data: inserted, error } = isLockedReapply
         ? await supabase.rpc('reapply_artist_application', {
