@@ -15,10 +15,10 @@ import { Textarea } from '@/components/ui/textarea';
 import { uploadArtistCover } from '@/lib/artist';
 import { useFilePreview } from '@/lib/useFilePreview';
 import { validateUploadLink, type LinkValidation } from '@/lib/artistUploadLinks';
-import { ArtistProfile } from './_shared';
+import { ArtistProfile, ArtistSong, fmt } from './_shared';
 import BentoCard from '@/components/artist/BentoCard';
 
-type Ctx = { profile: ArtistProfile; user: { id: string } };
+type Ctx = { profile: ArtistProfile; user: { id: string }; songs: ArtistSong[] };
 
 const GENRES = [
   'Pop', 'Hip-Hop', 'R&B', 'Rock', 'Indie', 'Electronic', 'Dance',
@@ -56,7 +56,8 @@ function pseudoWaveform(seed: string, bars = 64) {
 }
 
 export default function ArtistUpload() {
-  const { user } = useOutletContext<Ctx>();
+  const { user, songs } = useOutletContext<Ctx>();
+  const recentUploads = songs.slice(0, 5);
   const navigate = useNavigate();
   const [step, setStep] = useState<StepKey>('source');
   const [tab, setTab] = useState<'drive' | 'dropbox'>('drive');
