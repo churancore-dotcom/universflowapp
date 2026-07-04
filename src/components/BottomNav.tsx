@@ -147,6 +147,8 @@ const BottomNav = memo(function BottomNav() {
 
                 <div className="relative flex items-center gap-1">
                   <Icon
+                    aria-hidden="true"
+                    focusable="false"
                     className={`w-5 h-5 transition-colors duration-200 ${
                       isActive ? 'text-white' : 'text-white/65'
                     }`}
