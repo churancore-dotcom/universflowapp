@@ -46,15 +46,15 @@ const BottomNav = memo(function BottomNav() {
   return (
     <AnimatePresence>
       <motion.nav
-        className="fixed left-1/2 -translate-x-1/2 bottom-3 z-50 safe-area-pb pointer-events-none"
+        className="fixed left-0 right-0 bottom-3 z-50 safe-area-pb pointer-events-none flex justify-center px-4"
         initial={{ y: 100, opacity: 0 }}
         animate={{ y: isVisible ? 0 : 120, opacity: isVisible ? 1 : 0 }}
         transition={{ type: 'spring', stiffness: 380, damping: 32 }}
       >
         <div
-          className="pointer-events-auto relative flex items-center gap-1 px-2 py-2 rounded-full overflow-hidden"
+          className="pointer-events-auto relative flex items-center gap-0.5 px-1.5 py-1.5 rounded-full overflow-hidden max-w-full"
           style={{
-            background: 'linear-gradient(180deg, hsl(0 0% 8% / 0.88) 0%, hsl(0 0% 4% / 0.92) 100%)',
+            background: 'linear-gradient(180deg, hsl(0 0% 8% / 0.92) 0%, hsl(0 0% 4% / 0.96) 100%)',
             backdropFilter: 'blur(24px) saturate(180%)',
             WebkitBackdropFilter: 'blur(24px) saturate(180%)',
             border: '0.5px solid hsl(0 0% 100% / 0.10)',
