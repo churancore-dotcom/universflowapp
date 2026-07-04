@@ -472,6 +472,7 @@ const AppContent = () => {
   usePushRegistration();
   usePlaybackSync();
   useUserEQSettingsSync(user?.id);
+  useAutoEQ();
 
   const handleSplashComplete = () => setShowSplash(false);
 
