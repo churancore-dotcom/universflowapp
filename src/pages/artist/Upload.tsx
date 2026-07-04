@@ -235,8 +235,58 @@ export default function ArtistUpload() {
         )}
       </AnimatePresence>
 
+      {/* My uploads — realtime list, so a freshly published song appears here instantly */}
+      {recentUploads.length > 0 && (
+        <div className="mt-6">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/70 font-semibold">
+              My uploads · {songs.length}
+            </p>
+            <button
+              onClick={() => navigate('/artist/studio/songs')}
+              className="text-[11.5px] text-primary font-medium"
+            >
+              View all
+            </button>
+          </div>
+          <div className="space-y-1.5">
+            <AnimatePresence initial={false}>
+              {recentUploads.map((s) => (
+                <motion.div
+                  key={s.id}
+                  layout
+                  initial={{ opacity: 0, y: -6, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ type: 'spring', stiffness: 260, damping: 24 }}
+                  className="flex items-center gap-3 p-2.5 rounded-2xl bg-white/[0.03] border border-white/[0.05]"
+                >
+                  <div className="w-10 h-10 rounded-xl overflow-hidden bg-black/40 shrink-0 grid place-items-center">
+                    {s.cover_url
+                      ? <img src={s.cover_url} alt="" className="w-full h-full object-cover" />
+                      : <Music2 className="w-4 h-4 text-white/60" />}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[12.5px] font-medium truncate">{s.title}</p>
+                    <p className="text-[10.5px] text-muted-foreground tabular-nums">
+                      {fmt(s.play_count)} plays · {fmt(s.like_count)} likes · {fmt(s.download_count)} dl
+                    </p>
+                  </div>
+                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                    s.status === 'live' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/[0.06] text-muted-foreground'
+                  }`}>
+                    {s.status === 'live' ? 'Live' : s.status}
+                  </span>
+                </motion.div>
+              ))}
+            </AnimatePresence>
+          </div>
+        </div>
+      )}
+
       {/* Progress rail */}
       <ProgressRail index={stepIndex} />
+
 
       {/* Step content */}
       <AnimatePresence mode="wait">
