@@ -829,7 +829,8 @@ export default function ArtistApply() {
 
                   <div className="pt-2">
                     <p className="text-[12.5px] text-muted-foreground -mt-1">
-                      Add at least <strong>1 more social link</strong> where your artist handle matches.
+                      Both <strong>Instagram</strong> and <strong>YouTube</strong> are required — we
+                      cross-check both profiles are real & yours.
                     </p>
                   </div>
 
@@ -837,11 +838,52 @@ export default function ArtistApply() {
                   <LinkField platform="youtube" value={youtube} onChange={setYoutube} placeholder="https://youtube.com/@yourchannel" />
                   <LinkField platform="spotify" value={spotify} onChange={setSpotify} placeholder="https://open.spotify.com/artist/…" />
                   <LinkField platform="apple_music" value={appleMusic} onChange={setAppleMusic} placeholder="https://music.apple.com/…/artist/…" />
-                  {!linksCheck.ok && (instagram || youtube || spotify || appleMusic) && (
-                    <p className="text-[11.5px] text-rose-300">{linksCheck.reason}</p>
+                  {!dualSocialsOk && (instagram || youtube) && (
+                    <p className="text-[11.5px] text-rose-300">Instagram and YouTube are both required and must be valid profile URLs.</p>
                   )}
+
+                  {/* Ownership-code proof — replaces government ID */}
+                  <div className="mt-3 rounded-2xl bg-white/[0.03] border border-white/10 p-4 space-y-3">
+                    <div className="flex items-start gap-3">
+                      <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
+                      <div className="flex-1">
+                        <p className="text-[13px] font-semibold">Prove you own the artist page</p>
+                        <p className="text-[11.5px] text-muted-foreground leading-snug mt-1">
+                          Add this short code anywhere in your Spotify / Apple / YouTube artist bio.
+                          Our team will open your page and confirm it before approving.
+                        </p>
+                      </div>
+                    </div>
+                    <div
+                      className="rounded-xl px-3 py-3 flex items-center justify-between gap-3"
+                      style={{ background: 'rgba(255,45,85,0.08)', border: '0.5px solid rgba(255,45,85,0.25)' }}
+                    >
+                      <code className="font-mono text-[15px] tracking-[0.15em] text-primary">{ownershipCode}</code>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          navigator.clipboard?.writeText(ownershipCode).then(() => toast.success('Code copied'));
+                        }}
+                        className="text-[11px] font-semibold px-3 h-8 rounded-lg bg-white/[0.06] active:scale-95"
+                      >
+                        Copy
+                      </button>
+                    </div>
+                    <label className="flex items-start gap-2.5 cursor-pointer">
+                      <input
+                        type="checkbox" checked={ownershipConfirmed}
+                        onChange={(e) => setOwnershipConfirmed(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 accent-[#FF2D55]"
+                      />
+                      <span className="text-[12px] leading-snug">
+                        I've added <code className="font-mono text-primary">{ownershipCode}</code> to my artist page bio.
+                        I'll keep it there for 3 days.
+                      </span>
+                    </label>
+                  </div>
                 </>
               )}
+
 
               {step === 3 && (
                 <>
