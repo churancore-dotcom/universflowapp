@@ -17,15 +17,36 @@ export default defineTool({
     const supabase = createClient(url, key, { auth: { persistSession: false } });
 
     const n = limit ?? 10;
+
+    // Strip PostgREST filter metacharacters to prevent .or() filter injection.
+    // Users can only search on plain alphanumeric text, spaces, and a small set
+    // of safe punctuation (& - ' .). Everything else (commas, parens, %, wildcards,
+    // colons, quotes, backslashes) is removed so the raw query can never break out
+    // of the ilike operand into arbitrary PostgREST filter conditions.
+    const sanitized = String(query)
+      .replace(/[^\p{L}\p{N}\s\-'&.]/gu, " ")
+      .replace(/\s+/g, " ")
+      .trim()
+      .slice(0, 80);
+
+    if (!sanitized) {
+      return {
+        content: [{ type: "text", text: "No matches." }],
+        structuredContent: { results: [] },
+      };
+    }
+
+    const pattern = `%${sanitized}%`;
     const { data, error } = await supabase
       .from("songs")
       .select("id, title, artist, album, cover_url, duration")
-      .or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%`)
+      .or(`title.ilike.${pattern},artist.ilike.${pattern},album.ilike.${pattern}`)
       .limit(n);
 
     if (error) {
       return { content: [{ type: "text", text: `Search failed: ${error.message}` }], isError: true };
     }
+
 
     const rows = data ?? [];
     return {
