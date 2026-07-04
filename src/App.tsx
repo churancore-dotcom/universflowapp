@@ -28,6 +28,7 @@ import { usePushRegistration } from "./hooks/usePushRegistration";
 import { usePlaybackSync } from "./hooks/usePlaybackSync";
 import { usePremium } from "./hooks/usePremium";
 import { useUserEQSettingsSync } from "./lib/eqSettings";
+import { useAutoEQ } from "./hooks/useAutoEQ";
 
 // Eager load main tabs for INSTANT navigation (Spotify-like feel).
 // Admin and rarely-visited pages stay lazy below.
@@ -472,6 +473,7 @@ const AppContent = () => {
   usePushRegistration();
   usePlaybackSync();
   useUserEQSettingsSync(user?.id);
+  useAutoEQ();
 
   const handleSplashComplete = () => setShowSplash(false);
 
