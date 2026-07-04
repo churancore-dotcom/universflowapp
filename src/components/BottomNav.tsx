@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, memo } from 'react';
+import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Headphones, Search, Library, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -19,6 +19,7 @@ const BottomNav = memo(function BottomNav() {
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
   const scrollThreshold = 10;
+  const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
 
   useEffect(() => {
     const handleScroll = () => {
