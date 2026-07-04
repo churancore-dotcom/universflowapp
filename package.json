@@ -26,6 +26,7 @@
     "@capacitor/splash-screen": "^8",
     "@capacitor/status-bar": "^8",
     "@lovable.dev/cloud-auth-js": "^1.0.0",
+    "@lovable.dev/mcp-js": "^0.20.0",
     "@mediapipe/tasks-vision": "^0.10.35",
     "@radix-ui/react-avatar": "^1.1.10",
     "@radix-ui/react-dialog": "^1.1.14",
@@ -60,7 +61,8 @@
     "recharts": "^3.9.0",
     "sonner": "^1.7.4",
     "tailwind-merge": "^2.6.0",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@eslint/js": "^9.32.0",
