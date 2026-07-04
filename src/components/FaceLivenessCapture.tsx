@@ -117,11 +117,13 @@ export default function FaceLivenessCapture({
 
   const teardown = useCallback(() => {
     stopLoopRef.current = true;
+    readyRef.current = false;
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
   }, []);
+
 
   useEffect(() => () => teardown(), [teardown]);
 
