@@ -23,7 +23,15 @@ var search_tracks_default = defineTool({
     const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
     const supabase = createClient(url, key, { auth: { persistSession: false } });
     const n = limit ?? 10;
-    const { data, error } = await supabase.from("songs").select("id, title, artist, album, cover_url, duration").or(`title.ilike.%${query}%,artist.ilike.%${query}%,album.ilike.%${query}%`).limit(n);
+    const sanitized = String(query).replace(/[^\p{L}\p{N}\s\-'&.]/gu, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+    if (!sanitized) {
+      return {
+        content: [{ type: "text", text: "No matches." }],
+        structuredContent: { results: [] }
+      };
+    }
+    const pattern = `%${sanitized}%`;
+    const { data, error } = await supabase.from("songs").select("id, title, artist, album, cover_url, duration").or(`title.ilike.${pattern},artist.ilike.${pattern},album.ilike.${pattern}`).limit(n);
     if (error) {
       return { content: [{ type: "text", text: `Search failed: ${error.message}` }], isError: true };
     }
