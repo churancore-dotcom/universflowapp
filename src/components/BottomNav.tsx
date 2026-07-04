@@ -1,12 +1,12 @@
 import { useState, useEffect, useRef, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Home, Search, Library, User } from 'lucide-react';
+import { Headphones, Search, Library, User } from 'lucide-react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 
 const navItems = [
-  { icon: Home, label: 'Listen Now', path: '/home' },
+  { icon: Headphones, label: 'Lestine', path: '/home' },
   { icon: Search, label: 'Search', path: '/search' },
   { icon: Library, label: 'Library', path: '/library' },
   { icon: User, label: 'Profile', path: '/profile' },
@@ -24,58 +24,55 @@ const BottomNav = memo(function BottomNav() {
     const handleScroll = () => {
       const currentScrollY = window.scrollY;
       const scrollDelta = currentScrollY - lastScrollY.current;
-      
-      // Only hide/show after passing the threshold
       if (Math.abs(scrollDelta) > scrollThreshold) {
         if (scrollDelta > 0 && currentScrollY > 100) {
-          // Scrolling down - hide nav
           setIsVisible(false);
         } else {
-          // Scrolling up - show nav
           setIsVisible(true);
         }
         lastScrollY.current = currentScrollY;
       }
     };
 
-    // Also listen to scroll on main content containers
     const scrollContainers = document.querySelectorAll('[data-scroll-container]');
-    
     window.addEventListener('scroll', handleScroll, { passive: true });
-    scrollContainers.forEach(container => {
-      container.addEventListener('scroll', handleScroll, { passive: true });
-    });
-
+    scrollContainers.forEach(c => c.addEventListener('scroll', handleScroll, { passive: true }));
     return () => {
       window.removeEventListener('scroll', handleScroll);
-      scrollContainers.forEach(container => {
-        container.removeEventListener('scroll', handleScroll);
-      });
+      scrollContainers.forEach(c => c.removeEventListener('scroll', handleScroll));
     };
   }, []);
 
   return (
     <AnimatePresence>
       <motion.nav
-        className="fixed left-0 right-0 bottom-0 w-full z-50 safe-area-pb overflow-hidden"
-        initial={{ y: 100 }}
-        animate={{ y: isVisible ? 0 : 100 }}
-        transition={{ type: "spring", stiffness: 400, damping: 30 }}
-        style={{ 
-          background: 'hsl(var(--background) / 0.94)',
-          borderTop: '0.5px solid hsl(0 0% 100% / 0.08)'
-        }}
+        className="fixed left-1/2 -translate-x-1/2 bottom-3 z-50 safe-area-pb pointer-events-none"
+        initial={{ y: 100, opacity: 0 }}
+        animate={{ y: isVisible ? 0 : 120, opacity: isVisible ? 1 : 0 }}
+        transition={{ type: 'spring', stiffness: 380, damping: 32 }}
       >
-        {currentSong?.cover_url && (
-          <img
-            src={currentSong.cover_url}
-            alt=""
-            aria-hidden
-            className="absolute inset-x-0 -top-10 h-24 w-full object-cover pointer-events-none"
-            style={{ filter: 'blur(28px) saturate(140%)', opacity: 0.18 }}
-          />
-        )}
-        <div className="flex items-center justify-around py-1.5">
+        <div
+          className="pointer-events-auto relative flex items-center gap-1 px-2 py-2 rounded-full overflow-hidden"
+          style={{
+            background: 'linear-gradient(180deg, hsl(0 0% 8% / 0.88) 0%, hsl(0 0% 4% / 0.92) 100%)',
+            backdropFilter: 'blur(24px) saturate(180%)',
+            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
+            border: '0.5px solid hsl(0 0% 100% / 0.10)',
+            boxShadow:
+              '0 20px 50px -12px hsl(0 0% 0% / 0.7), 0 0 0 0.5px hsl(0 0% 100% / 0.04), inset 0 1px 0 hsl(0 0% 100% / 0.08)',
+          }}
+        >
+          {/* Soft cover glow */}
+          {currentSong?.cover_url && (
+            <img
+              src={currentSong.cover_url}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 w-full h-full object-cover pointer-events-none opacity-20"
+              style={{ filter: 'blur(30px) saturate(160%)' }}
+            />
+          )}
+
           {navItems.map((item) => {
             const isActive = location.pathname === item.path;
             const Icon = item.icon;
@@ -86,45 +83,54 @@ const BottomNav = memo(function BottomNav() {
                 type="button"
                 aria-label={item.label}
                 aria-current={isActive ? 'page' : undefined}
-                className="flex flex-col items-center justify-center gap-0.5 min-w-[72px] min-h-[52px] py-1 relative"
                 onClick={() => {
                   triggerHaptic('selection');
                   navigate(item.path);
                 }}
-                whileTap={{ scale: 0.85 }}
-                transition={{ type: "spring", stiffness: 500, damping: 25 }}
+                whileTap={{ scale: 0.9 }}
+                className="relative flex items-center justify-center h-11 rounded-full"
+                animate={{
+                  paddingLeft: isActive ? 16 : 14,
+                  paddingRight: isActive ? 18 : 14,
+                }}
+                transition={{ type: 'spring', stiffness: 500, damping: 32 }}
               >
-                {/* Active indicator dot */}
                 {isActive && (
                   <motion.div
-                    className="absolute -top-0.5 w-1 h-1 rounded-full bg-primary"
-                    layoutId="nav-indicator"
-                    transition={{ type: "spring", stiffness: 500, damping: 30 }}
+                    layoutId="pill-active"
+                    className="absolute inset-0 rounded-full"
+                    style={{
+                      background:
+                        'linear-gradient(180deg, hsl(346 100% 58% / 0.95), hsl(346 100% 46% / 0.95))',
+                      boxShadow:
+                        '0 8px 20px -6px hsl(346 100% 50% / 0.55), inset 0 1px 0 hsl(0 0% 100% / 0.25)',
+                    }}
+                    transition={{ type: 'spring', stiffness: 500, damping: 34 }}
                   />
                 )}
-                <motion.div
-                  animate={{ 
-                    scale: isActive ? 1.1 : 1,
-                    y: isActive ? -1 : 0,
-                  }}
-                  transition={{ type: "spring", stiffness: 400, damping: 20 }}
-                >
+
+                <div className="relative flex items-center gap-1.5">
                   <Icon
-                    className={`w-6 h-6 transition-colors duration-200 ${
-                      isActive ? 'text-primary' : 'text-muted-foreground'
+                    className={`w-[22px] h-[22px] transition-colors duration-200 ${
+                      isActive ? 'text-white' : 'text-white/65'
                     }`}
-                    strokeWidth={isActive ? 2.2 : 1.8}
-                    fill={isActive ? 'currentColor' : 'none'}
+                    strokeWidth={isActive ? 2.2 : 1.9}
                   />
-                </motion.div>
-                
-                <span
-                  className={`text-[10px] font-medium transition-colors duration-200 ${
-                    isActive ? 'text-primary' : 'text-muted-foreground'
-                  }`}
-                >
-                  {item.label}
-                </span>
+                  <AnimatePresence initial={false}>
+                    {isActive && (
+                      <motion.span
+                        key="label"
+                        initial={{ width: 0, opacity: 0 }}
+                        animate={{ width: 'auto', opacity: 1 }}
+                        exit={{ width: 0, opacity: 0 }}
+                        transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
+                        className="overflow-hidden whitespace-nowrap text-[13px] font-semibold text-white tracking-tight"
+                      >
+                        {item.label}
+                      </motion.span>
+                    )}
+                  </AnimatePresence>
+                </div>
               </motion.button>
             );
           })}
