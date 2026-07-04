@@ -74,7 +74,9 @@ const BottomNav = memo(function BottomNav() {
           )}
 
           {navItems.map((item) => {
-            const isActive = location.pathname === item.path;
+            const path = location.pathname;
+            const isHomeRoute = path === '/' || path === '/index' || path === '/home';
+            const isActive = item.path === '/home' ? isHomeRoute : path === item.path || path.startsWith(item.path + '/');
             const Icon = item.icon;
 
             return (
