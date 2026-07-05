@@ -669,6 +669,7 @@ class ExoPlayerPlugin : Plugin() {
         val strength = (call.getInt("strength") ?: 0).coerceIn(0, 1000)
         runOnMain {
             val svc = service()
+            svc?.savedBassBoostStrength = strength.toShort()
             svc?.ensureEffectsBound()
             val bb = svc?.bassBoost
             try {
@@ -689,6 +690,7 @@ class ExoPlayerPlugin : Plugin() {
         val strength = (call.getInt("strength") ?: 0).coerceIn(0, 1000)
         runOnMain {
             val svc = service()
+            svc?.savedVirtualizerStrength = strength.toShort()
             svc?.ensureEffectsBound()
             val v = svc?.virtualizer
             try {
@@ -709,6 +711,7 @@ class ExoPlayerPlugin : Plugin() {
         val gainMb = (call.getInt("gainMb") ?: 0).coerceIn(0, 2000)
         runOnMain {
             val svc = service()
+            svc?.savedLoudnessGainMb = gainMb
             svc?.ensureEffectsBound()
             val le = svc?.loudnessEnhancer
             try {
