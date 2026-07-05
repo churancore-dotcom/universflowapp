@@ -5,6 +5,7 @@ import { canDownloadSong, getDownloadUnavailableMessage } from '@/lib/songSuppor
 import { resolveIndexedTrack } from '@/lib/musicIndexer';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { supabase } from '@/integrations/supabase/client';
+import { isNativePlayerAvailable, resolveNativeMetadataStream } from '@/lib/nativePlayer';
 
 // Build a proxy URL for cross-origin streams that fail direct fetch.
 // Uses the same music-indexer audio proxy that the player uses.
@@ -36,10 +37,62 @@ const robustFetch = async (url: string, init?: RequestInit): Promise<Response> =
   }
 };
 
+const getSongVideoId = (song: Song): string | undefined => {
+  const raw = song.audio_url || '';
+  if (raw.startsWith('yt-video:')) {
+    const id = raw.replace('yt-video:', '').trim();
+    if (id.length === 11) return id;
+  }
+  for (const prefix of ['ytm-', 'yt-', 'youtube-']) {
+    if (song.id?.startsWith(prefix)) {
+      const id = song.id.slice(prefix.length);
+      if (id.length === 11) return id;
+    }
+  }
+  return undefined;
+};
+
+const nativeFetchBlob = async (url: string): Promise<Blob | null> => {
+  if (!isNativePlayerAvailable()) return null;
+  try {
+    const { CapacitorHttp } = await import('@capacitor/core');
+    const res = await CapacitorHttp.get({
+      url,
+      responseType: 'arraybuffer' as never,
+      connectTimeout: 15000,
+      readTimeout: 45000,
+    } as never);
+    if (res.status < 200 || res.status >= 300 || res.data == null) return null;
+    const contentType = String(res.headers?.['content-type'] || res.headers?.['Content-Type'] || 'audio/mpeg');
+    const data = res.data as unknown;
+    if (data instanceof ArrayBuffer) return new Blob([data], { type: contentType });
+    if (data instanceof Blob) return data;
+    if (typeof data === 'string') {
+      if (data.startsWith('data:')) return await fetch(data).then((r) => r.blob());
+      const binary = atob(data);
+      const bytes = new Uint8Array(binary.length);
+      for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+      return new Blob([bytes], { type: contentType });
+    }
+  } catch { /* fall through */ }
+  return null;
+};
+
 const resolveDownloadableSong = async (song: Song): Promise<Song> => {
   const audioUrl = song.audio_url?.trim();
   const needsResolve = !audioUrl || audioUrl === 'pending' || audioUrl === 'resolving' || audioUrl.startsWith('yt-video:');
   if (!needsResolve && audioUrl.startsWith('http')) return song;
+
+  if (isNativePlayerAvailable()) {
+    const nativeUrl = await resolveNativeMetadataStream({
+      videoId: getSongVideoId(song),
+      title: song.title,
+      artist: song.artist,
+    }).catch(() => null);
+    if (nativeUrl?.startsWith('http')) {
+      return { ...song, audio_url: nativeUrl };
+    }
+  }
 
   const resolved = await resolveIndexedTrack(song.artist, song.title, { forceRefresh: needsResolve }).catch(() => null);
   if (resolved?.streamUrl) {
@@ -348,48 +401,58 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         throw new Error('No downloadable stream available');
       }
 
-      const response = await robustFetch(downloadableSong.audio_url, {
-        mode: 'cors',
-        credentials: 'omit',
-        signal: controller.signal,
-      });
-      
-      if (!response.ok) {
-        throw new Error('Failed to download');
-      }
-
-      const contentLength = response.headers.get('content-length');
-      const total = contentLength ? parseInt(contentLength, 10) : 0;
-      
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error('No reader available');
-
-      const chunks: ArrayBuffer[] = [];
-      let received = 0;
-
-      while (true) {
-        if (controller.signal.aborted) {
-          try { reader.cancel(); } catch {}
-          throw new DOMException('Aborted', 'AbortError');
+      let blob: Blob | null = null;
+      try {
+        const response = await robustFetch(downloadableSong.audio_url, {
+          mode: 'cors',
+          credentials: 'omit',
+          signal: controller.signal,
+        });
+        
+        if (!response.ok) {
+          throw new Error('Failed to download');
         }
-        const { done, value } = await reader.read();
 
-        if (done) break;
+        const contentLength = response.headers.get('content-length');
+        const total = contentLength ? parseInt(contentLength, 10) : 0;
+        
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No reader available');
 
-        // Copy to regular ArrayBuffer for blob compatibility
-        chunks.push(value.buffer.slice(0) as ArrayBuffer);
-        received += value.length;
+        const chunks: ArrayBuffer[] = [];
+        let received = 0;
 
-        const progress = total > 0 ? Math.round((received / total) * 100) : 50;
+        while (true) {
+          if (controller.signal.aborted) {
+            try { reader.cancel(); } catch {}
+            throw new DOMException('Aborted', 'AbortError');
+          }
+          const { done, value } = await reader.read();
 
+          if (done) break;
+
+          // Copy to regular ArrayBuffer for blob compatibility
+          chunks.push(value.buffer.slice(0) as ArrayBuffer);
+          received += value.length;
+
+          const progress = total > 0 ? Math.round((received / total) * 100) : 50;
+
+          setDownloadProgress(prev => ({
+            ...prev,
+            [song.id]: { songId: song.id, progress: Math.min(progress, 95), status: 'downloading' }
+          }));
+        }
+
+        blob = new Blob(chunks, { type: 'audio/mpeg' });
+      } catch (fetchError) {
+        if (controller.signal.aborted) throw fetchError;
+        blob = await nativeFetchBlob(downloadableSong.audio_url);
+        if (!blob) throw fetchError;
         setDownloadProgress(prev => ({
           ...prev,
-          [song.id]: { songId: song.id, progress: Math.min(progress, 95), status: 'downloading' }
+          [song.id]: { songId: song.id, progress: 90, status: 'downloading' }
         }));
       }
-
-      // Create blob from chunks
-      const blob = new Blob(chunks, { type: 'audio/mpeg' });
       const blobUrl = URL.createObjectURL(blob);
       let coverBlob: Blob | null = null;
       let offlineCoverUrl = downloadableSong.cover_url;

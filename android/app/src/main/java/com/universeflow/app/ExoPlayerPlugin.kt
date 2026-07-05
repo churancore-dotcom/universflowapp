@@ -72,7 +72,15 @@ class ExoPlayerPlugin : Plugin() {
      */
     private fun playbackUriFor(track: NativeTrack): String? {
         val vid = track.videoId?.takeIf { it.length == 11 }
-        if (vid != null) return "yt://$vid"
+        if (vid != null) {
+            return Uri.Builder()
+                .scheme("yt")
+                .authority(vid)
+                .appendQueryParameter("title", track.title)
+                .appendQueryParameter("artist", track.artist)
+                .build()
+                .toString()
+        }
         return directPlayableUrl(track.url)
     }
 
@@ -261,6 +269,9 @@ class ExoPlayerPlugin : Plugin() {
         player.addListener(object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 emitPlaybackState(player)
+                if (player.playWhenReady && state != Player.STATE_IDLE && state != Player.STATE_ENDED) {
+                    startProgress()
+                }
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying) isStartingUp = false
@@ -409,7 +420,8 @@ class ExoPlayerPlugin : Plugin() {
         val r = object : Runnable {
             override fun run() {
                 val p = service()?.player ?: return
-                if (!p.isPlaying) {
+                val keepTicking = p.isPlaying || (p.playWhenReady && (p.playbackState == Player.STATE_BUFFERING || p.playbackState == Player.STATE_READY))
+                if (!keepTicking) {
                     stopProgress()
                     return
                 }
@@ -497,7 +509,10 @@ class ExoPlayerPlugin : Plugin() {
         playGeneration.incrementAndGet()
         runOnMain {
             isStartingUp = false
-            service()?.player?.playWhenReady = false
+            service()?.player?.let {
+                it.playWhenReady = false
+                it.pause()
+            }
             stopProgress()
             call.resolve()
         }
@@ -509,7 +524,10 @@ class ExoPlayerPlugin : Plugin() {
             service()?.player?.let {
                 ensureListener(null)
                 if (!it.isPlaying) isStartingUp = true
+                if (it.playbackState == Player.STATE_ENDED && it.mediaItemCount > 0) it.seekTo(0)
                 it.playWhenReady = true
+                it.play()
+                startProgress()
             }
             call.resolve()
         }

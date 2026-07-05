@@ -63,9 +63,11 @@ object NativeMediaSourceFactory {
             if (videoId.isNullOrBlank() || videoId.length != 11) {
                 throw java.io.IOException("Invalid yt:// uri: $uri")
             }
-            val resolved = NativeYouTubeResolver.resolve(videoId, timeoutMs = 6000L)
-                ?: throw java.io.IOException("InnerTube resolve failed for $videoId")
-            Log.d(TAG, "resolved $videoId via ${resolved.client} itag=${resolved.itag}")
+            val title = uri.getQueryParameter("title")
+            val artist = uri.getQueryParameter("artist")
+            val resolved = MasterResolver.resolve(videoId, title, artist, timeoutMs = 7000L)
+                ?: throw java.io.IOException("Native resolve failed for $videoId")
+            Log.d(TAG, "resolved $videoId via ${resolved.source}")
             dataSpec.withUri(Uri.parse(resolved.url))
         })
 
