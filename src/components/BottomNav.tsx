@@ -6,7 +6,7 @@ import { usePlayer } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 
 const navItems = [
-  { icon: Headphones, label: 'Lestine', path: '/home' },
+  { icon: Headphones, label: 'Listen', path: '/home' },
   { icon: Search, label: 'Search', path: '/search' },
   { icon: Library, label: 'Library', path: '/library' },
   { icon: User, label: 'Profile', path: '/profile' },
