@@ -589,6 +589,7 @@ class ExoPlayerPlugin : Plugin() {
         val enabled = call.getBoolean("enabled") ?: true
         runOnMain {
             val svc = service()
+            svc?.eqEnabled = enabled
             svc?.ensureEffectsBound()
             try { svc?.equalizer?.enabled = enabled } catch (_: Throwable) {}
             call.resolve()
@@ -603,13 +604,19 @@ class ExoPlayerPlugin : Plugin() {
             val svc = service()
             svc?.ensureEffectsBound()
             val eq = svc?.equalizer
-            if (eq == null) { call.resolve(); return@runOnMain }
+            if (eq == null) {
+                // Even if the effect isn't bound yet (no audio session id), save
+                // the intended level so it gets applied the moment effects bind.
+                svc?.savedEqBands?.put(band.toShort(), mb.toShort())
+                call.resolve(); return@runOnMain
+            }
             try {
                 val range = eq.bandLevelRange
                 val min = range[0].toInt()
                 val max = range[1].toInt()
                 val clamped = mb.coerceIn(min, max).toShort()
                 eq.setBandLevel(band.toShort(), clamped)
+                svc.savedEqBands[band.toShort()] = clamped
             } catch (_: Throwable) {}
             call.resolve()
         }
