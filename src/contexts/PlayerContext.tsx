@@ -72,10 +72,14 @@ const getSongIdentity = (song: Pick<Song, 'id' | 'title' | 'artist'>) =>
   `${song.id ?? ''}::${(song.artist ?? '').trim().toLowerCase()}::${(song.title ?? '').trim().toLowerCase()}`;
 
 const reapplyNativeEqSoon = () => {
-  try { window.dispatchEvent(new Event('uf-eq-changed')); } catch {}
-  window.setTimeout(() => {
-    try { window.dispatchEvent(new Event('uf-eq-changed')); } catch {}
-  }, 250);
+  // Native ExoPlayer may (re)allocate its audio session id at multiple points
+  // between playQueue() and the first `playing` state: prepare, first render,
+  // and each mediaItemTransition. Every rebind blanks the AudioEffect chain,
+  // so we re-push the user's EQ multiple times over ~2s to guarantee the
+  // slider values stick regardless of which rebind wins the race.
+  const fire = () => { try { window.dispatchEvent(new Event('uf-eq-changed')); } catch {} };
+  fire();
+  [120, 350, 750, 1400, 2200].forEach((ms) => window.setTimeout(fire, ms));
 };
 
 type SavedPlayerState = {
