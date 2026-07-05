@@ -51,7 +51,7 @@ const CountryViralSection = memo(function CountryViralSection() {
   // Last.fm geo is scrobble-spammed by fanbases, so we only use it as an empty-state fallback.
   const { data: tracks = [], isLoading: loading } = useQuery({
 
-    queryKey: ['trending-tracks-real', country ?? 'GLOBAL'],
+    queryKey: ['trending-tracks-real', country || 'GLOBAL'],
     enabled: country !== undefined,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
