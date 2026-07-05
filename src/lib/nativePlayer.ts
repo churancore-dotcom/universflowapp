@@ -14,6 +14,20 @@ interface InnerTubePluginShape {
   resolveAudio: (opts: { videoId: string }) => Promise<InnerTubeResult>;
 }
 
+interface StreamResolverResult {
+  url: string;
+  source?: string;
+  client?: string;
+  expiresAt?: number;
+}
+
+interface StreamResolverPluginShape {
+  resolve: (opts: { videoId?: string; title?: string; artist?: string }) => Promise<StreamResolverResult>;
+  resolveStream: (opts: { videoId?: string; title?: string; artist?: string }) => Promise<StreamResolverResult>;
+  invalidate: (opts: { videoId: string }) => Promise<void>;
+  prefetch: (opts: { tracks: Array<{ videoId?: string; title?: string; artist?: string }>; limit?: number }) => Promise<void>;
+}
+
 export interface ExoPlaybackState {
   state: 'playing' | 'paused' | 'buffering' | 'stopped' | 'ended' | 'unknown';
 }
@@ -83,6 +97,7 @@ export interface NativeEQBandsInfo {
 
 export const InnerTubePlugin = registerPlugin<InnerTubePluginShape>('InnerTube');
 export const ExoPlayerPlugin = registerPlugin<ExoPlayerPluginShape>('ExoPlayer');
+export const StreamResolverPlugin = registerPlugin<StreamResolverPluginShape>('StreamResolver');
 
 export function isNativePlayerAvailable(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
@@ -100,6 +115,21 @@ export async function resolveOnDevice(videoId: string): Promise<string | null> {
     console.warn('[InnerTube/native] failed', videoId, (e as Error)?.message);
   }
   return null;
+}
+
+export async function resolveNativeMetadataStream(opts: { videoId?: string; title?: string; artist?: string }): Promise<string | null> {
+  if (!isNativePlayerAvailable()) return null;
+  try {
+    const res = await StreamResolverPlugin.resolve(opts);
+    return res?.url || null;
+  } catch {
+    try {
+      const res = await StreamResolverPlugin.resolveStream(opts);
+      return res?.url || null;
+    } catch {
+      return null;
+    }
+  }
 }
 
 // ---------------- Native EQ helpers (Android-only) ----------------
