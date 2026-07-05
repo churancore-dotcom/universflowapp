@@ -326,11 +326,11 @@ class ExoPlayerPlugin : Plugin() {
             }.start()
         }
 
-        val performPlay: () -> Unit = {
+        val performPlay: () -> Unit = performPlay@{
             if (playGeneration.get() != generation) {
                 isStartingUp = false
                 call.resolve()
-                return@let
+                return@performPlay
             }
             val player = service()?.player
             if (player == null) {
@@ -442,11 +442,11 @@ class ExoPlayerPlugin : Plugin() {
         val artwork = call.getString("artworkUrl")
         Log.d("ExoPlayerPlugin", "play() title=$title url=${url.take(80)}...")
 
-        val performPlay: () -> Unit = {
+        val performPlay: () -> Unit = performPlay@{
             if (playGeneration.get() != generation) {
                 isStartingUp = false
                 call.resolve()
-                return@let
+                return@performPlay
             }
             val player = service()?.player
             if (player == null) {
