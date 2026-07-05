@@ -11,7 +11,7 @@ import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
-import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
+import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -1409,6 +1409,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!shouldRefreshYoutubeUrl) return buildNativeExoPlayerUrl(directUrl);
     }
 
+    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && (videoId || song.title)) {
+      try {
+        const nativeResolved = await Promise.race([
+          resolveNativeMetadataStream({ videoId: videoId || undefined, title: song.title, artist: song.artist }),
+          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 7000)),
+        ]);
+        if (nativeResolved && !isYouTubeFallbackUrl(nativeResolved)) {
+          if (videoId) markNativeResolvedStreamUrl(nativeResolved, videoId);
+          return nativeResolved;
+        }
+      } catch { /* fall through */ }
+    }
+
     try {
       const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
       if (fresh && !isYouTubeFallbackUrl(fresh)) return buildNativeExoPlayerUrl(fresh);
@@ -2104,6 +2117,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return;
         }
 
+        if (isNativePlayerAvailable()) {
+          const q = queueRef.current;
+          const i = currentIndexRef.current;
+          const nextIdx = getNextIndex(i, q.length, shuffleRef.current, repeatRef.current);
+          if (nextIdx !== null && q.length > 1) {
+            toast.error(`Skipped: ${cur.title} (unavailable)`);
+            void playSongAtIndex(nextIdx, q);
+          } else {
+            setIsPlaying(false);
+            toast.error('This song could not start right now.');
+          }
+          return;
+        }
+
         const fallbackVideoId = getYouTubeFallbackVideoId(cur.audio_url) || getNativeResolvedVideoId(failedUrl);
         if (fallbackVideoId) {
           void playYouTubeFallback(
@@ -2266,6 +2293,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // media items; re-push the user's EQ so it survives the swap.
           reapplyNativeEqSoon();
         });
+        void ExoPlayerPlugin.getCurrentPosition()
+          .then(({ position }) => {
+            if (!nativeUserPausedRef.current && position > 0) setProgress(position / 1000);
+          })
+          .catch(() => undefined);
+        void ExoPlayerPlugin.getDuration()
+          .then(({ duration }) => {
+            if (duration > 0) setDuration(duration / 1000);
+          })
+          .catch(() => undefined);
         if (cancelled) { p.remove(); s.remove(); e.remove(); t.remove(); return; }
         progressHandle = p; stateHandle = s; errorHandle = e; transitionHandle = t;
       } catch (err) {
@@ -2804,6 +2841,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         void ExoPlayerPlugin.pause().catch(() => undefined);
       } else {
         nativeUserPausedRef.current = false;
+        nativeLastPlayIntentAtRef.current = Date.now();
         const hasStartedOrProgressed = nativeStartedForSeqRef.current !== null || playerProgressStore.getProgress() > 0;
         markNativePlayIntent(playRequestSeqRef.current);
         setIsPlaying(true); wasPlayingRef.current = true;
@@ -2883,7 +2921,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     wasPlayingRef.current = true;
     if (isNativePlayerAvailable()) {
       nativeUserPausedRef.current = false;
+      nativeLastPlayIntentAtRef.current = Date.now();
       const hasStartedOrProgressed = nativeStartedForSeqRef.current !== null || playerProgressStore.getProgress() > 0;
+      markNativePlayIntent(playRequestSeqRef.current);
       if (hasStartedOrProgressed) {
         void ExoPlayerPlugin.resume().catch(() => undefined);
       } else {
