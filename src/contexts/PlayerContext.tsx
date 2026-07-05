@@ -2258,6 +2258,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setProgress(0);
           if (nextSong.duration) setDuration(nextSong.duration);
           void publishNativeMusicControls(nextSong, true, nextSong.duration);
+          // ExoPlayer may allocate a new audio session id when transitioning
+          // media items; re-push the user's EQ so it survives the swap.
+          reapplyNativeEqSoon();
         });
         if (cancelled) { p.remove(); s.remove(); e.remove(); t.remove(); return; }
         progressHandle = p; stateHandle = s; errorHandle = e; transitionHandle = t;
