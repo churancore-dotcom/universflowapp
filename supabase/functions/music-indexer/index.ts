@@ -1130,9 +1130,29 @@ async function pickBestPipedStream(data: Record<string, any>, instance: string) 
 }
 
 // Cobalt API — extracts direct audio URL from a YouTube videoId.
-// co.wuk.sh was retired (NXDOMAIN) — use cobalt.tools + community mirrors.
+// Public Cobalt hosts churn; discover live ones from instances.cobalt.tools.
+let cobaltEndpoints: string[] = [];
+let cobaltFetchedAt = 0;
+async function getCobaltEndpoints(): Promise<string[]> {
+  if (Date.now() - cobaltFetchedAt < 30 * 60 * 1000 && cobaltEndpoints.length) return cobaltEndpoints;
+  cobaltFetchedAt = Date.now();
+  const seeds = ['https://cobalt.tools/api/json', 'https://api.cobalt.tools/api/json'];
+  try {
+    const data = await fetchJson('https://instances.cobalt.tools/instances.json', 4000);
+    if (Array.isArray(data)) {
+      const discovered = data
+        .filter((d: any) => d?.api && (d.score ?? 100) >= 90)
+        .map((d: any) => `https://${String(d.api).replace(/^https?:\/\//, '').replace(/\/$/, '')}/api/json`);
+      cobaltEndpoints = [...new Set([...discovered, ...seeds])];
+      return cobaltEndpoints;
+    }
+  } catch { /* fall through */ }
+  cobaltEndpoints = seeds;
+  return cobaltEndpoints;
+}
+
 async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } | null> {
-  const endpoints = ['https://cobalt.tools/api/json', 'https://api.cobalt.tools/api/json'];
+  const endpoints = await getCobaltEndpoints();
 
   const body = JSON.stringify({
     url: `https://www.youtube.com/watch?v=${videoId}`,
@@ -1140,7 +1160,7 @@ async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } 
     aFormat: 'mp3',
     isNoTTWatermark: true,
   });
-  for (const ep of endpoints) {
+  for (const ep of endpoints.slice(0, 5)) {
     try {
       const ctrl = new AbortController();
       const t = setTimeout(() => ctrl.abort(), 8000);
@@ -1176,63 +1196,58 @@ async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } 
 // residential or dedicated IPs YouTube does not block.
 
 async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
+  const t0 = Date.now();
 
-  const piped = getPipedInstances().filter(isHealthy);
-  const inv = getInvidiousInstances().filter(isHealthy);
+  // Health-probe pools in parallel so we only try instances that are actually
+  // responding right now. Old code hard-pinned inv.thepixora.com as "primary"
+  // which was returning HTML error pages and crashing JSON parse.
+  const [invHealthy, pipedHealthy] = await Promise.all([
+    pickHealthy(getInvidiousInstances(), 'invidious', 6),
+    pickHealthy(getPipedInstances(), 'piped', 6),
+  ]);
 
-
-  // Piped adminforge currently redirects /streams to the invalid host
-  // "adminforge.destreams". Use the working Invidious audio proxy first.
-  const primaryInvidious = 'https://inv.thepixora.com';
-  const orderedInvidious = [primaryInvidious, ...inv.filter(i => i !== primaryInvidious)].slice(0, 7);
-
-  // Try primary first (fast path)
-  try {
-    const data = await fetchJson(`${primaryInvidious}/api/v1/videos/${videoId}`, 5000);
-    const url = pickBestStream(data, primaryInvidious);
-    if (url && await probePlayableStream(url, 4500)) {
-      console.log(`[resolve] ✓ ${videoId} via ${primaryInvidious}`);
-      return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined };
-    }
-    markFailed(primaryInvidious);
-  } catch (e) {
-    markFailed(primaryInvidious);
-    console.warn(`[resolve] primary failed for ${videoId}:`, (e as Error).message);
-  }
-
-  // Fallback: race remaining instances
-  const attempts = [
-    ...orderedInvidious.slice(1).map(async (inst) => {
+  const attempts: Promise<{ streamUrl: string; duration?: number; src: string }>[] = [
+    ...invHealthy.map(async (inst) => {
       try {
-        const data = await fetchJson(`${inst}/api/v1/videos/${videoId}`, 7000);
+        const data = await fetchJson(`${inst}/api/v1/videos/${videoId}`, 6000);
         const url = pickBestStream(data, inst);
         if (!url) throw new Error('no audio stream');
-        // HTML5 <audio> can play googlevideo URLs without CORS; only probe liveness.
         if (!(await probePlayableStream(url))) throw new Error('stream not playable');
-        console.log(`[resolve] ✓ ${videoId} via ${inst}`);
-        return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined };
+        return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined, src: inst };
       } catch (e) { markFailed(inst); throw e; }
     }),
-    ...piped.slice(0, 8).map(async (inst) => {
+    ...pipedHealthy.map(async (inst) => {
       try {
-        const data = await fetchJson(`${inst}/streams/${videoId}`, 7000);
+        const data = await fetchJson(`${inst}/streams/${videoId}`, 6000);
         const url = await pickBestPipedStream(data, inst);
         if (!url) throw new Error('no audio stream');
-        console.log(`[resolve] ✓ ${videoId} via ${inst}`);
-        return { streamUrl: url, duration: Number(data.duration || 0) || undefined };
+        return { streamUrl: url, duration: Number(data.duration || 0) || undefined, src: inst };
       } catch (e) { markFailed(inst); throw e; }
     }),
   ];
 
-  if (!attempts.length) {
-    console.warn(`[resolve] no instances available for ${videoId}`);
-    return null;
+  if (attempts.length) {
+    try {
+      const winner = await Promise.any(attempts);
+      console.log(`[resolve] ✓ ${videoId} via ${winner.src} (${Date.now() - t0}ms, tried=${attempts.length})`);
+      return { streamUrl: winner.streamUrl, duration: winner.duration };
+    } catch (e) {
+      const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.join(', ');
+      console.warn(`[resolve] all pool fallbacks failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
+    }
+  } else {
+    console.warn(`[resolve] no healthy instances for ${videoId} (inv=${getInvidiousInstances().length}, piped=${getPipedInstances().length})`);
   }
 
-  try {
-    return await Promise.any(attempts);
-  } catch (e) {
-    console.warn(`[resolve] all fallbacks failed for ${videoId}:`, (e as AggregateError)?.errors?.map((err: Error) => err.message)?.join(', '));
+  // Last real-audio fallback via Cobalt.
+  const cobalt = await resolveViaCobalt(videoId);
+  if (cobalt?.streamUrl && await probePlayableStream(cobalt.streamUrl, 5000)) {
+    console.log(`[resolve] ✓ ${videoId} via cobalt-final (${Date.now() - t0}ms)`);
+    return { streamUrl: cobalt.streamUrl };
+  }
+  return null;
+}
+
   }
 
   // Last real-audio fallback. This function already existed but was never
