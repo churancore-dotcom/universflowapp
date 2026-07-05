@@ -162,16 +162,44 @@ class ExoPlayerService : MediaSessionService() {
 
         releaseEffects()
         try {
-            equalizer = Equalizer(0, sid).apply { enabled = true }
+            equalizer = Equalizer(0, sid).apply {
+                enabled = eqEnabled
+                // Re-apply every previously saved band level so user EQ
+                // survives per-song audio-session rebinds.
+                try {
+                    val range = bandLevelRange
+                    val min = range[0].toInt()
+                    val max = range[1].toInt()
+                    for ((band, level) in savedEqBands) {
+                        val clamped = level.toInt().coerceIn(min, max).toShort()
+                        try { setBandLevel(band, clamped) } catch (_: Throwable) {}
+                    }
+                } catch (_: Throwable) {}
+            }
         } catch (_: Throwable) { equalizer = null }
         try {
-            bassBoost = BassBoost(0, sid).apply { enabled = false }
+            bassBoost = BassBoost(0, sid).apply {
+                if (savedBassBoostStrength > 0) {
+                    enabled = true
+                    if (strengthSupported) try { setStrength(savedBassBoostStrength) } catch (_: Throwable) {}
+                } else enabled = false
+            }
         } catch (_: Throwable) { bassBoost = null }
         try {
-            virtualizer = Virtualizer(0, sid).apply { enabled = false }
+            virtualizer = Virtualizer(0, sid).apply {
+                if (savedVirtualizerStrength > 0) {
+                    enabled = true
+                    if (strengthSupported) try { setStrength(savedVirtualizerStrength) } catch (_: Throwable) {}
+                } else enabled = false
+            }
         } catch (_: Throwable) { virtualizer = null }
         try {
-            loudnessEnhancer = LoudnessEnhancer(sid).apply { enabled = false }
+            loudnessEnhancer = LoudnessEnhancer(sid).apply {
+                if (savedLoudnessGainMb > 0) {
+                    try { setTargetGain(savedLoudnessGainMb) } catch (_: Throwable) {}
+                    enabled = true
+                } else enabled = false
+            }
         } catch (_: Throwable) { loudnessEnhancer = null }
         boundSessionId = sid
     }
