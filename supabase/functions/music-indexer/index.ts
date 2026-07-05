@@ -244,24 +244,35 @@ let instancesFetchedAt = 0;
 async function refreshInstances() {
   if (Date.now() - instancesFetchedAt < 30 * 60 * 1000) return;
   instancesFetchedAt = Date.now();
-  try {
-    const data = await fetchJson('https://piped-instances.kavin.rocks/', 5000);
-    if (Array.isArray(data)) {
-      dynamicPiped = data
-        .filter((d: any) => d.api_url && !d.api_url.includes('.onion'))
-        .map((d: any) => d.api_url.replace(/\/$/, ''))
-        .filter((url: string) => {
-          try { return hostnameMatchesAllowedSuffix(new URL(url).hostname); }
-          catch { return false; }
-        });
-    }
-  } catch { /* keep stale list */ }
+
+  // Piped: try a few discovery endpoints; the kavin.rocks one is often down.
+  const pipedSources = [
+    'https://worker-piped-instances.mha.fi/',
+    'https://piped-instances.kavin.rocks/',
+    'https://pipedapi.kavin.rocks/instances',
+  ];
+  for (const src of pipedSources) {
+    try {
+      const data = await fetchJson(src, 4000);
+      if (Array.isArray(data) && data.length) {
+        const list = data
+          .filter((d: any) => (d.api_url || d.apiUrl) && !(d.api_url || d.apiUrl).includes('.onion'))
+          .map((d: any) => String(d.api_url || d.apiUrl).replace(/\/$/, ''))
+          .filter((url: string) => {
+            try { return hostnameMatchesAllowedSuffix(new URL(url).hostname); }
+            catch { return false; }
+          });
+        if (list.length) { dynamicPiped = list; break; }
+      }
+    } catch { /* try next source */ }
+  }
+
   try {
     const data = await fetchJson('https://api.invidious.io/instances.json?sort_by=api,health', 5000);
     if (Array.isArray(data)) {
       dynamicInvidious = data
         .filter(([, info]: any) => info?.api && info?.type === 'https')
-        .slice(0, 10)
+        .slice(0, 15)
         .map(([, info]: any) => info.uri.replace(/\/$/, ''))
         .filter((url: string) => {
           try { return hostnameMatchesAllowedSuffix(new URL(url).hostname); }
@@ -295,6 +306,40 @@ function isHealthy(instance: string): boolean {
   if (Date.now() > until) { failedUntil.delete(instance); return true; }
   return false;
 }
+
+// Short-lived health probe cache so we don't hammer /api/v1/stats or /healthcheck
+// on every resolve. Result lives for 60s.
+const healthCache = new Map<string, { ok: boolean; at: number }>();
+async function probeInstance(base: string, kind: 'invidious' | 'piped'): Promise<boolean> {
+  const cached = healthCache.get(base);
+  if (cached && Date.now() - cached.at < 60_000) return cached.ok;
+  const path = kind === 'invidious' ? '/api/v1/stats' : '/healthcheck';
+  let ok = false;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 1800);
+    const r = await fetch(base + path, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+    clearTimeout(t);
+    ok = r.ok;
+    if (ok && kind === 'invidious') {
+      // Some proxies return 200 HTML. Peek at the body.
+      const txt = await r.text();
+      ok = txt.trimStart().startsWith('{');
+    } else {
+      await r.text().catch(() => '');
+    }
+  } catch { ok = false; }
+  healthCache.set(base, { ok, at: Date.now() });
+  if (!ok) markFailed(base);
+  return ok;
+}
+
+async function pickHealthy(instances: string[], kind: 'invidious' | 'piped', max: number): Promise<string[]> {
+  const healthy = instances.filter(isHealthy);
+  const results = await Promise.all(healthy.slice(0, max * 2).map(async (i) => ({ i, ok: await probeInstance(i, kind) })));
+  return results.filter((r) => r.ok).map((r) => r.i).slice(0, max);
+}
+
 
 // ── Types ──
 
