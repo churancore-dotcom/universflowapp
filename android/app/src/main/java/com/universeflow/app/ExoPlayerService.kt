@@ -48,6 +48,16 @@ class ExoPlayerService : MediaSessionService() {
     var loudnessEnhancer: LoudnessEnhancer? = null
         private set
 
+    // Persisted audio-effect state — survives audio-session rebinds so the
+    // user's EQ / bass / virtualizer / loudness settings stick across every
+    // song change. Without this, ExoPlayer's per-track session-id changes
+    // silently reset the Equalizer to flat and users hear no effect.
+    @Volatile var eqEnabled: Boolean = true
+    val savedEqBands: MutableMap<Short, Short> = java.util.concurrent.ConcurrentHashMap()
+    @Volatile var savedBassBoostStrength: Short = 0
+    @Volatile var savedVirtualizerStrength: Short = 0
+    @Volatile var savedLoudnessGainMb: Int = 0
+
     private var boundSessionId: Int = C.AUDIO_SESSION_ID_UNSET
 
     private var mediaSession: MediaSession? = null
