@@ -5,7 +5,7 @@ import { Flame, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
-import { getGeoTopTracks, prefetchIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
+import { getGeoTopTracks, getTopIndexedTracks, prefetchIndexedTrack, type IndexedTrack } from '@/lib/musicIndexer';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { detectCountrySilently } from '@/lib/geoCountry';
 
@@ -20,18 +20,9 @@ const COUNTRY_NAMES: Record<string, string> = {
   NP: 'Nepal', AE: 'United Arab Emirates', SA: 'Saudi Arabia', IE: 'Ireland', NZ: 'New Zealand',
 };
 
-function detectFallbackCountry(): string {
-  try {
-    const locale = (Intl.DateTimeFormat().resolvedOptions().locale || '').toUpperCase();
-    const m = locale.match(/-([A-Z]{2})\b/);
-    return m?.[1] || 'IN';
-  } catch {
-    return 'IN';
-  }
-}
-
 // Deezer's public API does not send CORS headers, so calling it from the
-// browser is blocked and pollutes the console. Trending uses Last.fm only.
+// browser is blocked and pollutes the console. Trending uses our aggregated
+// chart cache first and never forces India/US as a hidden fallback.
 
 
 const CountryViralSection = memo(function CountryViralSection() {
@@ -60,8 +51,8 @@ const CountryViralSection = memo(function CountryViralSection() {
   // Last.fm geo is scrobble-spammed by fanbases, so we only use it as an empty-state fallback.
   const { data: tracks = [], isLoading: loading } = useQuery({
 
-    queryKey: ['trending-tracks-real', country ?? ''],
-    enabled: !!country,
+    queryKey: ['trending-tracks-real', country ?? 'GLOBAL'],
+    enabled: country !== undefined,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     refetchInterval: 10 * 60 * 1000,
@@ -85,6 +76,8 @@ const CountryViralSection = memo(function CountryViralSection() {
         } as IndexedTrack);
       };
 
+      const chartCountry = country || 'GLOBAL';
+
       // 1) Aggregated chart_tracks (Apple Most-Played) for the user's country, then GLOBAL.
       const readAggregated = async (cc: string) => {
         const { data } = await supabase
@@ -97,8 +90,8 @@ const CountryViralSection = memo(function CountryViralSection() {
         return data ?? [];
       };
 
-      let rows = await readAggregated(country!).catch(() => [] as any[]);
-      if (rows.length === 0 && country !== 'GLOBAL') {
+      let rows = await readAggregated(chartCountry).catch(() => [] as any[]);
+      if (rows.length === 0 && chartCountry !== 'GLOBAL') {
         rows = await readAggregated('GLOBAL').catch(() => [] as any[]);
       }
       // Per-artist cap so a single act can't own the rail.
@@ -111,10 +104,18 @@ const CountryViralSection = memo(function CountryViralSection() {
         if (merged.length >= TARGET) break;
       }
 
-      // 2) Empty-state fallback ONLY: Last.fm geo (spam-prone, so last resort).
+      // 2) Empty-state fallback ONLY: app-wide indexed top tracks, then Last.fm
+      // geo for known countries. Never silently falls back to India.
       if (merged.length === 0) {
-        const name = COUNTRY_NAMES[country!] || COUNTRY_NAMES.IN;
-        const geo = await getGeoTopTracks(name, TARGET * 2).catch(() => [] as IndexedTrack[]);
+        const top = await getTopIndexedTracks(TARGET * 2).catch(() => [] as IndexedTrack[]);
+        for (const t of top) {
+          add(t);
+          if (merged.length >= TARGET) break;
+        }
+      }
+
+      if (merged.length === 0 && chartCountry !== 'GLOBAL' && COUNTRY_NAMES[chartCountry]) {
+        const geo = await getGeoTopTracks(COUNTRY_NAMES[chartCountry], TARGET * 2).catch(() => [] as IndexedTrack[]);
         const MIN_LISTENERS = 25_000;
         for (const t of geo.filter((x) => !x.listeners || x.listeners >= MIN_LISTENERS)) {
           add(t);
