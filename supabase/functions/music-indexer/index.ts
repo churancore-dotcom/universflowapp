@@ -464,9 +464,20 @@ async function fetchJson(url: string, timeoutMs = 6000) {
   try {
     const r = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json', 'User-Agent': 'UniversFlow/1.0' } });
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
-    return await r.json();
+    // Guard: some dead instances return an HTML error page with 200. Detect
+    // that early so callers can markFailed(host) instead of surfacing a
+    // JSON.parse "Unexpected token '<'" crash.
+    const ct = (r.headers.get('content-type') || '').toLowerCase();
+    const text = await r.text();
+    const trimmed = text.trimStart();
+    if (trimmed.startsWith('<') || (ct && !ct.includes('json') && !ct.includes('text/plain'))) {
+      throw new Error(`non-json response (ct=${ct || 'none'})`);
+    }
+    try { return JSON.parse(text); }
+    catch { throw new Error('invalid json body'); }
   } finally { clearTimeout(t); }
 }
+
 
 function buildLastFmUrl(method: string, params: Record<string, string>) {
   const url = new URL(LASTFM_BASE_URL);
