@@ -1,72 +1,59 @@
-# Fix pass — background APK, lyrics, instant play, search, EQ, downloads
+## Problem (confirmed from logs)
 
-Big scope. I'll ship in four focused waves so each can be verified in the APK before moving on. All changes are additive/backwards-compatible — no schema changes needed.
+`supabase/functions/music-indexer/index.ts` resolves YouTube audio through a **hardcoded** list of public Invidious/Piped instances (lines ~212–234). Those instances are largely dead or CAPTCHA-walled:
 
-## Wave 1 — Background playback (APK)
+- Primary `https://inv.thepixora.com` returns an HTML error page → JSON parse crash.
+- Fallbacks return 401/403/404/500/502; `invidious.jing.rocks` fails DNS.
+- Cobalt last-ditch has no successful path either.
 
-**Problem:** ExoPlayer / MediaSession loses audio when screen locks or app is backgrounded.
+Users on the **web** (and any Android path that falls back to the edge function) see `"Could not find a playable stream for this track"`.
 
-**Fix:**
-- Harden `MusicNotificationService` / ExoPlayer:
-  - `setHandleAudioBecomingNoisy(true)`, `setWakeMode(C.WAKE_MODE_NETWORK)`
-  - `MediaSessionCompat.setActive(true)` on every play, kept active until explicit stop
-  - `startForeground` called BEFORE first buffer, not after (fixes ANR-driven kill on Android 14)
-  - `FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK` declared in Manifest + `ServiceCompat.startForeground(..., FGS_TYPE_MEDIA_PLAYBACK)`
-- `MainActivity`: add `stopService` guard so backgrounding doesn't kill the service (`moveTaskToBack` instead of finish)
-- Web fallback: keep `wakeLock` + silent audio ping already in place; add `visibilitychange` guard so we don't pause when the page hides
+Note: Android already prefers the native InnerTube plugin per project memory, so this primarily affects web + native-fallback edge cases.
 
-## Wave 2 — Lyrics for every song
+## Fix strategy
 
-**Fix:** Extend the `lyrics` edge function with 3 more free providers, chained in parallel with existing LRCLIB / KuGou / NetEase:
-- **QQ Music** open endpoint (`c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg`) — huge Chinese + Bollywood catalog
-- **Syair** (`api.textyl.co/api/lyrics`) — J-pop / K-pop coverage
-- **Lyrics.ovh** — very broad plain-text fallback
-- **Musixmatch community subtitle** via signed `apic-desktop` endpoint (no API key, public web token) — best synced coverage for Western pop
+### 1. Kill the hardcoded lists as the source of truth
+- Fetch `https://api.invidious.io/instances.json?sort_by=api,health` on cold start (already partially wired at line 260) and cache in-memory for ~15 min.
+- Fetch Piped instances from `https://piped-instances.kavin.rocks/` (or the maintained `github.com/TeamPiped/piped-instances` JSON).
+- Filter to instances that report `api: true`, `cors: true`, healthy uptime ≥ 90%, and whose host matches the existing exact-suffix allowlist (line ~98).
+- Keep the current hardcoded arrays only as a *seed* if the fetch fails.
 
-Client already handles multi-provider result. Bump provider timeout to 3200ms, race for first-synced-wins. Cache TTL stays 24h.
+### 2. Add real health-gating before use
+- On each resolve, run a 1.5s HEAD/GET probe (e.g. `/api/v1/stats` for Invidious, `/healthcheck` for Piped) against the top N instances in parallel.
+- Only instances that return 200 JSON are used for the actual video lookup.
+- Cache health results for 60s to avoid probe storms.
 
-## Wave 3 — Instant play + real-first search
+### 3. Harden `fetchJson`
+- Detect `content-type` not containing `application/json` OR body starting with `<` → treat as failure and `markFailed(host)` instead of throwing an unhandled `Unexpected token '<'`.
 
-**Instant play:**
-- Kick off `nativeStreamResolver` immediately on song tap (before UI transition finishes)
-- Pre-warm InnerTube session once per app boot instead of on first play
-- Preload next 2 songs' stream URLs after current one starts (bump from 1)
+### 4. Add a maintained-source fast path
+- Try **JioSaavn resolver** (already in `src/lib/jiosaavn.ts` conceptually) first for any track that has a matched Saavn ID — it's stable and free.
+- Only fall back to Invidious/Piped when Saavn has no match.
 
-**Search real-first ordering (`src/pages/Search.tsx`):**
-Add a `rankRealVsDuplicate()` scorer that boosts:
-- Verified artist uploads (`artist_songs.status = 'live'`) → top
-- JioSaavn primary results with `is_official = true`
-- Titles NOT containing: "lyrical", "audio only", "slowed", "reverb", "cover by", "karaoke", "remix by", "8D", "sped up", "lofi remix"
-- Deduplicate by `title+primary_artist` fingerprint, keeping highest-ranked entry
+### 5. Improve Cobalt fallback
+- Cobalt public instance rotates; hit `https://co.wuk.sh/api/serverInfo` and the community list at `instances.cobalt.tools` before calling `/api/json`.
 
-## Wave 4 — Equalizer overhaul + Downloads for every song
+### 6. Observability
+- Log a single structured line per resolve: `{videoId, sourcesTried, winner, ms}` so future dead-instance waves are visible in one query.
 
-**EQ (`EqualizerModal.tsx` + `AudioEngine.ts` + native `AudioEffectPlugin`):**
-- 10-band graphic EQ (31–16k Hz) — already partial; wire missing bands
-- Presets: Flat, Rock, Pop, Bass Booster, Vocal, Jazz, Classical, EDM, Hip-Hop, Acoustic, Piano, Latin, Lounge, Deep, Small Speakers
-- Bass Boost (0–20 dB), Virtualizer (0–100%), Reverb (Small/Medium/Large/Hall/Plate)
-- Dynamic Range Compressor (loudness), Spatial widener (Web: `ChannelSplitter`+`Delay`; Native: `Virtualizer.STRENGTH_HIGH`)
-- Apply globally: hook EQ chain into `PlayerContext` play() so every source (JioSaavn, InnerTube, artist upload, downloaded file) routes through it. Persist settings in `localStorage` + `eqSettings.ts`, apply on service init.
-- Instant effect: switch band values with `setTargetAtTime(v, ctx.currentTime, 0.02)` (already used) — verified <30 ms perceived latency.
+## Files to touch
 
-**Downloads (`DownloadButton.tsx` + `DownloadContext.tsx`):**
-- Remove the "premium-only" / provider gate — allow download on any resolvable song
-- If native path returns a direct URL, save to IndexedDB Blob via streamed `fetch` (chunked writer, no memory spike)
-- Add retry with alternate InnerTube client if first URL 403s
-- Surface progress in existing `DownloadQueuePanel`
+```text
+supabase/functions/music-indexer/index.ts
+  ├─ fetchJson()               → content-type guard
+  ├─ getInvidiousInstances()   → dynamic + cached
+  ├─ getPipedInstances()       → dynamic + cached
+  ├─ new probeHealth()         → parallel health probe
+  ├─ resolveVideoId()          → Saavn fast-path, then health-gated pools
+  └─ resolveViaCobalt()        → dynamic Cobalt instance selection
+```
 
-## Technical notes
+No DB migration, no client changes, no new secrets.
 
-- No DB migration required.
-- New EQ presets stored client-side only.
-- Musixmatch endpoint uses rotating public web token (no secret needed); if blocked we degrade to existing providers.
-- Native EQ changes require rebuilding the APK — I'll flag the `npx cap sync` step at the end.
+## Rollout
 
-## Order of execution
+1. Ship the edge-function change (auto-deploys on approval).
+2. Monitor `edge_function_logs` for `[resolve] ✓` vs `[resolve] all fallbacks failed` ratio over 1h.
+3. If ratio stays >90% success, mark finding fixed; otherwise iterate on the health-probe thresholds.
 
-1. Wave 1 files: `android/app/src/main/AndroidManifest.xml`, `MusicService.kt`, `MainActivity.kt`, `capacitorBoot.ts`
-2. Wave 2 files: `supabase/functions/lyrics/index.ts` (+ deploy)
-3. Wave 3 files: `src/pages/Search.tsx`, `src/contexts/PlayerContext.tsx`, `src/lib/nativeStreamResolver.ts`
-4. Wave 4 files: `src/components/EqualizerModal.tsx`, `src/lib/eqSettings.ts`, `src/services/AudioEngine.ts`, `src/contexts/DownloadContext.tsx`, `src/components/DownloadButton.tsx`
-
-Approve and I'll start with Wave 1.
+Approve this and I'll implement it in one edge-function edit.
