@@ -327,6 +327,11 @@ class ExoPlayerPlugin : Plugin() {
         }
 
         val performPlay: () -> Unit = {
+            if (playGeneration.get() != generation) {
+                isStartingUp = false
+                call.resolve()
+                return@let
+            }
             val player = service()?.player
             if (player == null) {
                 isStartingUp = false
@@ -428,7 +433,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun play(call: PluginCall) {
-        playGeneration.incrementAndGet()
+        val generation = playGeneration.incrementAndGet()
         val url = call.getString("url")
         if (url.isNullOrBlank()) { call.reject("missing url"); return }
         ensureNotificationPermissionBestEffort()
@@ -438,6 +443,11 @@ class ExoPlayerPlugin : Plugin() {
         Log.d("ExoPlayerPlugin", "play() title=$title url=${url.take(80)}...")
 
         val performPlay: () -> Unit = {
+            if (playGeneration.get() != generation) {
+                isStartingUp = false
+                call.resolve()
+                return@let
+            }
             val player = service()?.player
             if (player == null) {
                 Log.e("ExoPlayerPlugin", "service ready but player == null")
@@ -484,6 +494,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun pause(call: PluginCall) {
+        playGeneration.incrementAndGet()
         runOnMain {
             isStartingUp = false
             service()?.player?.playWhenReady = false
