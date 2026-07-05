@@ -56,40 +56,70 @@ const CountryViralSection = memo(function CountryViralSection() {
     gcTime: Infinity,
   });
 
-  // Real trending tracks only: live chart metadata + YouTube Music search + JioSaavn search.
-  // No manual/admin pinned rows, no mocked fallback list.
+  // Real trending: aggregated Apple Music "Most Played" per country (via chart_tracks).
+  // Last.fm geo is scrobble-spammed by fanbases, so we only use it as an empty-state fallback.
   const { data: tracks = [], isLoading: loading } = useQuery({
 
     queryKey: ['trending-tracks-real', country ?? ''],
     enabled: !!country,
-    staleTime: 2 * 60 * 1000,
-    gcTime: 10 * 60 * 1000,
-    refetchInterval: 3 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+    refetchInterval: 10 * 60 * 1000,
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     queryFn: async () => {
       const TARGET = 24;
-      const name = COUNTRY_NAMES[country!] || COUNTRY_NAMES.IN;
-
-      // Last.fm geo top tracks only — Deezer's public API has no CORS so it
-      // was removed from the browser. Server-side aggregation still uses it.
-      const geo = await getGeoTopTracks(name, TARGET * 2).catch(() => [] as IndexedTrack[]);
-
-      const MIN_LISTENERS = 25_000;
-      const geoFiltered = geo.filter((t) => !t.listeners || t.listeners >= MIN_LISTENERS);
-
-      const merged: IndexedTrack[] = [];
-      const seenKeys = new Set<string>();
       const norm = (s = '') => s.toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 70);
-      const add = (track?: IndexedTrack) => {
+      const seenKeys = new Set<string>();
+      const merged: IndexedTrack[] = [];
+      const add = (track?: Partial<IndexedTrack> & { title?: string; artist?: string; cover_url?: string | null }) => {
         if (!track?.title || !track.artist || !track.cover_url) return;
         const key = `${norm(track.artist)}|${norm(track.title)}`;
         if (seenKeys.has(key)) return;
         seenKeys.add(key);
-        merged.push(track);
+        merged.push({
+          id: `chart-trending-${key}`,
+          title: track.title,
+          artist: track.artist,
+          cover_url: track.cover_url,
+        } as IndexedTrack);
       };
-      for (let i = 0; i < geoFiltered.length && merged.length < TARGET; i++) {
-        add(geoFiltered[i]);
+
+      // 1) Aggregated chart_tracks (Apple Most-Played) for the user's country, then GLOBAL.
+      const readAggregated = async (cc: string) => {
+        const { data } = await supabase
+          .from('chart_tracks')
+          .select('title, artist, cover_url, rank')
+          .eq('chart_type', 'trending')
+          .eq('country_code', cc)
+          .order('rank', { ascending: true })
+          .limit(TARGET * 2);
+        return data ?? [];
+      };
+
+      let rows = await readAggregated(country!).catch(() => [] as any[]);
+      if (rows.length === 0 && country !== 'GLOBAL') {
+        rows = await readAggregated('GLOBAL').catch(() => [] as any[]);
+      }
+      // Per-artist cap so a single act can't own the rail.
+      const perArtist: Record<string, number> = {};
+      for (const r of rows) {
+        const a = norm(r.artist);
+        if ((perArtist[a] || 0) >= 2) continue;
+        perArtist[a] = (perArtist[a] || 0) + 1;
+        add(r);
+        if (merged.length >= TARGET) break;
+      }
+
+      // 2) Empty-state fallback ONLY: Last.fm geo (spam-prone, so last resort).
+      if (merged.length === 0) {
+        const name = COUNTRY_NAMES[country!] || COUNTRY_NAMES.IN;
+        const geo = await getGeoTopTracks(name, TARGET * 2).catch(() => [] as IndexedTrack[]);
+        const MIN_LISTENERS = 25_000;
+        for (const t of geo.filter((x) => !x.listeners || x.listeners >= MIN_LISTENERS)) {
+          add(t);
+          if (merged.length >= TARGET) break;
+        }
       }
 
       return merged.slice(0, TARGET);
