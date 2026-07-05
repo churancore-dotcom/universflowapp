@@ -2753,46 +2753,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     playActualSong(song, offlineUrl, songsQueue);
   }, [playActualSong]);
 
+  // NOTE: We intentionally do NOT auto-play the last song on APK launch.
+  // The queue, currentSong, currentIndex, and progress are already restored
+  // from localStorage (see the effect around line 531). Auto-calling
+  // playActualSong() here caused songs to blast at full volume the moment the
+  // APK opened, with no user gesture — the classic "instant play" bug users
+  // reported. Spotify/Apple Music both restore state without auto-playing;
+  // the user must tap play to resume. The `Continue listening` card on Home
+  // already provides a one-tap resume with saved position.
   useEffect(() => {
     const saved = pendingNativeRestoreRef.current;
-    if (!saved || nativeRestoreAttemptedRef.current || !saved.song || !audioRef.current) return;
+    if (!saved || nativeRestoreAttemptedRef.current) return;
     nativeRestoreAttemptedRef.current = true;
     pendingNativeRestoreRef.current = null;
-
-    const restoredQueue = saved.queue.length > 0 ? saved.queue : [saved.song];
-    const restoredSong = restoredQueue[Math.max(0, Math.min(saved.index || 0, restoredQueue.length - 1))] || saved.song;
-    const restoreAt = Math.max(0, saved.progress || 0);
-    const restoreIdentity = getSongIdentity(restoredSong);
-    let restoredPosition = false;
-    let restoreTimer: number | null = null;
-
-    const applyPosition = () => {
-      if (restoredPosition) return;
-      const a = audioRef.current;
-      if (!a || activeSongIdentityRef.current !== restoreIdentity) return;
-      if (restoreAt > 0 && (!Number.isFinite(a.duration) || a.duration <= 0 || restoreAt < a.duration - 1)) {
-        try { a.currentTime = restoreAt; } catch { /* ignore */ }
-        setProgress(restoreAt);
-      }
-      restoredPosition = true;
-      a.removeEventListener('loadedmetadata', applyPosition);
-      a.removeEventListener('canplay', applyPosition);
-      if (restoreTimer != null) window.clearTimeout(restoreTimer);
-    };
-
-    audioRef.current.addEventListener('loadedmetadata', applyPosition);
-    audioRef.current.addEventListener('canplay', applyPosition);
-    restoreTimer = window.setTimeout(applyPosition, 1400);
-    playActualSong(restoredSong, undefined, restoredQueue);
-
-    return () => {
-      const a = audioRef.current;
-      if (a) {
-        a.removeEventListener('loadedmetadata', applyPosition);
-        a.removeEventListener('canplay', applyPosition);
-      }
-      if (restoreTimer != null) window.clearTimeout(restoreTimer);
-    };
+    // State was already hydrated by the queue-restore effect. Nothing to do.
   }, [playActualSong]);
 
   const onPrerollAdComplete = useCallback(() => {
