@@ -2489,15 +2489,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const useNativePlayback = isNativePlayerAvailable();
 
-    // Update state immediately to prevent UI flicker. Android waits for the
-    // native `playing` event before showing active playback/progress.
+    // Update state immediately to prevent UI flicker. Android shows playback as
+    // starting right away; native events will correct it only on real failure.
     setCurrentSong(song);
     currentSongRef.current = song;
     setDuration(song.duration || 0);
     setProgress(0);
-    setIsPlaying(!useNativePlayback);
-    wasPlayingRef.current = !useNativePlayback;
-    void publishNativeMusicControls(song, !useNativePlayback, song.duration);
+    setIsPlaying(true);
+    wasPlayingRef.current = true;
+    void publishNativeMusicControls(song, true, song.duration);
     
     let playbackSource = offlineUrl || song.audio_url;
 
@@ -2551,18 +2551,41 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       nativeUserPausedRef.current = false;
       markNativePlayIntent(mySeq);
       clearNativeStartupTimer();
-      await ExoPlayerPlugin.stop().catch(() => undefined);
-      if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
       try {
+        const nativeQueue = normalizedQueue && normalizedQueue.length > 0 ? normalizedQueue : null;
+        const nativeIndex = nativeQueue?.findIndex(s => getSongIdentity(s) === intendedIdentity) ?? -1;
+        const canStartNativeQueue = !offlineUrl && nativeQueue && nativeIndex >= 0 && (
+          Boolean(getNativePlaybackVideoId(song as Song & { videoId?: string }))
+          || (isPlayableUrl(playbackSource) && !isYouTubeFallbackUrl(playbackSource))
+        );
+
+        if (canStartNativeQueue) {
+          await ExoPlayerPlugin.playQueue({ tracks: nativeQueue.map(toNativeQueueTrack), startIndex: nativeIndex });
+          if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          queueRef.current = nativeQueue;
+          setQueueState(nativeQueue);
+          setCurrentIndex(nativeIndex);
+          clearNativeStartupTimer();
+          nativeStartupTimerRef.current = window.setTimeout(() => {
+            if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
+            console.warn('[player/native] startup timeout; retrying fallback for', song.title);
+            nativeStartupSeqRef.current = null;
+            window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
+          }, 12000);
+          reapplyNativeEqSoon();
+          return;
+        }
+
         const playUrl = await resolveNativePlaybackUrl({ ...song, audio_url: playbackSource }, offlineUrl);
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
         if (!playUrl || isYouTubeFallbackUrl(playUrl)) throw new Error('no native playable url');
+        const refreshedSong = { ...song, audio_url: playUrl };
         await ExoPlayerPlugin.play({
           url: playUrl,
-          title: song.title || '',
-          artist: song.artist || '',
-          artworkUrl: song.cover_url || undefined,
+          title: refreshedSong.title || '',
+          artist: refreshedSong.artist || '',
+          artworkUrl: refreshedSong.cover_url || undefined,
         });
         clearNativeStartupTimer();
         nativeStartupTimerRef.current = window.setTimeout(() => {
@@ -2573,19 +2596,28 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }, 12000);
         reapplyNativeEqSoon();
         if (normalizedQueue && normalizedQueue.length > 0) {
-          queueRef.current = normalizedQueue;
-          setQueueState(normalizedQueue);
-          const songIndex = normalizedQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
+          const refreshedQueue = normalizedQueue.map((queuedSong) => getSongIdentity(queuedSong) === intendedIdentity ? refreshedSong : queuedSong);
+          queueRef.current = refreshedQueue;
+          setQueueState(refreshedQueue);
+          setCurrentSong(refreshedSong);
+          currentSongRef.current = refreshedSong;
+          const songIndex = refreshedQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
           setCurrentIndex(songIndex >= 0 ? songIndex : 0);
         } else {
           const activeQueue = queueRef.current;
           const existingIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
           if (existingIndex === -1) {
-            const next = [...activeQueue, song];
+            const next = [...activeQueue, refreshedSong];
             queueRef.current = next;
             setQueueState(next);
             setCurrentIndex(activeQueue.length);
           } else {
+            const next = [...activeQueue];
+            next[existingIndex] = refreshedSong;
+            queueRef.current = next;
+            setQueueState(next);
+            setCurrentSong(refreshedSong);
+            currentSongRef.current = refreshedSong;
             setCurrentIndex(existingIndex);
           }
         }
