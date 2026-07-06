@@ -2926,7 +2926,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (isNativePlayerAvailable()) {
       nativeUserPausedRef.current = false;
       nativeLastPlayIntentAtRef.current = Date.now();
-      const hasStartedOrProgressed = nativeStartedForSeqRef.current !== null || playerProgressStore.getProgress() > 0;
+      // See togglePlay: restored progress alone must not trigger resume() on
+      // cold start, or the destroyed ExoPlayer service will silently no-op.
+      const hasStartedOrProgressed = nativeStartedForSeqRef.current !== null;
       markNativePlayIntent(playRequestSeqRef.current);
       if (hasStartedOrProgressed) {
         void ExoPlayerPlugin.resume().catch(() => undefined);
