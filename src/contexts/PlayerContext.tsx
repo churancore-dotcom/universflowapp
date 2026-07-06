@@ -2624,7 +2624,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         );
 
         if (canStartNativeQueue) {
-          await ExoPlayerPlugin.playQueue({ tracks: nativeQueue.map(toNativeQueueTrack), startIndex: nativeIndex });
+          await ExoPlayerPlugin.playQueue({ tracks: buildNativeQueuePayload(nativeQueue, nativeIndex), startIndex: nativeIndex });
           if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
           queueRef.current = nativeQueue;
           setQueueState(nativeQueue);
