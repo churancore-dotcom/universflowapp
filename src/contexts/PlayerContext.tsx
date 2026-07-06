@@ -372,6 +372,25 @@ const toNativeQueueTrack = (song: Song): NativeQueueTrack => ({
   videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
 });
 
+// Slim variant used for far-tail queue items. On Android the JS→native JSON
+// bridge is synchronous; a 500-song queue with full artwork URLs can spend
+// 400–800ms just serializing on every tap. We only send full metadata for
+// the current index and the next NATIVE_QUEUE_WINDOW items — anything further
+// gets a minimal payload (no artwork, no url string). Notification metadata
+// for those far tracks is regenerated from title/artist when they become
+// current; artwork simply won't appear for songs the user hasn't reached yet.
+const NATIVE_QUEUE_WINDOW = 40;
+const toNativeQueueTrackSlim = (song: Song): NativeQueueTrack => ({
+  id: getSongIdentity(song),
+  title: song.title || '',
+  artist: song.artist || '',
+  videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
+});
+const buildNativeQueuePayload = (songs: Song[], startIndex: number): NativeQueueTrack[] => {
+  const windowEnd = startIndex + NATIVE_QUEUE_WINDOW;
+  return songs.map((s, i) => (i >= startIndex && i <= windowEnd ? toNativeQueueTrack(s) : toNativeQueueTrackSlim(s)));
+};
+
 const isKnownBrokenStreamUrl = (_url?: string | null) => {
   // Server-side probing decides liveness now; don't blanket-block any host here.
   return false;
@@ -1691,7 +1710,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           || (isPlayableUrl(resolvedSong.audio_url) && !isYouTubeFallbackUrl(resolvedSong.audio_url));
 
         if (canStartNativeQueue) {
-          const nativeTracks = songQueue.map(toNativeQueueTrack);
+          const nativeTracks = buildNativeQueuePayload(songQueue, index);
           await ExoPlayerPlugin.playQueue({ tracks: nativeTracks, startIndex: index });
         } else {
           const playUrl = await resolveNativePlaybackUrl(resolvedSong);
@@ -1718,7 +1737,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('[player/native] startup timeout; retrying fallback for', resolvedSong.title);
           nativeStartupSeqRef.current = null;
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
-        }, 12000);
+        }, 7000);
         reapplyNativeEqSoon();
       } catch (err) {
         console.warn('[player/native] failed', (err as Error)?.message);
@@ -2605,7 +2624,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         );
 
         if (canStartNativeQueue) {
-          await ExoPlayerPlugin.playQueue({ tracks: nativeQueue.map(toNativeQueueTrack), startIndex: nativeIndex });
+          await ExoPlayerPlugin.playQueue({ tracks: buildNativeQueuePayload(nativeQueue, nativeIndex), startIndex: nativeIndex });
           if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
           queueRef.current = nativeQueue;
           setQueueState(nativeQueue);
@@ -2616,7 +2635,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             console.warn('[player/native] startup timeout; retrying fallback for', song.title);
             nativeStartupSeqRef.current = null;
             window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
-          }, 12000);
+          }, 7000);
           reapplyNativeEqSoon();
           return;
         }
@@ -2637,7 +2656,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('[player/native] startup timeout; retrying fallback for', song.title);
           nativeStartupSeqRef.current = null;
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout', url: playUrl } }));
-        }, 12000);
+        }, 7000);
         reapplyNativeEqSoon();
         if (normalizedQueue && normalizedQueue.length > 0) {
           const refreshedQueue = normalizedQueue.map((queuedSong) => getSongIdentity(queuedSong) === intendedIdentity ? refreshedSong : queuedSong);
