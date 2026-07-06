@@ -3161,7 +3161,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nativeUserPausedRef.current = false;
         setIsPlaying(true);
         wasPlayingRef.current = true;
-        const hasStartedOrProgressed = nativeStartedForSeqRef.current !== null || playerProgressStore.getProgress() > 0;
+        // Restored progress alone is not enough — cold-start ExoPlayer has no
+        // media loaded, so we must go through playSongAtIndex to hydrate it.
+        const hasStartedOrProgressed = nativeStartedForSeqRef.current !== null;
         if (hasStartedOrProgressed) {
           void ExoPlayerPlugin.resume().catch(() => undefined);
         } else if (currentSong) {
