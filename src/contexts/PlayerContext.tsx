@@ -372,6 +372,25 @@ const toNativeQueueTrack = (song: Song): NativeQueueTrack => ({
   videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
 });
 
+// Slim variant used for far-tail queue items. On Android the JS→native JSON
+// bridge is synchronous; a 500-song queue with full artwork URLs can spend
+// 400–800ms just serializing on every tap. We only send full metadata for
+// the current index and the next NATIVE_QUEUE_WINDOW items — anything further
+// gets a minimal payload (no artwork, no url string). Notification metadata
+// for those far tracks is regenerated from title/artist when they become
+// current; artwork simply won't appear for songs the user hasn't reached yet.
+const NATIVE_QUEUE_WINDOW = 40;
+const toNativeQueueTrackSlim = (song: Song): NativeQueueTrack => ({
+  id: getSongIdentity(song),
+  title: song.title || '',
+  artist: song.artist || '',
+  videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
+});
+const buildNativeQueuePayload = (songs: Song[], startIndex: number): NativeQueueTrack[] => {
+  const windowEnd = startIndex + NATIVE_QUEUE_WINDOW;
+  return songs.map((s, i) => (i >= startIndex && i <= windowEnd ? toNativeQueueTrack(s) : toNativeQueueTrackSlim(s)));
+};
+
 const isKnownBrokenStreamUrl = (_url?: string | null) => {
   // Server-side probing decides liveness now; don't blanket-block any host here.
   return false;
