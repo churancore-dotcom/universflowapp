@@ -2842,7 +2842,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else {
         nativeUserPausedRef.current = false;
         nativeLastPlayIntentAtRef.current = Date.now();
-        const hasStartedOrProgressed = nativeStartedForSeqRef.current !== null || playerProgressStore.getProgress() > 0;
+        // Only resume if native ExoPlayer actually started playback in this app
+        // session. Restored progress alone is NOT sufficient after cold start —
+        // the ExoPlayer foreground service was destroyed, so resume() is a
+        // no-op and audio would stay silent while UI shows "playing".
+        const hasStartedOrProgressed = nativeStartedForSeqRef.current !== null;
         markNativePlayIntent(playRequestSeqRef.current);
         setIsPlaying(true); wasPlayingRef.current = true;
         if (hasStartedOrProgressed) {
