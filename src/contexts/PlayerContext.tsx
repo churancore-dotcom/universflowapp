@@ -1710,7 +1710,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           || (isPlayableUrl(resolvedSong.audio_url) && !isYouTubeFallbackUrl(resolvedSong.audio_url));
 
         if (canStartNativeQueue) {
-          const nativeTracks = songQueue.map(toNativeQueueTrack);
+          const nativeTracks = buildNativeQueuePayload(songQueue, index);
           await ExoPlayerPlugin.playQueue({ tracks: nativeTracks, startIndex: index });
         } else {
           const playUrl = await resolveNativePlaybackUrl(resolvedSong);
@@ -1737,7 +1737,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('[player/native] startup timeout; retrying fallback for', resolvedSong.title);
           nativeStartupSeqRef.current = null;
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
-        }, 12000);
+        }, 7000);
         reapplyNativeEqSoon();
       } catch (err) {
         console.warn('[player/native] failed', (err as Error)?.message);
