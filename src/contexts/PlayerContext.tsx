@@ -2635,7 +2635,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             console.warn('[player/native] startup timeout; retrying fallback for', song.title);
             nativeStartupSeqRef.current = null;
             window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
-          }, 12000);
+          }, 7000);
           reapplyNativeEqSoon();
           return;
         }
