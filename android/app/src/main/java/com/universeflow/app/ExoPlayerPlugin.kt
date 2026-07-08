@@ -73,13 +73,13 @@ class ExoPlayerPlugin : Plugin() {
     private fun playbackUriFor(track: NativeTrack): String? {
         val vid = track.videoId?.takeIf { it.length == 11 }
         if (vid != null) {
-            return Uri.Builder()
+            val builder = Uri.Builder()
                 .scheme("yt")
                 .authority(vid)
                 .appendQueryParameter("title", track.title)
                 .appendQueryParameter("artist", track.artist)
-                .build()
-                .toString()
+            directPlayableUrl(track.url)?.let { builder.appendQueryParameter("fallback", it) }
+            return builder.build().toString()
         }
         return directPlayableUrl(track.url)
     }

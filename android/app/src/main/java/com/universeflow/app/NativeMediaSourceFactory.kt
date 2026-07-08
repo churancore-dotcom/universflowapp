@@ -65,7 +65,12 @@ object NativeMediaSourceFactory {
             }
             val title = uri.getQueryParameter("title")
             val artist = uri.getQueryParameter("artist")
+            val fallback = uri.getQueryParameter("fallback")
             val resolved = MasterResolver.resolve(videoId, title, artist, timeoutMs = 7000L)
+                ?: fallback?.takeIf { it.startsWith("http") || it.startsWith("file:") || it.startsWith("content:") }?.let {
+                    Log.w(TAG, "native resolve failed for $videoId; using queued fallback URL")
+                    MasterResolver.Resolved(it, "fallback", System.currentTimeMillis() + 60_000L)
+                }
                 ?: throw java.io.IOException("Native resolve failed for $videoId")
             Log.d(TAG, "resolved $videoId via ${resolved.source}")
             dataSpec.withUri(Uri.parse(resolved.url))
