@@ -1,4 +1,4 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, forwardRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -287,11 +287,12 @@ const GetAppGate = () => {
   return <GetApp />;
 };
 
-const AnimatedRoutes = () => {
+const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
   const location = useLocation();
   const { user, isOffline } = useAuth();
 
   return (
+    <div ref={ref} style={{ display: 'contents' }}>
     <NavDirectionProvider>
     <OfflineGate />
     <Suspense fallback={<LazyFallback />}>
@@ -385,8 +386,10 @@ const AnimatedRoutes = () => {
         </Routes>
     </Suspense>
     </NavDirectionProvider>
+    </div>
   );
-};
+});
+AnimatedRoutes.displayName = 'AnimatedRoutes';
 
 const PrerollAdWrapper = () => {
   const { showPrerollAd, onPrerollAdComplete, adType } = usePlayer();
