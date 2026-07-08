@@ -128,14 +128,18 @@ function FilePicker({
 export default function ArtistApply() {
   const { user, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  // Re-apply mode was removed: only ONE artist application is ever allowed per
+  // account. If a user visits /artist/apply?mode=reapply, we still redirect
+  // them straight to /artist/status.
   const [searchParams] = useSearchParams();
-  const isReapplyMode = searchParams.get('mode') === 'reapply';
+  void searchParams;
   const [bootChecked, setBootChecked] = useState(false);
   const [step, setStep] = useState<Step>(1);
   const [submitting, setSubmitting] = useState(false);
   const [submittedSuccess, setSubmittedSuccess] = useState<null | { reapply: boolean }>(null);
   const [existingApp, setExistingApp] = useState<ArtistApplicationSafe | null>(null);
-  const isLockedReapply = isReapplyMode && !!existingApp;
+  void existingApp;
+  const isLockedReapply = false;
 
   // form state
   const [stageName, setStageName] = useState('');
@@ -241,28 +245,9 @@ export default function ArtistApply() {
       try {
         const existing = await getMyApplication(user.id);
         if (existing) {
-          const reapply = getArtistReapplyState(existing);
-          if (!isReapplyMode || existing.status !== 'rejected' || !reapply.canReapply) {
-            if (isReapplyMode && existing.status === 'rejected') toast.error(reapply.waitText || 'You can re-submit 7 days after rejection.');
-            navigate('/artist/status', { replace: true });
-            return;
-          }
+          // Only one application per account — always send them to status.
           setExistingApp(existing);
-          setStageName(existing.stage_name || '');
-          setRealName(existing.real_name || '');
-          const lockedCountry = existing.country_code || '';
-          const lockedDial = lockedCountry ? getDialCode(lockedCountry) : '';
-          const lockedPhone = String(existing.phone || '');
-          setPhone(lockedDial && lockedPhone.startsWith(lockedDial) ? lockedPhone.slice(lockedDial.length) : lockedPhone.replace(/\D/g, ''));
-          setCountry(existing.country_code || '');
-          const links = asSocialLinks(existing.social_links);
-          setInstagram(typeof links.instagram === 'string' ? links.instagram : '');
-          setYoutube(typeof links.youtube === 'string' ? links.youtube : '');
-          setSpotify(typeof links.spotify === 'string' ? links.spotify : '');
-          setAppleMusic(typeof links.apple_music === 'string' ? links.apple_music : '');
-          setBio(typeof links.bio === 'string' ? links.bio : '');
-          setMusicPlatformUrl((existing as { music_platform_url?: string | null }).music_platform_url ?? '');
-          setBootChecked(true);
+          navigate('/artist/status', { replace: true });
           return;
         }
 
@@ -307,8 +292,6 @@ export default function ArtistApply() {
             if (d.appleMusic) setAppleMusic(d.appleMusic);
             if (d.agreeTerms) setAgreeTerms(true);
             if (d.agreePrivacy) setAgreePrivacy(true);
-            // Resume on the saved step, but cap at step 2 — face/photo/submit need
-            // files or camera we can't restore across sessions.
             if (typeof d.step === 'number' && d.step >= 1 && d.step <= 2) {
               setStep(Math.min(d.step, 2) as Step);
             }
@@ -331,7 +314,7 @@ export default function ArtistApply() {
         setBootChecked(true);
       }
     })();
-  }, [user, isLoading, navigate, isReapplyMode]);
+  }, [user, isLoading, navigate]);
 
   // Auto-save draft
   useEffect(() => {
