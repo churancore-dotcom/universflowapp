@@ -160,6 +160,30 @@ function isVolatileMirrorStream(url?: string | null) {
     || url.includes('googlevideo.com');
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      resolve(fallback);
+    }, timeoutMs);
+    promise
+      .then((value) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(value);
+      })
+      .catch(() => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        resolve(fallback);
+      });
+  });
+}
+
 function isSafeSharedCachedStream(url?: string | null) {
   if (!url) return false;
   // `yt-video:` is only an iframe fallback marker, not an audio stream. If we
@@ -504,7 +528,7 @@ export async function resolveYouTubeVideoStream(
     })(),
   ];
 
-  const winner = await new Promise<ResolveTrackResponse | null>((resolve) => {
+  const winner = await withTimeout(new Promise<ResolveTrackResponse | null>((resolve) => {
     let settled = false;
     let remaining = resolvers.length;
     const done = (result: ResolveTrackResponse | null) => {
@@ -521,7 +545,7 @@ export async function resolveYouTubeVideoStream(
       }
     };
     resolvers.forEach((resolver) => resolver.then(done).catch(() => done(null)));
-  });
+  }), 9000, null);
 
   if (winner?.streamUrl) {
     setYtmCached(id, winner.streamUrl, {

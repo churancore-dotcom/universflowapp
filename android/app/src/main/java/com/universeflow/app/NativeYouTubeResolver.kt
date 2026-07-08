@@ -393,7 +393,12 @@ object NativeYouTubeResolver {
         }
 
         // n-param rewrite (throttling). Applies to both plain and ciphered URLs.
-        val withN = rewriteNParam(baseUrl) ?: return null
+        // Do NOT reject the whole format if YouTube ships a player.js pattern we
+        // cannot decipher yet. An un-rewritten `n` URL can be slower, but it is
+        // still often playable; returning null here made every client in the race
+        // fail and left ExoPlayer silent. Prefer "starts now, maybe throttled" to
+        // "never starts".
+        val withN = rewriteNParam(baseUrl) ?: baseUrl
         return if (maybeSig != null) appendQueryParam(withN, sigParamName, maybeSig) else withN
     }
 
