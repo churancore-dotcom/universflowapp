@@ -402,17 +402,9 @@ export default function ArtistApply() {
     setSubmitting(true);
     try {
       const latestApp = await getMyApplication(user.id);
-      if (!isLockedReapply && latestApp) {
-        const reapply = getArtistReapplyState(latestApp);
-        if (latestApp.status === 'rejected' && reapply.canReapply) {
-          toast.error('Use the secure re-submit flow from your status screen.');
-          navigate('/artist/status', { replace: true });
-        } else {
-          toast.error(latestApp.status === 'rejected'
-            ? reapply.waitText || 'You can re-submit 7 days after rejection.'
-            : 'Your artist application already exists. Check your live status.');
-          navigate('/artist/status', { replace: true });
-        }
+      if (latestApp) {
+        toast.error('You already have an artist application on this account. Opening your live status.');
+        navigate('/artist/status', { replace: true });
         return;
       }
 
@@ -441,37 +433,24 @@ export default function ArtistApply() {
         ownership_code: ownershipCode,
       };
 
-
-      const { data: inserted, error } = isLockedReapply
-        ? await supabase.rpc('reapply_artist_application', {
-            p_application_id: existingApp.id,
-            p_social_links: socialLinks,
-            p_music_platform_url: musicCheck.normalized,
-            p_selfie_path: selfiePath,
-            p_artist_photo_path: photoUrl,
-          })
-        : await supabase.rpc('submit_artist_application', {
-            p_stage_name: stageName.trim(),
-            p_real_name: realName.trim(),
-            p_phone: phoneE164,
-            p_country_code: country,
-            p_social_links: socialLinks,
-            p_music_platform_url: musicCheck.normalized,
-            p_selfie_path: selfiePath,
-            p_artist_photo_path: photoUrl,
-            p_phone_hash: phoneHash,
-          });
+      const { data: inserted, error } = await supabase.rpc('submit_artist_application', {
+        p_stage_name: stageName.trim(),
+        p_real_name: realName.trim(),
+        p_phone: phoneE164,
+        p_country_code: country,
+        p_social_links: socialLinks,
+        p_music_platform_url: musicCheck.normalized,
+        p_selfie_path: selfiePath,
+        p_artist_photo_path: photoUrl,
+        p_phone_hash: phoneHash,
+        p_ownership_code: ownershipCode,
+        p_social_verified_url: instagram.trim() || youtube.trim() || null,
+      });
 
       if (error) {
         const msg = error.message || '';
-        if (msg.includes('re-apply 7 days') || msg.includes('re-submit after') || msg.includes('Next attempt allowed')) {
-          toast.error(msg);
-          navigate('/artist/status', { replace: true });
-        } else if (msg.includes('already have an artist application')) {
+        if (msg.includes('already have an artist application') || msg.includes('Only one verification')) {
           toast.error('Your artist application already exists. Opening live status.');
-          navigate('/artist/status', { replace: true });
-        } else if (msg.includes('Use the re-submit verification button')) {
-          toast.error('Use the secure re-submit button from your status screen.');
           navigate('/artist/status', { replace: true });
         } else if (msg.toLowerCase().includes('already linked to another artist')) {
           toast.error(msg);
