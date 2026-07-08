@@ -1,59 +1,86 @@
-## Problem (confirmed from logs)
+## Universflow Artist Verification v2 — full rebuild
 
-`supabase/functions/music-indexer/index.ts` resolves YouTube audio through a **hardcoded** list of public Invidious/Piped instances (lines ~212–234). Those instances are largely dead or CAPTCHA-walled:
+### What changes for the artist (UX)
 
-- Primary `https://inv.thepixora.com` returns an HTML error page → JSON parse crash.
-- Fallbacks return 401/403/404/500/502; `invidious.jing.rocks` fails DNS.
-- Cobalt last-ditch has no successful path either.
+The application becomes a 3-step guided flow — no ID documents, no scans, no back-of-passport photo:
 
-Users on the **web** (and any Android path that falls back to the edge function) see `"Could not find a playable stream for this track"`.
+1. **Claim your artist page** — paste your Spotify / Apple Music / YouTube Music artist URL. We generate a unique 6-character code (e.g. `UF-A3K9`) and ask you to add it to your artist bio for ~10 minutes. Tap "Check now" and we fetch the public page, look for the code, and mark ✓ Owned.
+2. **Prove you're real** — live selfie with MediaPipe blink + smile liveness (already built). We also pull the artist headshot from the platform page you claimed in step 1 and compare embeddings. Match score is stored for admin review.
+3. **Optional social proof** — link an Instagram/X/TikTok with a verified badge. We scrape and record whether the badge is present. Doesn't gate approval, boosts admin confidence.
 
-Note: Android already prefers the native InnerTube plugin per project memory, so this primarily affects web + native-fallback edge cases.
+Every field autosaves. A progress rail shows which checks passed live via Supabase realtime — no page refresh needed.
 
-## Fix strategy
+### What changes for the admin
 
-### 1. Kill the hardcoded lists as the source of truth
-- Fetch `https://api.invidious.io/instances.json?sort_by=api,health` on cold start (already partially wired at line 260) and cache in-memory for ~15 min.
-- Fetch Piped instances from `https://piped-instances.kavin.rocks/` (or the maintained `github.com/TeamPiped/piped-instances` JSON).
-- Filter to instances that report `api: true`, `cors: true`, healthy uptime ≥ 90%, and whose host matches the existing exact-suffix allowlist (line ~98).
-- Keep the current hardcoded arrays only as a *seed* if the fetch fails.
+Admin queue rows now show, per applicant:
 
-### 2. Add real health-gating before use
-- On each resolve, run a 1.5s HEAD/GET probe (e.g. `/api/v1/stats` for Invidious, `/healthcheck` for Piped) against the top N instances in parallel.
-- Only instances that return 200 JSON are used for the actual video lookup.
-- Cache health results for 60s to avoid probe storms.
+- Platform URL + ✓/✗ bio-code ownership + timestamp
+- Selfie ↔ platform-photo embedding match score
+- Social URL + ✓/✗ verified-badge presence
+- Stage name, real name, country, phone (hashed dedupe already in place)
 
-### 3. Harden `fetchJson`
-- Detect `content-type` not containing `application/json` OR body starting with `<` → treat as failure and `markFailed(host)` instead of throwing an unhandled `Unexpected token '<'`.
+No auto-approval ever — every application waits for admin to approve/reject. Same admin queue, same one-tap approve/reject flow, just cleaner signals.
 
-### 4. Add a maintained-source fast path
-- Try **JioSaavn resolver** (already in `src/lib/jiosaavn.ts` conceptually) first for any track that has a matched Saavn ID — it's stable and free.
-- Only fall back to Invidious/Piped when Saavn has no match.
+### Anti-bypass rules
 
-### 5. Improve Cobalt fallback
-- Cobalt public instance rotates; hit `https://co.wuk.sh/api/serverInfo` and the community list at `instances.cobalt.tools` before calling `/api/json`.
+- **1 application per user account, ever.** Rejected users cannot re-apply from the same account (no 7-day cooldown, no re-submit RPC). Old `reapply_artist_application` RPC dropped.
+- Unique phone hash (already enforced) — kept.
+- Platform URL normalized + unique across `pending`/`approved` applications.
+- Bio-code single-use, expires 60 min after mint, one active code per user.
 
-### 6. Observability
-- Log a single structured line per resolve: `{videoId, sourcesTried, winner, ms}` so future dead-instance waves are visible in one query.
-
-## Files to touch
+### Database migration
 
 ```text
-supabase/functions/music-indexer/index.ts
-  ├─ fetchJson()               → content-type guard
-  ├─ getInvidiousInstances()   → dynamic + cached
-  ├─ getPipedInstances()       → dynamic + cached
-  ├─ new probeHealth()         → parallel health probe
-  ├─ resolveVideoId()          → Saavn fast-path, then health-gated pools
-  └─ resolveViaCobalt()        → dynamic Cobalt instance selection
+artist_applications:
+  DROP  id_doc_type, id_doc_front_path, id_doc_back_path, id_image_hash
+  ADD   platform_url          text
+  ADD   platform_verify_code  text
+  ADD   platform_verify_status text  -- 'pending' | 'passed' | 'failed'
+  ADD   platform_verify_checked_at timestamptz
+  ADD   platform_photo_url    text   -- headshot scraped from platform page
+  ADD   face_match_platform_score numeric
+  ADD   face_match_platform_status text
+  ADD   social_verified_url   text
+  ADD   social_verified_status text  -- 'pending' | 'passed' | 'failed'
+  UNIQUE(platform_url) WHERE status IN ('pending','approved')
+
+RPCs:
+  DROP  reapply_artist_application  (no re-apply per account)
+  ALTER submit_artist_application   (block ALL prior applications, not just non-rejected;
+                                     accept platform_url; mint verify code)
+  NEW   check_artist_platform_ownership(app_id)  -- edge-function trigger
+  NEW   check_artist_social_badge(app_id)
+
+Triggers:
+  ALTER purge_artist_kyc_files_on_review  -- purge only selfie + artist_photo now
 ```
 
-No DB migration, no client changes, no new secrets.
+RLS unchanged: applicants read/write only their own row; admins read all via `has_role`. Grants already correct.
 
-## Rollout
+### Edge functions
 
-1. Ship the edge-function change (auto-deploys on approval).
-2. Monitor `edge_function_logs` for `[resolve] ✓` vs `[resolve] all fallbacks failed` ratio over 1h.
-3. If ratio stays >90% success, mark finding fixed; otherwise iterate on the health-probe thresholds.
+- **`artist-verify-checks`** rewritten: three isolated async checks (platform-code, face-match-vs-platform-photo, social-badge). Each writes back to its own status column so partial results show up live.
+- **`purge-artist-kyc`** simplified: purge selfie + artist_photo on decision (no more ID paths).
+- Face-match uses Lovable AI Gateway (`google/gemini-embedding-2` multimodal — image embeddings, cosine sim ≥ 0.72 = pass).
 
-Approve this and I'll implement it in one edge-function edit.
+### Files touched
+
+```text
+supabase/migrations/<new>.sql              schema + RPC changes
+supabase/functions/artist-verify-checks/   rewritten
+supabase/functions/purge-artist-kyc/       shrunk
+src/pages/artist/Apply.tsx                 3-step rebuild (no ID doc UI)
+src/pages/artist/Status.tsx                live-only, no re-apply button
+src/pages/admin/ArtistApplications.tsx     new columns, ID doc previews removed
+src/lib/artist.ts                          types + helper updates
+src/lib/musicPlatformValidator.ts          URL normalizer + code-scrape helper
+src/components/FaceLivenessCapture.tsx     unchanged (already good)
+```
+
+### Rollback
+
+Migration is destructive on ID columns. If you want a safer path, say so and I'll keep the columns nullable + hidden instead of dropping them.
+
+### What I need from you before I start
+
+Just confirm and I'll ship the migration first, then wire the edge functions and UI in one pass. If the destructive drop of `id_doc_*` columns concerns you, tell me now and I'll switch to nullable-hidden mode.

@@ -18,7 +18,6 @@ import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
-import { ID_DOC_LABELS, IdDocType } from '@/lib/artist';
 import { useNavigate, useParams } from 'react-router-dom';
 import { Copy } from 'lucide-react';
 
@@ -32,9 +31,15 @@ type App = {
   phone: string;
   country_code: string;
   social_links: (Record<string, unknown> & { face_shots?: unknown }) | null;
-  id_doc_type: IdDocType;
-  id_doc_front_path: string | null;
-  id_doc_back_path: string | null;
+  music_platform_url: string | null;
+  ownership_code: string | null;
+  ownership_verified_at: string | null;
+  ownership_check_at: string | null;
+  platform_photo_url: string | null;
+  face_match_platform_status: string | null;
+  face_match_platform_score: number | null;
+  social_verified_url: string | null;
+  social_verified_status: string | null;
   selfie_path: string | null;
   artist_photo_path: string | null;
   status: Status;
@@ -43,16 +48,12 @@ type App = {
   reviewed_at: string | null;
   face_match_score: number | null;
   face_match_status: string | null;
-  ocr_extracted_name: string | null;
-  name_match_score: number | null;
   auto_check_warnings: string[] | null;
   auto_checks_at: string | null;
 };
 
 
 type PreviewMap = {
-  front?: string;
-  back?: string;
   selfie?: string;
   center?: string;
   left?: string;
@@ -83,10 +84,10 @@ export default function ArtistApplications() {
     setLoading(true);
     const { data, error } = await supabase
       .from('artist_applications')
-      .select('id, user_id, stage_name, real_name, phone, country_code, social_links, id_doc_type, id_doc_front_path, id_doc_back_path, selfie_path, artist_photo_path, status, reviewed_at, created_at, face_match_score, face_match_status, ocr_extracted_name, name_match_score, auto_check_warnings, auto_checks_at')
+      .select('id, user_id, stage_name, real_name, phone, country_code, social_links, music_platform_url, ownership_code, ownership_verified_at, ownership_check_at, platform_photo_url, face_match_platform_status, face_match_platform_score, social_verified_url, social_verified_status, selfie_path, artist_photo_path, status, reviewed_at, created_at, face_match_score, face_match_status, auto_check_warnings, auto_checks_at')
       .order('created_at', { ascending: false });
     if (error) toast.error(error.message);
-    setApps((data ?? []).map((a) => ({ ...a, admin_note: null })) as App[]);
+    setApps(((data ?? []) as unknown as Omit<App, 'admin_note'>[]).map((a) => ({ ...a, admin_note: null })));
 
     setLoading(false);
   };
@@ -137,9 +138,7 @@ export default function ArtistApplications() {
       });
     const faceShots = app.social_links?.face_shots;
     const face = Array.isArray(faceShots) ? faceShots.filter((path): path is string => typeof path === 'string') : [];
-    const [front, back, selfie, center, left, right, up] = await Promise.all([
-      signed(app.id_doc_front_path),
-      signed(app.id_doc_back_path),
+    const [selfie, center, left, right, up] = await Promise.all([
       signed(app.selfie_path),
       signed(face[0]),
       signed(face[1]),
@@ -147,8 +146,6 @@ export default function ArtistApplications() {
       signed(face[3]),
     ]);
     setPreviews({
-      front: front ?? undefined,
-      back: back ?? undefined,
       selfie: selfie ?? undefined,
       center: center ?? undefined,
       left: left ?? undefined,
@@ -197,7 +194,7 @@ export default function ArtistApplications() {
             <ShieldCheck className="w-3.5 h-3.5" /> Artist verification desk
           </div>
           <h1 className="text-2xl md:text-3xl font-display font-bold">Artist Applications</h1>
-          <p className="text-sm text-muted-foreground mt-1">Review identity documents, face liveness shots, social proof, and approve artist access.</p>
+          <p className="text-sm text-muted-foreground mt-1">Review platform ownership proof, live face check, and social handles — no government ID.</p>
         </div>
         <Button variant="outline" onClick={load} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} /> Refresh
@@ -231,13 +228,13 @@ export default function ArtistApplications() {
 
           <aside className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4 space-y-4">
             <h3 className="font-semibold flex items-center gap-2"><AlertTriangle className="w-4 h-4 text-primary" /> Review checklist</h3>
-            <ChecklistItem label="Legal name and ID match" />
-            <ChecklistItem label="ID front/back are readable" />
-            <ChecklistItem label="Selfie matches ID photo" />
-            <ChecklistItem label="4 face-check poses are present" />
-            <ChecklistItem label="Social links prove artist identity" />
+            <ChecklistItem label="Music platform artist page opens and matches stage name" />
+            <ChecklistItem label="Ownership code appears in the platform bio" />
+            <ChecklistItem label="Live face check selfie looks like a real human" />
+            <ChecklistItem label="Instagram + YouTube handles are consistent" />
+            <ChecklistItem label="Profile photo is clean and public-ready" />
             <div className="pt-3 border-t border-white/[0.06] text-xs text-muted-foreground leading-relaxed">
-              Approval grants the artist role, creates/updates the artist profile, verifies the public profile, and unlocks Artist Studio pages.
+              Approval grants the artist role, creates/updates the artist profile, verifies the public profile, and unlocks Artist Studio pages. Only one application per account is allowed.
             </div>
           </aside>
         </div>
@@ -275,30 +272,39 @@ export default function ArtistApplications() {
                   <Info label="Legal name" value={active.real_name} />
                   <Info label="Phone" value={active.phone} />
                   <Info label="Country" value={active.country_code} />
-                  <Info label="Doc type" value={ID_DOC_LABELS[active.id_doc_type]} />
+                  <Info label="Ownership code" value={active.ownership_code || '—'} />
                 </div>
+              </section>
+
+              <section className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><FileCheck2 className="w-4 h-4" /> Music platform proof</h3>
+                {active.music_platform_url ? (
+                  <div className="space-y-2 text-sm">
+                    <a href={active.music_platform_url} target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-1 break-all">
+                      Open artist page <ExternalLink className="w-3 h-3" />
+                    </a>
+                    <p className="text-[12px] text-muted-foreground leading-relaxed">
+                      Look for <code className="font-mono text-primary">{active.ownership_code || '—'}</code> in the artist bio.
+                      {active.ownership_verified_at
+                        ? ` ✓ Auto-check confirmed the code on ${new Date(active.ownership_verified_at).toLocaleString()}.`
+                        : active.ownership_check_at
+                          ? ` Auto-check ran ${new Date(active.ownership_check_at).toLocaleString()} but did not find the code — please re-verify manually.`
+                          : ' Auto-check has not run yet.'}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">No music-platform URL submitted.</p>
+                )}
               </section>
 
               <AutoChecksPanel app={active} />
 
               <section className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2"><FileCheck2 className="w-4 h-4" /> Uploaded documents</h3>
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                  <DocPreview label="ID front" url={previews.front} />
-                  <DocPreview label="ID back" url={previews.back} />
-                  <DocPreview label="Selfie with ID" url={previews.selfie} />
-                </div>
-                <p className="mt-3 text-[11px] text-muted-foreground">Tap any document to open the full-size signed URL (valid 10 min).</p>
-              </section>
-
-              <section className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
-                <h3 className="font-semibold mb-3 flex items-center gap-2"><Camera className="w-4 h-4" /> Face liveness check</h3>
+                <h3 className="font-semibold mb-3 flex items-center gap-2"><Camera className="w-4 h-4" /> Live face check</h3>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                  <DocPreview label="Front" url={previews.center} />
-                  <DocPreview label="Turn left" url={previews.left} />
-                  <DocPreview label="Turn right" url={previews.right} />
-                  <DocPreview label="Look up" url={previews.up} />
+                  <DocPreview label="Liveness capture" url={previews.selfie ?? previews.center} />
                 </div>
+                <p className="mt-3 text-[11px] text-muted-foreground">Signed URL valid 10 min.</p>
               </section>
 
               <section className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
@@ -397,7 +403,7 @@ function Row({ app, onClick }: { app: App; onClick: () => void }) {
           <p className="text-xs text-muted-foreground truncate">{app.real_name} · {new Date(app.created_at).toLocaleString()}</p>
         </div>
         <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-          <FileCheck2 className="w-4 h-4" /> ID
+          <FileCheck2 className="w-4 h-4" /> Platform
           <Camera className="w-4 h-4 ml-2" /> Face
         </div>
         <StatusBadge status={app.status} />
@@ -453,18 +459,24 @@ function DocPreview({ label, url }: { label: string; url?: string }) {
 
 function AutoChecksPanel({ app }: { app: App }) {
   const ran = !!app.auto_checks_at;
-  const faceScorePct = app.face_match_score == null ? null : Math.round(app.face_match_score * 100);
-  const nameScorePct = app.name_match_score == null ? null : Math.round(app.name_match_score * 100);
-  const faceColor =
-    app.face_match_status === 'pass' ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
-    : app.face_match_status === 'fail' ? 'text-rose-300 bg-rose-500/15 border-rose-500/30'
-    : app.face_match_status === 'error' ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
+  const ownershipStatus = app.ownership_verified_at
+    ? 'PASS'
+    : app.ownership_check_at
+      ? 'NOT FOUND'
+      : 'PENDING';
+  const ownershipColor = app.ownership_verified_at
+    ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
+    : app.ownership_check_at
+      ? 'text-rose-300 bg-rose-500/15 border-rose-500/30'
+      : 'text-amber-300 bg-amber-500/15 border-amber-500/30';
+  const platformFaceStatus = app.face_match_platform_status;
+  const platformFaceScorePct = app.face_match_platform_score == null
+    ? null
+    : Math.round(app.face_match_platform_score * 100);
+  const platformFaceColor =
+    platformFaceStatus === 'passed' ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
+    : platformFaceStatus === 'failed' ? 'text-rose-300 bg-rose-500/15 border-rose-500/30'
     : 'text-amber-300 bg-amber-500/15 border-amber-500/30';
-  const nameColor =
-    nameScorePct == null ? 'text-muted-foreground bg-white/[0.04] border-white/10'
-    : nameScorePct >= 70 ? 'text-emerald-300 bg-emerald-500/15 border-emerald-500/30'
-    : nameScorePct >= 40 ? 'text-amber-300 bg-amber-500/15 border-amber-500/30'
-    : 'text-rose-300 bg-rose-500/15 border-rose-500/30';
   const warnings = Array.isArray(app.auto_check_warnings) ? app.auto_check_warnings : [];
   return (
     <section className="rounded-2xl border border-white/[0.06] bg-white/[0.03] p-4">
@@ -475,22 +487,24 @@ function AutoChecksPanel({ app }: { app: App }) {
         </span>
       </h3>
       <div className="grid grid-cols-2 gap-3 mb-3">
-        <div className={`rounded-xl border p-3 ${faceColor}`}>
-          <p className="text-[10px] uppercase tracking-wider opacity-70">Face match</p>
-          <p className="text-lg font-semibold mt-0.5">
-            {app.face_match_status?.toUpperCase() ?? 'PENDING'}
-            {faceScorePct != null && <span className="text-xs ml-2 opacity-80">{faceScorePct}%</span>}
-          </p>
-          <p className="text-[11px] opacity-80">Selfie-with-ID vs liveness shot</p>
-        </div>
-        <div className={`rounded-xl border p-3 ${nameColor}`}>
-          <p className="text-[10px] uppercase tracking-wider opacity-70">Name on ID</p>
-          <p className="text-lg font-semibold mt-0.5">
-            {nameScorePct != null ? `${nameScorePct}%` : 'PENDING'}
-          </p>
+        <div className={`rounded-xl border p-3 ${ownershipColor}`}>
+          <p className="text-[10px] uppercase tracking-wider opacity-70">Ownership code</p>
+          <p className="text-lg font-semibold mt-0.5">{ownershipStatus}</p>
           <p className="text-[11px] opacity-80 break-words">
-            {app.ocr_extracted_name ? `"${app.ocr_extracted_name}"` : 'OCR result unavailable'}
+            {app.ownership_verified_at
+              ? `Found in artist bio on ${new Date(app.ownership_verified_at).toLocaleDateString()}`
+              : app.ownership_check_at
+                ? 'Code not found on artist page — verify by hand.'
+                : 'Fetches the artist page and looks for the code.'}
           </p>
+        </div>
+        <div className={`rounded-xl border p-3 ${platformFaceColor}`}>
+          <p className="text-[10px] uppercase tracking-wider opacity-70">Platform photo match</p>
+          <p className="text-lg font-semibold mt-0.5">
+            {platformFaceStatus?.toUpperCase() ?? 'PENDING'}
+            {platformFaceScorePct != null && <span className="text-xs ml-2 opacity-80">{platformFaceScorePct}%</span>}
+          </p>
+          <p className="text-[11px] opacity-80">Liveness selfie vs artist-page photo</p>
         </div>
       </div>
       {warnings.length > 0 ? (

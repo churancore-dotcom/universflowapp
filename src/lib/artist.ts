@@ -3,35 +3,7 @@ import type { Database } from '@/integrations/supabase/types';
 import { compressImage } from './imageCompression';
 
 export type ArtistAppStatus = 'pending' | 'approved' | 'rejected';
-export type IdDocType = 'voter_id' | 'pan' | 'passport' | 'drivers_license' | 'national_id';
 export type ArtistApplicationSafe = Database['public']['Views']['artist_applications_safe']['Row'] & { admin_note: string | null };
-
-const REAPPLY_COOLDOWN_DAYS = 7;
-
-export const ID_DOC_LABELS: Record<IdDocType, string> = {
-  voter_id: 'Voter ID',
-  pan: 'PAN Card',
-  passport: 'Passport',
-  drivers_license: "Driver's Licence",
-  national_id: 'National ID',
-};
-
-export function docsForCountry(cc: string): IdDocType[] {
-  const c = (cc || '').toUpperCase();
-  // India — Voter ID, PAN and Passport are the documents Indians actually have
-  if (c === 'IN') return ['voter_id', 'pan', 'passport'];
-  // US — no national ID
-  if (c === 'US') return ['drivers_license', 'passport'];
-  // UK — driving licence + passport
-  if (c === 'GB') return ['drivers_license', 'passport'];
-  // EU & most other countries have a National ID card
-  if (['DE','FR','IT','ES','NL','BE','PT','PL','SE','NO','DK','FI','AT','CH','IE','GR','CZ','RO','HU'].includes(c))
-    return ['national_id', 'passport', 'drivers_license'];
-  // Anglosphere without National ID
-  if (['CA','AU','NZ'].includes(c)) return ['drivers_license', 'passport'];
-  // Default: National ID + Passport + Driver's Licence
-  return ['national_id', 'passport', 'drivers_license'];
-}
 
 
 const KYC_BUCKET = 'artist-kyc';
@@ -70,15 +42,6 @@ async function uploadFile(bucket: string, path: string, file: File) {
   return path;
 }
 
-export async function uploadKycFile(
-  userId: string,
-  kind: 'front' | 'back' | 'selfie',
-  file: File,
-): Promise<string> {
-  const compressed = await compressKyc(file);
-  const path = `${userId}/${Date.now()}-${uniqueUploadId()}-${kind}.jpg`;
-  return uploadFile(KYC_BUCKET, path, compressed);
-}
 
 // Uploads the single live-face liveness capture to the private KYC bucket.
 // This is the only KYC-style upload the artist application flow makes now
@@ -127,7 +90,7 @@ export async function getMyApplication(userId: string): Promise<ArtistApplicatio
   // fetch the rest of the row, then pull the owner-scoped note via RPC.
   const { data, error } = await supabase
     .from('artist_applications_safe')
-    .select('id, user_id, stage_name, real_name, phone, country_code, social_links, id_doc_type, id_doc_front_path, id_doc_back_path, selfie_path, artist_photo_path, status, reviewed_at, reviewed_by, created_at, updated_at')
+    .select('*')
     .eq('user_id', userId)
     .order('created_at', { ascending: false })
     .limit(1)
@@ -144,20 +107,16 @@ export async function getMyApplication(userId: string): Promise<ArtistApplicatio
   return { ...data, admin_note } as ArtistApplicationSafe;
 }
 
-export function getArtistReapplyAt(app: { reviewed_at?: string | null; updated_at?: string | null; created_at?: string | null }) {
-  const base = app.reviewed_at || app.updated_at || app.created_at;
-  if (!base) return null;
-  return new Date(new Date(base).getTime() + REAPPLY_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+// Legacy re-apply helpers. Only one artist application is allowed per account
+// now, so these always return `canReapply: false`. Kept for callers that read
+// the state to decide whether to show a "re-apply" affordance — they now show
+// nothing, which is the intended behaviour.
+export function getArtistReapplyAt(_app: { reviewed_at?: string | null; updated_at?: string | null; created_at?: string | null }) {
+  return null;
 }
 
-export function getArtistReapplyState(app: { reviewed_at?: string | null; updated_at?: string | null; created_at?: string | null }) {
-  const reapplyAt = getArtistReapplyAt(app);
-  if (!reapplyAt) return { reapplyAt: null, canReapply: false, waitText: '' };
-  const diff = reapplyAt.getTime() - Date.now();
-  const canReapply = diff <= 0;
-  const days = Math.ceil(diff / (24 * 60 * 60 * 1000));
-  const waitText = canReapply ? 'You can re-submit now.' : `You can re-submit in ${days} day${days === 1 ? '' : 's'}.`;
-  return { reapplyAt, canReapply, waitText };
+export function getArtistReapplyState(_app: { reviewed_at?: string | null; updated_at?: string | null; created_at?: string | null }) {
+  return { reapplyAt: null as Date | null, canReapply: false, waitText: '' };
 }
 
 export async function getMyArtistProfile(userId: string) {

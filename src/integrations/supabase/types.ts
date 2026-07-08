@@ -282,25 +282,25 @@ export type Database = {
           auto_checks_at: string | null
           country_code: string
           created_at: string
+          face_match_platform_score: number | null
+          face_match_platform_status: string | null
           face_match_score: number | null
           face_match_status: string | null
           id: string
-          id_doc_back_path: string | null
-          id_doc_front_path: string | null
-          id_doc_type: Database["public"]["Enums"]["id_doc_type"] | null
-          id_image_hash: string | null
           music_platform_url: string | null
-          name_match_score: number | null
-          ocr_extracted_name: string | null
+          ownership_check_at: string | null
           ownership_code: string | null
           ownership_verified_at: string | null
           phone: string
           phone_hash: string | null
+          platform_photo_url: string | null
           real_name: string
           reviewed_at: string | null
           reviewed_by: string | null
           selfie_path: string | null
           social_links: Json
+          social_verified_status: string | null
+          social_verified_url: string | null
           stage_name: string
           status: Database["public"]["Enums"]["artist_app_status"]
           updated_at: string
@@ -313,25 +313,25 @@ export type Database = {
           auto_checks_at?: string | null
           country_code: string
           created_at?: string
+          face_match_platform_score?: number | null
+          face_match_platform_status?: string | null
           face_match_score?: number | null
           face_match_status?: string | null
           id?: string
-          id_doc_back_path?: string | null
-          id_doc_front_path?: string | null
-          id_doc_type?: Database["public"]["Enums"]["id_doc_type"] | null
-          id_image_hash?: string | null
           music_platform_url?: string | null
-          name_match_score?: number | null
-          ocr_extracted_name?: string | null
+          ownership_check_at?: string | null
           ownership_code?: string | null
           ownership_verified_at?: string | null
           phone: string
           phone_hash?: string | null
+          platform_photo_url?: string | null
           real_name: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           selfie_path?: string | null
           social_links?: Json
+          social_verified_status?: string | null
+          social_verified_url?: string | null
           stage_name: string
           status?: Database["public"]["Enums"]["artist_app_status"]
           updated_at?: string
@@ -344,25 +344,25 @@ export type Database = {
           auto_checks_at?: string | null
           country_code?: string
           created_at?: string
+          face_match_platform_score?: number | null
+          face_match_platform_status?: string | null
           face_match_score?: number | null
           face_match_status?: string | null
           id?: string
-          id_doc_back_path?: string | null
-          id_doc_front_path?: string | null
-          id_doc_type?: Database["public"]["Enums"]["id_doc_type"] | null
-          id_image_hash?: string | null
           music_platform_url?: string | null
-          name_match_score?: number | null
-          ocr_extracted_name?: string | null
+          ownership_check_at?: string | null
           ownership_code?: string | null
           ownership_verified_at?: string | null
           phone?: string
           phone_hash?: string | null
+          platform_photo_url?: string | null
           real_name?: string
           reviewed_at?: string | null
           reviewed_by?: string | null
           selfie_path?: string | null
           social_links?: Json
+          social_verified_status?: string | null
+          social_verified_url?: string | null
           stage_name?: string
           status?: Database["public"]["Enums"]["artist_app_status"]
           updated_at?: string
@@ -1945,18 +1945,28 @@ export type Database = {
       artist_applications_safe: {
         Row: {
           artist_photo_path: string | null
+          auto_check_warnings: Json | null
+          auto_checks_at: string | null
           country_code: string | null
           created_at: string | null
+          face_match_platform_score: number | null
+          face_match_platform_status: string | null
+          face_match_score: number | null
+          face_match_status: string | null
           id: string | null
-          id_doc_back_path: string | null
-          id_doc_front_path: string | null
-          id_doc_type: Database["public"]["Enums"]["id_doc_type"] | null
+          music_platform_url: string | null
+          ownership_check_at: string | null
+          ownership_code: string | null
+          ownership_verified_at: string | null
           phone: string | null
+          platform_photo_url: string | null
           real_name: string | null
           reviewed_at: string | null
           reviewed_by: string | null
           selfie_path: string | null
           social_links: Json | null
+          social_verified_status: string | null
+          social_verified_url: string | null
           stage_name: string | null
           status: Database["public"]["Enums"]["artist_app_status"] | null
           updated_at: string | null
@@ -1964,18 +1974,28 @@ export type Database = {
         }
         Insert: {
           artist_photo_path?: string | null
+          auto_check_warnings?: Json | null
+          auto_checks_at?: string | null
           country_code?: string | null
           created_at?: string | null
+          face_match_platform_score?: number | null
+          face_match_platform_status?: string | null
+          face_match_score?: number | null
+          face_match_status?: string | null
           id?: string | null
-          id_doc_back_path?: never
-          id_doc_front_path?: never
-          id_doc_type?: Database["public"]["Enums"]["id_doc_type"] | null
+          music_platform_url?: string | null
+          ownership_check_at?: string | null
+          ownership_code?: string | null
+          ownership_verified_at?: string | null
           phone?: string | null
+          platform_photo_url?: string | null
           real_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
-          selfie_path?: never
+          selfie_path?: string | null
           social_links?: Json | null
+          social_verified_status?: string | null
+          social_verified_url?: string | null
           stage_name?: string | null
           status?: Database["public"]["Enums"]["artist_app_status"] | null
           updated_at?: string | null
@@ -1983,18 +2003,28 @@ export type Database = {
         }
         Update: {
           artist_photo_path?: string | null
+          auto_check_warnings?: Json | null
+          auto_checks_at?: string | null
           country_code?: string | null
           created_at?: string | null
+          face_match_platform_score?: number | null
+          face_match_platform_status?: string | null
+          face_match_score?: number | null
+          face_match_status?: string | null
           id?: string | null
-          id_doc_back_path?: never
-          id_doc_front_path?: never
-          id_doc_type?: Database["public"]["Enums"]["id_doc_type"] | null
+          music_platform_url?: string | null
+          ownership_check_at?: string | null
+          ownership_code?: string | null
+          ownership_verified_at?: string | null
           phone?: string | null
+          platform_photo_url?: string | null
           real_name?: string | null
           reviewed_at?: string | null
           reviewed_by?: string | null
-          selfie_path?: never
+          selfie_path?: string | null
           social_links?: Json | null
+          social_verified_status?: string | null
+          social_verified_url?: string | null
           stage_name?: string | null
           status?: Database["public"]["Enums"]["artist_app_status"] | null
           updated_at?: string | null
@@ -2126,16 +2156,6 @@ export type Database = {
         Returns: undefined
       }
       process_premium_expiry_notifications: { Args: never; Returns: Json }
-      reapply_artist_application: {
-        Args: {
-          p_application_id: string
-          p_artist_photo_path: string
-          p_music_platform_url: string
-          p_selfie_path: string
-          p_social_links: Json
-        }
-        Returns: Json
-      }
       register_device_token: {
         Args: { _device_info?: Json; _platform?: string; _token: string }
         Returns: string
@@ -2148,11 +2168,13 @@ export type Database = {
           p_artist_photo_path: string
           p_country_code: string
           p_music_platform_url: string
+          p_ownership_code?: string
           p_phone: string
           p_phone_hash: string
           p_real_name: string
           p_selfie_path: string
           p_social_links: Json
+          p_social_verified_url?: string
           p_stage_name: string
         }
         Returns: Json
@@ -2162,12 +2184,6 @@ export type Database = {
       app_role: "admin" | "moderator" | "user" | "artist"
       artist_app_status: "pending" | "approved" | "rejected"
       artist_song_status: "live" | "taken_down"
-      id_doc_type:
-        | "voter_id"
-        | "pan"
-        | "passport"
-        | "drivers_license"
-        | "national_id"
       subscription_platform: "android" | "ios" | "web" | "donation"
       subscription_status: "active" | "expired" | "cancelled" | "pending"
       subscription_type: "free" | "premium_monthly" | "premium_yearly"
@@ -2301,13 +2317,6 @@ export const Constants = {
       app_role: ["admin", "moderator", "user", "artist"],
       artist_app_status: ["pending", "approved", "rejected"],
       artist_song_status: ["live", "taken_down"],
-      id_doc_type: [
-        "voter_id",
-        "pan",
-        "passport",
-        "drivers_license",
-        "national_id",
-      ],
       subscription_platform: ["android", "ios", "web", "donation"],
       subscription_status: ["active", "expired", "cancelled", "pending"],
       subscription_type: ["free", "premium_monthly", "premium_yearly"],
