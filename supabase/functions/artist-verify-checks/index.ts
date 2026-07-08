@@ -1,10 +1,11 @@
 // Runs automated verification checks on a freshly-submitted artist application:
-// 1) Face similarity: selfie-with-ID vs liveness "center" shot (Gemini Vision).
-// 2) OCR on ID front: extract printed name (Gemini Vision) and compare to typed legal name.
-// 3) Updates artist_applications with scores and admin-visible warnings.
+// 1) Music-platform ownership: fetch the artist page and confirm the ownership
+//    code is present in the HTML (bio-code proof).
+// 2) Platform photo face match: pull the OG image from the artist page and
+//    compare against the liveness selfie via Gemini Vision.
+// 3) Persist scores + admin-visible warnings on the application row.
 //
 // Cost: $0 — uses Lovable AI Gateway (Gemini Flash Lite) which is included.
-// No external server, no DB cost beyond Supabase.
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 import { corsHeaders } from "npm:@supabase/supabase-js@2/cors";
@@ -16,23 +17,6 @@ const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
 const KYC_BUCKET = "artist-kyc";
 const MODEL = "google/gemini-2.5-flash-lite";
 
-// --- small helpers ---
-function normName(s: string | null | undefined): string {
-  return (s || "")
-    .toLowerCase()
-    .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9 ]+/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-function tokens(s: string): string[] { return normName(s).split(" ").filter(Boolean); }
-function nameSimilarity(a: string, b: string): number {
-  const A = new Set(tokens(a)); const B = new Set(tokens(b));
-  if (!A.size || !B.size) return 0;
-  let inter = 0;
-  for (const t of A) if (B.has(t)) inter++;
-  return inter / Math.max(A.size, B.size);
-}
 async function blobToDataUrl(blob: Blob): Promise<string> {
   const buf = new Uint8Array(await blob.arrayBuffer());
   let s = "";
@@ -41,7 +25,7 @@ async function blobToDataUrl(blob: Blob): Promise<string> {
   return `data:${blob.type || "image/jpeg"};base64,${b64}`;
 }
 
-async function callGemini(messages: any[]): Promise<string> {
+async function callGemini(messages: unknown[]): Promise<string> {
   const r = await fetch(GATEWAY_URL, {
     method: "POST",
     headers: {
@@ -57,10 +41,40 @@ async function callGemini(messages: any[]): Promise<string> {
   const j = await r.json();
   return j?.choices?.[0]?.message?.content ?? "";
 }
-function parseJsonish(s: string): any {
+
+function parseJsonish(s: string): Record<string, unknown> | null {
   try {
     const m = s.match(/\{[\s\S]*\}/);
-    return JSON.parse(m ? m[0] : s);
+    return JSON.parse(m ? m[0] : s) as Record<string, unknown>;
+  } catch { return null; }
+}
+
+async function fetchPlatformPage(url: string): Promise<{ html: string; ogImage: string | null } | null> {
+  try {
+    const r = await fetch(url, {
+      redirect: "follow",
+      headers: {
+        "User-Agent": "Mozilla/5.0 (compatible; UniversflowVerifier/1.0; +https://universflow.in)",
+        "Accept": "text/html,application/xhtml+xml",
+      },
+    });
+    if (!r.ok) return null;
+    const html = (await r.text()).slice(0, 500_000);
+    const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1] || null;
+    return { html, ogImage: og };
+  } catch { return null; }
+}
+
+async function fetchImageAsDataUrl(url: string): Promise<string | null> {
+  try {
+    const r = await fetch(url, {
+      redirect: "follow",
+      headers: { "User-Agent": "Mozilla/5.0 (compatible; UniversflowVerifier/1.0)" },
+    });
+    if (!r.ok) return null;
+    const blob = await r.blob();
+    if (blob.size > 4_000_000) return null; // safety cap
+    return await blobToDataUrl(blob);
   } catch { return null; }
 }
 
@@ -95,7 +109,6 @@ Deno.serve(async (req) => {
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
-    // Rate limit: KYC verification spends Gemini Vision credits. Cap per-user calls.
     const { data: rlAllowed } = await admin.rpc("check_and_increment_rate_limit", {
       _user_id: userId,
       _endpoint: "artist-verify-checks",
@@ -107,9 +120,10 @@ Deno.serve(async (req) => {
         { status: 429, headers: { ...corsHeaders, "Content-Type": "application/json" } },
       );
     }
+
     const { data: app, error: appErr } = await admin
       .from("artist_applications")
-      .select("id, user_id, real_name, id_doc_front_path, selfie_path, social_links")
+      .select("id, user_id, stage_name, music_platform_url, ownership_code, selfie_path, social_links")
       .eq("id", application_id)
       .maybeSingle();
 
@@ -125,118 +139,91 @@ Deno.serve(async (req) => {
     }
 
     const warnings: string[] = [];
-    let faceScore: number | null = null;
-    let faceStatus: "pass" | "fail" | "review" | "error" = "review";
-    let ocrName: string | null = null;
-    let nameScore: number | null = null;
+    let ownershipVerifiedAt: string | null = null;
+    let platformPhotoUrl: string | null = null;
+    let platformFaceScore: number | null = null;
+    let platformFaceStatus: "passed" | "failed" | "review" | null = null;
 
-    // Fetch image bytes from private bucket using service role.
-    async function dl(path: string | null): Promise<Blob | null> {
-      if (!path) return null;
-      const { data, error } = await admin.storage.from(KYC_BUCKET).download(path);
-      if (error || !data) return null;
-      return data;
-    }
-
-    const faceShots: string[] = Array.isArray((app.social_links as any)?.face_shots)
-      ? (app.social_links as any).face_shots
-      : [];
-    const centerShotPath = faceShots[0] || null; // first uploaded = center
-
-    const [selfieBlob, centerBlob, frontBlob] = await Promise.all([
-      dl(app.selfie_path),
-      dl(centerShotPath),
-      dl(app.id_doc_front_path),
-    ]);
-
-    // --- 1) Face match: selfie-with-ID vs liveness center shot ---
-    try {
-      if (selfieBlob && centerBlob) {
-        const [a, b] = await Promise.all([blobToDataUrl(selfieBlob), blobToDataUrl(centerBlob)]);
-        const out = await callGemini([
-          {
-            role: "system",
-            content:
-              "You are a strict face-verification reviewer. Compare two photos and decide whether the SAME real person appears in both. Ignore background, lighting, expression, glasses. If either photo has no clear human face, set match=false and confidence=0. Reply ONLY with compact JSON: {\"match\":boolean,\"confidence\":number_between_0_and_1,\"reason\":\"short\"}.",
-          },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Photo A (selfie holding ID):" },
-              { type: "image_url", image_url: { url: a } },
-              { type: "text", text: "Photo B (liveness front-facing camera shot):" },
-              { type: "image_url", image_url: { url: b } },
-            ],
-          },
-        ]);
-        const parsed = parseJsonish(out);
-        if (parsed && typeof parsed.confidence === "number") {
-          faceScore = Math.max(0, Math.min(1, parsed.confidence));
-          faceStatus = parsed.match && faceScore >= 0.7 ? "pass"
-            : !parsed.match && faceScore <= 0.3 ? "fail"
-            : "review";
-          if (faceStatus === "fail") warnings.push("⚠️ Face mismatch: selfie person ≠ liveness person.");
-          else if (faceStatus === "review") warnings.push("⚠️ Face match uncertain — please review manually.");
-        } else {
-          faceStatus = "error";
-          warnings.push("⚠️ Face check could not run — please review manually.");
-        }
+    // --- 1) Ownership code presence in artist page ---
+    let platformPage: Awaited<ReturnType<typeof fetchPlatformPage>> = null;
+    if (app.music_platform_url && app.ownership_code) {
+      platformPage = await fetchPlatformPage(app.music_platform_url);
+      if (!platformPage) {
+        warnings.push("⚠️ Could not fetch the music-platform artist page — verify manually.");
       } else {
-        faceStatus = "error";
-        warnings.push("⚠️ Face check skipped — missing selfie or liveness image.");
+        const codeNorm = app.ownership_code.replace(/\s+/g, "").toUpperCase();
+        const htmlNorm = platformPage.html.replace(/\s+/g, "").toUpperCase();
+        if (htmlNorm.includes(codeNorm)) {
+          ownershipVerifiedAt = new Date().toISOString();
+        } else {
+          warnings.push(`⚠️ Ownership code "${app.ownership_code}" was not found in the artist page bio.`);
+        }
+        platformPhotoUrl = platformPage.ogImage;
       }
-    } catch (e) {
-      console.error("face check error", e);
-      faceStatus = "error";
-      warnings.push("⚠️ Face check failed to run — please review manually.");
+    } else {
+      warnings.push("⚠️ No music-platform URL or ownership code — ownership check skipped.");
     }
 
-    // --- 2) OCR on ID front, compare to typed legal name ---
+    // --- 2) Platform photo vs liveness selfie ---
     try {
-      if (frontBlob) {
-        const url = await blobToDataUrl(frontBlob);
-        const out = await callGemini([
-          {
-            role: "system",
-            content:
-              "You extract the printed full name of the document holder from a photo of a government ID. Reply ONLY with compact JSON: {\"name\":\"FULL NAME AS PRINTED OR null IF UNREADABLE\",\"document_type\":\"short\",\"readable\":boolean}.",
-          },
-          {
-            role: "user",
-            content: [
-              { type: "text", text: "Extract the holder's printed full name from this ID document." },
-              { type: "image_url", image_url: { url } },
-            ],
-          },
+      if (platformPhotoUrl && app.selfie_path) {
+        const [platformDataUrl, selfieBlob] = await Promise.all([
+          fetchImageAsDataUrl(platformPhotoUrl),
+          (async () => {
+            const { data } = await admin.storage.from(KYC_BUCKET).download(app.selfie_path!);
+            return data ?? null;
+          })(),
         ]);
-        const parsed = parseJsonish(out);
-        if (parsed && parsed.name && typeof parsed.name === "string") {
-          ocrName = parsed.name.trim().slice(0, 120);
-          nameScore = nameSimilarity(ocrName, app.real_name || "");
-          if (nameScore < 0.4) {
-            warnings.push(`⚠️ Name mismatch: ID says "${ocrName}", applicant typed "${app.real_name}".`);
-          } else if (nameScore < 0.7) {
-            warnings.push(`ℹ️ Partial name match (${Math.round(nameScore * 100)}%): ID "${ocrName}" vs typed "${app.real_name}".`);
+        if (platformDataUrl && selfieBlob) {
+          const selfieDataUrl = await blobToDataUrl(selfieBlob);
+          const out = await callGemini([
+            {
+              role: "system",
+              content:
+                "You are a strict face-verification reviewer. Compare two photos and decide whether the SAME real person appears in both. Ignore background, lighting, expression, hairstyle, and glasses. If either photo has no clear human face, set match=false and confidence=0. Reply ONLY with compact JSON: {\"match\":boolean,\"confidence\":number_between_0_and_1,\"reason\":\"short\"}.",
+            },
+            {
+              role: "user",
+              content: [
+                { type: "text", text: "Photo A (live-selfie from the app):" },
+                { type: "image_url", image_url: { url: selfieDataUrl } },
+                { type: "text", text: "Photo B (public artist-page profile photo):" },
+                { type: "image_url", image_url: { url: platformDataUrl } },
+              ],
+            },
+          ]);
+          const parsed = parseJsonish(out);
+          const conf = typeof parsed?.confidence === "number" ? parsed.confidence : null;
+          if (parsed && conf != null) {
+            platformFaceScore = Math.max(0, Math.min(1, conf));
+            platformFaceStatus = parsed.match && platformFaceScore >= 0.7 ? "passed"
+              : !parsed.match && platformFaceScore <= 0.3 ? "failed"
+              : "review";
+            if (platformFaceStatus === "failed") warnings.push("⚠️ Selfie does not match the artist-page profile photo.");
+            else if (platformFaceStatus === "review") warnings.push("ℹ️ Platform photo match uncertain — please review manually.");
+          } else {
+            platformFaceStatus = "review";
+            warnings.push("ℹ️ Platform photo face check could not run — please review manually.");
           }
         } else {
-          warnings.push("⚠️ ID name could not be read — please review front-of-ID image.");
+          platformFaceStatus = "review";
+          warnings.push("ℹ️ Missing selfie or artist-page image — platform face check skipped.");
         }
-      } else {
-        warnings.push("⚠️ ID front missing — cannot extract name.");
       }
     } catch (e) {
-      console.error("ocr error", e);
-      warnings.push("⚠️ OCR failed to run — please review ID manually.");
+      console.error("platform face check error", e);
+      platformFaceStatus = "review";
+      warnings.push("⚠️ Platform face check failed to run — please review manually.");
     }
 
-    // --- Persist results ---
     const { error: updErr } = await admin
       .from("artist_applications")
       .update({
-        face_match_score: faceScore,
-        face_match_status: faceStatus,
-        ocr_extracted_name: ocrName,
-        name_match_score: nameScore,
+        ownership_check_at: new Date().toISOString(),
+        ownership_verified_at: ownershipVerifiedAt,
+        platform_photo_url: platformPhotoUrl,
+        face_match_platform_score: platformFaceScore,
+        face_match_platform_status: platformFaceStatus,
         auto_check_warnings: warnings,
         auto_checks_at: new Date().toISOString(),
       })
@@ -249,15 +236,16 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Do not leak raw scores or OCR text to the applicant — they could iterate
-    // and game the KYC system. Only return a generic submitted status.
+    // Don't leak raw scores to the applicant — they could iterate and game
+    // the check. Reply with a generic submitted status.
     return new Response(
       JSON.stringify({ ok: true, status: "submitted" }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } },
     );
   } catch (e) {
     console.error("artist-verify-checks fatal", e);
-    return new Response(JSON.stringify({ error: String(e?.message || e) }), {
+    const msg = e instanceof Error ? e.message : String(e);
+    return new Response(JSON.stringify({ error: msg }), {
       status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
     });
   }
