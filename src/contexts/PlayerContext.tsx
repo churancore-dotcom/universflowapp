@@ -372,23 +372,15 @@ const toNativeQueueTrack = (song: Song): NativeQueueTrack => ({
   videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
 });
 
-// Slim variant used for far-tail queue items. On Android the JS→native JSON
-// bridge is synchronous; a 500-song queue with full artwork URLs can spend
-// 400–800ms just serializing on every tap. We only send full metadata for
-// the current index and the next NATIVE_QUEUE_WINDOW items — anything further
-// gets a minimal payload (no artwork, no url string). Notification metadata
-// for those far tracks is regenerated from title/artist when they become
-// current; artwork simply won't appear for songs the user hasn't reached yet.
-const NATIVE_QUEUE_WINDOW = 40;
-const toNativeQueueTrackSlim = (song: Song): NativeQueueTrack => ({
-  id: getSongIdentity(song),
-  title: song.title || '',
-  artist: song.artist || '',
-  videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
-});
-const buildNativeQueuePayload = (songs: Song[], startIndex: number): NativeQueueTrack[] => {
-  const windowEnd = startIndex + NATIVE_QUEUE_WINDOW;
-  return songs.map((s, i) => (i >= startIndex && i <= windowEnd ? toNativeQueueTrack(s) : toNativeQueueTrackSlim(s)));
+// Always send full metadata (artwork + stream URL) for every queue item.
+// A previous optimization slimmed items outside a 40-track window, but that
+// broke lock-screen artwork and the native `previous` button for tracks
+// before the tapped index, and stopped auto-advance from playing library
+// (non-YouTube) songs beyond the window because the slim payload dropped
+// both `artworkUrl` and `url`. Serialization cost is acceptable — even a
+// 500-song queue is well under a couple hundred KB of JSON.
+const buildNativeQueuePayload = (songs: Song[], _startIndex: number): NativeQueueTrack[] => {
+  return songs.map(toNativeQueueTrack);
 };
 
 const isKnownBrokenStreamUrl = (_url?: string | null) => {
