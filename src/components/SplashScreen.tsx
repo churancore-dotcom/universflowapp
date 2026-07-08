@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { forwardRef, useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import appLogo from '@/assets/app-logo.webp';
 
@@ -11,7 +11,7 @@ interface SplashScreenProps {
  * Auth page logo (layoutId="uf-brand-logo" / "uf-brand-wordmark"). When the
  * splash unmounts, the logo morphs smoothly into the Auth screen logo.
  */
-const SplashScreen = ({ onComplete }: SplashScreenProps) => {
+const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete }, ref) => {
   const doneRef = useRef(false);
   const [phase, setPhase] = useState<'in' | 'hold' | 'out'>('in');
 
@@ -40,6 +40,7 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
 
   return (
     <motion.div
+      ref={ref}
       className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-black"
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
@@ -81,6 +82,8 @@ const SplashScreen = ({ onComplete }: SplashScreenProps) => {
       </div>
     </motion.div>
   );
-};
+});
+
+SplashScreen.displayName = 'SplashScreen';
 
 export default SplashScreen;
