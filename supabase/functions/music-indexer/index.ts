@@ -1047,7 +1047,10 @@ async function fetchAllowedAudioProxyTarget(audioTarget: string, req: Request, r
   });
 
   if (upstream.status >= 300 && upstream.status < 400) {
-    if (redirects >= 2) throw new Error('Too many redirects');
+    // Signed music CDN URLs (googlevideo, JioSaavn) can legitimately bounce
+    // through several validated hosts before reaching the final byte-serving
+    // URL. A cap of 2 was too tight and turned valid streams into 500s.
+    if (redirects >= 8) throw new Error('Too many redirects');
     const location = upstream.headers.get('location');
     if (!location) throw new Error('Redirect missing Location');
     const next = new URL(location, audioTarget).toString();
