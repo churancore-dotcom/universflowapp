@@ -155,12 +155,14 @@ const MiniPlayer = memo(function MiniPlayer() {
         }}
       >
         <motion.div
+          layoutId="uf-player-surface"
           className="rounded-3xl overflow-hidden relative touch-manipulation"
           style={{
             background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(18 100% 82%) 100%)',
             boxShadow: '0 12px 40px -10px hsl(var(--primary) / 0.45)',
             border: '0.5px solid hsl(0 0% 100% / 0.16)',
           }}
+          transition={{ type: 'spring', stiffness: 380, damping: 34 }}
           drag
           dragDirectionLock
           dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
