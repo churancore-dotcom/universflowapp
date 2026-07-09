@@ -7,24 +7,24 @@
 @layer base {
   :root {
     /* Apple Music Dark Theme */
-    --background: 0 0% 0%;
-    --foreground: 0 0% 98%;
+    --background: 240 17% 2%;
+    --foreground: 240 11% 96%;
     
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 98%;
+    --card: 330 16% 7%;
+    --card-foreground: 240 11% 96%;
     
     --popover: 0 0% 10%;
     --popover-foreground: 0 0% 98%;
     
     /* Apple Music Signature Rose/Red */
-    --primary: 350 100% 60%;
+    --primary: 346 100% 59%;
     --primary-foreground: 0 0% 100%;
     
-    --secondary: 0 0% 12%;
+    --secondary: 330 16% 7%;
     --secondary-foreground: 0 0% 98%;
     
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 55%;
+    --muted: 330 16% 10%;
+    --muted-foreground: 240 8% 61%;
     
     /* Pink/Magenta Accent */
     --accent: 330 100% 65%;
@@ -33,9 +33,9 @@
     --destructive: 0 85% 60%;
     --destructive-foreground: 0 0% 98%;
     
-    --border: 0 0% 15%;
-    --input: 0 0% 12%;
-    --ring: 350 100% 60%;
+    --border: 330 14% 14%;
+    --input: 330 16% 9%;
+    --ring: 346 100% 59%;
     
     --radius: 0.75rem;
     
@@ -45,7 +45,7 @@
     --gradient-end: 280 100% 65%;
     
     /* Glow Colors */
-    --glow-primary: 350 100% 60%;
+    --glow-primary: 346 100% 59%;
     --glow-accent: 330 100% 65%;
     --glow-purple: 280 100% 65%;
     --glow-cyan: 185 100% 55%;
@@ -58,8 +58,15 @@
     --glass-blur: 40px;
     
     /* Surface Colors */
-    --surface-elevated: 0 0% 10%;
-    --surface-overlay: 0 0% 6%;
+    --surface-elevated: 330 16% 7%;
+    --surface-overlay: 240 17% 2%;
+
+    /* Univers Flow Obsidian Rose profile system */
+    --uf-profile-obsidian: 240 17% 2%;
+    --uf-profile-panel: 330 16% 7%;
+    --uf-profile-rose: 346 100% 59%;
+    --uf-profile-ink: 240 11% 96%;
+    --uf-profile-line: 346 100% 59% / 0.18;
     
     /* Sidebar */
     --sidebar-background: 0 0% 4%;
@@ -78,8 +85,8 @@
   }
 
   .dark {
-    --background: 0 0% 0%;
-    --foreground: 0 0% 98%;
+    --background: 240 17% 2%;
+    --foreground: 240 11% 96%;
   }
 }
 
@@ -109,7 +116,7 @@
     inset: 0;
     background: hsl(var(--background));
     @apply text-foreground antialiased;
-    font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
+    font-family: 'Hind', -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'SF Pro Text', 'Inter', system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -190,7 +197,7 @@
   }
 
   .uf-bento-card {
-    @apply rounded-3xl border border-white/[0.05] bg-card;
+    @apply rounded-md border border-border bg-card;
   }
 
   .uf-display-title {
