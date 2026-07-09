@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  getArtistReapplyState, getMyApplication,
+  getMyApplication,
   type ArtistApplicationSafe, type ArtistAppStatus,
 } from '@/lib/artist';
 import { toast } from 'sonner';
