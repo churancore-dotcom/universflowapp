@@ -30,6 +30,7 @@ const MiniPlayer = memo(function MiniPlayer() {
   const {
     currentSong,
     isPlaying,
+    isExpanded,
     togglePlay,
     nextSong,
     prevSong,
@@ -123,7 +124,7 @@ const MiniPlayer = memo(function MiniPlayer() {
     setTimeout(() => setIsDragging(false), 100);
   }, [setExpanded, handleNextSong, handlePrevSong]);
 
-  if (!currentSong || lockscreenVisible) return null;
+  if (!currentSong || lockscreenVisible || isExpanded) return null;
 
   const progressPercent = duration > 0 && isFinite(progress) && isFinite(duration) 
     ? Math.min(100, Math.max(0, (progress / duration) * 100)) 
@@ -154,12 +155,14 @@ const MiniPlayer = memo(function MiniPlayer() {
         }}
       >
         <motion.div
+          layoutId="uf-player-surface"
           className="rounded-3xl overflow-hidden relative touch-manipulation"
           style={{
             background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(18 100% 82%) 100%)',
             boxShadow: '0 12px 40px -10px hsl(var(--primary) / 0.45)',
             border: '0.5px solid hsl(0 0% 100% / 0.16)',
           }}
+          transition={{ type: 'spring', stiffness: 380, damping: 34 }}
           drag
           dragDirectionLock
           dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
@@ -216,12 +219,16 @@ const MiniPlayer = memo(function MiniPlayer() {
           </div>
 
           <div className="relative z-10 flex items-center gap-3 p-2">
-            {/* Album Art with crossfade */}
-            <div className="relative w-12 h-12 flex-shrink-0">
+            {/* Album Art with shared-layout morph to fullscreen */}
+            <motion.div
+              layoutId="uf-player-art"
+              className="relative w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden shadow-lg bg-muted"
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+            >
               <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div 
+                <motion.div
                   key={currentSong.id}
-                  className="absolute inset-0 w-full h-full rounded-xl overflow-hidden shadow-lg bg-muted"
+                  className="absolute inset-0 w-full h-full"
                   variants={albumArtVariants}
                   initial="initial"
                   animate="animate"
@@ -242,7 +249,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                   )}
                 </motion.div>
               </AnimatePresence>
-            </div>
+            </motion.div>
             
             {/* Song info with crossfade */}
             <div className="flex-1 min-w-0 pr-0 relative min-h-[2.5rem] flex flex-col justify-center">

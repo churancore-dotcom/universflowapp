@@ -281,34 +281,40 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   />
                 )}
                 
-                <AnimatePresence mode="popLayout" initial={false}>
-                  <motion.div
-                    key={currentSong.id}
-                    className="absolute inset-0 rounded-2xl overflow-hidden shadow-2xl z-10 bg-muted"
-                    variants={albumArtVariants}
-                    initial="initial"
-                    animate="animate"
-                    exit="exit"
-                    style={{
-                      boxShadow: isPlaying 
-                        ? '0 0 40px 10px hsl(var(--primary) / 0.2)' 
-                        : '0 15px 30px -10px rgba(0, 0, 0, 0.5)',
-                    }}
-                  >
-                    {currentSong.cover_url ? (
-                      <img 
-                        src={currentSong.cover_url} 
-                        alt={currentSong.title} 
-                        className="w-full h-full object-cover" 
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                        <div className="text-white/60 text-5xl">♪</div>
-                      </div>
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                <motion.div
+                  layoutId="uf-player-art"
+                  className="absolute inset-0 rounded-2xl overflow-hidden shadow-2xl z-10 bg-muted"
+                  transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+                  style={{
+                    boxShadow: isPlaying
+                      ? '0 0 40px 10px hsl(var(--primary) / 0.2)'
+                      : '0 15px 30px -10px rgba(0, 0, 0, 0.5)',
+                  }}
+                >
+                  <AnimatePresence mode="popLayout" initial={false}>
+                    <motion.div
+                      key={currentSong.id}
+                      className="absolute inset-0"
+                      variants={albumArtVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                    >
+                      {currentSong.cover_url ? (
+                        <img
+                          src={currentSong.cover_url}
+                          alt={currentSong.title}
+                          className="w-full h-full object-cover"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
+                          <div className="text-white/60 text-5xl">♪</div>
+                        </div>
+                      )}
+                    </motion.div>
+                  </AnimatePresence>
+                </motion.div>
               </div>
               )}
             </div>
