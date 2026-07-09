@@ -18,9 +18,9 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ["Hind", "Barlow", "Inter", "system-ui", "sans-serif"],
-        display: ["'Archivo Black'", "'Bebas Neue'", "Space Grotesk", "Inter", "system-ui", "sans-serif"],
-        body: ["Hind", "Barlow", "Inter", "system-ui", "sans-serif"],
+        sans: ["Barlow", "Inter", "system-ui", "sans-serif"],
+        display: ["'Bebas Neue'", "Space Grotesk", "Inter", "system-ui", "sans-serif"],
+        body: ["Barlow", "Inter", "system-ui", "sans-serif"],
       },
       colors: {
         border: "hsl(var(--border))",
