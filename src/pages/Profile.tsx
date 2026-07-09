@@ -271,7 +271,7 @@ const Profile = () => {
       value: profileSettled ? shortNumber(listenStats.minutes) : '—',
       detail: 'minutes',
       icon: History,
-      action: () => navigate('/recently-played'),
+      action: () => navigate('/search'),
       className: 'col-span-3 min-h-[92px]',
     },
     {
@@ -412,7 +412,7 @@ const Profile = () => {
 
             <section className="grid grid-cols-6 gap-2.5">
               <button
-                onClick={() => navigate('/recently-played')}
+                onClick={() => navigate('/search')}
                 className="col-span-6 relative min-h-[128px] overflow-hidden rounded-md border border-primary/20 bg-card p-4 text-left active:scale-[0.99] transition"
               >
                 <div className="absolute inset-x-0 top-0 h-px bg-primary" />
