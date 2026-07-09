@@ -1,22 +1,39 @@
-import { useState, useEffect } from 'react';
-import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import {
+  Camera,
+  Check,
+  ChevronRight,
+  Crown,
+  Disc3,
+  Download,
+  Edit2,
+  Headphones,
+  Heart,
+  History,
+  ListMusic,
+  Lock,
+  LogOut,
+  Mic2,
+  Radio,
+  Settings,
+  Shield,
+  SlidersHorizontal,
+  User,
+  X,
+} from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
 import BottomNav from '@/components/BottomNav';
-import PremiumBadge from '@/components/PremiumBadge';
-import ReviewModal from '@/components/ReviewModal';
-import ReviewsSheet from '@/components/ReviewsSheet';
 import { TabTransition } from '@/components/PageTransition';
-import EmailVerificationCard from '@/components/EmailVerificationCard';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
 import VideoAvatar from '@/components/VideoAvatar';
-import { resolveAvatar, isPresetAvatar } from '@/lib/avatars';
+import { isPresetAvatar, resolveAvatar } from '@/lib/avatars';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { Camera } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import { loadLibrarySongs } from '@/lib/streamSongs';
 
@@ -26,17 +43,28 @@ interface ProfileData {
   avatar_url: string | null;
 }
 
+const meterBars = [34, 72, 48, 88, 58, 96, 42, 76, 52, 84, 64, 38];
+
+const shortNumber = (value: number) => {
+  if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+  if (value >= 10000) return `${Math.round(value / 1000)}K`;
+  if (value >= 1000) return `${(value / 1000).toFixed(1)}K`;
+  return value.toLocaleString();
+};
+
 const Profile = () => {
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { downloads } = useDownloads();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ likedSongs: 0, playlists: 0, downloads: 0 });
-  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; topSong: string | null; streak: number }>({ minutes: 0, topArtist: null, topSong: null, streak: 0 });
+  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; topSong: string | null; streak: number }>({
+    minutes: 0,
+    topArtist: null,
+    topSong: null,
+    streak: 0,
+  });
   const [statsReady, setStatsReady] = useState(false);
-  const [showReview, setShowReview] = useState(false);
-  const [showReviewsList, setShowReviewsList] = useState(false);
-
   const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false, avatar_url: null });
   const [profileReady, setProfileReady] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
@@ -57,17 +85,16 @@ const Profile = () => {
   }, [user]);
 
   useEffect(() => {
-    setStats(prev => ({ ...prev, downloads: downloads.length }));
+    setStats((prev) => ({ ...prev, downloads: downloads.length }));
   }, [downloads.length]);
 
   const fetchProfile = async () => {
-    if (!user) { setProfileReady(true); return; }
+    if (!user) {
+      setProfileReady(true);
+      return;
+    }
     try {
-      const { data } = await supabase
-        .from('profiles')
-        .select('username, username_changed, avatar_url')
-        .eq('user_id', user.id)
-        .single();
+      const { data } = await supabase.from('profiles').select('username, username_changed, avatar_url').eq('user_id', user.id).single();
 
       if (data) {
         setProfileData({
@@ -83,7 +110,10 @@ const Profile = () => {
   };
 
   const fetchStats = async () => {
-    if (!user) { setStatsReady(true); return; }
+    if (!user) {
+      setStatsReady(true);
+      return;
+    }
     try {
       const [likedResolved, playlists, recentPlays, playEvents] = await Promise.all([
         loadLibrarySongs(user.id),
@@ -158,25 +188,31 @@ const Profile = () => {
 
   const handleSaveUsername = async () => {
     if (!user || !newUsername.trim()) return;
-    if (newUsername.trim().length < 3) { toast.error('Username must be at least 3 characters'); return; }
-    if (newUsername.trim().length > 20) { toast.error('Username must be less than 20 characters'); return; }
-    if (profileData.username_changed) { toast.error('You can only change your username once'); return; }
+    if (newUsername.trim().length < 3) {
+      toast.error('Username must be at least 3 characters');
+      return;
+    }
+    if (newUsername.trim().length > 20) {
+      toast.error('Username must be less than 20 characters');
+      return;
+    }
+    if (profileData.username_changed) {
+      toast.error('You can only change your username once');
+      return;
+    }
 
     const confirmed = window.confirm(`Set your username to "${newUsername.trim()}"?\n\nThis can only be done once and cannot be changed later.`);
     if (!confirmed) return;
 
     setIsSaving(true);
     try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({ username: newUsername.trim(), username_changed: true })
-        .eq('user_id', user.id);
+      const { error } = await supabase.from('profiles').update({ username: newUsername.trim(), username_changed: true }).eq('user_id', user.id);
       if (error) throw error;
-      setProfileData(prev => ({ ...prev, username: newUsername.trim(), username_changed: true }));
+      setProfileData((prev) => ({ ...prev, username: newUsername.trim(), username_changed: true }));
       setIsEditingUsername(false);
-      toast.success('Username set!');
+      toast.success('Username set');
     } catch (error) {
-      toast.error(error.message || 'Failed to update username');
+      toast.error(error instanceof Error ? error.message : 'Failed to update username');
     } finally {
       setIsSaving(false);
     }
@@ -190,352 +226,312 @@ const Profile = () => {
   const displayName = profileData.username || user?.email?.split('@')[0] || 'You';
   const canChangeUsername = !profileData.username_changed;
   const profileSettled = !authLoading && !premiumLoading && profileReady && statsReady;
-
-  // Deterministic member number based on user id
-  const memberNo = user?.id
-    ? '№ ' + parseInt(user.id.replace(/[^0-9a-f]/g, '').slice(0, 6) || '0', 16).toString().padStart(6, '0').slice(-6)
-    : '№ 000000';
   const joinYear = user?.created_at ? new Date(user.created_at).getFullYear() : new Date().getFullYear();
+  const signalScore = useMemo(
+    () => Math.min(99, Math.max(8, Math.round((stats.likedSongs * 1.4 + stats.playlists * 6 + stats.downloads * 3 + listenStats.minutes / 30) % 100))),
+    [listenStats.minutes, stats.downloads, stats.likedSongs, stats.playlists],
+  );
+
+  const profileTiles = [
+    {
+      label: 'Liked Songs',
+      value: profileSettled ? shortNumber(stats.likedSongs) : '—',
+      detail: 'saved tracks',
+      icon: Heart,
+      action: () => navigate('/library?tab=liked'),
+      className: 'col-span-4 row-span-2 min-h-[154px]',
+      featured: true,
+    },
+    {
+      label: 'Offline',
+      value: profileSettled ? shortNumber(stats.downloads) : '—',
+      detail: 'downloads',
+      icon: Download,
+      action: () => navigate('/downloads'),
+      className: 'col-span-2 min-h-[72px]',
+    },
+    {
+      label: 'Playlists',
+      value: profileSettled ? shortNumber(stats.playlists) : '—',
+      detail: 'mixes',
+      icon: ListMusic,
+      action: () => navigate('/library?tab=playlists'),
+      className: 'col-span-2 min-h-[72px]',
+    },
+    {
+      label: 'Audio Lab',
+      value: 'EQ',
+      detail: 'instant effects',
+      icon: SlidersHorizontal,
+      action: () => navigate('/settings'),
+      className: 'col-span-3 min-h-[92px]',
+    },
+    {
+      label: 'History',
+      value: profileSettled ? shortNumber(listenStats.minutes) : '—',
+      detail: 'minutes',
+      icon: History,
+      action: () => navigate('/search'),
+      className: 'col-span-3 min-h-[92px]',
+    },
+    {
+      label: 'Artist Studio',
+      value: 'Open',
+      detail: 'uploads & stats',
+      icon: Mic2,
+      action: () => navigate('/artist'),
+      className: 'col-span-3 min-h-[84px]',
+    },
+    {
+      label: 'Privacy',
+      value: 'Safe',
+      detail: 'account control',
+      icon: Lock,
+      action: () => navigate('/settings'),
+      className: 'col-span-3 min-h-[84px]',
+    },
+  ];
 
   return (
     <TabTransition>
       <SEOHead
         title="Your Profile — Univers Flow"
-        description="Manage your Univers Flow profile: avatar, username, listening stats, liked songs, playlists and downloads."
+        description="Manage your Univers Flow profile, listening stats, liked songs, playlists, downloads and audio settings."
         path="/profile"
       />
-      <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
+      <div className="h-[100dvh] bg-background text-foreground flex flex-col overflow-hidden font-body">
         <main className="flex-1 overflow-y-auto pb-32 safe-area-pt" style={{ WebkitOverflowScrolling: 'touch' }}>
-
-          {/* === Membership Card Hero === */}
-          <section className="px-4 pt-4 pb-2">
-            <div
-              className="relative rounded-[28px] overflow-hidden p-5"
-              style={{
-                background:
-                  'radial-gradient(120% 90% at 0% 0%, hsl(var(--primary) / 0.28), transparent 55%), radial-gradient(120% 90% at 100% 100%, hsl(18 100% 65% / 0.18), transparent 55%), linear-gradient(180deg, hsl(0 0% 8%), hsl(0 0% 5%))',
-                border: '1px solid hsl(0 0% 100% / 0.08)',
-                boxShadow: '0 30px 60px -30px hsl(var(--primary) / 0.4), inset 0 1px 0 hsl(0 0% 100% / 0.06)',
-              }}
-            >
-              {/* Grain / noise overlay */}
-              <div
-                className="absolute inset-0 opacity-[0.06] mix-blend-overlay pointer-events-none"
-                style={{ backgroundImage: "url(\"data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>\")" }}
-              />
-
-              {/* Top row: brand + member # */}
-              <div className="relative flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.32em] text-white/60">
-                    Univers Flow · Member
-                  </span>
-                </div>
-                <span className="text-[10px] font-mono tracking-widest text-white/40">{memberNo}</span>
+          <section className="px-4 pt-4 pb-3">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <p className="font-display text-[26px] uppercase leading-none">Profile</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-muted-foreground mt-1">Univers Flow Control</p>
               </div>
-
-              {/* Avatar + identity */}
-              <div className="relative mt-6 flex items-end gap-4">
+              <div className="flex items-center gap-2">
+                {isAdmin && (
+                  <button
+                    onClick={() => navigate('/admin')}
+                    className="h-10 w-10 rounded-md border border-border bg-card text-primary active:scale-95 transition"
+                    aria-label="Open admin panel"
+                  >
+                    <Shield className="mx-auto h-4 w-4" />
+                  </button>
+                )}
                 <button
-                  onClick={() => user && setShowAvatarPicker(true)}
-                  className="relative active:scale-95 transition shrink-0"
-                  aria-label="Change avatar"
+                  onClick={() => navigate('/settings')}
+                  className="h-10 w-10 rounded-md border border-border bg-card text-foreground active:scale-95 transition"
+                  aria-label="Open settings"
                 >
-                  <div
-                    className="w-24 h-24 rounded-3xl flex items-center justify-center overflow-hidden"
-                    style={{
-                      background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(18 100% 70%))',
-                      boxShadow: '0 12px 30px -8px hsl(var(--primary) / 0.55), inset 0 0 0 2px hsl(0 0% 100% / 0.12)',
-                    }}
-                  >
-                    {isPresetAvatar(profileData.avatar_url) ? (
-                      <VideoAvatar variant={profileData.avatar_url} size={96} />
-                    ) : resolveAvatar(profileData.avatar_url) ? (
-                      <img
-                        src={resolveAvatar(profileData.avatar_url)!}
-                        alt="Profile avatar"
-                        width={96}
-                        height={96}
-                        className="w-full h-full object-cover"
-                      />
-                    ) : (
-                      <User className="w-12 h-12 text-white" strokeWidth={1.5} />
-                    )}
-                  </div>
-                  <div
-                    className="absolute -bottom-1.5 -right-1.5 w-7 h-7 rounded-full flex items-center justify-center shadow-lg"
-                    style={{
-                      background: isPremium ? 'linear-gradient(135deg, #fbbf24, #f59e0b)' : 'hsl(var(--primary))',
-                      border: '3px solid hsl(0 0% 6%)',
-                    }}
-                  >
-                    {isPremium ? <Crown className="w-3.5 h-3.5 text-white" /> : <Camera className="w-3 h-3 text-primary-foreground" />}
-                  </div>
+                  <Settings className="mx-auto h-4 w-4" />
                 </button>
-
-                <div className="flex-1 min-w-0 pb-1">
-                  {!profileSettled ? (
-                    <div className="space-y-2 animate-pulse">
-                      <div className="h-7 w-40 rounded bg-white/10" />
-                      <div className="h-3 w-24 rounded bg-white/5" />
-                    </div>
-                  ) : isEditingUsername ? (
-                    <div className="flex items-center gap-1.5">
-                      <Input
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
-                        className="h-9 bg-white/10 border-white/20 text-base"
-                        placeholder="username"
-                        maxLength={20}
-                        autoFocus
-                      />
-                      <button onClick={handleSaveUsername} disabled={isSaving} aria-label="Save" className="w-9 h-9 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
-                        <Check className="w-4 h-4 text-green-400" />
-                      </button>
-                      <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }} aria-label="Cancel" className="w-9 h-9 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
-                        <X className="w-4 h-4 text-red-400" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="flex items-center gap-2">
-                        <h1 className="font-display text-[30px] leading-none tracking-tight truncate">{displayName}</h1>
-                        {canChangeUsername && (
-                          <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username" className="w-6 h-6 rounded-full bg-white/10 flex items-center justify-center active:scale-90 transition shrink-0">
-                            <Edit2 className="w-3 h-3 text-white/60" />
-                          </button>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-2 mt-2 flex-wrap">
-                        {isPremium ? (
-                          <PremiumBadge size="xs" />
-                        ) : (
-                          <span className="text-[9px] font-black uppercase tracking-[0.22em] text-white/50">Free Tier</span>
-                        )}
-                        <span className="text-white/20">·</span>
-                        <span className="text-[9px] font-black uppercase tracking-[0.22em] text-white/50">Est. {joinYear}</span>
-                        {isAdmin && (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider" style={{ background: 'hsl(211 100% 50% / 0.2)', color: 'hsl(211 100% 65%)' }}>
-                            <Shield className="w-2.5 h-2.5" /> Admin
-                          </span>
-                        )}
-                      </div>
-                    </>
-                  )}
-                </div>
               </div>
-
-              {/* Perforation divider */}
-              <div className="relative mt-5 mb-4">
-                <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 border-t border-dashed border-white/10" />
-                <div className="absolute -left-8 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background" />
-                <div className="absolute -right-8 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-background" />
-              </div>
-
-              {/* Ticket stub: listening data */}
-              {profileSettled && user && (
-                <div className="relative grid grid-cols-3 gap-3">
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Minutes</p>
-                    <p className="font-display text-2xl leading-none tracking-tight">{listenStats.minutes.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Streak</p>
-                    <p className="font-display text-2xl leading-none tracking-tight inline-flex items-center gap-1">
-                      {listenStats.streak}
-                      {listenStats.streak > 0 && <Flame className="w-4 h-4 text-primary" fill="currentColor" />}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Saved</p>
-                    <p className="font-display text-2xl leading-none tracking-tight">{stats.likedSongs}</p>
-                  </div>
-                </div>
-              )}
             </div>
           </section>
 
-          <div className="px-4 space-y-4 mt-2">
-
-            <EmailVerificationCard />
-
-            {/* === Now Spinning: Top Artist & Song === */}
-            {profileSettled && user && (listenStats.topArtist || listenStats.topSong) && (
+          <div className="px-4 space-y-3">
+            <section
+              className="relative overflow-hidden rounded-md border border-border bg-card p-4"
+              style={{ boxShadow: 'inset 0 1px 0 hsl(var(--foreground) / 0.05), 0 24px 80px -60px hsl(var(--primary) / 0.75)' }}
+            >
+              <div className="absolute inset-x-0 top-0 h-px bg-primary/70" />
               <div
-                className="relative rounded-[24px] p-4 overflow-hidden"
+                className="absolute inset-0 opacity-[0.045] pointer-events-none"
                 style={{
-                  background: 'linear-gradient(120deg, hsl(0 0% 10%), hsl(0 0% 7%))',
-                  border: '1px solid hsl(0 0% 100% / 0.06)',
+                  backgroundImage: 'linear-gradient(90deg, hsl(var(--foreground)) 1px, transparent 1px), linear-gradient(hsl(var(--foreground)) 1px, transparent 1px)',
+                  backgroundSize: '22px 22px',
                 }}
-              >
-                <div className="absolute -right-10 -top-10 w-40 h-40 rounded-full uf-rose-gradient opacity-20 blur-3xl pointer-events-none" />
-                <div className="relative flex items-center gap-4">
-                  {/* Spinning vinyl */}
-                  <div className="relative w-16 h-16 shrink-0">
-                    <div className="absolute inset-0 rounded-full bg-black border border-white/10" style={{ animation: 'spin 8s linear infinite' }}>
-                      <div className="absolute inset-1 rounded-full border border-white/[0.04]" />
-                      <div className="absolute inset-2.5 rounded-full border border-white/[0.04]" />
-                      <div className="absolute inset-4 rounded-full uf-rose-gradient" />
-                      <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 rounded-full bg-background" />
-                    </div>
+              />
+              <div className="relative flex items-start gap-4">
+                <button
+                  onClick={() => user && setShowAvatarPicker(true)}
+                  className="relative h-[92px] w-[92px] shrink-0 rounded-md border border-primary/25 bg-background active:scale-[0.98] transition overflow-hidden"
+                  aria-label="Change avatar"
+                >
+                  <div className="absolute inset-0 bg-primary/10" />
+                  {isPresetAvatar(profileData.avatar_url) ? (
+                    <VideoAvatar variant={profileData.avatar_url} size={92} />
+                  ) : resolveAvatar(profileData.avatar_url) ? (
+                    <img src={resolveAvatar(profileData.avatar_url)!} alt="Profile avatar" width={92} height={92} className="h-full w-full object-cover interactive-image" />
+                  ) : (
+                    <User className="absolute inset-0 m-auto h-10 w-10 text-muted-foreground" strokeWidth={1.5} />
+                  )}
+                  <span className="absolute bottom-1 right-1 flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <Camera className="h-3.5 w-3.5" />
+                  </span>
+                </button>
+
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2 min-h-8">
+                    {!profileSettled ? (
+                      <div className="h-8 w-36 rounded-md bg-muted animate-pulse" />
+                    ) : isEditingUsername ? (
+                      <div className="flex items-center gap-1.5 w-full">
+                        <Input
+                          value={newUsername}
+                          onChange={(e) => setNewUsername(e.target.value)}
+                          className="h-9 rounded-md bg-background border-border text-sm"
+                          placeholder="username"
+                          maxLength={20}
+                          autoFocus
+                        />
+                        <button onClick={handleSaveUsername} disabled={isSaving} aria-label="Save" className="h-9 w-9 rounded-md bg-primary/15 text-primary active:scale-95 transition shrink-0">
+                          <Check className="mx-auto h-4 w-4" />
+                        </button>
+                        <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }} aria-label="Cancel" className="h-9 w-9 rounded-md bg-muted text-muted-foreground active:scale-95 transition shrink-0">
+                          <X className="mx-auto h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <h1 className="font-display text-[31px] uppercase leading-[0.92] truncate">{displayName}</h1>
+                        {canChangeUsername && (
+                          <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username" className="h-7 w-7 rounded-md bg-muted text-muted-foreground active:scale-95 transition shrink-0">
+                            <Edit2 className="mx-auto h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </>
+                    )}
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[9px] font-black uppercase tracking-[0.24em] text-primary/80 mb-1 inline-flex items-center gap-1.5">
-                      <Radio className="w-2.5 h-2.5" /> On Heavy Rotation
-                    </p>
-                    <p className="font-display text-lg leading-tight truncate">{listenStats.topSong || 'Start listening'}</p>
-                    <p className="text-xs text-white/50 truncate mt-0.5">{listenStats.topArtist || '—'}</p>
+
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center gap-1 rounded-md border border-primary/20 bg-primary/10 px-2 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-primary">
+                      {isPremium ? <Crown className="h-3 w-3" /> : <Radio className="h-3 w-3" />}
+                      {isPremium ? 'Premium' : 'Free Signal'}
+                    </span>
+                    <span className="rounded-md border border-border bg-background px-2 py-1 text-[9px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Est. {joinYear}</span>
+                  </div>
+
+                  <div className="mt-4 grid grid-cols-3 gap-1">
+                    <ProfileMicroStat label="Minutes" value={profileSettled ? shortNumber(listenStats.minutes) : '—'} />
+                    <ProfileMicroStat label="Streak" value={profileSettled ? String(listenStats.streak) : '—'} />
+                    <ProfileMicroStat label="Signal" value={`${signalScore}%`} />
                   </div>
                 </div>
               </div>
-            )}
+            </section>
 
-            {/* === Editorial tile grid === */}
-            <div className="grid grid-cols-6 gap-3">
-              {/* Liked — large */}
+            <section className="grid grid-cols-6 gap-2.5">
               <button
-                onClick={() => navigate('/library?tab=liked')}
-                className="col-span-4 row-span-2 relative rounded-[24px] p-4 text-left overflow-hidden active:scale-[0.98] transition min-h-[140px] flex flex-col justify-between"
-                style={{
-                  background: 'linear-gradient(160deg, hsl(var(--primary) / 0.22), hsl(0 0% 8%) 70%)',
-                  border: '1px solid hsl(var(--primary) / 0.2)',
-                }}
+                onClick={() => navigate('/search')}
+                className="col-span-6 relative min-h-[128px] overflow-hidden rounded-md border border-primary/20 bg-card p-4 text-left active:scale-[0.99] transition"
               >
-                <div className="absolute -bottom-8 -right-6 w-32 h-32 rounded-full uf-rose-gradient opacity-30 blur-2xl" />
-                <div className="relative flex items-center gap-2">
-                  <Heart className="w-4 h-4 text-primary" fill="currentColor" />
-                  <span className="text-[9px] font-black uppercase tracking-[0.22em] text-white/50">Collection</span>
-                </div>
-                <div className="relative">
-                  <p className="font-display text-3xl leading-none tracking-tight">Liked</p>
-                  <p className="text-xs text-white/50 mt-1.5">{profileSettled ? `${stats.likedSongs} tracks in rotation` : '—'}</p>
-                </div>
-              </button>
-
-              {/* Playlists */}
-              <button
-                onClick={() => navigate('/library?tab=playlists')}
-                className="col-span-2 rounded-[20px] p-3 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex flex-col justify-between min-h-[66px]"
-              >
-                <ListMusic className="w-4 h-4 text-white/70" />
-                <div>
-                  <p className="text-sm font-bold leading-none">Playlists</p>
-                  <p className="text-[10px] text-white/40 mt-1">{profileSettled ? stats.playlists : '—'}</p>
-                </div>
-              </button>
-
-              {/* Downloads */}
-              <button
-                onClick={() => navigate('/downloads')}
-                className="col-span-2 rounded-[20px] p-3 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex flex-col justify-between min-h-[66px]"
-              >
-                <Download className="w-4 h-4 text-white/70" />
-                <div>
-                  <p className="text-sm font-bold leading-none">Offline</p>
-                  <p className="text-[10px] text-white/40 mt-1">{profileSettled ? stats.downloads : '—'}</p>
-                </div>
-              </button>
-
-              {/* Audio / EQ */}
-              <button
-                onClick={() => navigate('/settings')}
-                className="col-span-3 rounded-[20px] p-3 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex items-center gap-2.5"
-              >
-                <div className="w-8 h-8 rounded-xl bg-white/[0.06] flex items-center justify-center shrink-0">
-                  <Headphones className="w-4 h-4 text-white/80" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold leading-none">Audio</p>
-                  <p className="text-[10px] text-white/40 mt-1">EQ · Playback</p>
-                </div>
-              </button>
-
-              {/* Reviews */}
-              <button
-                onClick={() => setShowReviewsList(true)}
-                className="col-span-3 rounded-[20px] p-3 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex items-center gap-2.5"
-              >
-                <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: 'hsl(45 100% 50% / 0.15)' }}>
-                  <Star className="w-4 h-4 text-yellow-400" fill="currentColor" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-bold leading-none">Reviews</p>
-                  <p className="text-[10px] text-white/40 mt-1">Share your take</p>
-                </div>
-              </button>
-            </div>
-
-            {/* === Premium Upgrade === */}
-            {profileSettled && !isPremium && (
-              <button
-                onClick={() => navigate('/premium')}
-                className="w-full rounded-[24px] p-4 text-left relative overflow-hidden"
-                style={{
-                  background: 'linear-gradient(120deg, hsl(45 90% 50% / 0.14), hsl(var(--primary) / 0.18))',
-                  border: '1px solid hsl(45 90% 55% / 0.28)',
-                }}
-              >
-                <div className="absolute -top-10 -right-6 w-40 h-40 rounded-full opacity-40 blur-3xl" style={{ background: 'radial-gradient(circle, #fbbf24, transparent 60%)' }} />
-                <div className="relative flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg" style={{ background: 'linear-gradient(135deg, #fbbf24, #f59e0b)' }}>
-                    <Crown className="w-6 h-6 text-white" />
+                <div className="absolute inset-x-0 top-0 h-px bg-primary" />
+                <div className="relative flex h-full justify-between gap-3">
+                  <div className="flex min-w-0 flex-col justify-between">
+                    <div>
+                      <p className="inline-flex items-center gap-1.5 text-[9px] font-bold uppercase tracking-[0.24em] text-primary">
+                        <Disc3 className="h-3 w-3" /> Heavy Rotation
+                      </p>
+                      <p className="mt-2 font-display text-[25px] uppercase leading-none truncate">{listenStats.topSong || 'Start Listening'}</p>
+                      <p className="mt-1 text-xs font-medium text-muted-foreground truncate">{listenStats.topArtist || 'Your top track will appear here'}</p>
+                    </div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Open listening history</p>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-display text-lg leading-none tracking-tight">Unlock Premium</p>
-                    <p className="text-[11px] text-white/60 mt-1">Ad-free · Offline · Studio EQ · HQ Audio</p>
+                  <div className="flex h-[84px] w-[92px] shrink-0 items-end justify-center gap-1 rounded-md border border-border bg-background p-2">
+                    {meterBars.map((height, index) => (
+                      <span key={index} className="w-1 rounded-sm bg-primary/80" style={{ height: `${height}%`, animation: `uf-meter 1.${index + 2}s ease-in-out infinite alternate` }} />
+                    ))}
                   </div>
-                  <ChevronRight className="w-5 h-5 text-white/40" />
+                </div>
+              </button>
+
+              {profileTiles.map((tile) => (
+                <ProfileTile key={tile.label} {...tile} />
+              ))}
+            </section>
+
+            {!isPremium && profileSettled && (
+              <button onClick={() => navigate('/premium')} className="w-full rounded-md border border-primary/20 bg-primary/10 p-4 text-left active:scale-[0.99] transition">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <Crown className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="font-display text-lg uppercase leading-none">Unlock Full Flow</p>
+                    <p className="mt-1 text-xs text-muted-foreground truncate">Offline power · sharper audio · no friction</p>
+                  </div>
+                  <ChevronRight className="h-4 w-4 text-muted-foreground" />
                 </div>
               </button>
             )}
 
-            {/* === Menu === */}
-            <div className="rounded-[24px] overflow-hidden bg-white/[0.03] border border-white/[0.06]">
-              {profileSettled && isAdmin && (
-                <button onClick={() => navigate('/admin')} className="w-full flex items-center gap-3 px-4 py-3.5 text-left border-b border-white/[0.05] active:bg-white/[0.04]">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-primary/20"><Shield className="w-4 h-4 text-primary" /></div>
-                  <span className="flex-1 text-sm font-medium">Admin Panel</span>
-                  <ChevronRight className="w-4 h-4 text-white/30" />
-                </button>
-              )}
-              <button onClick={() => navigate('/settings')} className="w-full flex items-center gap-3 px-4 py-3.5 text-left border-b border-white/[0.05] active:bg-white/[0.04]">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/[0.06]"><Settings className="w-4 h-4 text-white/80" /></div>
-                <span className="flex-1 text-sm font-medium">Settings</span>
-                <ChevronRight className="w-4 h-4 text-white/30" />
+            <section className="overflow-hidden rounded-md border border-border bg-card">
+              {isAdmin && <ProfileRow icon={Shield} label="Admin Panel" detail="review controls" onClick={() => navigate('/admin')} />}
+              <ProfileRow icon={Settings} label="Settings" detail="account, playback, app" onClick={() => navigate('/settings')} />
+              <ProfileRow icon={Headphones} label="Audio Settings" detail="equalizer and playback" onClick={() => navigate('/settings')} />
+              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-muted transition">
+                <div className="flex h-9 w-9 items-center justify-center rounded-md bg-destructive/10 text-destructive">
+                  <LogOut className="h-4 w-4" />
+                </div>
+                <span className="flex-1 text-sm font-semibold text-destructive">Sign Out</span>
               </button>
-              <button onClick={handleLogout} className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-white/[0.04]">
-                <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-destructive/15"><LogOut className="w-4 h-4 text-destructive" /></div>
-                <span className="flex-1 text-sm font-medium text-destructive">Sign Out</span>
-              </button>
-            </div>
-
-            {/* Footer signature */}
-            <p className="text-center text-[9px] font-black uppercase tracking-[0.32em] text-white/25 pt-3 pb-2">
-              — Univers Flow —
-            </p>
+            </section>
           </div>
         </main>
 
         <BottomNav />
-        <ReviewModal isOpen={showReview} onClose={() => setShowReview(false)} />
-        <ReviewsSheet
-          isOpen={showReviewsList}
-          onClose={() => setShowReviewsList(false)}
-          onWriteReview={() => { setShowReviewsList(false); setTimeout(() => setShowReview(true), 250); }}
-        />
         {user && (
           <AvatarPickerModal
             isOpen={showAvatarPicker}
             onClose={() => setShowAvatarPicker(false)}
             userId={user.id}
             currentAvatar={profileData.avatar_url}
-            onSaved={(id) => setProfileData(prev => ({ ...prev, avatar_url: id }))}
+            onSaved={(id) => setProfileData((prev) => ({ ...prev, avatar_url: id }))}
           />
         )}
       </div>
     </TabTransition>
   );
 };
+
+type TileProps = {
+  label: string;
+  value: string;
+  detail: string;
+  icon: LucideIcon;
+  action: () => void;
+  className: string;
+  featured?: boolean;
+};
+
+const ProfileTile = ({ label, value, detail, icon: Icon, action, className, featured }: TileProps) => (
+  <button
+    onClick={action}
+    className={`${className} relative overflow-hidden rounded-md border p-3 text-left active:scale-[0.98] transition ${featured ? 'border-primary/25 bg-primary/10' : 'border-border bg-card'}`}
+  >
+    <div className="flex h-full flex-col justify-between gap-3">
+      <div className="flex items-center justify-between gap-2">
+        <Icon className={`h-4 w-4 ${featured ? 'text-primary' : 'text-muted-foreground'}`} fill={featured ? 'currentColor' : 'none'} />
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">{value}</span>
+      </div>
+      <div className="min-w-0">
+        <p className={`${featured ? 'font-display text-[30px] uppercase leading-none' : 'text-sm font-bold leading-none'} truncate`}>{label}</p>
+        <p className="mt-1 text-[10px] font-medium text-muted-foreground truncate">{detail}</p>
+      </div>
+    </div>
+  </button>
+);
+
+const ProfileMicroStat = ({ label, value }: { label: string; value: string }) => (
+  <div className="rounded-md border border-border bg-background px-2 py-2">
+    <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-muted-foreground truncate">{label}</p>
+    <p className="mt-1 font-display text-base uppercase leading-none truncate">{value}</p>
+  </div>
+);
+
+type RowIcon = LucideIcon;
+
+const ProfileRow = ({ icon: Icon, label, detail, onClick }: { icon: RowIcon; label: string; detail: string; onClick: () => void }) => (
+  <button onClick={onClick} className="w-full flex items-center gap-3 border-b border-border px-4 py-3.5 text-left active:bg-muted transition">
+    <div className="flex h-9 w-9 items-center justify-center rounded-md bg-background text-muted-foreground">
+      <Icon className="h-4 w-4" />
+    </div>
+    <div className="min-w-0 flex-1">
+      <p className="text-sm font-semibold leading-none truncate">{label}</p>
+      <p className="mt-1 text-[10px] font-medium text-muted-foreground truncate">{detail}</p>
+    </div>
+    <ChevronRight className="h-4 w-4 text-muted-foreground" />
+  </button>
+);
 
 export default Profile;
