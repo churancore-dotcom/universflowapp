@@ -124,7 +124,7 @@ const MiniPlayer = memo(function MiniPlayer() {
     setTimeout(() => setIsDragging(false), 100);
   }, [setExpanded, handleNextSong, handlePrevSong]);
 
-  if (!currentSong || lockscreenVisible) return null;
+  if (!currentSong || lockscreenVisible || isExpanded) return null;
 
   const progressPercent = duration > 0 && isFinite(progress) && isFinite(duration) 
     ? Math.min(100, Math.max(0, (progress / duration) * 100)) 
