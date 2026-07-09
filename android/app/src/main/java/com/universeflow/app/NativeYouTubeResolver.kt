@@ -74,9 +74,47 @@ object NativeYouTubeResolver {
     }
 
     // ── visitorData: session identifier that makes InnerTube trust us. ─────
-    // Fetched from the response header `X-Goog-Visitor-Id` of any InnerTube
-    // call, or from the ytcfg block on youtube.com. Cached for process life.
+    // Persisted to SharedPreferences so cold starts skip the extra sw.js_data
+    // fetch (~400-800ms) before the first play after app launch.
+    private const val VISITOR_PREFS = "uf_innertube"
+    private const val VISITOR_KEY = "visitor_data"
+    private const val VISITOR_TS_KEY = "visitor_ts"
+    private const val VISITOR_MAX_AGE_MS = 30L * 24L * 60L * 60L * 1000L // 30d
+
     @Volatile private var visitorData: String? = null
+    @Volatile private var appContext: android.content.Context? = null
+
+    /** Called from InnerTubePlugin.load() / ExoPlayerPlugin.load(). */
+    fun attach(ctx: android.content.Context) {
+        if (appContext == null) {
+            appContext = ctx.applicationContext
+            try {
+                val prefs = ctx.applicationContext.getSharedPreferences(VISITOR_PREFS, android.content.Context.MODE_PRIVATE)
+                val v = prefs.getString(VISITOR_KEY, null)
+                val ts = prefs.getLong(VISITOR_TS_KEY, 0L)
+                if (!v.isNullOrBlank() && System.currentTimeMillis() - ts < VISITOR_MAX_AGE_MS) {
+                    visitorData = v
+                    Log.d(TAG, "rehydrated visitorData from disk")
+                }
+            } catch (_: Throwable) { /* best effort */ }
+        }
+    }
+
+    private fun persistVisitorData(v: String) {
+        val ctx = appContext ?: return
+        try {
+            ctx.getSharedPreferences(VISITOR_PREFS, android.content.Context.MODE_PRIVATE)
+                .edit()
+                .putString(VISITOR_KEY, v)
+                .putLong(VISITOR_TS_KEY, System.currentTimeMillis())
+                .apply()
+        } catch (_: Throwable) { /* best effort */ }
+    }
+
+    private fun setVisitorData(v: String) {
+        visitorData = v
+        persistVisitorData(v)
+    }
 
     private fun fetchVisitorData(): String? {
         visitorData?.let { return it }
@@ -88,14 +126,10 @@ object NativeYouTubeResolver {
                 .build()
             http.newCall(req).execute().use { resp ->
                 val body = resp.body?.string() ?: return null
-                // Response starts with `)]}'` XSSI prefix; strip and parse.
                 val json = body.substringAfter(")]}'").trim()
-                // visitorData appears as `["<visitor-data-b64>"]` inside a
-                // nested structure — a simple regex is sufficient and matches
-                // the field regardless of layout changes.
                 val m = Regex("\"([A-Za-z0-9_%\\-]{40,})\"").find(json)
                 val v = m?.groupValues?.get(1)
-                if (v != null) visitorData = v
+                if (v != null) setVisitorData(v)
                 v
             }
         } catch (_: Throwable) { null }
@@ -115,8 +149,10 @@ object NativeYouTubeResolver {
                         .build(),
                 ).execute().use { /* drain */ }
             } catch (_: Throwable) { /* best effort */ }
-            // Prefetch visitorData so first resolve doesn't pay for it.
-            try { fetchVisitorData() } catch (_: Throwable) {}
+            // Only pay the network cost if no persisted value survived.
+            if (visitorData == null) {
+                try { fetchVisitorData() } catch (_: Throwable) {}
+            }
         }.start()
     }
 
