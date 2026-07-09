@@ -27,15 +27,6 @@ function fmtShort(iso?: string | null) {
     ' · ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function countdownText(target: Date) {
-  const diff = target.getTime() - Date.now();
-  if (diff <= 0) return 'You can re-submit now.';
-  const days = Math.floor(diff / 86_400_000);
-  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
-  if (days > 0) return `${days}d ${hours}h until re-submit`;
-  const mins = Math.floor((diff % 3_600_000) / 60_000);
-  return `${hours}h ${mins}m until re-submit`;
-}
 
 export default function ArtistStatus() {
   const { user, isLoading } = useAuth();
