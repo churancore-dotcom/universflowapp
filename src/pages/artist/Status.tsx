@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import {
-  getArtistReapplyState, getMyApplication,
+  getMyApplication,
   type ArtistApplicationSafe, type ArtistAppStatus,
 } from '@/lib/artist';
 import { toast } from 'sonner';
@@ -27,15 +27,6 @@ function fmtShort(iso?: string | null) {
     ' · ' + d.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
 }
 
-function countdownText(target: Date) {
-  const diff = target.getTime() - Date.now();
-  if (diff <= 0) return 'You can re-submit now.';
-  const days = Math.floor(diff / 86_400_000);
-  const hours = Math.floor((diff % 86_400_000) / 3_600_000);
-  if (days > 0) return `${days}d ${hours}h until re-submit`;
-  const mins = Math.floor((diff % 3_600_000) / 60_000);
-  return `${hours}h ${mins}m until re-submit`;
-}
 
 export default function ArtistStatus() {
   const { user, isLoading } = useAuth();
@@ -195,15 +186,6 @@ export default function ArtistStatus() {
   }
 
   const status = app.status as ArtistAppStatus;
-  const reapply = status === 'rejected' ? getArtistReapplyState(app) : null;
-
-  const goToReapply = () => {
-    if (!reapply?.canReapply) {
-      toast.error(reapply?.waitText || 'You can re-submit 7 days after rejection.');
-      return;
-    }
-    navigate('/artist/apply?mode=reapply');
-  };
 
   // Status hero copy
   const hero = status === 'approved'
@@ -216,8 +198,8 @@ export default function ArtistStatus() {
     : status === 'rejected'
       ? {
           eyebrow: 'Not approved',
-          title: 'A reviewer flagged something.',
-          sub: 'Read the note below, fix what they mentioned, and re-submit when the cooldown ends.',
+          title: 'This application was not approved.',
+          sub: 'Each account gets one artist application. If you believe this decision was wrong, contact our team below and we\'ll take another look.',
           accent: '#FB7185',
         }
       : {
@@ -306,36 +288,33 @@ export default function ArtistStatus() {
               Note from review team
             </p>
             <p className="text-[14px] text-foreground/90 leading-relaxed font-display italic">
-              "{app.admin_note || 'Your ID, selfie, face check, or artist links did not pass review. Please re-submit with clearer documents and verifiable links.'}"
+              "{app.admin_note || 'Your selfie, face check, or artist platform links did not pass review.'}"
             </p>
-            {reapply?.reapplyAt && (
-              <div className="mt-4 rounded-2xl p-3.5 flex items-center gap-3"
-                style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.18)' }}>
-                <div className="w-9 h-9 rounded-full grid place-items-center bg-amber-500/15 text-amber-300 shrink-0">
-                  <RotateCw className="w-4 h-4" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="text-[12.5px] font-semibold text-amber-100 tabular-nums">
-                    {countdownText(reapply.reapplyAt)}
-                  </p>
-                  <p className="text-[11.5px] text-amber-100/70 truncate">
-                    Available {reapply.reapplyAt.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}
-                  </p>
-                </div>
+            <div className="mt-4 rounded-2xl p-3.5 flex items-start gap-3"
+              style={{ background: 'rgba(251,191,36,0.07)', border: '1px solid rgba(251,191,36,0.18)' }}>
+              <div className="w-9 h-9 rounded-full grid place-items-center bg-amber-500/15 text-amber-300 shrink-0">
+                <ShieldCheck className="w-4 h-4" />
               </div>
-            )}
-            <Button
-              className="mt-4 w-full h-12 rounded-xl text-[14px] font-semibold text-white"
-              style={{ background: reapply?.canReapply ? '#FF2D55' : 'rgba(255,255,255,0.06)', color: reapply?.canReapply ? '#fff' : 'rgba(255,255,255,0.4)' }}
-              disabled={!reapply?.canReapply}
-              onClick={goToReapply}
+              <div className="flex-1 min-w-0">
+                <p className="text-[12.5px] font-semibold text-amber-100">
+                  One application per account
+                </p>
+                <p className="text-[11.5px] text-amber-100/75 leading-snug mt-0.5">
+                  Universflow only allows a single artist application per user. If this was decided in error, our team can review it manually.
+                </p>
+              </div>
+            </div>
+            <a
+              href="mailto:universflow.in@gmail.com?subject=Artist%20verification%20appeal"
+              className="mt-4 w-full h-12 rounded-xl text-[14px] font-semibold text-white flex items-center justify-center gap-1.5"
+              style={{ background: '#FF2D55', boxShadow: '0 12px 30px rgba(255,45,85,0.35)' }}
             >
-              <RotateCw className="w-4 h-4 mr-1.5" /> Re-submit verification
-            </Button>
+              Contact review team <ArrowRight className="w-4 h-4" />
+            </a>
             <p className="mt-3 text-[11.5px] text-center text-muted-foreground/80 leading-relaxed">
-              Think this decision was wrong? Reach us at{' '}
-              <a href="mailto:universflow.in@gmail.com" className="text-primary underline">universflow.in@gmail.com</a>
+              Or email <a href="mailto:universflow.in@gmail.com" className="text-primary underline">universflow.in@gmail.com</a> directly.
             </p>
+
           </BentoCard>
         )}
 
