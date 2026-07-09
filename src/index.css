@@ -211,6 +211,11 @@
   .uf-peach-text {
     color: hsl(18 100% 82%);
   }
+
+  @keyframes uf-meter {
+    0% { transform: scaleY(0.55); opacity: 0.55; }
+    100% { transform: scaleY(1); opacity: 1; }
+  }
   
 
 

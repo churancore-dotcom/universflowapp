@@ -22,6 +22,7 @@ import {
   X,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import type { LucideIcon } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
@@ -211,7 +212,7 @@ const Profile = () => {
       setIsEditingUsername(false);
       toast.success('Username set');
     } catch (error) {
-      toast.error(error.message || 'Failed to update username');
+      toast.error(error instanceof Error ? error.message : 'Failed to update username');
     } finally {
       setIsSaving(false);
     }
@@ -487,7 +488,7 @@ type TileProps = {
   label: string;
   value: string;
   detail: string;
-  icon: typeof Heart;
+  icon: LucideIcon;
   action: () => void;
   className: string;
   featured?: boolean;
@@ -518,7 +519,7 @@ const ProfileMicroStat = ({ label, value }: { label: string; value: string }) =>
   </div>
 );
 
-type RowIcon = typeof Settings;
+type RowIcon = LucideIcon;
 
 const ProfileRow = ({ icon: Icon, label, detail, onClick }: { icon: RowIcon; label: string; detail: string; onClick: () => void }) => (
   <button onClick={onClick} className="w-full flex items-center gap-3 border-b border-border px-4 py-3.5 text-left active:bg-muted transition">
