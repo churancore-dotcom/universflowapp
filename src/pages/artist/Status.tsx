@@ -195,15 +195,6 @@ export default function ArtistStatus() {
   }
 
   const status = app.status as ArtistAppStatus;
-  const reapply = status === 'rejected' ? getArtistReapplyState(app) : null;
-
-  const goToReapply = () => {
-    if (!reapply?.canReapply) {
-      toast.error(reapply?.waitText || 'You can re-submit 7 days after rejection.');
-      return;
-    }
-    navigate('/artist/apply?mode=reapply');
-  };
 
   // Status hero copy
   const hero = status === 'approved'
@@ -216,8 +207,8 @@ export default function ArtistStatus() {
     : status === 'rejected'
       ? {
           eyebrow: 'Not approved',
-          title: 'A reviewer flagged something.',
-          sub: 'Read the note below, fix what they mentioned, and re-submit when the cooldown ends.',
+          title: 'This application was not approved.',
+          sub: 'Each account gets one artist application. If you believe this decision was wrong, contact our team below and we\'ll take another look.',
           accent: '#FB7185',
         }
       : {
