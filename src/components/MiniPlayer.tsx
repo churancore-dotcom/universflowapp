@@ -30,6 +30,7 @@ const MiniPlayer = memo(function MiniPlayer() {
   const {
     currentSong,
     isPlaying,
+    isExpanded,
     togglePlay,
     nextSong,
     prevSong,
