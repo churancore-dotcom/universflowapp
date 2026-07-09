@@ -219,12 +219,16 @@ const MiniPlayer = memo(function MiniPlayer() {
           </div>
 
           <div className="relative z-10 flex items-center gap-3 p-2">
-            {/* Album Art with crossfade */}
-            <div className="relative w-12 h-12 flex-shrink-0">
+            {/* Album Art with shared-layout morph to fullscreen */}
+            <motion.div
+              layoutId="uf-player-art"
+              className="relative w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden shadow-lg bg-muted"
+              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+            >
               <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div 
+                <motion.div
                   key={currentSong.id}
-                  className="absolute inset-0 w-full h-full rounded-xl overflow-hidden shadow-lg bg-muted"
+                  className="absolute inset-0 w-full h-full"
                   variants={albumArtVariants}
                   initial="initial"
                   animate="animate"
@@ -245,7 +249,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                   )}
                 </motion.div>
               </AnimatePresence>
-            </div>
+            </motion.div>
             
             {/* Song info with crossfade */}
             <div className="flex-1 min-w-0 pr-0 relative min-h-[2.5rem] flex flex-col justify-center">
