@@ -3,7 +3,7 @@
 // supabase function: mcp
 // Bundled from src/lib/mcp/index.ts by @lovable.dev/mcp-js.
 // src/lib/mcp/index.ts
-import { defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
+import { auth, defineMcp } from "npm:@lovable.dev/mcp-js@0.20.0";
 
 // src/lib/mcp/tools/search-tracks.ts
 import { defineTool } from "npm:@lovable.dev/mcp-js@0.20.0";
@@ -103,11 +103,16 @@ var get_artist_default = defineTool3({
 });
 
 // src/lib/mcp/index.ts
+var projectRef = "kzaeahjeqlihmxrfhjqd";
 var mcp_default = defineMcp({
   name: "universflow-mcp",
   title: "Univers Flow MCP",
   version: "0.1.0",
   instructions: "Tools for the Univers Flow music app. Use search_tracks to find songs, get_trending for the chart, and get_artist to fetch an artist's public profile.",
+  auth: auth.oauth.issuer({
+    issuer: `https://${projectRef}.supabase.co/auth/v1`,
+    acceptedAudiences: "authenticated"
+  }),
   tools: [search_tracks_default, trending_default, get_artist_default]
 });
 

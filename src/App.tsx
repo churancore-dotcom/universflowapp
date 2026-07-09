@@ -117,6 +117,9 @@ const LegalPrivacy = lazy(() => import("./pages/legal/Privacy"));
 const LegalArtistTerms = lazy(() => import("./pages/legal/ArtistTerms"));
 const LegalArtistPrivacy = lazy(() => import("./pages/legal/ArtistPrivacy"));
 
+// OAuth consent (MCP server)
+const OAuthConsent = lazy(() => import("./pages/OAuthConsent"));
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -313,6 +316,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           <Route path="/verify" element={<VerifyEmail />} />
           <Route path="/check-email" element={<CheckEmail />} />
           <Route path="/offline-player" element={<OfflinePlayerShell />} />
+          <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
           <Route path="/home" element={<Navigate to="/" replace />} />
           <Route path="/search" element={<ListenerRoute><Search /></ListenerRoute>} />
           <Route path="/library" element={<ListenerRoute><Library /></ListenerRoute>} />
