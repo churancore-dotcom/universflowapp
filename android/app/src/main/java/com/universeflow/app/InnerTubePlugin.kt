@@ -16,6 +16,7 @@ import com.getcapacitor.annotation.CapacitorPlugin
 class InnerTubePlugin : Plugin() {
     override fun load() {
         super.load()
+        NativeYouTubeResolver.attach(context)
         NativeYouTubeResolver.warm()
     }
 
