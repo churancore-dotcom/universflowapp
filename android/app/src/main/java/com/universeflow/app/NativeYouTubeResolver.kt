@@ -349,7 +349,7 @@ object NativeYouTubeResolver {
         http.newCall(req).execute().use { resp ->
             // Opportunistically pick up visitorData if the server issued one.
             if (visitorData == null) {
-                resp.header("X-Goog-Visitor-Id")?.let { visitorData = it }
+                resp.header("X-Goog-Visitor-Id")?.let { setVisitorData(it) }
             }
             if (!resp.isSuccessful) return null
             val raw = resp.body?.string() ?: return null
