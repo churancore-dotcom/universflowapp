@@ -89,7 +89,7 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
     refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
       const raw = await searchYouTubeMusicTracks(freshQuery, Math.max(limit, 60));
-      const tracks = cleanTracks(raw);
+      const tracks = cleanTracks(raw, true);
       const out: Song[] = [];
       for (const t of tracks) {
         const s = toSong(t);
@@ -111,7 +111,7 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
     refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
       const raw = await getYouTubeMusicNewReleases(country, Math.max(limit, 60));
-      const tracks = cleanTracks(raw);
+      const tracks = cleanTracks(raw, true);
       const out: Song[] = [];
       for (const t of tracks) {
         const s = toSong(t);
