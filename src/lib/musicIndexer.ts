@@ -297,6 +297,60 @@ export async function getYouTubeMusicNewReleases(country = 'US', limit = 24): Pr
   });
 }
 
+export interface YtmCharts {
+  top: IndexedTrack[];
+  trending: IndexedTrack[];
+  videos: IndexedTrack[];
+  country: string;
+}
+
+interface YoutubeChartsResponse {
+  success: boolean;
+  top?: IndexedTrack[];
+  trending?: IndexedTrack[];
+  videos?: IndexedTrack[];
+  country?: string;
+  error?: string;
+}
+
+// Real YouTube Music Charts (FEmusic_charts) per country. Same source that
+// music.youtube.com/charts renders; refreshes daily on YT's side.
+export async function getYouTubeMusicCharts(country = 'US', limit = 40): Promise<YtmCharts> {
+  const cc = /^[A-Z]{2}$/.test(country.toUpperCase()) ? country.toUpperCase() : 'US';
+  const cacheKey = `ytm-charts::${cc}::${limit}`;
+  const memHit = chartsMemCache.get(cacheKey);
+  const now = Date.now();
+  if (memHit && memHit.expiresAt > now) return memHit.data;
+  const inflight = chartsInflight.get(cacheKey);
+  if (inflight) return inflight;
+  const p = (async () => {
+    try {
+      const data = await requestFunction<YoutubeChartsResponse>('yt-music-search', {
+        mode: 'charts',
+        country: cc,
+        limit,
+      });
+      const out: YtmCharts = {
+        top: Array.isArray(data.top) ? data.top : [],
+        trending: Array.isArray(data.trending) ? data.trending : [],
+        videos: Array.isArray(data.videos) ? data.videos : [],
+        country: data.country || cc,
+      };
+      chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
+      return out;
+    } catch {
+      return { top: [], trending: [], videos: [], country: cc } as YtmCharts;
+    } finally {
+      chartsInflight.delete(cacheKey);
+    }
+  })();
+  chartsInflight.set(cacheKey, p);
+  return p;
+}
+
+const chartsMemCache = new Map<string, { data: YtmCharts; expiresAt: number }>();
+const chartsInflight = new Map<string, Promise<YtmCharts>>();
+
 // Session-level cache for Global Top tracks so they don't refetch every time
 // the user navigates back to Home. Survives across mounts during the session;
 // localStorage layer survives across reloads (TTL 30 minutes).
