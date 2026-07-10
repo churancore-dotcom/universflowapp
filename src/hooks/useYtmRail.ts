@@ -35,9 +35,10 @@ export function useYtmRail(query: string, options: YtmRailOptions = {}) {
     staleTime: staleMinutes * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
-      const results = await searchYouTubeMusicTracks(query, limit);
+      const results = await searchYouTubeMusicTracks(query, Math.max(limit, 50));
       return results
-        .filter((t) => t.id && t.title && t.artist)
+        .filter((t) => t.id && t.title && t.artist && !isSpam(t.title, t.artist))
+        .slice(0, limit)
         .map((t) => ({
           id: t.id,
           title: t.title,
