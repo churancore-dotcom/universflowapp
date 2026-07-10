@@ -19,11 +19,15 @@ const CountryViralSection = memo(function CountryViralSection() {
   const { data: charts, isLoading: loading } = useYtmCharts(country);
 
   const tracks = useMemo(() => {
+    // Prefer real "Trending / fastest-rising" shelf; fall back to Videos so
+    // the rail never duplicates Trending Now (which uses Top Songs).
     const pool = (charts?.trending?.length ? charts.trending
       : charts?.videos?.length ? charts.videos
-      : charts?.top ?? []) as Song[];
-    const clean = pool.filter((s) => !isSpamSong(s));
-    // Dedupe by id and cap the rail.
+      : []) as Song[];
+    // Exclude anything already in Top Songs (rendered by TrendingNow) so the
+    // two rails never repeat the exact same tracks.
+    const topIds = new Set((charts?.top ?? []).map((s) => s.id));
+    const clean = pool.filter((s) => !isSpamSong(s) && !topIds.has(s.id));
     const seen = new Set<string>();
     const out: Song[] = [];
     for (const s of clean) {
