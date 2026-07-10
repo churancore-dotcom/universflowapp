@@ -88,16 +88,13 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
     refetchOnWindowFocus: isFreshRail,
     refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
-      const tracks = await searchYouTubeMusicTracks(freshQuery, Math.max(limit, 40));
-      const seen = new Set<string>();
+      const raw = await searchYouTubeMusicTracks(freshQuery, Math.max(limit, 60));
+      const tracks = cleanTracks(raw);
       const out: Song[] = [];
       for (const t of tracks) {
-        if (seen.has(t.id)) continue;
-        seen.add(t.id);
         const s = toSong(t);
         if (s) out.push(s);
       }
-      // Reshuffle per session so rails don't repeat identical order.
       return seededShuffle(out).slice(0, limit);
     },
   });
