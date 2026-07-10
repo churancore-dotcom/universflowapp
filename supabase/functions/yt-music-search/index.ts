@@ -565,6 +565,28 @@ serve(async (req) => {
       });
     }
 
+    if (mode === 'charts') {
+      const gl = typeof country === 'string' && /^[A-Z]{2}$/i.test(country) ? country.toUpperCase() : 'US';
+      const buckets = await getYouTubeMusicCharts(gl);
+      const top = buckets.top.slice(0, limit);
+      const trending = buckets.trending.slice(0, limit);
+      const videos = buckets.videos.slice(0, limit);
+      const all = [...top, ...trending, ...videos];
+      if (all.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: 'Charts unavailable' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Persist all real chart tracks so the resolver can use their metadata.
+      await persistSearchResults(adminClient, all);
+      return new Response(JSON.stringify({
+        success: true,
+        source: 'youtube-music-charts',
+        country: chartsCountryOrGlobal(gl),
+        top, trending, videos,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
       return new Response(JSON.stringify({ success: false, error: 'A search query is required' }), {
         status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
