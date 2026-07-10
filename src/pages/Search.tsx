@@ -52,8 +52,9 @@ const SPAM_RESULT_PATTERNS = [
 const SPAM_ARTIST_PATTERNS = [
   /\b(speed\s*songs?|slowed\s*songs?|reverb\s*nation|nightcore|lofi\s*girl|ai\s*cover|topic\s*music|music\s*lover\s*\d+)\b/i,
   /\b(remix\s*king|remix\s*world|karaoke\s*world|cover\s*world|status\s*king|whatsapp\s*status)\b/i,
-  /\b(7clouds|cloudx|wave\s*music|unique\s*vibes|lyrics?|lyrical|lyric\s*zone|status|ringtone|sped\s*up|slowed)\b/i,
+  /\b(7clouds|cloudx|wave\s*music\s*unofficial|unique\s*vibes\s*mix|lyric\s*zone|ringtone\s*world|sped\s*up|slowed\s*and\s*reverb)\b/i,
 ];
+
 
 const ilikeSafeTerm = (value: string) => value.replace(/[%_,()]/g, ' ').replace(/\s+/g, ' ').trim();
 const ilikePattern = (value: string) => `%${ilikeSafeTerm(value)}%`;
