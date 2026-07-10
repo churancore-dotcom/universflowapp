@@ -2,6 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 import { searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import type { Song } from '@/contexts/PlayerContext';
 
+// Same spam filter used in ytmRails — keep in sync.
+const SPAM_ARTIST_RX = /(?:^|\b)(?:ai[\s-]*v[\s-]*series|v[\s-]*series official|single track studio|sawnta films|jazz grik|t-series junior|new song[s]? channel|hindi songs? channel|gaurav mali|vatsal bhoya)/i;
+const SPAM_TITLE_HINT_RX = /(?:new (?:hindi|punjabi|haryanvi|bhojpuri|tamil|telugu|bollywood) songs?|new song 20\d{2}|full video song|official video song 20\d{2})/i;
+function isSpam(title = '', artist = ''): boolean {
+  if (!title || !artist) return true;
+  const pipes = (title.match(/\|/g) || []).length;
+  if (pipes >= 3) return true;
+  if (pipes >= 2 && SPAM_TITLE_HINT_RX.test(title)) return true;
+  if (SPAM_ARTIST_RX.test(artist)) return true;
+  if (title.length > 90) return true;
+  return false;
+}
+
 export interface YtmRailOptions {
   limit?: number;
   staleMinutes?: number;
@@ -22,9 +35,10 @@ export function useYtmRail(query: string, options: YtmRailOptions = {}) {
     staleTime: staleMinutes * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
-      const results = await searchYouTubeMusicTracks(query, limit);
+      const results = await searchYouTubeMusicTracks(query, Math.max(limit, 50));
       return results
-        .filter((t) => t.id && t.title && t.artist)
+        .filter((t) => t.id && t.title && t.artist && !isSpam(t.title, t.artist))
+        .slice(0, limit)
         .map((t) => ({
           id: t.id,
           title: t.title,
