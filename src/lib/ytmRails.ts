@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getYouTubeMusicCharts, getYouTubeMusicNewReleases, searchYouTubeMusicTracks, type YtmCharts, type IndexedTrack } from '@/lib/musicIndexer';
+import { getYouTubeMusicCharts, getYouTubeMusicNewReleases, searchYouTubeMusicTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import type { Song } from '@/contexts/PlayerContext';
 
 /** Convert a YTM IndexedTrack to the app's Song shape. */
@@ -16,11 +16,24 @@ function toSong(t: { id: string; title?: string; artist?: string; album?: string
   } as Song;
 }
 
+// Session-stable random seed so each app open reshuffles rails, but they stay
+// stable while the user scrolls. Prevents "same songs in the same order".
+let SESSION_SEED = Math.floor(Math.random() * 1_000_000);
+function seededShuffle<T>(arr: T[], seed = SESSION_SEED): T[] {
+  const out = arr.slice();
+  let s = seed || 1;
+  for (let i = out.length - 1; i > 0; i--) {
+    s = (s * 9301 + 49297) % 233280;
+    const j = Math.floor((s / 233280) * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
+// Refresh rails every hour, not every day → real "trending / new" behaviour.
+function hourBucket() { return Math.floor(Date.now() / (60 * 60 * 1000)); }
+
 export function useYtmRail(key: string, query: string, limit = 20, enabled = true) {
-  // Bucket by day so trending rails silently rotate every 24h without hammering the network.
-  const dayBucket = Math.floor(Date.now() / (24 * 60 * 60 * 1000));
-  // Append time-sensitive freshness terms for trending/viral/new queries so YTM returns
-  // genuinely fresh results instead of the same cached playlist week after week.
   const isFreshRail = /trending|viral|top|new|fresh|chart/i.test(key) || /trending|viral|top songs|new/i.test(query);
   const currentYear = new Date().getFullYear();
   const freshQuery = isFreshRail
@@ -28,17 +41,16 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
     : query;
 
   return useQuery({
-    queryKey: ['ytm-rail', key, query, limit, isFreshRail ? dayBucket : 'static'],
+    queryKey: ['ytm-rail-v2', key, query, limit, isFreshRail ? hourBucket() : 'static'],
     enabled,
-    // Trending/viral: 20-min stale so fresh drops appear same-session. Static: 30-min.
-    staleTime: isFreshRail ? 20 * 60 * 1000 : 30 * 60 * 1000,
+    // Trending/viral: 10-min stale so new drops surface fast. Static: 30-min.
+    staleTime: isFreshRail ? 10 * 60 * 1000 : 30 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
-    // Auto-refresh trending in the background so users see new releases without reloading.
-    refetchInterval: isFreshRail ? 25 * 60 * 1000 : false,
+    refetchInterval: isFreshRail ? 15 * 60 * 1000 : false,
     refetchOnWindowFocus: isFreshRail,
     refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
-      const tracks = await searchYouTubeMusicTracks(freshQuery, limit);
+      const tracks = await searchYouTubeMusicTracks(freshQuery, Math.max(limit, 40));
       const seen = new Set<string>();
       const out: Song[] = [];
       for (const t of tracks) {
@@ -47,19 +59,23 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
         const s = toSong(t);
         if (s) out.push(s);
       }
-      return out;
+      // Reshuffle per session so rails don't repeat identical order.
+      return seededShuffle(out).slice(0, limit);
     },
   });
 }
 
 export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
   return useQuery({
-    queryKey: ['ytm-new-releases', country, limit],
+    queryKey: ['ytm-new-releases-v2', country, limit, hourBucket()],
     enabled,
-    staleTime: 30 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
+    refetchInterval: 20 * 60 * 1000,
+    refetchOnWindowFocus: true,
+    refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
-      const tracks = await getYouTubeMusicNewReleases(country, limit);
+      const tracks = await getYouTubeMusicNewReleases(country, Math.max(limit, 40));
       const seen = new Set<string>();
       const out: Song[] = [];
       for (const t of tracks) {
@@ -68,23 +84,21 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
         const s = toSong(t);
         if (s) out.push(s);
       }
-      return out;
+      return seededShuffle(out).slice(0, limit);
     },
   });
 }
 
 /**
  * Real YouTube Music Charts (FEmusic_charts) — same data music.youtube.com/charts renders.
- * Returns per-country buckets: `top` (Top Songs), `trending` (Trending / fastest-rising),
- * `videos` (Top Music Videos). Refreshes daily on YT's side; we cache 30 min.
  */
 export function useYtmCharts(country: string, enabled = true) {
   return useQuery({
-    queryKey: ['ytm-charts-v1', (country || 'US').toUpperCase()],
+    queryKey: ['ytm-charts-v2', (country || 'US').toUpperCase(), hourBucket()],
     enabled,
-    staleTime: 30 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
-    refetchInterval: 60 * 60 * 1000,
+    refetchInterval: 30 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     queryFn: async (): Promise<{ top: Song[]; trending: Song[]; videos: Song[]; country: string }> => {
@@ -101,9 +115,11 @@ export function useYtmCharts(country: string, enabled = true) {
         return out;
       };
       return {
+        // Top Songs stays ranked (users expect the #1 to be #1).
         top: toList(charts.top),
-        trending: toList(charts.trending),
-        videos: toList(charts.videos),
+        // Trending / videos shuffle per session so the rails don't feel static.
+        trending: seededShuffle(toList(charts.trending)),
+        videos: seededShuffle(toList(charts.videos)),
         country: charts.country,
       };
     },

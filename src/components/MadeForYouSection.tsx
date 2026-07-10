@@ -20,11 +20,15 @@ const MadeForYouSection = memo(() => {
     return readLocalRecent(user.id).slice(0, 5).map((r) => r.song_id).filter(Boolean);
   }, [user?.id]);
 
+  // Rotate seed pool every hour so "For You" doesn't show identical songs.
+  const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
+
   const { data: mix = [] } = useQuery({
-    queryKey: ['ytm-made-for-you-v2', user?.id ?? 'anon', recentIds.join(',')],
+    queryKey: ['ytm-made-for-you-v3', user?.id ?? 'anon', recentIds.join(','), hourBucket],
     enabled: !!user,
-    staleTime: 30 * 60 * 1000,
+    staleTime: 15 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
+    refetchInterval: 20 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
       let seedQueries: string[] = [];
       if (recentIds.length) {
@@ -41,9 +45,28 @@ const MadeForYouSection = memo(() => {
         const uniq = [...new Set(seeds)].slice(0, 3);
         seedQueries = uniq.map((s) => `${s} official music mix`);
       }
-      if (!seedQueries.length) seedQueries = ['india top songs this week official music'];
+      if (!seedQueries.length) {
+        // Rotating diverse fallback pool — no more static "india top songs".
+        const currentYear = new Date().getFullYear();
+        const POOL = [
+          `top hits ${currentYear} official`,
+          `new music this week official`,
+          `viral songs ${currentYear}`,
+          `indie pop mix ${currentYear}`,
+          `hip hop hits ${currentYear}`,
+          `chill songs official mix`,
+          `latest bollywood hits ${currentYear}`,
+          `punjabi hits ${currentYear}`,
+          `rnb slow jams ${currentYear}`,
+          `edm dance hits ${currentYear}`,
+        ];
+        // Deterministic rotation by hour so users get a stable set within
+        // the hour, but a different set each hour of the day.
+        const start = hourBucket % POOL.length;
+        seedQueries = [POOL[start], POOL[(start + 3) % POOL.length], POOL[(start + 7) % POOL.length]];
+      }
 
-      const perQuery = Math.max(8, Math.ceil(20 / seedQueries.length));
+      const perQuery = Math.max(8, Math.ceil(24 / seedQueries.length));
       const settled = await Promise.allSettled(seedQueries.map((q) => searchYouTubeMusicTracks(q, perQuery)));
       const seen = new Set<string>();
       const out: Song[] = [];
@@ -66,6 +89,11 @@ const MadeForYouSection = memo(() => {
           if (out.length >= 18) break;
         }
         if (out.length >= 18) break;
+      }
+      // Light shuffle so the hero card isn't always the same track.
+      for (let i = out.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [out[i], out[j]] = [out[j], out[i]];
       }
       return out;
     },
