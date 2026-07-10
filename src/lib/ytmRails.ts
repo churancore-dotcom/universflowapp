@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getYouTubeMusicNewReleases, searchYouTubeMusicTracks } from '@/lib/musicIndexer';
+import { getYouTubeMusicCharts, getYouTubeMusicNewReleases, searchYouTubeMusicTracks, type YtmCharts, type IndexedTrack } from '@/lib/musicIndexer';
 import type { Song } from '@/contexts/PlayerContext';
 
 /** Convert a YTM IndexedTrack to the app's Song shape. */
