@@ -137,11 +137,9 @@ export function useYtmCharts(country: string, enabled = true) {
     queryFn: async (): Promise<{ top: Song[]; trending: Song[]; videos: Song[]; country: string }> => {
       const charts = await getYouTubeMusicCharts(country, 40);
       const toList = (arr: IndexedTrack[]): Song[] => {
-        const seen = new Set<string>();
+        const cleaned = cleanTracks(arr);
         const out: Song[] = [];
-        for (const t of arr) {
-          if (seen.has(t.id)) continue;
-          seen.add(t.id);
+        for (const t of cleaned) {
           const s = toSong(t);
           if (s) out.push(s);
         }
