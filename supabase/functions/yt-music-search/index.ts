@@ -228,11 +228,9 @@ async function getYouTubeMusicCharts(gl: string): Promise<Record<'top' | 'trendi
     }
   }
 
-  // If YT didn't ship a dedicated "trending" shelf for this country, promote
-  // the tail of the top-songs shelf as a proxy so the rail is never empty.
-  if (out.trending.length === 0 && out.top.length > 10) {
-    out.trending = out.top.slice(10).concat(out.top.slice(0, 10));
-  }
+  // Do NOT auto-promote the top-songs shelf into "trending" — that made the
+  // Viral rail render the same tracks as Trending Now. Leave it empty so the
+  // client can fall back to the Videos shelf (which is a different bucket).
   return out;
 }
 
