@@ -2,44 +2,6 @@ import { useQuery } from '@tanstack/react-query';
 import { getYouTubeMusicCharts, getYouTubeMusicNewReleases, searchYouTubeMusicTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import type { Song } from '@/contexts/PlayerContext';
 
-/**
- * Spam / SEO-farm filter. YouTube "new releases" search is flooded with
- * pipe-stuffed reupload channels ("New Song 2026 | New Hindi Song | ..."
- * from AI-V-Series, Single Track Studio, Speed Records dump uploads, etc.).
- * These are NOT real releases — they are keyword-stuffed reuploads of old
- * songs or AI slop. We keep only tracks that look like a real single.
- */
-const SPAM_ARTIST_RX = /(?:^|\b)(?:ai[\s-]*v[\s-]*series|v[\s-]*series official|single track studio|sawnta films|jazz grik|t-series junior|new song[s]? channel|hindi songs? channel|gaurav mali|vatsal bhoya)/i;
-const SPAM_TITLE_HINT_RX = /(?:new (?:hindi|punjabi|haryanvi|bhojpuri|tamil|telugu|bollywood) songs?|new song 20\d{2}|full video song|official video song 20\d{2})/i;
-
-function isSpammyTrack(t: { title?: string; artist?: string }, strict = false): boolean {
-  const title = (t.title || '').trim();
-  const artist = (t.artist || '').trim();
-  if (!title || !artist) return true;
-  // Obvious spam channels — always block.
-  if (SPAM_ARTIST_RX.test(artist)) return true;
-  if (!strict) return false;
-  // Strict rules (search fallback rails only, NOT curated charts):
-  const pipeCount = (title.match(/\|/g) || []).length;
-  if (pipeCount >= 3) return true;
-  if (pipeCount >= 2 && SPAM_TITLE_HINT_RX.test(title)) return true;
-  if (title.length > 120) return true;
-  return false;
-}
-
-function cleanTracks<T extends { id: string; title?: string; artist?: string }>(tracks: T[], strict = false): T[] {
-  const seen = new Set<string>();
-  const out: T[] = [];
-  for (const t of tracks) {
-    if (!t.id || seen.has(t.id)) continue;
-    if (isSpammyTrack(t, strict)) continue;
-    seen.add(t.id);
-    out.push(t);
-  }
-  return out;
-}
-
-
 /** Convert a YTM IndexedTrack to the app's Song shape. */
 function toSong(t: { id: string; title?: string; artist?: string; album?: string; cover_url?: string; audio_url?: string; videoId?: string; duration?: number }): Song | null {
   if (!t.id || !t.title || !t.artist) return null;
@@ -88,13 +50,16 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
     refetchOnWindowFocus: isFreshRail,
     refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
-      const raw = await searchYouTubeMusicTracks(freshQuery, Math.max(limit, 60));
-      const tracks = cleanTracks(raw, true);
+      const tracks = await searchYouTubeMusicTracks(freshQuery, Math.max(limit, 40));
+      const seen = new Set<string>();
       const out: Song[] = [];
       for (const t of tracks) {
+        if (seen.has(t.id)) continue;
+        seen.add(t.id);
         const s = toSong(t);
         if (s) out.push(s);
       }
+      // Reshuffle per session so rails don't repeat identical order.
       return seededShuffle(out).slice(0, limit);
     },
   });
@@ -110,10 +75,12 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
-      const raw = await getYouTubeMusicNewReleases(country, Math.max(limit, 60));
-      const tracks = cleanTracks(raw, true);
+      const tracks = await getYouTubeMusicNewReleases(country, Math.max(limit, 40));
+      const seen = new Set<string>();
       const out: Song[] = [];
       for (const t of tracks) {
+        if (seen.has(t.id)) continue;
+        seen.add(t.id);
         const s = toSong(t);
         if (s) out.push(s);
       }
@@ -137,9 +104,11 @@ export function useYtmCharts(country: string, enabled = true) {
     queryFn: async (): Promise<{ top: Song[]; trending: Song[]; videos: Song[]; country: string }> => {
       const charts = await getYouTubeMusicCharts(country, 40);
       const toList = (arr: IndexedTrack[]): Song[] => {
-        const cleaned = cleanTracks(arr);
+        const seen = new Set<string>();
         const out: Song[] = [];
-        for (const t of cleaned) {
+        for (const t of arr) {
+          if (seen.has(t.id)) continue;
+          seen.add(t.id);
           const s = toSong(t);
           if (s) out.push(s);
         }
