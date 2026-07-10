@@ -573,9 +573,16 @@ serve(async (req) => {
       const videos = buckets.videos.slice(0, limit);
       const all = [...top, ...trending, ...videos];
       if (all.length === 0) {
-        return new Response(JSON.stringify({ success: false, error: 'Charts unavailable' }), {
-          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        // Return 200 with empty buckets so the client can silently fall back
+        // to keyword-search rails instead of surfacing a runtime error.
+        return new Response(JSON.stringify({
+          success: false,
+          fallback: true,
+          error: 'Charts unavailable',
+          source: 'youtube-music-charts',
+          country: chartsCountryOrGlobal(gl),
+          top: [], trending: [], videos: [],
+        }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
       }
       // Persist all real chart tracks so the resolver can use their metadata.
       await persistSearchResults(adminClient, all);
