@@ -110,12 +110,10 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
-      const tracks = await getYouTubeMusicNewReleases(country, Math.max(limit, 40));
-      const seen = new Set<string>();
+      const raw = await getYouTubeMusicNewReleases(country, Math.max(limit, 60));
+      const tracks = cleanTracks(raw);
       const out: Song[] = [];
       for (const t of tracks) {
-        if (seen.has(t.id)) continue;
-        seen.add(t.id);
         const s = toSong(t);
         if (s) out.push(s);
       }
