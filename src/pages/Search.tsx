@@ -52,8 +52,9 @@ const SPAM_RESULT_PATTERNS = [
 const SPAM_ARTIST_PATTERNS = [
   /\b(speed\s*songs?|slowed\s*songs?|reverb\s*nation|nightcore|lofi\s*girl|ai\s*cover|topic\s*music|music\s*lover\s*\d+)\b/i,
   /\b(remix\s*king|remix\s*world|karaoke\s*world|cover\s*world|status\s*king|whatsapp\s*status)\b/i,
-  /\b(7clouds|cloudx|wave\s*music|unique\s*vibes|lyrics?|lyrical|lyric\s*zone|status|ringtone|sped\s*up|slowed)\b/i,
+  /\b(7clouds|cloudx|wave\s*music\s*unofficial|unique\s*vibes\s*mix|lyric\s*zone|ringtone\s*world|sped\s*up|slowed\s*and\s*reverb)\b/i,
 ];
+
 
 const ilikeSafeTerm = (value: string) => value.replace(/[%_,()]/g, ' ').replace(/\s+/g, ' ').trim();
 const ilikePattern = (value: string) => `%${ilikeSafeTerm(value)}%`;
@@ -145,16 +146,21 @@ function isSpamTrack(track: IndexedTrack, query: string) {
 }
 
 // Lightweight spam check for home rails (Trending/Fresh) — no query context.
+// Keep this narrow: rails already come from curated YT Music charts, so we
+// only drop obvious junk (karaoke / sped-up / whatsapp-status / ai covers /
+// known farm channels). Do NOT block "Lyrics", "Cover", "Top", "long form"
+// etc. — those match tons of legit official releases.
+const HOME_SPAM_TITLE_RX = /\b(karaoke|instrumental|backing\s*track|sped\s*up|slowed(\s*\+?\s*reverb)?|nightcore|8\s*d\s*audio|bass\s*boost(ed)?|whatsapp\s*status|ringtone|status\s*video|ai\s*cover|ai\s*voice|jukebox|mashup|non\s*stop|mixtape|full\s*album|all\s*songs|\d+\s*(hour|hours|hr|hrs))\b/i;
 export function isSpamSong(input: { title?: string | null; artist?: string | null; album?: string | null; duration?: number | null }): boolean {
   const title = input.title || '';
   const artist = input.artist || '';
-  const haystack = `${title} ${artist} ${input.album || ''}`;
   if (!title || !artist) return true;
   const duration = Number(input.duration || 0);
-  if (duration && (duration < 75 || duration > 600)) return true;
+  if (duration && duration < 60) return true;
   if (SPAM_ARTIST_PATTERNS.some((p) => p.test(artist))) return true;
-  return SPAM_RESULT_PATTERNS.some((p) => p.test(haystack));
+  return HOME_SPAM_TITLE_RX.test(`${title} ${input.album || ''}`);
 }
+
 
 function isUploadedArtistTrack(track: IndexedTrack): track is UploadedArtistTrack {
   return (track as { source?: string }).source === 'artist_upload';
