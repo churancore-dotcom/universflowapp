@@ -6,7 +6,7 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { rerank } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
-import { useYtmRail } from '@/lib/ytmRails';
+import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { getCountryQueries } from '@/lib/countryQueries';
 
@@ -16,13 +16,20 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const { playSong, currentSong } = usePlayer();
   const taste = useTasteProfile();
   const country = useUserCountry();
+  // PRIMARY: real YouTube Music Charts (Top Songs) for this country — same
+  // data music.youtube.com/charts renders, so it's not fake or randomised.
+  const { data: charts } = useYtmCharts(country, enabled);
   const q = getCountryQueries(country);
-  const { data: pool = [] } = useYtmRail(`trending-v3-${country}`, q.trending, 36, enabled);
+  // FALLBACK ONLY: if YT hasn't shipped charts for this region, use a
+  // freshness-tagged search so the rail still has real official songs.
+  const needsFallback = enabled && (charts?.top.length ?? 0) === 0;
+  const { data: fallbackPool = [] } = useYtmRail(`trending-v3-${country}`, q.trending, 36, needsFallback);
 
   const trending = useMemo(() => {
+    const pool = charts?.top?.length ? charts.top : fallbackPool;
     const clean = pool.filter((s) => !isSpamSong(s));
     return rerank(clean, taste).slice(0, 10);
-  }, [pool, taste]);
+  }, [charts, fallbackPool, taste]);
 
 
   if (trending.length === 0) return null;

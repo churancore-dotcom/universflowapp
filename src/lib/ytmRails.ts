@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { getYouTubeMusicNewReleases, searchYouTubeMusicTracks } from '@/lib/musicIndexer';
+import { getYouTubeMusicCharts, getYouTubeMusicNewReleases, searchYouTubeMusicTracks, type YtmCharts, type IndexedTrack } from '@/lib/musicIndexer';
 import type { Song } from '@/contexts/PlayerContext';
 
 /** Convert a YTM IndexedTrack to the app's Song shape. */
@@ -69,6 +69,43 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
         if (s) out.push(s);
       }
       return out;
+    },
+  });
+}
+
+/**
+ * Real YouTube Music Charts (FEmusic_charts) — same data music.youtube.com/charts renders.
+ * Returns per-country buckets: `top` (Top Songs), `trending` (Trending / fastest-rising),
+ * `videos` (Top Music Videos). Refreshes daily on YT's side; we cache 30 min.
+ */
+export function useYtmCharts(country: string, enabled = true) {
+  return useQuery({
+    queryKey: ['ytm-charts-v1', (country || 'US').toUpperCase()],
+    enabled,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 6 * 60 * 60 * 1000,
+    refetchInterval: 60 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: true,
+    queryFn: async (): Promise<{ top: Song[]; trending: Song[]; videos: Song[]; country: string }> => {
+      const charts = await getYouTubeMusicCharts(country, 40);
+      const toList = (arr: IndexedTrack[]): Song[] => {
+        const seen = new Set<string>();
+        const out: Song[] = [];
+        for (const t of arr) {
+          if (seen.has(t.id)) continue;
+          seen.add(t.id);
+          const s = toSong(t);
+          if (s) out.push(s);
+        }
+        return out;
+      };
+      return {
+        top: toList(charts.top),
+        trending: toList(charts.trending),
+        videos: toList(charts.videos),
+        country: charts.country,
+      };
     },
   });
 }

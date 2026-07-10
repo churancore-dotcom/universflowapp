@@ -130,14 +130,110 @@ function pickThumb(thumbs: any[]): string | undefined {
   return raw.replace(/\/default\.jpg/i, '/hqdefault.jpg');
 }
 
-async function ytMusicBrowse(browseId: string, gl = 'US'): Promise<any | null> {
+async function ytMusicBrowse(browseId: string, gl = 'US', extra: Record<string, unknown> = {}): Promise<any | null> {
   const resp = await fetch('https://music.youtube.com/youtubei/v1/browse?prettyPrint=false', {
     method: 'POST',
     headers: YTM_HEADERS,
-    body: JSON.stringify({ context: ytmContext(gl), browseId }),
+    body: JSON.stringify({ context: ytmContext(gl), browseId, ...extra }),
   });
   if (!resp.ok) return null;
   return await resp.json();
+}
+
+// ─── Real YouTube Music Charts (FEmusic_charts) ───
+// Returns per-country shelves (Top songs, Trending, Top videos). YT uses a
+// "formData.selectedValues" payload to switch regions. Falls back to Global
+// when the requested country has no chart. This is the same endpoint the
+// music.youtube.com/charts page fetches, so results are real and up-to-date.
+const CHART_COUNTRIES = new Set([
+  'ZZ','AR','AU','AT','BE','BO','BR','CA','CL','CO','CR','CZ','DK','DO','EC','EG','SV','FI','FR','DE','GT','HN','HU','IS','IN','ID','IE','IL','IT','JP','KE','LU','MX','NL','NZ','NI','NG','NO','PA','PY','PE','PL','PT','RO','RU','SA','RS','ZA','KR','ES','SE','CH','TZ','TH','TR','UG','UA','AE','GB','US','UY','VE','VN','ZW'
+]);
+
+function chartsCountryOrGlobal(gl: string): string {
+  const cc = gl.toUpperCase();
+  return CHART_COUNTRIES.has(cc) ? cc : 'ZZ';
+}
+
+function extractShelfHeaderTitle(shelf: any): string {
+  return runsText(shelf?.header?.musicCarouselShelfBasicHeaderRenderer?.title)
+    || runsText(shelf?.header?.musicResponsiveHeaderRenderer?.title)
+    || '';
+}
+
+function* walkShelves(node: any): Generator<any> {
+  if (!node || typeof node !== 'object') return;
+  if (node.musicCarouselShelfRenderer) yield node.musicCarouselShelfRenderer;
+  if (node.musicShelfRenderer) yield node.musicShelfRenderer;
+  for (const k of Object.keys(node)) {
+    const v = (node as any)[k];
+    if (v && typeof v === 'object') yield* walkShelves(v);
+  }
+}
+
+function classifyShelf(title: string): 'top' | 'trending' | 'videos' | 'artists' | 'other' {
+  const t = title.toLowerCase();
+  if (/(video)/.test(t)) return 'videos';
+  if (/(trending|movers|shakers|fast[- ]rising|viral)/.test(t)) return 'trending';
+  if (/(artist)/.test(t)) return 'artists';
+  if (/(song|track|hit|chart|top)/.test(t)) return 'top';
+  return 'other';
+}
+
+async function getYouTubeMusicCharts(gl: string): Promise<Record<'top' | 'trending' | 'videos', SearchResult[]>> {
+  const country = chartsCountryOrGlobal(gl);
+  const json = await ytMusicBrowse('FEmusic_charts', country, {
+    formData: { selectedValues: [country] },
+  });
+  const out: Record<'top' | 'trending' | 'videos', SearchResult[]> = { top: [], trending: [], videos: [] };
+  if (!json) return out;
+
+  const seenPerBucket: Record<string, Set<string>> = { top: new Set(), trending: new Set(), videos: new Set() };
+  const addTrack = (bucket: 'top' | 'trending' | 'videos', item: any) => {
+    // Two shapes: musicResponsiveListItemRenderer (list) OR musicTwoRowItemRenderer (grid).
+    let track: SearchResult | null = null;
+    if (item?.thumbnailRenderer || item?.navigationEndpoint?.watchEndpoint) {
+      // Two-row style (charts videos shelf uses this).
+      const parsed = extractNewReleaseVideoCard(item);
+      if (parsed) track = parsed;
+    } else {
+      const parsed = extractFromItem(item);
+      if (parsed?.videoId && parsed.title) {
+        if (!looksHardSpam(parsed.title, parsed.artist, parsed.title)) {
+          track = {
+            id: `ytm-${parsed.videoId}`,
+            videoId: parsed.videoId,
+            title: parsed.title,
+            artist: parsed.artist,
+            audio_url: `yt-video:${parsed.videoId}`,
+            cover_url: parsed.cover,
+            duration: parsed.duration || undefined,
+          };
+        }
+      }
+    }
+    if (!track) return;
+    if (seenPerBucket[bucket].has(track.videoId)) return;
+    seenPerBucket[bucket].add(track.videoId);
+    out[bucket].push(track);
+  };
+
+  for (const shelf of walkShelves(json)) {
+    const kind = classifyShelf(extractShelfHeaderTitle(shelf));
+    if (kind === 'artists' || kind === 'other') continue;
+    const bucket = kind === 'videos' ? 'videos' : kind; // 'top' | 'trending' | 'videos'
+    // musicShelfRenderer uses .contents; musicCarouselShelfRenderer uses .contents too.
+    for (const item of shelf.contents || []) {
+      const inner = item?.musicResponsiveListItemRenderer || item?.musicTwoRowItemRenderer || item;
+      addTrack(bucket, inner);
+    }
+  }
+
+  // If YT didn't ship a dedicated "trending" shelf for this country, promote
+  // the tail of the top-songs shelf as a proxy so the rail is never empty.
+  if (out.trending.length === 0 && out.top.length > 10) {
+    out.trending = out.top.slice(10).concat(out.top.slice(0, 10));
+  }
+  return out;
 }
 
 function runsText(runs: any): string {
@@ -467,6 +563,28 @@ serve(async (req) => {
       return new Response(JSON.stringify({ success: true, results, source: 'youtube-music-new-releases' }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    if (mode === 'charts') {
+      const gl = typeof country === 'string' && /^[A-Z]{2}$/i.test(country) ? country.toUpperCase() : 'US';
+      const buckets = await getYouTubeMusicCharts(gl);
+      const top = buckets.top.slice(0, limit);
+      const trending = buckets.trending.slice(0, limit);
+      const videos = buckets.videos.slice(0, limit);
+      const all = [...top, ...trending, ...videos];
+      if (all.length === 0) {
+        return new Response(JSON.stringify({ success: false, error: 'Charts unavailable' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      // Persist all real chart tracks so the resolver can use their metadata.
+      await persistSearchResults(adminClient, all);
+      return new Response(JSON.stringify({
+        success: true,
+        source: 'youtube-music-charts',
+        country: chartsCountryOrGlobal(gl),
+        top, trending, videos,
+      }), { headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
