@@ -504,6 +504,64 @@ const Settings = () => {
 
 
 
+          {/* Privacy */}
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Privacy</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <EyeOff className="w-4 h-4 text-primary" />
+                  <div className="flex flex-col">
+                    <span className="text-sm">Private Profile</span>
+                    <span className="text-[11px] text-white/40">Only friends can see your activity</span>
+                  </div>
+                </div>
+                <Switch checked={isPrivate} onCheckedChange={togglePrivate} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle private profile" />
+              </div>
+              <button onClick={() => setShowBlocked(true)} className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Ban className="w-4 h-4 text-white/70" />
+                  <span className="text-sm">Blocked users</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span className="text-xs">{blocked.length}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </button>
+            </div>
+          </section>
+
+          {/* Devices */}
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Devices</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              {devices.length === 0 && (
+                <div className="px-4 py-4 text-xs text-white/40">No devices registered for notifications.</div>
+              )}
+              {devices.map((d) => {
+                const info = (d.device_info || {}) as Record<string, unknown>;
+                const label = String(info.model || info.name || d.platform || 'Device');
+                const seen = d.updated_at ? new Date(d.updated_at).toLocaleDateString() : '—';
+                return (
+                  <div key={d.id} className="px-4 py-3 flex items-center justify-between border-b border-white/5 last:border-b-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Smartphone className="w-4 h-4 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm truncate">{label}</p>
+                        <p className="text-[11px] text-white/40">{d.platform || 'device'} · last seen {seen}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => removeDevice(d.id)} className="text-xs text-destructive font-medium px-2 py-1 rounded-md active:bg-destructive/10">Remove</button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           {/* Storage */}
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
