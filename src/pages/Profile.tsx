@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio, Music2 } from 'lucide-react';
+import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio, Music2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
