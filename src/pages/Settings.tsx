@@ -55,13 +55,10 @@ const Settings = () => {
   const [showEq, setShowEq] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [showBlocked, setShowBlocked] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const { user } = useAuth();
   type DeviceRow = { id: string; platform: string | null; device_info: Record<string, unknown> | null; updated_at: string | null };
-  type BlockedRow = { id: string; friend_id: string; profile?: { username: string | null; avatar_url: string | null } | null };
   const [devices, setDevices] = useState<DeviceRow[]>([]);
-  const [blocked, setBlocked] = useState<BlockedRow[]>([]);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => {
     const s = readEq();
     return typeof s.playbackSpeed === 'number' ? s.playbackSpeed : 1;
