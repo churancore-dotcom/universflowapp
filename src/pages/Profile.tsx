@@ -430,41 +430,6 @@ const Profile = () => {
               </div>
             )}
 
-            {/* === Friend Activity === */}
-            {profileSettled && user && (
-              <FriendActivityCard onFindFriends={() => setFriendsSheet('search')} />
-            )}
-
-            {/* === Social row === */}
-            {profileSettled && user && (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setFriendsSheet('followers')}
-                  className="rounded-[20px] p-3.5 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex items-center gap-3"
-                >
-                  <div className="w-9 h-9 rounded-2xl bg-white/[0.06] flex items-center justify-center shrink-0">
-                    <Users className="w-4 h-4 text-white/80" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-display text-lg leading-none tracking-tight">{social.followers}</p>
-                    <p className="text-[10px] text-white/50 mt-1 font-black uppercase tracking-[0.18em]">Followers</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setFriendsSheet('following')}
-                  className="rounded-[20px] p-3.5 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex items-center gap-3"
-                >
-                  <div className="w-9 h-9 rounded-2xl bg-primary/15 flex items-center justify-center shrink-0">
-                    <UserPlus className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-display text-lg leading-none tracking-tight">{social.following}</p>
-                    <p className="text-[10px] text-white/50 mt-1 font-black uppercase tracking-[0.18em]">Following</p>
-                  </div>
-                </button>
-              </div>
-            )}
-
             {/* === Editorial tile grid === */}
             <div className="grid grid-cols-6 gap-3">
               {/* Liked — large */}
