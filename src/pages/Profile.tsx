@@ -457,6 +457,29 @@ const Profile = () => {
                     <p className="text-xs text-white/50 truncate mt-0.5">{listenStats.topArtist || '—'}</p>
                   </div>
                 </div>
+                {recentCovers.length > 0 && (
+                  <div className="relative mt-4 pt-3 border-t border-white/[0.06]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/40 mb-2">Recently Played</p>
+                    <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-1 px-1">
+                      {recentCovers.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => navigate(`/search?q=${encodeURIComponent(`${c.title} ${c.artist}`.trim())}`)}
+                          className="shrink-0 w-11 h-11 rounded-lg overflow-hidden bg-white/[0.04] border border-white/[0.06] active:scale-95 transition"
+                          aria-label={`Replay ${c.title}`}
+                        >
+                          {c.cover_url ? (
+                            <img src={c.cover_url} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Music2 className="w-4 h-4 text-white/30" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
