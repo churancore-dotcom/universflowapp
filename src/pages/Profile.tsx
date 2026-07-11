@@ -93,17 +93,20 @@ const Profile = () => {
   const fetchStats = async () => {
     if (!user) { setStatsReady(true); return; }
     try {
-      const [likedResolved, playlists, recentPlays, playEvents] = await Promise.all([
+      const [likedResolved, playlists, recentPlays, playEvents, followersRes, followingRes] = await Promise.all([
         loadLibrarySongs(user.id),
         supabase.from('playlists').select('id').eq('user_id', user.id),
         supabase.from('recently_played').select('song_id,played_at').eq('user_id', user.id).order('played_at', { ascending: false }).limit(500),
         supabase.from('song_play_events').select('title,artist,created_at,source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
+        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('friend_id', user.id).eq('status', 'accepted'),
+        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'accepted'),
       ]);
       setStats({
         likedSongs: likedResolved.length,
         playlists: playlists.data?.length || 0,
         downloads: downloads.length,
       });
+      setSocial({ followers: followersRes.count || 0, following: followingRes.count || 0 });
 
       type RecentRow = { song_id: string; played_at: string };
       type CatalogSong = { id: string; title: string; artist: string; duration: number | null };
