@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, KeyRound, Trash2, EyeOff, Ban, Smartphone, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, KeyRound, Trash2, EyeOff, Smartphone } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
