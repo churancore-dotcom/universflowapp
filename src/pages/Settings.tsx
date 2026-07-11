@@ -262,6 +262,22 @@ const Settings = () => {
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Account</h2>
             </div>
             <EmailVerificationCard />
+            <div className="mt-3 rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <button onClick={() => setShowPassword(true)} className="w-full px-4 py-3 flex items-center justify-between border-b border-white/5 active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Change Password</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button onClick={() => setShowDelete(true)} className="w-full px-4 py-3 flex items-center justify-between active:bg-destructive/10">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                  <span className="text-sm text-destructive">Delete Account</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
           </section>
 
           {/* Playback */}
