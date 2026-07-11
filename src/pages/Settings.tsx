@@ -589,30 +589,6 @@ const Settings = () => {
         <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />
         <ChangePasswordModal isOpen={showPassword} onClose={() => setShowPassword(false)} />
         <DeleteAccountModal isOpen={showDelete} onClose={() => setShowDelete(false)} />
-        {showBlocked && (
-          <>
-            <div onClick={() => setShowBlocked(false)} className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md" />
-            <div className="fixed left-0 right-0 bottom-0 z-[81] rounded-t-[28px] bg-card/95 backdrop-blur-xl border-t border-white/10 p-5 pb-8 max-h-[70vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-2xl tracking-tight">Blocked</h2>
-                <button onClick={() => setShowBlocked(false)} aria-label="Close" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><X className="w-4 h-4" /></button>
-              </div>
-              {blocked.length === 0 ? (
-                <p className="text-sm text-white/50 py-6 text-center">You haven't blocked anyone.</p>
-              ) : (
-                <div className="space-y-2">
-                  {blocked.map(b => (
-                    <div key={b.id} className="flex items-center gap-3 rounded-2xl bg-white/[0.05] border border-white/10 px-3 py-2.5">
-                      <div className="w-9 h-9 rounded-full bg-white/10 overflow-hidden shrink-0" />
-                      <p className="flex-1 text-sm truncate">{b.profile?.username || 'User'}</p>
-                      <button onClick={() => unblock(b.id)} className="text-xs text-primary font-semibold px-3 py-1.5 rounded-lg bg-primary/10 active:bg-primary/20">Unblock</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
       </div>
     </PageTransition>
   );
