@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, KeyRound, Trash2, EyeOff, Ban, Smartphone, X } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, KeyRound, Trash2, EyeOff, Smartphone } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
@@ -55,13 +55,10 @@ const Settings = () => {
   const [showEq, setShowEq] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [showBlocked, setShowBlocked] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
   const { user } = useAuth();
   type DeviceRow = { id: string; platform: string | null; device_info: Record<string, unknown> | null; updated_at: string | null };
-  type BlockedRow = { id: string; friend_id: string; profile?: { username: string | null; avatar_url: string | null } | null };
   const [devices, setDevices] = useState<DeviceRow[]>([]);
-  const [blocked, setBlocked] = useState<BlockedRow[]>([]);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => {
     const s = readEq();
     return typeof s.playbackSpeed === 'number' ? s.playbackSpeed : 1;
@@ -84,26 +81,10 @@ const Settings = () => {
     setIsPrivate(!!val);
   }, [user]);
 
-  const loadBlocked = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('friends')
-      .select('id, friend_id')
-      .eq('user_id', user.id)
-      .eq('status', 'blocked');
-    const rows = (data as { id: string; friend_id: string }[] | null) || [];
-    if (rows.length === 0) { setBlocked([]); return; }
-    const ids = rows.map(r => r.friend_id);
-    const { data: profs } = await supabase.from('profiles').select('user_id, username, avatar_url').in('user_id', ids);
-    const map = new Map((profs || []).map((p: { user_id: string; username: string | null; avatar_url: string | null }) => [p.user_id, p]));
-    setBlocked(rows.map(r => ({ ...r, profile: map.get(r.friend_id) || null })));
-  }, [user]);
-
   useEffect(() => {
     loadDevices();
     loadPrivacy();
-    loadBlocked();
-  }, [loadDevices, loadPrivacy, loadBlocked]);
+  }, [loadDevices, loadPrivacy]);
 
   const togglePrivate = async (val: boolean) => {
     if (!user) return;
@@ -119,14 +100,6 @@ const Settings = () => {
     if (error) { toast.error('Failed to remove device'); return; }
     setDevices(prev => prev.filter(d => d.id !== id));
     toast.success('Device removed');
-  };
-
-  const unblock = async (id: string) => {
-    if (!window.confirm('Unblock this user?')) return;
-    const { error } = await supabase.from('friends').delete().eq('id', id);
-    if (error) { toast.error('Failed to unblock'); return; }
-    setBlocked(prev => prev.filter(b => b.id !== id));
-    toast.success('User unblocked');
   };
 
 
@@ -515,21 +488,11 @@ const Settings = () => {
                   <EyeOff className="w-4 h-4 text-primary" />
                   <div className="flex flex-col">
                     <span className="text-sm">Private Profile</span>
-                    <span className="text-[11px] text-white/40">Only friends can see your activity</span>
+                    <span className="text-[11px] text-white/40">Hide your profile from future public discovery</span>
                   </div>
                 </div>
                 <Switch checked={isPrivate} onCheckedChange={togglePrivate} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle private profile" />
               </div>
-              <button onClick={() => setShowBlocked(true)} className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <Ban className="w-4 h-4 text-white/70" />
-                  <span className="text-sm">Blocked users</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <span className="text-xs">{blocked.length}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
-              </button>
             </div>
           </section>
 
@@ -599,30 +562,6 @@ const Settings = () => {
         <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />
         <ChangePasswordModal isOpen={showPassword} onClose={() => setShowPassword(false)} />
         <DeleteAccountModal isOpen={showDelete} onClose={() => setShowDelete(false)} />
-        {showBlocked && (
-          <>
-            <div onClick={() => setShowBlocked(false)} className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md" />
-            <div className="fixed left-0 right-0 bottom-0 z-[81] rounded-t-[28px] bg-card/95 backdrop-blur-xl border-t border-white/10 p-5 pb-8 max-h-[70vh] overflow-y-auto">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-2xl tracking-tight">Blocked</h2>
-                <button onClick={() => setShowBlocked(false)} aria-label="Close" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><X className="w-4 h-4" /></button>
-              </div>
-              {blocked.length === 0 ? (
-                <p className="text-sm text-white/50 py-6 text-center">You haven't blocked anyone.</p>
-              ) : (
-                <div className="space-y-2">
-                  {blocked.map(b => (
-                    <div key={b.id} className="flex items-center gap-3 rounded-2xl bg-white/[0.05] border border-white/10 px-3 py-2.5">
-                      <div className="w-9 h-9 rounded-full bg-white/10 overflow-hidden shrink-0" />
-                      <p className="flex-1 text-sm truncate">{b.profile?.username || 'User'}</p>
-                      <button onClick={() => unblock(b.id)} className="text-xs text-primary font-semibold px-3 py-1.5 rounded-lg bg-primary/10 active:bg-primary/20">Unblock</button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </>
-        )}
       </div>
     </PageTransition>
   );

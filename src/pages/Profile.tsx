@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react';
-import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio, Users, UserPlus, Share2 } from 'lucide-react';
+import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio, Music2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
+
 import BottomNav from '@/components/BottomNav';
 import PremiumBadge from '@/components/PremiumBadge';
 import ReviewModal from '@/components/ReviewModal';
 import ReviewsSheet from '@/components/ReviewsSheet';
 import { TabTransition } from '@/components/PageTransition';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
-import FriendsSheet from '@/components/FriendsSheet';
-import FriendActivityCard from '@/components/FriendActivityCard';
-import ShareProfileSheet from '@/components/ShareProfileSheet';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
@@ -23,21 +21,24 @@ import { Camera } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import { loadLibrarySongs } from '@/lib/streamSongs';
 
-type FriendsSheetMode = 'followers' | 'following' | 'search';
-
 interface ProfileData {
   username: string | null;
   username_changed: boolean;
   avatar_url: string | null;
 }
 
+type RecentCover = { id: string; title: string; artist: string; cover_url: string | null };
+
 const Profile = () => {
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { downloads } = useDownloads();
+  
   const navigate = useNavigate();
   const [stats, setStats] = useState({ likedSongs: 0, playlists: 0, downloads: 0 });
-  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; topSong: string | null; streak: number }>({ minutes: 0, topArtist: null, topSong: null, streak: 0 });
+  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; topSong: string | null; streak: number; totalPlays: number; topGenre: string | null }>({ minutes: 0, topArtist: null, topSong: null, streak: 0, totalPlays: 0, topGenre: null });
+  const [recentCovers, setRecentCovers] = useState<RecentCover[]>([]);
+  const [memberSinceLabel, setMemberSinceLabel] = useState<string>('');
   const [statsReady, setStatsReady] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showReviewsList, setShowReviewsList] = useState(false);
@@ -48,9 +49,6 @@ const Profile = () => {
   const [newUsername, setNewUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
-  const [social, setSocial] = useState({ followers: 0, following: 0 });
-  const [friendsSheet, setFriendsSheet] = useState<FriendsSheetMode | null>(null);
-  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -67,6 +65,20 @@ const Profile = () => {
   useEffect(() => {
     setStats(prev => ({ ...prev, downloads: downloads.length }));
   }, [downloads.length]);
+
+  useEffect(() => {
+    if (!user?.created_at) { setMemberSinceLabel(''); return; }
+    const created = new Date(user.created_at);
+    const now = new Date();
+    const months = Math.max(0, (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth()));
+    if (months < 1) setMemberSinceLabel('New');
+    else if (months < 12) setMemberSinceLabel(`${months}mo`);
+    else {
+      const years = Math.floor(months / 12);
+      const rem = months % 12;
+      setMemberSinceLabel(rem ? `${years}y ${rem}mo` : `${years}y`);
+    }
+  }, [user?.created_at]);
 
   const fetchProfile = async () => {
     if (!user) { setProfileReady(true); return; }
@@ -93,51 +105,66 @@ const Profile = () => {
   const fetchStats = async () => {
     if (!user) { setStatsReady(true); return; }
     try {
-      const [likedResolved, playlists, recentPlays, playEvents, followersRes, followingRes] = await Promise.all([
+      const [likedResolved, playlists, recentPlays, playEvents] = await Promise.all([
         loadLibrarySongs(user.id),
         supabase.from('playlists').select('id').eq('user_id', user.id),
         supabase.from('recently_played').select('song_id,played_at').eq('user_id', user.id).order('played_at', { ascending: false }).limit(500),
-        supabase.from('song_play_events').select('title,artist,created_at,source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
-        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('friend_id', user.id).eq('status', 'accepted'),
-        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'accepted'),
+        supabase.from('song_play_events').select('title,artist,cover_url,song_id,created_at,source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
       ]);
       setStats({
         likedSongs: likedResolved.length,
         playlists: playlists.data?.length || 0,
         downloads: downloads.length,
       });
-      setSocial({ followers: followersRes.count || 0, following: followingRes.count || 0 });
 
       type RecentRow = { song_id: string; played_at: string };
-      type CatalogSong = { id: string; title: string; artist: string; duration: number | null };
-      type PlayEventRow = { title: string | null; artist: string | null; created_at: string };
+      type CatalogSong = { id: string; title: string; artist: string; duration: number | null; genre: string | null; cover_url: string | null };
+      type PlayEventRow = { title: string | null; artist: string | null; cover_url: string | null; song_id: string | null; created_at: string };
 
       const recentRows = (recentPlays.data as RecentRow[] | null) || [];
-      const catalogIds = [...new Set(recentRows.map((r) => r.song_id).filter(Boolean))];
+      const eventList = (playEvents.data as PlayEventRow[] | null) || [];
+      const catalogIds = [...new Set([
+        ...recentRows.map((r) => r.song_id).filter(Boolean),
+        ...eventList.map((r) => r.song_id).filter(Boolean) as string[],
+      ])];
       const { data: catalogSongs } = catalogIds.length
-        ? await supabase.from('songs').select('id,title,artist,duration').in('id', catalogIds)
+        ? await supabase.from('songs').select('id,title,artist,duration,genre,cover_url').in('id', catalogIds)
         : { data: [] as CatalogSong[] };
       const songById = new Map(((catalogSongs as CatalogSong[] | null) || []).map((song) => [song.id, song]));
-      const eventRows = ((playEvents.data as PlayEventRow[] | null) || []).map((r) => ({
+
+      const eventRows = eventList.map((r) => ({
         title: r.title,
         artist: r.artist,
+        cover_url: r.cover_url,
+        song_id: r.song_id,
         played_at: r.created_at,
         duration: 180,
+        genre: r.song_id ? songById.get(r.song_id)?.genre || null : null,
       }));
       const rows = [
         ...recentRows.map((r) => {
           const song = songById.get(r.song_id);
-          return { title: song?.title, artist: song?.artist, played_at: r.played_at, duration: Number(song?.duration) || 180 };
+          return {
+            title: song?.title || null,
+            artist: song?.artist || null,
+            cover_url: song?.cover_url || null,
+            song_id: r.song_id,
+            played_at: r.played_at,
+            duration: Number(song?.duration) || 180,
+            genre: song?.genre || null,
+          };
         }),
         ...eventRows,
       ];
       const totalSeconds = rows.reduce((sum, r) => sum + (Number(r.duration) || 180), 0);
       const artistCount = new Map<string, number>();
       const songCount = new Map<string, number>();
+      const genreCount = new Map<string, number>();
       const dayKeys = new Set<string>();
       rows.forEach((r) => {
         if (r.artist) artistCount.set(r.artist, (artistCount.get(r.artist) || 0) + 1);
         if (r.title) songCount.set(r.title, (songCount.get(r.title) || 0) + 1);
+        if (r.genre) genreCount.set(r.genre, (genreCount.get(r.genre) || 0) + 1);
         if (r.played_at) dayKeys.add(new Date(r.played_at).toISOString().slice(0, 10));
       });
       const top = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
@@ -156,11 +183,26 @@ const Profile = () => {
         }
       }
 
+      // Last 5 unique recent covers, newest first, requires a title
+      const seen = new Set<string>();
+      const covers: RecentCover[] = [];
+      for (const r of rows) {
+        if (!r.title || !r.song_id) continue;
+        const key = String(r.song_id);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        covers.push({ id: key, title: r.title, artist: r.artist || '', cover_url: r.cover_url });
+        if (covers.length >= 5) break;
+      }
+      setRecentCovers(covers);
+
       setListenStats({
         minutes: Math.round(totalSeconds / 60),
         topArtist: top(artistCount),
         topSong: top(songCount),
         streak,
+        totalPlays: rows.length,
+        topGenre: top(genreCount),
       });
     } finally {
       setStatsReady(true);
@@ -243,16 +285,7 @@ const Profile = () => {
                     Univers Flow · Member
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowShare(true)}
-                    aria-label="Share profile"
-                    className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center active:scale-90"
-                  >
-                    <Share2 className="w-3.5 h-3.5 text-white/80" />
-                  </button>
-                  <span className="text-[10px] font-mono tracking-widest text-white/40">{memberNo}</span>
-                </div>
+                <span className="text-[10px] font-mono tracking-widest text-white/40">{memberNo}</span>
               </div>
 
               {/* Avatar + identity */}
@@ -355,21 +388,37 @@ const Profile = () => {
 
               {/* Ticket stub: listening data */}
               {profileSettled && user && (
-                <div className="relative grid grid-cols-3 gap-3">
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Minutes</p>
-                    <p className="font-display text-2xl leading-none tracking-tight">{listenStats.minutes.toLocaleString()}</p>
+                <div className="relative space-y-3">
+                  <div className="grid grid-cols-3 gap-3">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Minutes</p>
+                      <p className="font-display text-2xl leading-none tracking-tight">{listenStats.minutes.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Streak</p>
+                      <p className="font-display text-2xl leading-none tracking-tight inline-flex items-center gap-1">
+                        {listenStats.streak}
+                        {listenStats.streak > 0 && <Flame className="w-4 h-4 text-primary" fill="currentColor" />}
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Saved</p>
+                      <p className="font-display text-2xl leading-none tracking-tight">{stats.likedSongs}</p>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Streak</p>
-                    <p className="font-display text-2xl leading-none tracking-tight inline-flex items-center gap-1">
-                      {listenStats.streak}
-                      {listenStats.streak > 0 && <Flame className="w-4 h-4 text-primary" fill="currentColor" />}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Saved</p>
-                    <p className="font-display text-2xl leading-none tracking-tight">{stats.likedSongs}</p>
+                  <div className="grid grid-cols-3 gap-3 pt-3 border-t border-dashed border-white/10">
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Plays</p>
+                      <p className="font-display text-2xl leading-none tracking-tight">{listenStats.totalPlays.toLocaleString()}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Genre</p>
+                      <p className="font-display text-lg leading-none tracking-tight truncate">{listenStats.topGenre || '—'}</p>
+                    </div>
+                    <div>
+                      <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Since</p>
+                      <p className="font-display text-2xl leading-none tracking-tight">{memberSinceLabel || '—'}</p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -408,41 +457,29 @@ const Profile = () => {
                     <p className="text-xs text-white/50 truncate mt-0.5">{listenStats.topArtist || '—'}</p>
                   </div>
                 </div>
-              </div>
-            )}
-
-            {/* === Friend Activity === */}
-            {profileSettled && user && (
-              <FriendActivityCard onFindFriends={() => setFriendsSheet('search')} />
-            )}
-
-            {/* === Social row === */}
-            {profileSettled && user && (
-              <div className="grid grid-cols-2 gap-3">
-                <button
-                  onClick={() => setFriendsSheet('followers')}
-                  className="rounded-[20px] p-3.5 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex items-center gap-3"
-                >
-                  <div className="w-9 h-9 rounded-2xl bg-white/[0.06] flex items-center justify-center shrink-0">
-                    <Users className="w-4 h-4 text-white/80" />
+                {recentCovers.length > 0 && (
+                  <div className="relative mt-4 pt-3 border-t border-white/[0.06]">
+                    <p className="text-[9px] font-black uppercase tracking-[0.24em] text-white/40 mb-2">Recently Played</p>
+                    <div className="flex gap-2 overflow-x-auto scrollbar-none -mx-1 px-1">
+                      {recentCovers.map((c) => (
+                        <button
+                          key={c.id}
+                          onClick={() => navigate(`/search?q=${encodeURIComponent(`${c.title} ${c.artist}`.trim())}`)}
+                          className="shrink-0 w-11 h-11 rounded-lg overflow-hidden bg-white/[0.04] border border-white/[0.06] active:scale-95 transition"
+                          aria-label={`Replay ${c.title}`}
+                        >
+                          {c.cover_url ? (
+                            <img src={c.cover_url} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center">
+                              <Music2 className="w-4 h-4 text-white/30" />
+                            </div>
+                          )}
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="font-display text-lg leading-none tracking-tight">{social.followers}</p>
-                    <p className="text-[10px] text-white/50 mt-1 font-black uppercase tracking-[0.18em]">Followers</p>
-                  </div>
-                </button>
-                <button
-                  onClick={() => setFriendsSheet('following')}
-                  className="rounded-[20px] p-3.5 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex items-center gap-3"
-                >
-                  <div className="w-9 h-9 rounded-2xl bg-primary/15 flex items-center justify-center shrink-0">
-                    <UserPlus className="w-4 h-4 text-primary" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="font-display text-lg leading-none tracking-tight">{social.following}</p>
-                    <p className="text-[10px] text-white/50 mt-1 font-black uppercase tracking-[0.18em]">Following</p>
-                  </div>
-                </button>
+                )}
               </div>
             )}
 
@@ -588,12 +625,6 @@ const Profile = () => {
             onSaved={(id) => setProfileData(prev => ({ ...prev, avatar_url: id }))}
           />
         )}
-        <FriendsSheet
-          isOpen={friendsSheet !== null}
-          mode={friendsSheet || 'followers'}
-          onClose={() => setFriendsSheet(null)}
-        />
-        <ShareProfileSheet isOpen={showShare} onClose={() => setShowShare(false)} />
       </div>
     </TabTransition>
   );
