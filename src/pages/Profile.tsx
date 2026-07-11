@@ -91,51 +91,66 @@ const Profile = () => {
   const fetchStats = async () => {
     if (!user) { setStatsReady(true); return; }
     try {
-      const [likedResolved, playlists, recentPlays, playEvents, followersRes, followingRes] = await Promise.all([
+      const [likedResolved, playlists, recentPlays, playEvents] = await Promise.all([
         loadLibrarySongs(user.id),
         supabase.from('playlists').select('id').eq('user_id', user.id),
         supabase.from('recently_played').select('song_id,played_at').eq('user_id', user.id).order('played_at', { ascending: false }).limit(500),
-        supabase.from('song_play_events').select('title,artist,created_at,source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
-        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('friend_id', user.id).eq('status', 'accepted'),
-        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'accepted'),
+        supabase.from('song_play_events').select('title,artist,cover_url,song_id,created_at,source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
       ]);
       setStats({
         likedSongs: likedResolved.length,
         playlists: playlists.data?.length || 0,
         downloads: downloads.length,
       });
-      setSocial({ followers: followersRes.count || 0, following: followingRes.count || 0 });
 
       type RecentRow = { song_id: string; played_at: string };
-      type CatalogSong = { id: string; title: string; artist: string; duration: number | null };
-      type PlayEventRow = { title: string | null; artist: string | null; created_at: string };
+      type CatalogSong = { id: string; title: string; artist: string; duration: number | null; genre: string | null; cover_url: string | null };
+      type PlayEventRow = { title: string | null; artist: string | null; cover_url: string | null; song_id: string | null; created_at: string };
 
       const recentRows = (recentPlays.data as RecentRow[] | null) || [];
-      const catalogIds = [...new Set(recentRows.map((r) => r.song_id).filter(Boolean))];
+      const eventList = (playEvents.data as PlayEventRow[] | null) || [];
+      const catalogIds = [...new Set([
+        ...recentRows.map((r) => r.song_id).filter(Boolean),
+        ...eventList.map((r) => r.song_id).filter(Boolean) as string[],
+      ])];
       const { data: catalogSongs } = catalogIds.length
-        ? await supabase.from('songs').select('id,title,artist,duration').in('id', catalogIds)
+        ? await supabase.from('songs').select('id,title,artist,duration,genre,cover_url').in('id', catalogIds)
         : { data: [] as CatalogSong[] };
       const songById = new Map(((catalogSongs as CatalogSong[] | null) || []).map((song) => [song.id, song]));
-      const eventRows = ((playEvents.data as PlayEventRow[] | null) || []).map((r) => ({
+
+      const eventRows = eventList.map((r) => ({
         title: r.title,
         artist: r.artist,
+        cover_url: r.cover_url,
+        song_id: r.song_id,
         played_at: r.created_at,
         duration: 180,
+        genre: r.song_id ? songById.get(r.song_id)?.genre || null : null,
       }));
       const rows = [
         ...recentRows.map((r) => {
           const song = songById.get(r.song_id);
-          return { title: song?.title, artist: song?.artist, played_at: r.played_at, duration: Number(song?.duration) || 180 };
+          return {
+            title: song?.title || null,
+            artist: song?.artist || null,
+            cover_url: song?.cover_url || null,
+            song_id: r.song_id,
+            played_at: r.played_at,
+            duration: Number(song?.duration) || 180,
+            genre: song?.genre || null,
+          };
         }),
         ...eventRows,
       ];
       const totalSeconds = rows.reduce((sum, r) => sum + (Number(r.duration) || 180), 0);
       const artistCount = new Map<string, number>();
       const songCount = new Map<string, number>();
+      const genreCount = new Map<string, number>();
       const dayKeys = new Set<string>();
       rows.forEach((r) => {
         if (r.artist) artistCount.set(r.artist, (artistCount.get(r.artist) || 0) + 1);
         if (r.title) songCount.set(r.title, (songCount.get(r.title) || 0) + 1);
+        if (r.genre) genreCount.set(r.genre, (genreCount.get(r.genre) || 0) + 1);
         if (r.played_at) dayKeys.add(new Date(r.played_at).toISOString().slice(0, 10));
       });
       const top = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
@@ -154,11 +169,26 @@ const Profile = () => {
         }
       }
 
+      // Last 5 unique recent covers, newest first, requires a title
+      const seen = new Set<string>();
+      const covers: RecentCover[] = [];
+      for (const r of rows) {
+        if (!r.title || !r.song_id) continue;
+        const key = String(r.song_id);
+        if (seen.has(key)) continue;
+        seen.add(key);
+        covers.push({ id: key, title: r.title, artist: r.artist || '', cover_url: r.cover_url });
+        if (covers.length >= 5) break;
+      }
+      setRecentCovers(covers);
+
       setListenStats({
         minutes: Math.round(totalSeconds / 60),
         topArtist: top(artistCount),
         topSong: top(songCount),
         streak,
+        totalPlays: rows.length,
+        topGenre: top(genreCount),
       });
     } finally {
       setStatsReady(true);
