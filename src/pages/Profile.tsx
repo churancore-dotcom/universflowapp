@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio } from 'lucide-react';
+import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio, Users, UserPlus, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,9 @@ import ReviewModal from '@/components/ReviewModal';
 import ReviewsSheet from '@/components/ReviewsSheet';
 import { TabTransition } from '@/components/PageTransition';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
+import FriendsSheet from '@/components/FriendsSheet';
+import FriendActivityCard from '@/components/FriendActivityCard';
+import ShareProfileSheet from '@/components/ShareProfileSheet';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
@@ -19,6 +22,8 @@ import { useDownloads } from '@/contexts/DownloadContext';
 import { Camera } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import { loadLibrarySongs } from '@/lib/streamSongs';
+
+type FriendsSheetMode = 'followers' | 'following' | 'search';
 
 interface ProfileData {
   username: string | null;
