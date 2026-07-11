@@ -94,6 +94,7 @@ const SupportInbox = lazy(() => import("./pages/admin/SupportInbox"));
 const PerformancePanel = lazy(() => import("./pages/admin/PerformancePanel"));
 const AppUpdates = lazy(() => import("./pages/admin/AppUpdates"));
 const ArtistApplications = lazy(() => import("./pages/admin/ArtistApplications"));
+const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
 
 // Artist program
 const ArtistApply = lazy(() => import("./pages/artist/Apply"));
@@ -356,6 +357,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           
           <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<AdminDashboard />} />
+            <Route path="panel" element={<AdminPanel />} />
             <Route path="upload" element={<UploadMusic />} />
             <Route path="songs" element={<ManageSongs />} />
             <Route path="artists" element={<ManageArtists />} />
