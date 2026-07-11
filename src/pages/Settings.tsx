@@ -81,26 +81,10 @@ const Settings = () => {
     setIsPrivate(!!val);
   }, [user]);
 
-  const loadBlocked = useCallback(async () => {
-    if (!user) return;
-    const { data } = await supabase
-      .from('friends')
-      .select('id, friend_id')
-      .eq('user_id', user.id)
-      .eq('status', 'blocked');
-    const rows = (data as { id: string; friend_id: string }[] | null) || [];
-    if (rows.length === 0) { setBlocked([]); return; }
-    const ids = rows.map(r => r.friend_id);
-    const { data: profs } = await supabase.from('profiles').select('user_id, username, avatar_url').in('user_id', ids);
-    const map = new Map((profs || []).map((p: { user_id: string; username: string | null; avatar_url: string | null }) => [p.user_id, p]));
-    setBlocked(rows.map(r => ({ ...r, profile: map.get(r.friend_id) || null })));
-  }, [user]);
-
   useEffect(() => {
     loadDevices();
     loadPrivacy();
-    loadBlocked();
-  }, [loadDevices, loadPrivacy, loadBlocked]);
+  }, [loadDevices, loadPrivacy]);
 
   const togglePrivate = async (val: boolean) => {
     if (!user) return;
@@ -116,14 +100,6 @@ const Settings = () => {
     if (error) { toast.error('Failed to remove device'); return; }
     setDevices(prev => prev.filter(d => d.id !== id));
     toast.success('Device removed');
-  };
-
-  const unblock = async (id: string) => {
-    if (!window.confirm('Unblock this user?')) return;
-    const { error } = await supabase.from('friends').delete().eq('id', id);
-    if (error) { toast.error('Failed to unblock'); return; }
-    setBlocked(prev => prev.filter(b => b.id !== id));
-    toast.success('User unblocked');
   };
 
 
