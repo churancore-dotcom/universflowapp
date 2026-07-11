@@ -519,7 +519,7 @@ const Profile = () => {
                 </div>
                 <div className="relative">
                   <p className="font-display text-3xl leading-none tracking-tight">Liked</p>
-                  <p className="text-xs text-white/50 mt-1.5">{profileSettled ? `${stats.likedSongs} tracks in rotation` : '—'}</p>
+                  <p className="text-xs text-white/50 mt-1.5">{profileSettled ? (stats.likedSongs > 0 ? `${stats.likedSongs} tracks in rotation` : 'Tap the heart on any song') : '—'}</p>
                 </div>
               </button>
 
@@ -531,7 +531,7 @@ const Profile = () => {
                 <ListMusic className="w-4 h-4 text-white/70" />
                 <div>
                   <p className="text-sm font-bold leading-none">Playlists</p>
-                  <p className="text-[10px] text-white/40 mt-1">{profileSettled ? stats.playlists : '—'}</p>
+                  <p className="text-[10px] text-white/40 mt-1">{profileSettled ? (stats.playlists > 0 ? stats.playlists : 'None yet') : '—'}</p>
                 </div>
               </button>
 
@@ -543,9 +543,10 @@ const Profile = () => {
                 <Download className="w-4 h-4 text-white/70" />
                 <div>
                   <p className="text-sm font-bold leading-none">Offline</p>
-                  <p className="text-[10px] text-white/40 mt-1">{profileSettled ? stats.downloads : '—'}</p>
+                  <p className="text-[10px] text-white/40 mt-1">{profileSettled ? (stats.downloads > 0 ? stats.downloads : 'Save for later') : '—'}</p>
                 </div>
               </button>
+
 
               {/* Audio / EQ */}
               <button
