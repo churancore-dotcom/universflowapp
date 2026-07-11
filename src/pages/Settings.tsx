@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, KeyRound, Trash2, EyeOff, Ban, Smartphone, X } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
@@ -13,7 +13,10 @@ import SupportChatModal from '@/components/SupportChatModal';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
 import EqualizerModal from '@/components/EqualizerModal';
 import { SettingsUpdateButton } from '@/components/SettingsUpdateButton';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
+import DeleteAccountModal from '@/components/DeleteAccountModal';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import SEOHead from '@/components/SEOHead';
@@ -50,10 +53,81 @@ const Settings = () => {
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
   const [showEq, setShowEq] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [showBlocked, setShowBlocked] = useState(false);
+  const [isPrivate, setIsPrivate] = useState(false);
+  const { user } = useAuth();
+  type DeviceRow = { id: string; platform: string | null; device_info: Record<string, unknown> | null; updated_at: string | null };
+  type BlockedRow = { id: string; friend_id: string; profile?: { username: string | null; avatar_url: string | null } | null };
+  const [devices, setDevices] = useState<DeviceRow[]>([]);
+  const [blocked, setBlocked] = useState<BlockedRow[]>([]);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => {
     const s = readEq();
     return typeof s.playbackSpeed === 'number' ? s.playbackSpeed : 1;
   });
+
+  const loadDevices = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('device_tokens')
+      .select('id, platform, device_info, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false });
+    setDevices((data as DeviceRow[] | null) || []);
+  }, [user]);
+
+  const loadPrivacy = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase.from('profiles').select('is_private').eq('user_id', user.id).single();
+    const val = (data as { is_private?: boolean } | null)?.is_private ?? false;
+    setIsPrivate(!!val);
+  }, [user]);
+
+  const loadBlocked = useCallback(async () => {
+    if (!user) return;
+    const { data } = await supabase
+      .from('friends')
+      .select('id, friend_id')
+      .eq('user_id', user.id)
+      .eq('status', 'blocked');
+    const rows = (data as { id: string; friend_id: string }[] | null) || [];
+    if (rows.length === 0) { setBlocked([]); return; }
+    const ids = rows.map(r => r.friend_id);
+    const { data: profs } = await supabase.from('profiles').select('user_id, username, avatar_url').in('user_id', ids);
+    const map = new Map((profs || []).map((p: { user_id: string; username: string | null; avatar_url: string | null }) => [p.user_id, p]));
+    setBlocked(rows.map(r => ({ ...r, profile: map.get(r.friend_id) || null })));
+  }, [user]);
+
+  useEffect(() => {
+    loadDevices();
+    loadPrivacy();
+    loadBlocked();
+  }, [loadDevices, loadPrivacy, loadBlocked]);
+
+  const togglePrivate = async (val: boolean) => {
+    if (!user) return;
+    setIsPrivate(val);
+    const { error } = await supabase.from('profiles').update({ is_private: val }).eq('user_id', user.id);
+    if (error) { toast.error('Could not update privacy'); setIsPrivate(!val); return; }
+    toast.success(val ? 'Profile is now private' : 'Profile is now public');
+  };
+
+  const removeDevice = async (id: string) => {
+    if (!window.confirm('Sign this device out of notifications?')) return;
+    const { error } = await supabase.from('device_tokens').delete().eq('id', id);
+    if (error) { toast.error('Failed to remove device'); return; }
+    setDevices(prev => prev.filter(d => d.id !== id));
+    toast.success('Device removed');
+  };
+
+  const unblock = async (id: string) => {
+    if (!window.confirm('Unblock this user?')) return;
+    const { error } = await supabase.from('friends').delete().eq('id', id);
+    if (error) { toast.error('Failed to unblock'); return; }
+    setBlocked(prev => prev.filter(b => b.id !== id));
+    toast.success('User unblocked');
+  };
 
 
   
@@ -188,6 +262,22 @@ const Settings = () => {
               <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Account</h2>
             </div>
             <EmailVerificationCard />
+            <div className="mt-3 rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <button onClick={() => setShowPassword(true)} className="w-full px-4 py-3 flex items-center justify-between border-b border-white/5 active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <KeyRound className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Change Password</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+              <button onClick={() => setShowDelete(true)} className="w-full px-4 py-3 flex items-center justify-between active:bg-destructive/10">
+                <div className="flex items-center gap-2">
+                  <Trash2 className="w-4 h-4 text-destructive" />
+                  <span className="text-sm text-destructive">Delete Account</span>
+                </div>
+                <ChevronRight className="w-4 h-4 text-muted-foreground" />
+              </button>
+            </div>
           </section>
 
           {/* Playback */}
@@ -414,6 +504,64 @@ const Settings = () => {
 
 
 
+          {/* Privacy */}
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Privacy</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
+                <div className="flex items-center gap-2">
+                  <EyeOff className="w-4 h-4 text-primary" />
+                  <div className="flex flex-col">
+                    <span className="text-sm">Private Profile</span>
+                    <span className="text-[11px] text-white/40">Only friends can see your activity</span>
+                  </div>
+                </div>
+                <Switch checked={isPrivate} onCheckedChange={togglePrivate} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle private profile" />
+              </div>
+              <button onClick={() => setShowBlocked(true)} className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30">
+                <div className="flex items-center gap-2">
+                  <Ban className="w-4 h-4 text-white/70" />
+                  <span className="text-sm">Blocked users</span>
+                </div>
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <span className="text-xs">{blocked.length}</span>
+                  <ChevronRight className="w-4 h-4" />
+                </div>
+              </button>
+            </div>
+          </section>
+
+          {/* Devices */}
+          <section>
+            <div className="flex items-center gap-2 mb-2.5 px-1">
+              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Devices</h2>
+            </div>
+            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+              {devices.length === 0 && (
+                <div className="px-4 py-4 text-xs text-white/40">No devices registered for notifications.</div>
+              )}
+              {devices.map((d) => {
+                const info = (d.device_info || {}) as Record<string, unknown>;
+                const label = String(info.model || info.name || d.platform || 'Device');
+                const seen = d.updated_at ? new Date(d.updated_at).toLocaleDateString() : '—';
+                return (
+                  <div key={d.id} className="px-4 py-3 flex items-center justify-between border-b border-white/5 last:border-b-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Smartphone className="w-4 h-4 text-primary shrink-0" />
+                      <div className="min-w-0">
+                        <p className="text-sm truncate">{label}</p>
+                        <p className="text-[11px] text-white/40">{d.platform || 'device'} · last seen {seen}</p>
+                      </div>
+                    </div>
+                    <button onClick={() => removeDevice(d.id)} className="text-xs text-destructive font-medium px-2 py-1 rounded-md active:bg-destructive/10">Remove</button>
+                  </div>
+                );
+              })}
+            </div>
+          </section>
+
           {/* Storage */}
           <section>
             <div className="flex items-center gap-2 mb-2.5 px-1">
@@ -449,6 +597,32 @@ const Settings = () => {
         <BottomNav />
         <SupportChatModal isOpen={showSupport} onClose={() => setShowSupport(false)} />
         <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />
+        <ChangePasswordModal isOpen={showPassword} onClose={() => setShowPassword(false)} />
+        <DeleteAccountModal isOpen={showDelete} onClose={() => setShowDelete(false)} />
+        {showBlocked && (
+          <>
+            <div onClick={() => setShowBlocked(false)} className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md" />
+            <div className="fixed left-0 right-0 bottom-0 z-[81] rounded-t-[28px] bg-card/95 backdrop-blur-xl border-t border-white/10 p-5 pb-8 max-h-[70vh] overflow-y-auto">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="font-display text-2xl tracking-tight">Blocked</h2>
+                <button onClick={() => setShowBlocked(false)} aria-label="Close" className="w-9 h-9 rounded-full bg-white/10 flex items-center justify-center"><X className="w-4 h-4" /></button>
+              </div>
+              {blocked.length === 0 ? (
+                <p className="text-sm text-white/50 py-6 text-center">You haven't blocked anyone.</p>
+              ) : (
+                <div className="space-y-2">
+                  {blocked.map(b => (
+                    <div key={b.id} className="flex items-center gap-3 rounded-2xl bg-white/[0.05] border border-white/10 px-3 py-2.5">
+                      <div className="w-9 h-9 rounded-full bg-white/10 overflow-hidden shrink-0" />
+                      <p className="flex-1 text-sm truncate">{b.profile?.username || 'User'}</p>
+                      <button onClick={() => unblock(b.id)} className="text-xs text-primary font-semibold px-3 py-1.5 rounded-lg bg-primary/10 active:bg-primary/20">Unblock</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
       </div>
     </PageTransition>
   );

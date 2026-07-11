@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio } from 'lucide-react';
+import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio, Users, UserPlus, Share2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -10,6 +10,9 @@ import ReviewModal from '@/components/ReviewModal';
 import ReviewsSheet from '@/components/ReviewsSheet';
 import { TabTransition } from '@/components/PageTransition';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
+import FriendsSheet from '@/components/FriendsSheet';
+import FriendActivityCard from '@/components/FriendActivityCard';
+import ShareProfileSheet from '@/components/ShareProfileSheet';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
@@ -19,6 +22,8 @@ import { useDownloads } from '@/contexts/DownloadContext';
 import { Camera } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import { loadLibrarySongs } from '@/lib/streamSongs';
+
+type FriendsSheetMode = 'followers' | 'following' | 'search';
 
 interface ProfileData {
   username: string | null;
@@ -43,6 +48,9 @@ const Profile = () => {
   const [newUsername, setNewUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [social, setSocial] = useState({ followers: 0, following: 0 });
+  const [friendsSheet, setFriendsSheet] = useState<FriendsSheetMode | null>(null);
+  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -85,17 +93,20 @@ const Profile = () => {
   const fetchStats = async () => {
     if (!user) { setStatsReady(true); return; }
     try {
-      const [likedResolved, playlists, recentPlays, playEvents] = await Promise.all([
+      const [likedResolved, playlists, recentPlays, playEvents, followersRes, followingRes] = await Promise.all([
         loadLibrarySongs(user.id),
         supabase.from('playlists').select('id').eq('user_id', user.id),
         supabase.from('recently_played').select('song_id,played_at').eq('user_id', user.id).order('played_at', { ascending: false }).limit(500),
         supabase.from('song_play_events').select('title,artist,created_at,source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
+        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('friend_id', user.id).eq('status', 'accepted'),
+        supabase.from('friends').select('id', { count: 'exact', head: true }).eq('user_id', user.id).eq('status', 'accepted'),
       ]);
       setStats({
         likedSongs: likedResolved.length,
         playlists: playlists.data?.length || 0,
         downloads: downloads.length,
       });
+      setSocial({ followers: followersRes.count || 0, following: followingRes.count || 0 });
 
       type RecentRow = { song_id: string; played_at: string };
       type CatalogSong = { id: string; title: string; artist: string; duration: number | null };
@@ -232,7 +243,16 @@ const Profile = () => {
                     Univers Flow · Member
                   </span>
                 </div>
-                <span className="text-[10px] font-mono tracking-widest text-white/40">{memberNo}</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setShowShare(true)}
+                    aria-label="Share profile"
+                    className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center active:scale-90"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-white/80" />
+                  </button>
+                  <span className="text-[10px] font-mono tracking-widest text-white/40">{memberNo}</span>
+                </div>
               </div>
 
               {/* Avatar + identity */}
@@ -391,6 +411,41 @@ const Profile = () => {
               </div>
             )}
 
+            {/* === Friend Activity === */}
+            {profileSettled && user && (
+              <FriendActivityCard onFindFriends={() => setFriendsSheet('search')} />
+            )}
+
+            {/* === Social row === */}
+            {profileSettled && user && (
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setFriendsSheet('followers')}
+                  className="rounded-[20px] p-3.5 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex items-center gap-3"
+                >
+                  <div className="w-9 h-9 rounded-2xl bg-white/[0.06] flex items-center justify-center shrink-0">
+                    <Users className="w-4 h-4 text-white/80" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display text-lg leading-none tracking-tight">{social.followers}</p>
+                    <p className="text-[10px] text-white/50 mt-1 font-black uppercase tracking-[0.18em]">Followers</p>
+                  </div>
+                </button>
+                <button
+                  onClick={() => setFriendsSheet('following')}
+                  className="rounded-[20px] p-3.5 text-left bg-white/[0.04] border border-white/[0.06] active:scale-[0.97] transition flex items-center gap-3"
+                >
+                  <div className="w-9 h-9 rounded-2xl bg-primary/15 flex items-center justify-center shrink-0">
+                    <UserPlus className="w-4 h-4 text-primary" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="font-display text-lg leading-none tracking-tight">{social.following}</p>
+                    <p className="text-[10px] text-white/50 mt-1 font-black uppercase tracking-[0.18em]">Following</p>
+                  </div>
+                </button>
+              </div>
+            )}
+
             {/* === Editorial tile grid === */}
             <div className="grid grid-cols-6 gap-3">
               {/* Liked — large */}
@@ -533,6 +588,12 @@ const Profile = () => {
             onSaved={(id) => setProfileData(prev => ({ ...prev, avatar_url: id }))}
           />
         )}
+        <FriendsSheet
+          isOpen={friendsSheet !== null}
+          mode={friendsSheet || 'followers'}
+          onClose={() => setFriendsSheet(null)}
+        />
+        <ShareProfileSheet isOpen={showShare} onClose={() => setShowShare(false)} />
       </div>
     </TabTransition>
   );
