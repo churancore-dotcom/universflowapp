@@ -515,21 +515,11 @@ const Settings = () => {
                   <EyeOff className="w-4 h-4 text-primary" />
                   <div className="flex flex-col">
                     <span className="text-sm">Private Profile</span>
-                    <span className="text-[11px] text-white/40">Only friends can see your activity</span>
+                    <span className="text-[11px] text-white/40">Hide your profile from future public discovery</span>
                   </div>
                 </div>
                 <Switch checked={isPrivate} onCheckedChange={togglePrivate} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle private profile" />
               </div>
-              <button onClick={() => setShowBlocked(true)} className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <Ban className="w-4 h-4 text-white/70" />
-                  <span className="text-sm">Blocked users</span>
-                </div>
-                <div className="flex items-center gap-2 text-muted-foreground">
-                  <span className="text-xs">{blocked.length}</span>
-                  <ChevronRight className="w-4 h-4" />
-                </div>
-              </button>
             </div>
           </section>
 
