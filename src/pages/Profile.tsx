@@ -388,20 +388,6 @@ const Profile = () => {
 
               {/* Ticket stub: listening data */}
               {profileSettled && user && (
-                <div className="relative grid grid-cols-3 gap-3">
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Minutes</p>
-                    <p className="font-display text-2xl leading-none tracking-tight">{listenStats.minutes.toLocaleString()}</p>
-                  </div>
-                  <div>
-                    <p className="text-[8px] font-black uppercase tracking-[0.22em] text-white/40 mb-1">Streak</p>
-                    <p className="font-display text-2xl leading-none tracking-tight inline-flex items-center gap-1">
-                      {listenStats.streak}
-                      {listenStats.streak > 0 && <Flame className="w-4 h-4 text-primary" fill="currentColor" />}
-                    </p>
-                  </div>
-              {/* Ticket stub: listening data */}
-              {profileSettled && user && (
                 <div className="relative space-y-3">
                   <div className="grid grid-cols-3 gap-3">
                     <div>
@@ -436,6 +422,14 @@ const Profile = () => {
                   </div>
                 </div>
               )}
+            </div>
+          </section>
+
+          <div className="px-4 space-y-4 mt-2">
+
+            <EmailVerificationCard />
+
+            {/* === Now Spinning: Top Artist & Song === */}
             {profileSettled && user && (listenStats.topArtist || listenStats.topSong) && (
               <div
                 className="relative rounded-[24px] p-4 overflow-hidden"
