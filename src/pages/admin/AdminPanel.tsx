@@ -243,7 +243,7 @@ const SupportTab = ({ adminId, askConfirm }: { adminId: string; askConfirm: (c: 
       action: async () => {
         const body = reply.trim();
         const { error: e1 } = await supabase.from('support_messages').insert({
-          chat_id: selected.id, sender_role: 'admin', sender_id: adminId, message: body,
+          chat_id: selected.id, sender_role: 'admin', sender_id: adminId, body,
         });
         if (e1) throw e1;
         const { error: e2 } = await supabase.from('support_chats').update({
@@ -292,7 +292,7 @@ const SupportTab = ({ adminId, askConfirm }: { adminId: string; askConfirm: (c: 
               {messages.map((m) => (
                 <div key={m.id} className={`text-sm ${m.sender_role === 'admin' ? 'text-right' : ''}`}>
                   <div className={`inline-block max-w-[80%] px-3 py-2 rounded-lg ${m.sender_role === 'admin' ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                    {m.message}
+                    {m.body}
                   </div>
                   <div className="text-[10px] text-muted-foreground mt-0.5">{fmtDate(m.created_at)}</div>
                 </div>
