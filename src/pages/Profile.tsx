@@ -48,6 +48,9 @@ const Profile = () => {
   const [newUsername, setNewUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+  const [social, setSocial] = useState({ followers: 0, following: 0 });
+  const [friendsSheet, setFriendsSheet] = useState<FriendsSheetMode | null>(null);
+  const [showShare, setShowShare] = useState(false);
 
   useEffect(() => {
     if (user) {
