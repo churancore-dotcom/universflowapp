@@ -588,6 +588,12 @@ const Profile = () => {
             onSaved={(id) => setProfileData(prev => ({ ...prev, avatar_url: id }))}
           />
         )}
+        <FriendsSheet
+          isOpen={friendsSheet !== null}
+          mode={friendsSheet || 'followers'}
+          onClose={() => setFriendsSheet(null)}
+        />
+        <ShareProfileSheet isOpen={showShare} onClose={() => setShowShare(false)} />
       </div>
     </TabTransition>
   );
