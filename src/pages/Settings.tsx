@@ -79,7 +79,7 @@ const monthsBetween = (iso?: string | null): string => {
 };
 
 // --- reusable row primitives -------------------------------------------------
-const Section: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
   <section>
     <div className="flex items-center gap-2 mb-2.5 px-1">
       <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">{label}</h2>
@@ -90,7 +90,7 @@ const Section: React.FC<{ label: string; children: React.ReactNode }> = ({ label
   </section>
 );
 
-const Row: React.FC<{
+type RowProps = {
   icon: React.ReactNode;
   label: string;
   sub?: string;
@@ -99,13 +99,11 @@ const Row: React.FC<{
   destructive?: boolean;
   chevron?: boolean;
   last?: boolean;
-}> = ({ icon, label, sub, right, onClick, destructive, chevron, last }) => {
-  const Wrap: React.ElementType = onClick ? 'button' : 'div';
-  return (
-    <Wrap
-      onClick={onClick}
-      className={`w-full px-4 py-3 flex items-center gap-3 ${last ? '' : 'border-b border-white/5'} ${onClick ? (destructive ? 'active:bg-destructive/10' : 'active:bg-muted/30') : ''} text-left`}
-    >
+};
+const Row = ({ icon, label, sub, right, onClick, destructive, chevron, last }: RowProps) => {
+  const base = `w-full px-4 py-3 flex items-center gap-3 ${last ? '' : 'border-b border-white/5'} ${onClick ? (destructive ? 'active:bg-destructive/10' : 'active:bg-muted/30') : ''} text-left`;
+  const inner = (
+    <>
       <span className={`w-4 h-4 shrink-0 flex items-center justify-center ${destructive ? 'text-destructive' : 'text-primary'}`}>{icon}</span>
       <div className="flex-1 min-w-0">
         <p className={`text-sm ${destructive ? 'text-destructive' : ''} truncate`}>{label}</p>
@@ -113,11 +111,14 @@ const Row: React.FC<{
       </div>
       {right}
       {chevron && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
-    </Wrap>
+    </>
   );
+  return onClick
+    ? <button onClick={onClick} className={base}>{inner}</button>
+    : <div className={base}>{inner}</div>;
 };
 
-const QualitySelector: React.FC<{ value: QualityTier; onChange: (v: QualityTier) => void }> = ({ value, onChange }) => (
+const QualitySelector = ({ value, onChange }: { value: QualityTier; onChange: (v: QualityTier) => void }) => (
   <div className="px-4 py-3 border-b border-white/5">
     <div className="grid grid-cols-4 gap-1.5">
       {QUALITY_OPTIONS.map((o) => {
@@ -138,6 +139,7 @@ const QualitySelector: React.FC<{ value: QualityTier; onChange: (v: QualityTier)
     </div>
   </div>
 );
+
 
 const Settings = () => {
   const navigate = useNavigate();
