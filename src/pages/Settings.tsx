@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders } from 'lucide-react';
+import { useState, useEffect, useCallback } from 'react';
+import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, KeyRound, Trash2, EyeOff, Ban, Smartphone, X } from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
@@ -13,7 +13,10 @@ import SupportChatModal from '@/components/SupportChatModal';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
 import EqualizerModal from '@/components/EqualizerModal';
 import { SettingsUpdateButton } from '@/components/SettingsUpdateButton';
+import ChangePasswordModal from '@/components/ChangePasswordModal';
+import DeleteAccountModal from '@/components/DeleteAccountModal';
 import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/contexts/AuthContext';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import SEOHead from '@/components/SEOHead';
