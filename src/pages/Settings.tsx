@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders, KeyRound, Trash2, EyeOff, Smartphone } from 'lucide-react';
+import {
+  ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders,
+  KeyRound, Trash2, EyeOff, Smartphone, Mail, CheckCircle2, Wifi, Download,
+  Radio, Bell, Sparkles, Vibrate, Globe, HardDrive, FileText, Info, ShieldCheck,
+  Languages, Waves, Zap, Repeat, PlayCircle, HelpCircle,
+} from 'lucide-react';
 
 import { useNavigate } from 'react-router-dom';
 import BottomNav from '@/components/BottomNav';
@@ -17,11 +22,11 @@ import ChangePasswordModal from '@/components/ChangePasswordModal';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
+import { useEmailVerified } from '@/hooks/useEmailVerified';
+import PremiumBadge from '@/components/PremiumBadge';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import SEOHead from '@/components/SEOHead';
-
-
 
 const EQ_KEY = 'eq_settings';
 
@@ -40,9 +45,107 @@ type CapacitorWindow = Window & typeof globalThis & {
   Capacitor?: { isNativePlatform?: () => boolean };
 };
 
+type QualityTier = 'saver' | 'normal' | 'high' | 'very_high';
+const QUALITY_OPTIONS: { id: QualityTier; label: string; hint: string }[] = [
+  { id: 'saver',     label: 'Saver',  hint: '~96 kbps' },
+  { id: 'normal',    label: 'Normal', hint: '~160 kbps' },
+  { id: 'high',      label: 'High',   hint: '~256 kbps' },
+  { id: 'very_high', label: 'Ultra',  hint: '320 kbps+' },
+];
+const readQuality = (key: string, fallback: QualityTier): QualityTier => {
+  try {
+    const v = localStorage.getItem(key) as QualityTier | null;
+    return v && QUALITY_OPTIONS.some(o => o.id === v) ? v : fallback;
+  } catch { return fallback; }
+};
+
+type LanguagePref = 'en' | 'hi' | 'pa';
+const LANGUAGE_OPTIONS: { id: LanguagePref; label: string; native: string }[] = [
+  { id: 'en', label: 'English', native: 'English' },
+  { id: 'hi', label: 'Hindi',   native: 'हिन्दी' },
+  { id: 'pa', label: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
+];
+
+const monthsBetween = (iso?: string | null): string => {
+  if (!iso) return '—';
+  const d = new Date(iso);
+  const now = new Date();
+  const m = Math.max(0, (now.getFullYear() - d.getFullYear()) * 12 + (now.getMonth() - d.getMonth()));
+  if (m < 1) return 'Joined this month';
+  if (m < 12) return `${m} month${m === 1 ? '' : 's'} on Univers Flow`;
+  const y = Math.floor(m / 12);
+  const r = m % 12;
+  return r ? `${y}y ${r}mo on Univers Flow` : `${y} year${y === 1 ? '' : 's'} on Univers Flow`;
+};
+
+// --- reusable row primitives -------------------------------------------------
+const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
+  <section>
+    <div className="flex items-center gap-2 mb-2.5 px-1">
+      <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">{label}</h2>
+    </div>
+    <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+      {children}
+    </div>
+  </section>
+);
+
+type RowProps = {
+  icon: React.ReactNode;
+  label: string;
+  sub?: string;
+  right?: React.ReactNode;
+  onClick?: () => void;
+  destructive?: boolean;
+  chevron?: boolean;
+  last?: boolean;
+};
+const Row = ({ icon, label, sub, right, onClick, destructive, chevron, last }: RowProps) => {
+  const base = `w-full px-4 py-3 flex items-center gap-3 ${last ? '' : 'border-b border-white/5'} ${onClick ? (destructive ? 'active:bg-destructive/10' : 'active:bg-muted/30') : ''} text-left`;
+  const inner = (
+    <>
+      <span className={`w-4 h-4 shrink-0 flex items-center justify-center ${destructive ? 'text-destructive' : 'text-primary'}`}>{icon}</span>
+      <div className="flex-1 min-w-0">
+        <p className={`text-sm ${destructive ? 'text-destructive' : ''} truncate`}>{label}</p>
+        {sub && <p className="text-[11px] text-white/40 truncate">{sub}</p>}
+      </div>
+      {right}
+      {chevron && <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />}
+    </>
+  );
+  return onClick
+    ? <button onClick={onClick} className={base}>{inner}</button>
+    : <div className={base}>{inner}</div>;
+};
+
+const QualitySelector = ({ value, onChange }: { value: QualityTier; onChange: (v: QualityTier) => void }) => (
+  <div className="px-4 py-3 border-b border-white/5">
+    <div className="grid grid-cols-4 gap-1.5">
+      {QUALITY_OPTIONS.map((o) => {
+        const active = value === o.id;
+        return (
+          <button
+            key={o.id}
+            onClick={() => onChange(o.id)}
+            className={`py-2 rounded-lg text-[11px] font-semibold transition-colors ${
+              active ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
+            }`}
+          >
+            <div>{o.label}</div>
+            <div className={`text-[9px] font-normal mt-0.5 ${active ? 'text-primary-foreground/70' : 'text-white/40'}`}>{o.hint}</div>
+          </button>
+        );
+      })}
+    </div>
+  </div>
+);
+
+
 const Settings = () => {
   const navigate = useNavigate();
   const { isPremium } = usePremium();
+  const { user } = useAuth();
+  const { isVerified: emailVerified } = useEmailVerified();
   const { crossfade: cfEnabled, crossfadeDuration: cfDuration, crossfadeCurve, gaplessPro, toggleCrossfade, setCrossfadeDuration, setCrossfadeCurve, toggleGaplessPro, audioElement } = usePlayer();
 
   const [gaplessPlayback, setGaplessPlayback] = useState(() => localStorage.getItem('uf_gapless') !== 'false');
@@ -56,7 +159,11 @@ const Settings = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
-  const { user } = useAuth();
+  const [profileCreated, setProfileCreated] = useState<string | null>(null);
+  const [streamQuality, setStreamQuality] = useState<QualityTier>(() => readQuality('uf_stream_quality', 'high'));
+  const [downloadQuality, setDownloadQuality] = useState<QualityTier>(() => readQuality('uf_download_quality', 'very_high'));
+  const [wifiOnlyDownload, setWifiOnlyDownload] = useState<boolean>(() => localStorage.getItem('uf_download_wifi_only') === 'true');
+  const [language, setLanguage] = useState<LanguagePref>(() => (localStorage.getItem('uf_language') as LanguagePref) || 'en');
   type DeviceRow = { id: string; platform: string | null; device_info: Record<string, unknown> | null; updated_at: string | null };
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => {
@@ -74,17 +181,19 @@ const Settings = () => {
     setDevices((data as DeviceRow[] | null) || []);
   }, [user]);
 
-  const loadPrivacy = useCallback(async () => {
+  const loadProfileMeta = useCallback(async () => {
     if (!user) return;
-    const { data } = await supabase.from('profiles').select('is_private').eq('user_id', user.id).single();
-    const val = (data as { is_private?: boolean } | null)?.is_private ?? false;
-    setIsPrivate(!!val);
+    const { data } = await supabase
+      .from('profiles')
+      .select('is_private, created_at')
+      .eq('user_id', user.id)
+      .single();
+    const row = data as { is_private?: boolean; created_at?: string } | null;
+    setIsPrivate(!!row?.is_private);
+    setProfileCreated(row?.created_at || user.created_at || null);
   }, [user]);
 
-  useEffect(() => {
-    loadDevices();
-    loadPrivacy();
-  }, [loadDevices, loadPrivacy]);
+  useEffect(() => { loadDevices(); loadProfileMeta(); }, [loadDevices, loadProfileMeta]);
 
   const togglePrivate = async (val: boolean) => {
     if (!user) return;
@@ -101,9 +210,6 @@ const Settings = () => {
     setDevices(prev => prev.filter(d => d.id !== id));
     toast.success('Device removed');
   };
-
-
-  
 
   useEffect(() => {
     const calcSize = async () => {
@@ -134,16 +240,8 @@ const Settings = () => {
     try { window.dispatchEvent(new CustomEvent('uf-playback-settings-changed')); } catch { /* ignore */ }
   };
 
-  const handleGapless = (val: boolean) => {
-    setGaplessPlayback(val);
-    localStorage.setItem('uf_gapless', String(val));
-    emitPlaybackSettingsChanged();
-  };
-  const handleAutoplay = (val: boolean) => {
-    setAutoplay(val);
-    localStorage.setItem('uf_autoplay', String(val));
-    emitPlaybackSettingsChanged();
-  };
+  const handleGapless = (val: boolean) => { setGaplessPlayback(val); localStorage.setItem('uf_gapless', String(val)); emitPlaybackSettingsChanged(); };
+  const handleAutoplay = (val: boolean) => { setAutoplay(val); localStorage.setItem('uf_autoplay', String(val)); emitPlaybackSettingsChanged(); };
   const handleNotifications = async (val: boolean) => {
     setNotifications(val);
     localStorage.setItem('uf_notifications', String(val));
@@ -174,6 +272,27 @@ const Settings = () => {
     }
   };
 
+  const handleStreamQuality = (v: QualityTier) => {
+    setStreamQuality(v);
+    localStorage.setItem('uf_stream_quality', v);
+    emitPlaybackSettingsChanged();
+    toast.success(`Streaming quality: ${QUALITY_OPTIONS.find(o => o.id === v)?.label}`);
+  };
+  const handleDownloadQuality = (v: QualityTier) => {
+    setDownloadQuality(v);
+    localStorage.setItem('uf_download_quality', v);
+    toast.success(`Download quality: ${QUALITY_OPTIONS.find(o => o.id === v)?.label}`);
+  };
+  const handleWifiOnly = (v: boolean) => {
+    setWifiOnlyDownload(v);
+    localStorage.setItem('uf_download_wifi_only', String(v));
+  };
+  const handleLanguage = (v: LanguagePref) => {
+    setLanguage(v);
+    localStorage.setItem('uf_language', v);
+    toast.success(`Language preference saved: ${LANGUAGE_OPTIONS.find(o => o.id === v)?.label}`);
+  };
+
   const handleResetPlayback = () => {
     handlePlaybackSpeed(1);
     handleGapless(true);
@@ -183,8 +302,8 @@ const Settings = () => {
     toast.success('Playback settings restored');
   };
 
-
   const handleClearCache = async () => {
+    if (!window.confirm('Clear cached artwork, streams and previews on this device?')) return;
     try {
       if ('caches' in window) {
         const keys = await caches.keys();
@@ -229,332 +348,337 @@ const Settings = () => {
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 pt-3 pb-32 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>
-          {/* Account / Email verification */}
-          <section>
-            <div className="flex items-center gap-2 mb-2.5 px-1">
-              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Account</h2>
-            </div>
-            <EmailVerificationCard />
-            <div className="mt-3 rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              <button onClick={() => setShowPassword(true)} className="w-full px-4 py-3 flex items-center justify-between border-b border-white/5 active:bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <KeyRound className="w-4 h-4 text-primary" />
-                  <span className="text-sm">Change Password</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </button>
-              <button onClick={() => setShowDelete(true)} className="w-full px-4 py-3 flex items-center justify-between active:bg-destructive/10">
-                <div className="flex items-center gap-2">
-                  <Trash2 className="w-4 h-4 text-destructive" />
-                  <span className="text-sm text-destructive">Delete Account</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </div>
-          </section>
 
-          {/* Playback */}
-          <section>
-            <div className="flex items-center gap-2 mb-2.5 px-1">
-              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Playback</h2>
-            </div>
-            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              <div className="px-4 py-3 border-b border-white/5">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">Crossfade</span>
-                    {!isPremium && <Crown className="w-3 h-3 text-primary" fill="currentColor" />}
-                    <Switch
-                      checked={cfEnabled}
-                      onCheckedChange={() => {
-                        if (!isPremium) {
-                          toast.error('Crossfade is a Premium feature');
-                          navigate('/premium');
-                          return;
-                        }
-                        toggleCrossfade();
-                      }}
-                      className="data-[state=checked]:bg-primary scale-75"
-                      aria-label="Toggle crossfade"
-                    />
+          {/* ============ 1. ACCOUNT ============ */}
+          <Section label="Account">
+            {/* Always-visible summary card (never blank, even when email is verified) */}
+            <div className="px-4 pt-4 pb-3 border-b border-white/5">
+              <div className="flex items-start gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-primary/15 flex items-center justify-center shrink-0">
+                  <Mail className="w-5 h-5 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] text-white/40">Signed in as</p>
+                  <p className="text-sm font-medium truncate mt-0.5">{user?.email || 'Guest'}</p>
+                  <div className="flex items-center gap-1.5 mt-2 flex-wrap">
+                    {isPremium ? (
+                      <PremiumBadge size="xs" />
+                    ) : (
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-full bg-white/[0.06] text-white/60">Free</span>
+                    )}
+                    {emailVerified ? (
+                      <span className="inline-flex items-center gap-1 text-[9px] font-black uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400">
+                        <CheckCircle2 className="w-2.5 h-2.5" /> Verified
+                      </span>
+                    ) : (
+                      <span className="text-[9px] font-black uppercase tracking-[0.2em] px-1.5 py-0.5 rounded-full bg-amber-500/15 text-amber-400">Unverified</span>
+                    )}
+                    <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/40">· {monthsBetween(profileCreated)}</span>
                   </div>
-                  <span className="text-sm text-primary font-medium">{!isPremium ? 'Pro' : cfEnabled ? `${cfDuration}s` : 'Off'}</span>
                 </div>
-                {cfEnabled && (
-                  <Slider value={[cfDuration]} onValueChange={([val]) => setCrossfadeDuration(val)} max={12} step={1} className="[&_[role=slider]]:w-5 [&_[role=slider]]:h-5" />
-                )}
               </div>
-
-              {/* Crossfade Curve — Premium */}
-              <div className="px-4 py-3 border-b border-white/5">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">Crossfade Curve</span>
-                    {!isPremium && <Crown className="w-3 h-3 text-primary" fill="currentColor" />}
-                  </div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">Pro</span>
+              {/* Keep verify-flow logic nested here — renders inline verify controls if unverified, nothing if verified. */}
+              {!emailVerified && (
+                <div className="mt-3">
+                  <EmailVerificationCard compact />
                 </div>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {([
-                    { id: 'linear', label: 'Linear' },
-                    { id: 'equal-power', label: 'DJ' },
-                    { id: 'smooth', label: 'Smooth' },
-                    { id: 'exponential', label: 'Punch' },
-                  ] as const).map((c) => {
-                    const active = crossfadeCurve === c.id;
-                    return (
-                      <button
-                        key={c.id}
-                        onClick={() => {
-                          if (!isPremium) { navigate('/premium'); return; }
-                          setCrossfadeCurve(c.id);
-                          toast.success(`${c.label} curve applied`);
-                        }}
-                        className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                          active ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
-                        }`}
-                      >
-                        {c.label}
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[10px] text-muted-foreground mt-2 leading-snug">
-                  DJ = constant loudness, Smooth = S-curve, Punch = exponential drop-in.
-                </p>
-              </div>
+              )}
+            </div>
+            <Row icon={<KeyRound className="w-4 h-4" />} label="Change Password" chevron onClick={() => setShowPassword(true)} />
+            <Row icon={<Trash2 className="w-4 h-4" />} label="Deactivate Account" destructive chevron last onClick={() => setShowDelete(true)} />
+          </Section>
 
-              {/* Gapless Pro — Premium */}
-              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm">Gapless Pro</span>
+          {/* ============ 2. PLAYBACK ============ */}
+          <Section label="Playback">
+            {/* Crossfade */}
+            <div className="px-4 py-3 border-b border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <Waves className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Crossfade</span>
                   {!isPremium && <Crown className="w-3 h-3 text-primary" fill="currentColor" />}
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">Pro</span>
                 </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-primary font-medium">{!isPremium ? 'Pro' : cfEnabled ? `${cfDuration}s` : 'Off'}</span>
+                  <Switch
+                    checked={cfEnabled}
+                    onCheckedChange={() => {
+                      if (!isPremium) { toast.error('Crossfade is a Premium feature'); navigate('/premium'); return; }
+                      toggleCrossfade();
+                    }}
+                    className="data-[state=checked]:bg-primary scale-90"
+                    aria-label="Toggle crossfade"
+                  />
+                </div>
+              </div>
+              {cfEnabled && (
+                <Slider value={[cfDuration]} onValueChange={([val]) => setCrossfadeDuration(val)} max={12} step={1} className="[&_[role=slider]]:w-5 [&_[role=slider]]:h-5" />
+              )}
+            </div>
+
+            {/* Crossfade Curve */}
+            <div className="px-4 py-3 border-b border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Crossfade Curve</span>
+                </div>
+                <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">Pro</span>
+              </div>
+              <div className="grid grid-cols-4 gap-1.5">
+                {([
+                  { id: 'linear', label: 'Linear' },
+                  { id: 'equal-power', label: 'DJ' },
+                  { id: 'smooth', label: 'Smooth' },
+                  { id: 'exponential', label: 'Punch' },
+                ] as const).map((c) => {
+                  const active = crossfadeCurve === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      onClick={() => {
+                        if (!isPremium) { navigate('/premium'); return; }
+                        setCrossfadeCurve(c.id);
+                        toast.success(`${c.label} curve applied`);
+                      }}
+                      className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        active ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <Row
+              icon={<Zap className="w-4 h-4" />}
+              label="Gapless Pro"
+              sub="Bit-perfect transitions on premium"
+              right={
                 <Switch
                   checked={gaplessPro}
-                  onCheckedChange={() => {
-                    if (!isPremium) { navigate('/premium'); return; }
-                    toggleGaplessPro();
-                  }}
+                  onCheckedChange={() => { if (!isPremium) { navigate('/premium'); return; } toggleGaplessPro(); }}
                   className="data-[state=checked]:bg-primary scale-90"
                   aria-label="Toggle Gapless Pro"
                 />
-              </div>
-              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-                <span className="text-sm">Gapless Playback</span>
-                <Switch checked={gaplessPlayback} onCheckedChange={handleGapless} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle gapless playback" />
-              </div>
-              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-                <span className="text-sm">Autoplay</span>
-                <Switch checked={autoplay} onCheckedChange={handleAutoplay} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle autoplay" />
-              </div>
+              }
+            />
+            <Row
+              icon={<Repeat className="w-4 h-4" />}
+              label="Gapless Playback"
+              right={<Switch checked={gaplessPlayback} onCheckedChange={handleGapless} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle gapless playback" />}
+            />
+            <Row
+              icon={<PlayCircle className="w-4 h-4" />}
+              label="Autoplay"
+              sub="Keep the queue rolling when it ends"
+              right={<Switch checked={autoplay} onCheckedChange={handleAutoplay} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle autoplay" />}
+            />
 
-              {/* Playback speed */}
-              <div className="px-4 py-3 border-b border-white/5">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <Gauge className="w-4 h-4 text-primary" />
-                    <span className="text-sm">Playback Speed</span>
+            {/* Streaming quality */}
+            <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Radio className="w-4 h-4 text-primary" />
+                <span className="text-sm">Streaming Quality</span>
+              </div>
+              <span className="text-[11px] text-white/50">{QUALITY_OPTIONS.find(o => o.id === streamQuality)?.hint}</span>
+            </div>
+            <QualitySelector value={streamQuality} onChange={handleStreamQuality} />
+
+            {/* Playback speed */}
+            <div className="px-4 py-3 border-b border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <Gauge className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Playback Speed</span>
+                </div>
+                <span className="text-sm text-primary font-medium">{playbackSpeed.toFixed(2)}x</span>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {[0.75, 1, 1.25, 1.5, 2].map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => handlePlaybackSpeed(s)}
+                    className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      playbackSpeed === s ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
+                    }`}
+                  >
+                    {s}x
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Row
+              icon={<Sliders className="w-4 h-4" />}
+              label="Equalizer & Effects"
+              sub={isPremium ? 'Studio presets & 10-band EQ' : 'Premium only'}
+              chevron
+              onClick={() => {
+                if (!isPremium) { toast.error('Equalizer is a Premium feature'); navigate('/premium'); return; }
+                setShowEq(true);
+              }}
+            />
+            <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
+          </Section>
+
+          {/* ============ 3. DOWNLOADS ============ */}
+          <Section label="Downloads">
+            <div className="px-4 pt-3 pb-1 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <Download className="w-4 h-4 text-primary" />
+                <span className="text-sm">Download Quality</span>
+              </div>
+              <span className="text-[11px] text-white/50">{QUALITY_OPTIONS.find(o => o.id === downloadQuality)?.hint}</span>
+            </div>
+            <QualitySelector value={downloadQuality} onChange={handleDownloadQuality} />
+            <Row
+              icon={<Wifi className="w-4 h-4" />}
+              label="Download over Wi-Fi only"
+              sub="Skip downloads on mobile data"
+              right={<Switch checked={wifiOnlyDownload} onCheckedChange={handleWifiOnly} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle wifi only downloads" />}
+              last
+            />
+          </Section>
+
+          {/* ============ 4. PRIVACY ============ */}
+          <Section label="Privacy">
+            <Row
+              icon={<EyeOff className="w-4 h-4" />}
+              label="Private Profile"
+              sub="Hide your profile from future public discovery"
+              right={<Switch checked={isPrivate} onCheckedChange={togglePrivate} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle private profile" />}
+              last
+            />
+          </Section>
+
+          {/* ============ 5. DEVICES ============ */}
+          <Section label="Devices">
+            {devices.length === 0 && (
+              <div className="px-4 py-4 flex items-center gap-3">
+                <Smartphone className="w-4 h-4 text-white/30" />
+                <p className="text-xs text-white/40">No devices registered for notifications.</p>
+              </div>
+            )}
+            {devices.map((d, idx) => {
+              const info = (d.device_info || {}) as Record<string, unknown>;
+              const label = String(info.model || info.name || d.platform || 'Device');
+              const seen = d.updated_at ? new Date(d.updated_at).toLocaleDateString() : '—';
+              const last = idx === devices.length - 1;
+              return (
+                <div key={d.id} className={`px-4 py-3 flex items-center gap-3 ${last ? '' : 'border-b border-white/5'}`}>
+                  <Smartphone className="w-4 h-4 text-primary shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm truncate">{label}</p>
+                    <p className="text-[11px] text-white/40">{d.platform || 'device'} · last seen {seen}</p>
                   </div>
-                  <span className="text-sm text-primary font-medium">{playbackSpeed.toFixed(2)}x</span>
+                  <button onClick={() => removeDevice(d.id)} className="text-xs text-destructive font-medium px-2 py-1 rounded-md active:bg-destructive/10">Remove</button>
                 </div>
-                <div className="grid grid-cols-5 gap-1.5">
-                  {[0.75, 1, 1.25, 1.5, 2].map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => handlePlaybackSpeed(s)}
-                      className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        playbackSpeed === s
-                          ? 'bg-primary text-primary-foreground'
-                          : 'bg-muted/40 text-foreground/70 active:bg-muted'
-                      }`}
-                    >
-                      {s}x
-                    </button>
-                  ))}
-                </div>
-              </div>
+              );
+            })}
+          </Section>
 
-              {/* Equalizer shortcut */}
-              <button
-                onClick={() => {
-                  if (!isPremium) {
-                    toast.error('Equalizer is a Premium feature');
-                    navigate('/premium');
-                    return;
-                  }
-                  setShowEq(true);
-                }}
-                className="w-full px-4 py-3 flex items-center justify-between border-b border-white/5 active:bg-muted/30"
-              >
-                <div className="flex items-center gap-2">
-                  <Sliders className="w-4 h-4 text-primary" />
-                  <span className="text-sm">Equalizer & Effects</span>
-                  {!isPremium && <Crown className="w-3 h-3 text-primary" fill="currentColor" />}
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </button>
-
-              {/* Reset playback */}
-              <button
-                onClick={handleResetPlayback}
-                className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30"
-              >
-                <div className="flex items-center gap-2">
-                  <RotateCcw className="w-4 h-4 text-muted-foreground" />
-                  <span className="text-sm">Reset Playback Settings</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </div>
-          </section>
-
-          {/* Support */}
-          <section>
-            <div className="flex items-center gap-2 mb-2.5 px-1">
-              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Support</h2>
-            </div>
-            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              <button onClick={() => navigate(isPremium ? '/subscription' : '/premium')} className="w-full px-4 py-3 flex items-center justify-between border-b border-white/5 active:bg-muted/30">
-                <div className="flex items-center gap-2">
-                  {isPremium && <span className="px-1.5 py-0.5 rounded-full bg-primary/20 text-[10px] font-medium text-primary">Premium</span>}
-                  <span className="text-sm">{isPremium ? 'Manage Subscription' : 'Upgrade to Premium'}</span>
-                </div>
-                <div className="flex items-center gap-1.5 text-muted-foreground">
-                  <Crown className="w-3.5 h-3.5 text-primary" />
-                  <ChevronRight className="w-4 h-4" />
-                </div>
-              </button>
-              <button onClick={() => setShowSupport(true)} className="w-full px-4 py-3 flex items-center justify-between active:bg-muted/30">
-                <div className="flex items-center gap-2">
-                  <MessageSquare className="w-4 h-4 text-primary" />
-                  <span className="text-sm">Contact Support</span>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground" />
-              </button>
-            </div>
-          </section>
-
-          {/* Notifications */}
-          <section>
-            <div className="flex items-center gap-2 mb-2.5 px-1">
-              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Notifications</h2>
-            </div>
-            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-                <span className="text-sm">Push Notifications</span>
-                <Switch checked={notifications} onCheckedChange={handleNotifications} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle push notifications" />
-              </div>
-              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-                <div className="flex flex-col">
-                  <span className="text-sm">Smart Mood Picks</span>
-                  <span className="text-[11px] text-white/40">A daily song that matches your vibe</span>
-                </div>
+          {/* ============ 6. NOTIFICATIONS ============ */}
+          <Section label="Notifications">
+            <Row
+              icon={<Bell className="w-4 h-4" />}
+              label="Push Notifications"
+              right={<Switch checked={notifications} onCheckedChange={handleNotifications} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle push notifications" />}
+            />
+            <Row
+              icon={<Sparkles className="w-4 h-4" />}
+              label="Smart Mood Picks"
+              sub="A daily song that matches your vibe"
+              right={
                 <Switch
                   checked={moodPushes}
                   onCheckedChange={async (val) => {
                     setMoodPushes(val);
                     localStorage.setItem('uf_mood_pushes', String(val));
-                    const { data: { user } } = await supabase.auth.getUser();
-                    if (user) {
-                      await supabase.from('profiles').update({ mood_pushes_enabled: val }).eq('user_id', user.id);
-                    }
+                    const { data: { user: u } } = await supabase.auth.getUser();
+                    if (u) { await supabase.from('profiles').update({ mood_pushes_enabled: val }).eq('user_id', u.id); }
                   }}
                   className="data-[state=checked]:bg-primary scale-90"
                   aria-label="Toggle Smart Mood Picks"
                 />
+              }
+            />
+            <Row
+              icon={<Vibrate className="w-4 h-4" />}
+              label="Haptic Feedback"
+              right={<Switch checked={haptics} onCheckedChange={handleHaptics} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle haptic feedback" />}
+              last
+            />
+          </Section>
+
+          {/* ============ 7. LANGUAGE & REGION ============ */}
+          <Section label="Language & Region">
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-3 mb-3">
+                <Languages className="w-4 h-4 text-primary" />
+                <span className="text-sm">App Language</span>
               </div>
-              <div className="px-4 py-3 flex items-center justify-between">
-                <span className="text-sm">Haptic Feedback</span>
-                <Switch checked={haptics} onCheckedChange={handleHaptics} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle haptic feedback" />
+              <div className="grid grid-cols-3 gap-1.5">
+                {LANGUAGE_OPTIONS.map((l) => {
+                  const active = language === l.id;
+                  return (
+                    <button
+                      key={l.id}
+                      onClick={() => handleLanguage(l.id)}
+                      className={`py-2 rounded-lg text-xs font-medium transition-colors ${
+                        active ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
+                      }`}
+                    >
+                      <div>{l.label}</div>
+                      <div className={`text-[10px] font-normal mt-0.5 ${active ? 'text-primary-foreground/70' : 'text-white/40'}`}>{l.native}</div>
+                    </button>
+                  );
+                })}
               </div>
+              <p className="text-[10px] text-white/40 mt-2 inline-flex items-center gap-1">
+                <Globe className="w-3 h-3" /> Preference saved on this device
+              </p>
             </div>
-          </section>
+          </Section>
 
-          {/* Lock Screen picker removed — users now change it from the 3-dot menu on the lock screen itself */}
+          {/* ============ 8. SUPPORT ============ */}
+          <Section label="Support">
+            <Row
+              icon={<Crown className="w-4 h-4" />}
+              label={isPremium ? 'Manage Subscription' : 'Upgrade to Premium'}
+              chevron
+              onClick={() => navigate(isPremium ? '/subscription' : '/premium')}
+            />
+            <Row icon={<MessageSquare className="w-4 h-4" />} label="Contact Support" chevron onClick={() => setShowSupport(true)} />
+            <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & FAQs" chevron last onClick={() => setShowSupport(true)} />
+          </Section>
 
+          {/* ============ 9. STORAGE ============ */}
+          <Section label="Storage">
+            <Row
+              icon={<HardDrive className="w-4 h-4" />}
+              label="Clear Cache"
+              destructive
+              right={<span className="text-xs text-muted-foreground">{cacheSize}</span>}
+              onClick={handleClearCache}
+              last
+            />
+          </Section>
 
+          {/* ============ 10. LEGAL ============ */}
+          <Section label="Legal">
+            <Row icon={<FileText className="w-4 h-4" />} label="Terms of Service" chevron onClick={() => navigate('/legal/terms')} />
+            <Row icon={<ShieldCheck className="w-4 h-4" />} label="Privacy Policy" chevron last onClick={() => navigate('/legal/privacy')} />
+          </Section>
 
-
-          {/* Privacy */}
-          <section>
-            <div className="flex items-center gap-2 mb-2.5 px-1">
-              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Privacy</h2>
-            </div>
-            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-                <div className="flex items-center gap-2">
-                  <EyeOff className="w-4 h-4 text-primary" />
-                  <div className="flex flex-col">
-                    <span className="text-sm">Private Profile</span>
-                    <span className="text-[11px] text-white/40">Hide your profile from future public discovery</span>
-                  </div>
-                </div>
-                <Switch checked={isPrivate} onCheckedChange={togglePrivate} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle private profile" />
-              </div>
-            </div>
-          </section>
-
-          {/* Devices */}
-          <section>
-            <div className="flex items-center gap-2 mb-2.5 px-1">
-              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Devices</h2>
-            </div>
-            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              {devices.length === 0 && (
-                <div className="px-4 py-4 text-xs text-white/40">No devices registered for notifications.</div>
-              )}
-              {devices.map((d) => {
-                const info = (d.device_info || {}) as Record<string, unknown>;
-                const label = String(info.model || info.name || d.platform || 'Device');
-                const seen = d.updated_at ? new Date(d.updated_at).toLocaleDateString() : '—';
-                return (
-                  <div key={d.id} className="px-4 py-3 flex items-center justify-between border-b border-white/5 last:border-b-0">
-                    <div className="flex items-center gap-2 min-w-0">
-                      <Smartphone className="w-4 h-4 text-primary shrink-0" />
-                      <div className="min-w-0">
-                        <p className="text-sm truncate">{label}</p>
-                        <p className="text-[11px] text-white/40">{d.platform || 'device'} · last seen {seen}</p>
-                      </div>
-                    </div>
-                    <button onClick={() => removeDevice(d.id)} className="text-xs text-destructive font-medium px-2 py-1 rounded-md active:bg-destructive/10">Remove</button>
-                  </div>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Storage */}
-          <section>
-            <div className="flex items-center gap-2 mb-2.5 px-1">
-              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">Storage</h2>
-            </div>
-            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              <button onClick={handleClearCache} className="w-full px-4 py-3 flex items-center justify-between text-destructive active:bg-destructive/10">
-                <span className="text-sm font-medium">Clear Cache</span>
-                <span className="text-sm text-muted-foreground">{cacheSize}</span>
-              </button>
-            </div>
-          </section>
-
-          {/* About */}
-          <section>
-            <div className="flex items-center gap-2 mb-2.5 px-1">
-              <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">About</h2>
-            </div>
-            <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
-              <SettingsUpdateButton />
-              <div className="px-4 py-3 flex items-center justify-between border-b border-white/5">
-                <span className="text-sm">Version</span>
-                <span className="text-sm text-muted-foreground">1.0.0</span>
-              </div>
-              <div className="px-4 py-3 flex items-center justify-between">
-                <span className="text-sm">Build</span>
-                <span className="text-sm text-muted-foreground">2026.04.26</span>
-              </div>
-            </div>
-          </section>
+          {/* ============ 11. ABOUT ============ */}
+          <Section label="About">
+            <SettingsUpdateButton />
+            <Row icon={<Info className="w-4 h-4" />} label="Version" right={<span className="text-sm text-muted-foreground">1.0.0</span>} />
+            <Row icon={<Info className="w-4 h-4" />} label="Build" right={<span className="text-sm text-muted-foreground">2026.04.26</span>} last />
+          </Section>
         </main>
 
         <BottomNav />
