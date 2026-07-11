@@ -1,18 +1,16 @@
 import { useState, useEffect } from 'react';
-import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio, Users, UserPlus, Share2 } from 'lucide-react';
+import { User, Settings, LogOut, Shield, Heart, ListMusic, ChevronRight, Crown, Edit2, Check, X, Star, Headphones, Download, Flame, Radio, Music2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
+import { usePlayer } from '@/contexts/PlayerContext';
 import BottomNav from '@/components/BottomNav';
 import PremiumBadge from '@/components/PremiumBadge';
 import ReviewModal from '@/components/ReviewModal';
 import ReviewsSheet from '@/components/ReviewsSheet';
 import { TabTransition } from '@/components/PageTransition';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
-import FriendsSheet from '@/components/FriendsSheet';
-import FriendActivityCard from '@/components/FriendActivityCard';
-import ShareProfileSheet from '@/components/ShareProfileSheet';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import AvatarPickerModal from '@/components/AvatarPickerModal';
@@ -23,21 +21,24 @@ import { Camera } from 'lucide-react';
 import SEOHead from '@/components/SEOHead';
 import { loadLibrarySongs } from '@/lib/streamSongs';
 
-type FriendsSheetMode = 'followers' | 'following' | 'search';
-
 interface ProfileData {
   username: string | null;
   username_changed: boolean;
   avatar_url: string | null;
 }
 
+type RecentCover = { id: string; title: string; artist: string; cover_url: string | null };
+
 const Profile = () => {
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { downloads } = useDownloads();
+  const { playSong } = usePlayer();
   const navigate = useNavigate();
   const [stats, setStats] = useState({ likedSongs: 0, playlists: 0, downloads: 0 });
-  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; topSong: string | null; streak: number }>({ minutes: 0, topArtist: null, topSong: null, streak: 0 });
+  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; topSong: string | null; streak: number; totalPlays: number; topGenre: string | null }>({ minutes: 0, topArtist: null, topSong: null, streak: 0, totalPlays: 0, topGenre: null });
+  const [recentCovers, setRecentCovers] = useState<RecentCover[]>([]);
+  const [memberSinceLabel, setMemberSinceLabel] = useState<string>('');
   const [statsReady, setStatsReady] = useState(false);
   const [showReview, setShowReview] = useState(false);
   const [showReviewsList, setShowReviewsList] = useState(false);
