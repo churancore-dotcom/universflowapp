@@ -357,6 +357,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           
           <Route path="/admin" element={<AdminRoute><AdminLayout /></AdminRoute>}>
             <Route index element={<AdminDashboard />} />
+            <Route path="panel" element={<AdminPanel />} />
             <Route path="upload" element={<UploadMusic />} />
             <Route path="songs" element={<ManageSongs />} />
             <Route path="artists" element={<ManageArtists />} />
