@@ -33,7 +33,7 @@ const Profile = () => {
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { downloads } = useDownloads();
-  const { playSong } = usePlayer();
+  
   const navigate = useNavigate();
   const [stats, setStats] = useState({ likedSongs: 0, playlists: 0, downloads: 0 });
   const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; topSong: string | null; streak: number; totalPlays: number; topGenre: string | null }>({ minutes: 0, topArtist: null, topSong: null, streak: 0, totalPlays: 0, topGenre: null });
