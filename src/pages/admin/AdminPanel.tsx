@@ -210,7 +210,7 @@ const OverviewTab = () => {
 
 /* ---------------- SUPPORT ---------------- */
 type Chat = { id: string; user_id: string; last_message_at: string | null; unread_for_admin: number; status: string | null };
-type Msg = { id: string; sender_role: string; sender_id: string | null; message: string; created_at: string };
+type Msg = { id: string; sender_role: string; sender_id: string | null; body: string; created_at: string };
 
 const SupportTab = ({ adminId, askConfirm }: { adminId: string; askConfirm: (c: NonNullable<ConfirmState>) => void }) => {
   const [chats, setChats] = useState<Chat[]>([]);
