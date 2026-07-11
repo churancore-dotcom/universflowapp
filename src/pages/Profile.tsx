@@ -66,6 +66,20 @@ const Profile = () => {
     setStats(prev => ({ ...prev, downloads: downloads.length }));
   }, [downloads.length]);
 
+  useEffect(() => {
+    if (!user?.created_at) { setMemberSinceLabel(''); return; }
+    const created = new Date(user.created_at);
+    const now = new Date();
+    const months = Math.max(0, (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth()));
+    if (months < 1) setMemberSinceLabel('New');
+    else if (months < 12) setMemberSinceLabel(`${months}mo`);
+    else {
+      const years = Math.floor(months / 12);
+      const rem = months % 12;
+      setMemberSinceLabel(rem ? `${years}y ${rem}mo` : `${years}y`);
+    }
+  }, [user?.created_at]);
+
   const fetchProfile = async () => {
     if (!user) { setProfileReady(true); return; }
     try {
