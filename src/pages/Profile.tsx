@@ -271,16 +271,7 @@ const Profile = () => {
                     Univers Flow · Member
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={() => setShowShare(true)}
-                    aria-label="Share profile"
-                    className="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center active:scale-90"
-                  >
-                    <Share2 className="w-3.5 h-3.5 text-white/80" />
-                  </button>
-                  <span className="text-[10px] font-mono tracking-widest text-white/40">{memberNo}</span>
-                </div>
+                <span className="text-[10px] font-mono tracking-widest text-white/40">{memberNo}</span>
               </div>
 
               {/* Avatar + identity */}
