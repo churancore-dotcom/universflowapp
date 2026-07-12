@@ -177,26 +177,41 @@ export async function setNativeLoudnessEnhancer(gainMb: number): Promise<void> {
  * Map a 10-band web EQ (centers in Hz, gains in dB ±12) onto the device's
  * native AudioEffect Equalizer (typically 5 bands). For each native band we
  * pick the nearest web band by center frequency and convert dB → millibels.
+ *
+ * Robustness: when the native Equalizer hasn't bound yet (no audio session
+ * id — happens BEFORE first play), we still push levels using a canonical
+ * 5-band layout. The plugin caches them in `savedEqBands` and re-applies
+ * the instant effects bind — so tweaking EQ before hitting play works.
  */
+const FALLBACK_NATIVE_BANDS: NativeEQBandInfo[] = [
+  { index: 0, centerFrequencyHz: 60,    minFrequencyHz: 30,    maxFrequencyHz: 120 },
+  { index: 1, centerFrequencyHz: 230,   minFrequencyHz: 120,   maxFrequencyHz: 460 },
+  { index: 2, centerFrequencyHz: 910,   minFrequencyHz: 460,   maxFrequencyHz: 1800 },
+  { index: 3, centerFrequencyHz: 3600,  minFrequencyHz: 1800,  maxFrequencyHz: 7000 },
+  { index: 4, centerFrequencyHz: 14000, minFrequencyHz: 7000,  maxFrequencyHz: 20000 },
+];
+
 export async function pushNativeEQFromWebBands(
   webBands: number[],
   webFrequenciesHz: number[],
 ): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   const info = await getNativeEQBands();
-  if (!info?.available || info.numberOfBands === 0) return;
+  const usable = info?.available && info.numberOfBands > 0 ? info : null;
+  const nativeBands = usable ? usable.bands : FALLBACK_NATIVE_BANDS;
+  const minLevel = usable ? usable.minLevel : -1500;
+  const maxLevel = usable ? usable.maxLevel : 1500;
   await setNativeEQEnabled(true);
-  for (const native of info.bands) {
+  for (const native of nativeBands) {
     const target = native.centerFrequencyHz;
     let best = 0;
     let bestDist = Infinity;
     for (let i = 0; i < webFrequenciesHz.length; i++) {
-      // log-distance for fairness across octaves
       const d = Math.abs(Math.log2(Math.max(1, webFrequenciesHz[i] / Math.max(1, target))));
       if (d < bestDist) { bestDist = d; best = i; }
     }
     const dB = webBands[best] ?? 0;
-    const mb = Math.max(info.minLevel, Math.min(info.maxLevel, Math.round(dB * 100)));
+    const mb = Math.max(minLevel, Math.min(maxLevel, Math.round(dB * 100)));
     await setNativeEQBand(native.index, mb);
   }
 }
