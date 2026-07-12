@@ -194,6 +194,7 @@ const FALLBACK_NATIVE_BANDS: NativeEQBandInfo[] = [
 export async function pushNativeEQFromWebBands(
   webBands: number[],
   webFrequenciesHz: number[],
+  nativeOffsetsMb?: number[],
 ): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   const info = await getNativeEQBands();
@@ -202,7 +203,8 @@ export async function pushNativeEQFromWebBands(
   const minLevel = usable ? usable.minLevel : -1500;
   const maxLevel = usable ? usable.maxLevel : 1500;
   await setNativeEQEnabled(true);
-  for (const native of nativeBands) {
+  for (let bi = 0; bi < nativeBands.length; bi++) {
+    const native = nativeBands[bi];
     const target = native.centerFrequencyHz;
     let best = 0;
     let bestDist = Infinity;
@@ -211,7 +213,9 @@ export async function pushNativeEQFromWebBands(
       if (d < bestDist) { bestDist = d; best = i; }
     }
     const dB = webBands[best] ?? 0;
-    const mb = Math.max(minLevel, Math.min(maxLevel, Math.round(dB * 100)));
+    const offset = nativeOffsetsMb?.[bi] ?? 0;
+    const mb = Math.max(minLevel, Math.min(maxLevel, Math.round(dB * 100) + offset));
     await setNativeEQBand(native.index, mb);
   }
 }
+
