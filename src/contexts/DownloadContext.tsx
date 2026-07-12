@@ -363,18 +363,13 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const downloadSong = useCallback(async (song: Song) => {
     if (!requirePremiumDownload()) return;
 
-    // Wi-Fi-only guard — user preference from Settings
+    // Wi-Fi-only guard — uses Capacitor Network on native, navigator.connection on web.
     try {
-      if (localStorage.getItem('uf_download_wifi_only') === 'true') {
-        const conn = (navigator as unknown as { connection?: { type?: string; effectiveType?: string } }).connection;
-        const type = conn?.type;
-        const eff = conn?.effectiveType;
-        // Block only when we can confirm we are NOT on wifi/ethernet
-        const isWifi = type ? (type === 'wifi' || type === 'ethernet') : (eff ? eff === '4g' || eff === '3g' ? false : true : true);
-        if (type && !isWifi) {
-          toast.error('Wi-Fi only downloads are on. Connect to Wi-Fi to continue.');
-          return;
-        }
+      const { isDownloadAllowedNow } = await import('@/lib/userPrefs');
+      const check = await isDownloadAllowedNow();
+      if (!check.allowed) {
+        toast.error(check.reason || 'Wi-Fi only downloads are on.');
+        return;
       }
     } catch { /* ignore */ }
 

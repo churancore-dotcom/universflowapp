@@ -1326,8 +1326,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               if (opts.skipNative || !isNativePlayerAvailable()) return null;
               try {
                 const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
+                const { getStreamBitrateCap } = await import('@/lib/userPrefs');
                 const native = await Promise.race([
-                  resolveYouTubeStreamOnDevice(videoId),
+                  resolveYouTubeStreamOnDevice(videoId, { bitrateCap: getStreamBitrateCap() }),
                   new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 2500)),
                 ]);
                 if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
