@@ -323,9 +323,6 @@ const Profile = () => {
                     )}
                   </div>
                 )}
-                {user?.email && (
-                  <p className="mt-1.5 text-[13px] text-white/55 truncate">{user.email}</p>
-                )}
               </div>
 
               {/* Tier row */}
