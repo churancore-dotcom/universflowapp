@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
-  Settings, LogOut, Shield, Heart, ListMusic, Crown,
+  Settings, LogOut, Shield, Heart, ListMusic, Crown, ChevronRight,
   Edit2, Check, X, Star, Headphones, Download, Music2, Camera,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -26,7 +26,6 @@ interface ProfileData {
   username_changed: boolean;
   avatar_url: string | null;
 }
-
 type RecentCover = { id: string; title: string; artist: string; cover_url: string | null };
 
 function gradientFromSeed(seed: string): string {
@@ -37,16 +36,14 @@ function gradientFromSeed(seed: string): string {
   return `linear-gradient(135deg, hsl(${a} 78% 58%), hsl(${b} 82% 42%))`;
 }
 
-const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
-
 const Profile = () => {
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { downloads } = useDownloads();
-
   const navigate = useNavigate();
+
   const [stats, setStats] = useState({ likedSongs: 0, playlists: 0, downloads: 0 });
-  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; topSong: string | null; streak: number; totalPlays: number; topGenre: string | null }>({ minutes: 0, topArtist: null, topSong: null, streak: 0, totalPlays: 0, topGenre: null });
+  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; streak: number; totalPlays: number }>({ minutes: 0, topArtist: null, streak: 0, totalPlays: 0 });
   const [recentCovers, setRecentCovers] = useState<RecentCover[]>([]);
   const [memberSinceLabel, setMemberSinceLabel] = useState<string>('');
   const [statsReady, setStatsReady] = useState(false);
@@ -61,32 +58,22 @@ const Profile = () => {
   const [showAvatarPicker, setShowAvatarPicker] = useState(false);
 
   useEffect(() => {
-    if (user) {
-      setProfileReady(false);
-      setStatsReady(false);
-      fetchStats();
-      fetchProfile();
-    } else {
-      setProfileReady(true);
-      setStatsReady(true);
-    }
+    if (user) { setProfileReady(false); setStatsReady(false); fetchStats(); fetchProfile(); }
+    else { setProfileReady(true); setStatsReady(true); }
   }, [user]);
 
-  useEffect(() => {
-    setStats(prev => ({ ...prev, downloads: downloads.length }));
-  }, [downloads.length]);
+  useEffect(() => { setStats(prev => ({ ...prev, downloads: downloads.length })); }, [downloads.length]);
 
   useEffect(() => {
     if (!user?.created_at) { setMemberSinceLabel(''); return; }
     const created = new Date(user.created_at);
     const now = new Date();
     const months = Math.max(0, (now.getFullYear() - created.getFullYear()) * 12 + (now.getMonth() - created.getMonth()));
-    if (months < 1) setMemberSinceLabel('NEW');
-    else if (months < 12) setMemberSinceLabel(`${months} MO`);
+    if (months < 1) setMemberSinceLabel('New member');
+    else if (months < 12) setMemberSinceLabel(`${months} month${months === 1 ? '' : 's'}`);
     else {
       const years = Math.floor(months / 12);
-      const rem = months % 12;
-      setMemberSinceLabel(rem ? `${years}Y ${rem}MO` : `${years} YR`);
+      setMemberSinceLabel(`${years} year${years === 1 ? '' : 's'}`);
     }
   }, [user?.created_at]);
 
@@ -94,10 +81,8 @@ const Profile = () => {
     if (!user) { setProfileReady(true); return; }
     try {
       const { data } = await supabase
-        .from('profiles')
-        .select('username, username_changed, avatar_url')
-        .eq('user_id', user.id)
-        .single();
+        .from('profiles').select('username, username_changed, avatar_url')
+        .eq('user_id', user.id).single();
       if (data) {
         setProfileData({
           username: data.username,
@@ -106,9 +91,7 @@ const Profile = () => {
         });
         setNewUsername(data.username || '');
       }
-    } finally {
-      setProfileReady(true);
-    }
+    } finally { setProfileReady(true); }
   };
 
   const fetchStats = async () => {
@@ -118,55 +101,43 @@ const Profile = () => {
         loadLibrarySongs(user.id),
         supabase.from('playlists').select('id').eq('user_id', user.id),
         supabase.from('recently_played').select('song_id,played_at').eq('user_id', user.id).order('played_at', { ascending: false }).limit(500),
-        supabase.from('song_play_events').select('title,artist,cover_url,song_id,created_at,source').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
+        supabase.from('song_play_events').select('title,artist,cover_url,song_id,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
       ]);
-      setStats({
-        likedSongs: likedResolved.length,
-        playlists: playlists.data?.length || 0,
-        downloads: downloads.length,
-      });
+      setStats({ likedSongs: likedResolved.length, playlists: playlists.data?.length || 0, downloads: downloads.length });
 
       type RecentRow = { song_id: string; played_at: string };
-      type CatalogSong = { id: string; title: string; artist: string; duration: number | null; genre: string | null; cover_url: string | null };
+      type CatalogSong = { id: string; title: string; artist: string; duration: number | null; cover_url: string | null };
       type PlayEventRow = { title: string | null; artist: string | null; cover_url: string | null; song_id: string | null; created_at: string };
 
       const recentRows = (recentPlays.data as RecentRow[] | null) || [];
       const eventList = (playEvents.data as PlayEventRow[] | null) || [];
       const catalogIds = [...new Set([
-        ...recentRows.map((r) => r.song_id).filter(Boolean),
-        ...eventList.map((r) => r.song_id).filter(Boolean) as string[],
+        ...recentRows.map(r => r.song_id).filter(Boolean),
+        ...eventList.map(r => r.song_id).filter(Boolean) as string[],
       ])];
       const { data: catalogSongs } = catalogIds.length
-        ? await supabase.from('songs').select('id,title,artist,duration,genre,cover_url').in('id', catalogIds)
+        ? await supabase.from('songs').select('id,title,artist,duration,cover_url').in('id', catalogIds)
         : { data: [] as CatalogSong[] };
-      const songById = new Map(((catalogSongs as CatalogSong[] | null) || []).map((song) => [song.id, song]));
+      const songById = new Map(((catalogSongs as CatalogSong[] | null) || []).map(s => [s.id, s]));
 
-      const eventRows = eventList.map((r) => ({
-        title: r.title, artist: r.artist, cover_url: r.cover_url, song_id: r.song_id,
-        played_at: r.created_at, duration: 180,
-        genre: r.song_id ? songById.get(r.song_id)?.genre || null : null,
-      }));
       const rows = [
-        ...recentRows.map((r) => {
-          const song = songById.get(r.song_id);
+        ...recentRows.map(r => {
+          const s = songById.get(r.song_id);
           return {
-            title: song?.title || null, artist: song?.artist || null,
-            cover_url: song?.cover_url || null, song_id: r.song_id,
-            played_at: r.played_at, duration: Number(song?.duration) || 180,
-            genre: song?.genre || null,
+            title: s?.title || null, artist: s?.artist || null, cover_url: s?.cover_url || null,
+            song_id: r.song_id, played_at: r.played_at, duration: Number(s?.duration) || 180,
           };
         }),
-        ...eventRows,
+        ...eventList.map(r => ({
+          title: r.title, artist: r.artist, cover_url: r.cover_url, song_id: r.song_id,
+          played_at: r.created_at, duration: 180,
+        })),
       ];
       const totalSeconds = rows.reduce((sum, r) => sum + (Number(r.duration) || 180), 0);
       const artistCount = new Map<string, number>();
-      const songCount = new Map<string, number>();
-      const genreCount = new Map<string, number>();
       const dayKeys = new Set<string>();
-      rows.forEach((r) => {
+      rows.forEach(r => {
         if (r.artist) artistCount.set(r.artist, (artistCount.get(r.artist) || 0) + 1);
-        if (r.title) songCount.set(r.title, (songCount.get(r.title) || 0) + 1);
-        if (r.genre) genreCount.set(r.genre, (genreCount.get(r.genre) || 0) + 1);
         if (r.played_at) dayKeys.add(new Date(r.played_at).toISOString().slice(0, 10));
       });
       const top = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
@@ -188,20 +159,15 @@ const Profile = () => {
         if (seen.has(key)) continue;
         seen.add(key);
         covers.push({ id: key, title: r.title, artist: r.artist || '', cover_url: r.cover_url });
-        if (covers.length >= 10) break;
+        if (covers.length >= 8) break;
       }
       setRecentCovers(covers);
-
       setListenStats({
         minutes: Math.round(totalSeconds / 60),
         topArtist: top(artistCount),
-        topSong: top(songCount),
         streak, totalPlays: rows.length,
-        topGenre: top(genreCount),
       });
-    } finally {
-      setStatsReady(true);
-    }
+    } finally { setStatsReady(true); }
   };
 
   const handleSaveUsername = async () => {
@@ -219,17 +185,11 @@ const Profile = () => {
       setProfileData(prev => ({ ...prev, username: newUsername.trim(), username_changed: true }));
       setIsEditingUsername(false);
       toast.success('Username set!');
-    } catch (error) {
-      toast.error(error.message || 'Failed to update username');
-    } finally {
-      setIsSaving(false);
-    }
+    } catch (error) { toast.error(error.message || 'Failed to update username'); }
+    finally { setIsSaving(false); }
   };
 
-  const handleLogout = async () => {
-    await signOut();
-    navigate('/auth');
-  };
+  const handleLogout = async () => { await signOut(); navigate('/auth'); };
 
   const displayName = profileData.username || user?.email?.split('@')[0] || 'You';
   const canChangeUsername = !profileData.username_changed;
@@ -240,302 +200,273 @@ const Profile = () => {
   }, [profileData.username, user?.email]);
   const avatarGradient = useMemo(() => gradientFromSeed(user?.id || 'guest'), [user?.id]);
   const customAvatarUrl = resolveAvatar(profileData.avatar_url);
-  const fmt = (n: number) => (n > 0 ? n.toLocaleString() : '—');
-
-  const today = new Date();
-  const issueCode = `${MONTHS[today.getMonth()]} ${String(today.getFullYear()).slice(-2)}`;
-  const memberId = useMemo(() => {
-    const src = user?.id || 'guest';
-    let h = 0; for (let i = 0; i < src.length; i++) h = (h * 33 + src.charCodeAt(i)) >>> 0;
-    return String(h % 9999999).padStart(7, '0');
-  }, [user?.id]);
+  const fmt = (n: number) => (n > 0 ? n.toLocaleString() : '0');
+  const backdropArt = recentCovers.find(c => c.cover_url)?.cover_url || null;
 
   return (
     <TabTransition>
       <SEOHead
         title="Your Profile — Univers Flow"
-        description="Your Univers Flow membership: listening stats, library, downloads and account."
+        description="Your Univers Flow profile: listening stats, library, downloads and account."
         path="/profile"
       />
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
         <main className="flex-1 overflow-y-auto pb-32 safe-area-pt" style={{ WebkitOverflowScrolling: 'touch' }}>
 
-          {/* ============ MASTHEAD ============ */}
-          <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-white/[0.06]">
-            <div className="flex items-center gap-2">
-              <span className="text-[9px] font-black tracking-[0.4em] text-white/50">UF</span>
-              <span className="text-[9px] font-mono text-white/25">·</span>
-              <span className="text-[9px] font-mono uppercase tracking-widest text-white/40">{issueCode}</span>
+          {/* ============ HERO ============ */}
+          <section className="relative">
+            {/* Ambient backdrop from top artwork */}
+            <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
+              {backdropArt ? (
+                <>
+                  <img src={backdropArt} alt="" className="w-full h-full object-cover opacity-40" style={{ filter: 'blur(60px) saturate(1.4)' }} />
+                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, hsl(var(--background) / 0.35) 0%, hsl(var(--background)) 92%)' }} />
+                </>
+              ) : (
+                <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 60% at 50% 0%, hsl(var(--primary) / 0.18), transparent 65%)' }} />
+              )}
             </div>
-            <button
-              onClick={() => navigate('/settings')}
-              aria-label="Settings"
-              className="w-8 h-8 rounded-full border border-white/10 flex items-center justify-center active:scale-90 transition"
-            >
-              <Settings className="w-3.5 h-3.5 text-white/70" />
-            </button>
-          </div>
 
-          {/* ============ HERO: cover-style ============ */}
-          <section className="px-5 pt-6 pb-7 relative">
-            {/* Giant kicker */}
-            <p className="text-[10px] font-black uppercase tracking-[0.42em] text-primary/90 mb-2">
-              The Listener
-            </p>
-            {/* Massive editorial display name */}
-            {!profileSettled ? (
-              <div className="h-14 w-56 rounded bg-white/[0.06] animate-pulse mb-3" />
-            ) : isEditingUsername ? (
-              <div className="flex items-center gap-1.5 mb-3">
-                <Input
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value)}
-                  className="h-11 bg-white/10 border-white/20 text-lg"
-                  placeholder="username" maxLength={20} autoFocus
-                />
-                <button onClick={handleSaveUsername} disabled={isSaving} aria-label="Save"
-                  className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
-                  <Check className="w-4 h-4 text-green-400" />
-                </button>
-                <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }}
-                  aria-label="Cancel" className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
-                  <X className="w-4 h-4 text-red-400" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-start gap-2">
-                <h1 className="font-display text-[46px] leading-[0.9] tracking-[-0.03em] font-black break-words min-w-0 flex-1">
-                  {displayName}
-                </h1>
-                {canChangeUsername && (
-                  <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username"
-                    className="mt-2 w-7 h-7 rounded-full bg-white/[0.06] flex items-center justify-center active:scale-90 transition shrink-0">
-                    <Edit2 className="w-3 h-3 text-white/60" />
-                  </button>
-                )}
-              </div>
-            )}
-
-            {/* Serif italic dek */}
-            {profileSettled && listenStats.topArtist && (
-              <p className="mt-3 font-serif italic text-white/60 text-[15px] leading-snug">
-                “Currently in a{' '}
-                <span className="text-white/90 not-italic font-semibold">
-                  {listenStats.topArtist}
-                </span>{' '}
-                era.”
-              </p>
-            )}
-
-            {/* Avatar + tags row */}
-            <div className="mt-5 flex items-center gap-4">
-              <button
-                onClick={() => user && setShowAvatarPicker(true)}
-                className="relative shrink-0 active:scale-95 transition"
-                aria-label="Change avatar"
-              >
-                <div
-                  className="w-[72px] h-[72px] rounded-full overflow-hidden flex items-center justify-center"
-                  style={{
-                    background: avatarGradient,
-                    boxShadow: '0 0 0 2px hsl(var(--background)), 0 0 0 3px hsl(0 0% 100% / 0.15)',
-                  }}
+            <div className="relative px-5 pt-5 pb-8">
+              {/* top bar */}
+              <div className="flex items-center justify-between mb-8">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Profile</span>
+                <button
+                  onClick={() => navigate('/settings')}
+                  aria-label="Settings"
+                  className="w-9 h-9 rounded-full bg-white/[0.08] backdrop-blur border border-white/10 flex items-center justify-center active:scale-90 transition"
                 >
-                  {customAvatarUrl ? (
-                    <img src={customAvatarUrl} alt="" className="w-full h-full object-cover" width={72} height={72} />
+                  <Settings className="w-4 h-4 text-white/80" />
+                </button>
+              </div>
+
+              {/* Avatar centered */}
+              <div className="flex flex-col items-center text-center">
+                <button
+                  onClick={() => user && setShowAvatarPicker(true)}
+                  className="relative active:scale-95 transition"
+                  aria-label="Change avatar"
+                >
+                  <div
+                    className="w-28 h-28 rounded-full overflow-hidden flex items-center justify-center"
+                    style={{
+                      background: avatarGradient,
+                      boxShadow: '0 20px 50px -12px rgba(0,0,0,0.6), inset 0 0 0 1px hsl(0 0% 100% / 0.12)',
+                    }}
+                  >
+                    {customAvatarUrl ? (
+                      <img src={customAvatarUrl} alt="" className="w-full h-full object-cover" width={112} height={112} />
+                    ) : (
+                      <span className="text-white font-display font-bold select-none"
+                        style={{ fontSize: 44, lineHeight: 1, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
+                        {initials}
+                      </span>
+                    )}
+                  </div>
+                  <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center"
+                    style={{
+                      background: isPremium ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'hsl(0 0% 14%)',
+                      border: '2.5px solid hsl(var(--background))',
+                    }}>
+                    {isPremium ? <Crown className="w-4 h-4 text-black" /> : <Camera className="w-3.5 h-3.5 text-white/85" />}
+                  </div>
+                </button>
+
+                {/* Name */}
+                <div className="mt-5 w-full">
+                  {!profileSettled ? (
+                    <div className="h-8 w-40 mx-auto rounded bg-white/10 animate-pulse" />
+                  ) : isEditingUsername ? (
+                    <div className="flex items-center gap-1.5 max-w-xs mx-auto">
+                      <Input
+                        value={newUsername}
+                        onChange={(e) => setNewUsername(e.target.value)}
+                        className="h-10 bg-white/10 border-white/20 text-center text-base"
+                        placeholder="username" maxLength={20} autoFocus
+                      />
+                      <button onClick={handleSaveUsername} disabled={isSaving} aria-label="Save"
+                        className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
+                        <Check className="w-4 h-4 text-green-400" />
+                      </button>
+                      <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }}
+                        aria-label="Cancel" className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                        <X className="w-4 h-4 text-red-400" />
+                      </button>
+                    </div>
                   ) : (
-                    <span className="text-white font-display font-black"
-                      style={{ fontSize: 30, lineHeight: 1, textShadow: '0 1px 2px rgba(0,0,0,0.25)' }}>
-                      {initials}
-                    </span>
+                    <div className="flex items-center justify-center gap-2">
+                      <h1 className="font-display text-[28px] leading-tight tracking-tight font-bold truncate">
+                        {displayName}
+                      </h1>
+                      {canChangeUsername && (
+                        <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username"
+                          className="w-7 h-7 rounded-full bg-white/[0.08] flex items-center justify-center active:scale-90 transition shrink-0">
+                          <Edit2 className="w-3 h-3 text-white/70" />
+                        </button>
+                      )}
+                    </div>
+                  )}
+                  {user?.email && (
+                    <p className="mt-1 text-[13px] text-white/50 truncate">{user.email}</p>
                   )}
                 </div>
-                <div className="absolute -bottom-0.5 -right-0.5 w-6 h-6 rounded-full flex items-center justify-center"
-                  style={{
-                    background: isPremium ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'hsl(0 0% 10%)',
-                    border: '2px solid hsl(var(--background))',
-                  }}>
-                  {isPremium ? <Crown className="w-3 h-3 text-black" /> : <Camera className="w-3 h-3 text-white/80" />}
-                </div>
-              </button>
 
-              <div className="flex-1 min-w-0 flex flex-wrap gap-1.5">
-                <Tag>{isPremium ? 'PREMIUM' : 'FREE TIER'}</Tag>
-                {memberSinceLabel && <Tag>MEMBER · {memberSinceLabel}</Tag>}
-                {isAdmin && <Tag tone="blue"><Shield className="w-2.5 h-2.5" /> ADMIN</Tag>}
-                {listenStats.topGenre && <Tag tone="rose">{listenStats.topGenre.toUpperCase()}</Tag>}
+                {/* Tier chips */}
+                {profileSettled && (
+                  <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+                    {isPremium ? (
+                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold"
+                        style={{ background: 'linear-gradient(135deg, hsl(45 92% 55% / 0.2), hsl(35 92% 50% / 0.2))', color: '#fbbf24', border: '1px solid hsl(45 92% 55% / 0.3)' }}>
+                        <Crown className="w-3 h-3" /> Premium
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold text-white/70 border border-white/15">
+                        Free
+                      </span>
+                    )}
+                    {memberSinceLabel && (
+                      <span className="text-[11px] text-white/45">Member for {memberSinceLabel}</span>
+                    )}
+                    {isAdmin && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                        style={{ background: 'hsl(211 100% 55% / 0.16)', color: 'hsl(211 100% 78%)' }}>
+                        <Shield className="w-2.5 h-2.5" /> Admin
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-            </div>
-
-            {/* Member ID barcode-ish */}
-            <div className="mt-5 flex items-center gap-3">
-              <div className="flex-1 h-[22px] flex items-center gap-[2px] overflow-hidden">
-                {Array.from({ length: 64 }).map((_, i) => {
-                  const seed = (memberId.charCodeAt(i % memberId.length) + i * 13) % 5;
-                  const w = seed === 0 ? 3 : seed === 1 ? 1 : 2;
-                  const op = i % 3 === 0 ? 0.9 : i % 3 === 1 ? 0.5 : 0.75;
-                  return <span key={i} style={{ width: w, height: '100%', background: `hsl(0 0% 100% / ${op})` }} />;
-                })}
-              </div>
-              <span className="text-[9px] font-mono tracking-widest text-white/40">ID·{memberId}</span>
             </div>
           </section>
 
-          <div className="px-5 space-y-7">
+          <div className="px-5 space-y-6 -mt-2">
 
             <EmailVerificationCard />
 
-            {/* ============ 01 · MASTHEAD STATS (newspaper cols) ============ */}
+            {/* ============ STATS ============ */}
             {profileSettled && user && (
-              <section>
-                <SectionLabel index="01" title="This Season" />
-                <div className="grid grid-cols-4 rounded-2xl overflow-hidden border border-white/[0.08]"
-                  style={{ background: 'linear-gradient(180deg, hsl(0 0% 100% / 0.03), hsl(0 0% 100% / 0.01))' }}>
-                  <BigStat value={fmt(listenStats.minutes)} label="Min" accent />
-                  <BigStat value={fmt(listenStats.totalPlays)} label="Plays" />
-                  <BigStat value={listenStats.streak > 0 ? String(listenStats.streak) : '—'} label="Streak" />
-                  <BigStat value={fmt(stats.likedSongs)} label="Liked" />
-                </div>
-
-                {/* Pull-quote card: top song */}
-                {listenStats.topSong && (
-                  <div className="mt-3 rounded-2xl border border-white/[0.06] px-4 py-3.5"
-                    style={{ background: 'linear-gradient(120deg, hsl(var(--primary) / 0.10), transparent 70%)' }}>
-                    <p className="text-[9px] font-black uppercase tracking-[0.28em] text-primary/80">On Repeat</p>
-                    <p className="font-display text-lg leading-tight mt-1 truncate">{listenStats.topSong}</p>
-                  </div>
-                )}
+              <section className="grid grid-cols-4 gap-2">
+                <StatCard value={fmt(listenStats.minutes)} label="Minutes" />
+                <StatCard value={fmt(listenStats.totalPlays)} label="Plays" />
+                <StatCard value={listenStats.streak > 0 ? String(listenStats.streak) : '0'} label="Streak" />
+                <StatCard value={fmt(stats.likedSongs)} label="Liked" />
               </section>
             )}
 
-            {/* ============ 02 · FILM STRIP: recently played ============ */}
+            {profileSettled && listenStats.topArtist && (
+              <div className="rounded-2xl px-4 py-3 flex items-center gap-3"
+                style={{ background: 'linear-gradient(120deg, hsl(var(--primary) / 0.12), transparent 80%)', border: '1px solid hsl(var(--primary) / 0.18)' }}>
+                <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
+                  <Heart className="w-5 h-5 text-primary" fill="currentColor" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[11px] text-white/55">Most listened this month</p>
+                  <p className="font-semibold truncate">{listenStats.topArtist}</p>
+                </div>
+              </div>
+            )}
+
+            {/* ============ RECENTLY PLAYED ============ */}
             {profileSettled && recentCovers.length > 0 && (
               <section>
-                <SectionLabel index="02" title="Reel — Recently Played" />
-                <div className="relative -mx-5">
-                  <div
-                    className="flex gap-2 overflow-x-auto scrollbar-none px-5 py-3"
-                    style={{
-                      background: 'repeating-linear-gradient(90deg, transparent 0 14px, hsl(0 0% 100% / 0.04) 14px 20px)',
-                    }}
-                  >
-                    {recentCovers.map((c, i) => (
-                      <button
-                        key={c.id}
-                        onClick={() => navigate(`/search?q=${encodeURIComponent(`${c.title} ${c.artist}`.trim())}`)}
-                        className="shrink-0 w-[76px] text-left active:scale-95 transition"
-                        aria-label={`Replay ${c.title}`}
-                      >
-                        <div className="relative w-[76px] h-[76px] rounded-md overflow-hidden bg-white/[0.05] border border-white/[0.08]">
-                          {c.cover_url ? (
-                            <img src={c.cover_url} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center">
-                              <Music2 className="w-5 h-5 text-white/30" />
-                            </div>
-                          )}
-                          <span className="absolute top-1 left-1 text-[8px] font-mono font-black text-white/95 px-1 rounded"
-                            style={{ background: 'rgba(0,0,0,0.55)' }}>
-                            {String(i + 1).padStart(2, '0')}
-                          </span>
-                        </div>
-                        <p className="mt-1.5 text-[10px] text-white/70 truncate leading-tight font-medium">{c.title}</p>
-                        <p className="text-[9px] text-white/35 truncate">{c.artist}</p>
-                      </button>
-                    ))}
-                  </div>
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-[15px] font-bold">Recently played</h2>
+                  <button onClick={() => navigate('/library')} className="text-[12px] text-white/55 active:text-white">See all</button>
+                </div>
+                <div className="flex gap-3 overflow-x-auto scrollbar-none -mx-5 px-5">
+                  {recentCovers.map((c) => (
+                    <button
+                      key={c.id}
+                      onClick={() => navigate(`/search?q=${encodeURIComponent(`${c.title} ${c.artist}`.trim())}`)}
+                      className="shrink-0 w-24 text-left active:scale-95 transition"
+                      aria-label={`Replay ${c.title}`}
+                    >
+                      <div className="w-24 h-24 rounded-xl overflow-hidden bg-white/[0.05]"
+                        style={{ boxShadow: '0 8px 20px -8px rgba(0,0,0,0.5)' }}>
+                        {c.cover_url ? (
+                          <img src={c.cover_url} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center"><Music2 className="w-6 h-6 text-white/30" /></div>
+                        )}
+                      </div>
+                      <p className="mt-2 text-[12px] font-semibold text-white/90 truncate leading-tight">{c.title}</p>
+                      <p className="text-[11px] text-white/45 truncate">{c.artist}</p>
+                    </button>
+                  ))}
                 </div>
               </section>
             )}
 
-            {/* ============ 03 · CONTENTS (index list) ============ */}
+            {/* ============ LIBRARY ============ */}
             <section>
-              <SectionLabel index="03" title="Contents" />
-              <div className="space-y-1">
-                <IndexRow icon={<Heart className="w-3.5 h-3.5 text-primary" fill="currentColor" />}
+              <h2 className="text-[15px] font-bold mb-3">Your library</h2>
+              <div className="rounded-2xl overflow-hidden bg-white/[0.04] border border-white/[0.06] divide-y divide-white/[0.05]">
+                <Row icon={<Heart className="w-[18px] h-[18px] text-primary" fill="currentColor" />}
                   label="Liked Songs"
-                  meta={profileSettled ? (stats.likedSongs > 0 ? String(stats.likedSongs) : '0') : '—'}
+                  hint={profileSettled ? `${stats.likedSongs} ${stats.likedSongs === 1 ? 'song' : 'songs'}` : '—'}
                   onClick={() => navigate('/library?tab=liked')} />
-                <IndexRow icon={<ListMusic className="w-3.5 h-3.5 text-white/80" />}
+                <Row icon={<ListMusic className="w-[18px] h-[18px] text-white/85" />}
                   label="Playlists"
-                  meta={profileSettled ? String(stats.playlists) : '—'}
+                  hint={profileSettled ? `${stats.playlists} ${stats.playlists === 1 ? 'playlist' : 'playlists'}` : '—'}
                   onClick={() => navigate('/library?tab=playlists')} />
-                <IndexRow icon={<Download className="w-3.5 h-3.5 text-white/80" />}
+                <Row icon={<Download className="w-[18px] h-[18px] text-white/85" />}
                   label="Downloads"
-                  meta={profileSettled ? String(stats.downloads) : '—'}
+                  hint={profileSettled ? `${stats.downloads} offline` : '—'}
                   onClick={() => navigate('/downloads')} />
-                <IndexRow icon={<Headphones className="w-3.5 h-3.5 text-white/80" />}
+                <Row icon={<Headphones className="w-[18px] h-[18px] text-white/85" />}
                   label="Audio & Equalizer"
-                  meta="EQ"
                   onClick={() => navigate('/settings')} />
-                <IndexRow icon={<Star className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" />}
-                  label="Your Reviews"
-                  meta="Open"
+                <Row icon={<Star className="w-[18px] h-[18px] text-yellow-400" fill="currentColor" />}
+                  label="Reviews"
                   onClick={() => setShowReviewsList(true)} />
               </div>
             </section>
 
-            {/* ============ 04 · UPGRADE (feature ad) ============ */}
+            {/* ============ PREMIUM ============ */}
             {profileSettled && !isPremium && (
-              <section>
-                <SectionLabel index="04" title="Advertisement" />
-                <button
-                  onClick={() => navigate('/premium')}
-                  className="w-full rounded-2xl p-5 text-left relative overflow-hidden active:scale-[0.99] transition"
-                  style={{
-                    background: 'linear-gradient(135deg, hsl(45 92% 55% / 0.14), hsl(var(--primary) / 0.16))',
-                    border: '1px solid hsl(45 92% 55% / 0.28)',
-                  }}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
-                      style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
-                      <Crown className="w-5 h-5 text-black" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-[9px] font-black uppercase tracking-[0.32em] text-yellow-300/90">Turn the page</p>
-                      <p className="font-display text-xl leading-tight mt-1">Become Premium</p>
-                      <p className="text-[11px] text-white/60 mt-1">Ad-free · Offline · Studio EQ · Lossless</p>
-                    </div>
-                  </div>
-                </button>
-              </section>
+              <button
+                onClick={() => navigate('/premium')}
+                className="w-full rounded-2xl p-4 text-left active:scale-[0.99] transition flex items-center gap-4"
+                style={{
+                  background: 'linear-gradient(135deg, hsl(45 92% 55% / 0.14), hsl(var(--primary) / 0.14))',
+                  border: '1px solid hsl(45 92% 55% / 0.26)',
+                }}
+              >
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                  style={{ background: 'linear-gradient(135deg,#fbbf24,#f59e0b)' }}>
+                  <Crown className="w-5 h-5 text-black" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold">Try Premium</p>
+                  <p className="text-[12px] text-white/60 mt-0.5">Ad-free · Offline · Studio EQ · Lossless</p>
+                </div>
+                <ChevronRight className="w-4 h-4 text-white/40" />
+              </button>
             )}
 
-            {/* ============ 05 · COLOPHON (account) ============ */}
+            {/* ============ ACCOUNT ============ */}
             <section>
-              <SectionLabel index={isPremium ? '04' : '05'} title="Colophon" />
-              <div className="rounded-2xl overflow-hidden border border-white/[0.08] divide-y divide-white/[0.05]"
-                style={{ background: 'linear-gradient(180deg, hsl(0 0% 100% / 0.02), transparent)' }}>
-                {user?.email && (
-                  <div className="px-4 py-3">
-                    <p className="text-[9px] font-black uppercase tracking-[0.28em] text-white/35">Signed in as</p>
-                    <p className="text-sm mt-1 truncate">{user.email}</p>
-                  </div>
-                )}
+              <h2 className="text-[15px] font-bold mb-3">Account</h2>
+              <div className="rounded-2xl overflow-hidden bg-white/[0.04] border border-white/[0.06] divide-y divide-white/[0.05]">
                 {profileSettled && isAdmin && (
-                  <RowLink icon={<Shield className="w-4 h-4 text-primary" />} label="Admin Panel"
+                  <Row icon={<Shield className="w-[18px] h-[18px] text-primary" />} label="Admin Panel"
                     onClick={() => navigate('/admin')} />
                 )}
-                <RowLink icon={<Settings className="w-4 h-4 text-white/80" />} label="Settings"
+                <Row icon={<Settings className="w-[18px] h-[18px] text-white/85" />} label="Settings"
                   onClick={() => navigate('/settings')} />
                 <button onClick={handleLogout}
                   className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-destructive/10 transition">
-                  <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-destructive/15">
-                    <LogOut className="w-4 h-4 text-destructive" />
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-destructive/15">
+                    <LogOut className="w-[18px] h-[18px] text-destructive" />
                   </div>
-                  <span className="flex-1 text-sm font-semibold text-destructive">Sign Out</span>
+                  <span className="flex-1 text-[14px] font-semibold text-destructive">Sign Out</span>
                 </button>
               </div>
             </section>
 
-            {/* Signature */}
-            <div className="pt-4 pb-1 text-center">
-              <p className="font-serif italic text-white/25 text-[13px]">— pressed for you by —</p>
-              <p className="mt-1 text-[10px] font-black uppercase tracking-[0.44em] text-white/40">
-                Univers Flow
-              </p>
-            </div>
+            <p className="text-center text-[10px] uppercase tracking-[0.3em] text-white/25 pt-2 pb-1">
+              Univers Flow
+            </p>
           </div>
         </main>
 
@@ -560,66 +491,26 @@ const Profile = () => {
   );
 };
 
-/* ---------- editorial primitives ---------- */
-
-function Tag({ children, tone = 'default' }: { children: React.ReactNode; tone?: 'default' | 'rose' | 'blue' }) {
-  const style =
-    tone === 'rose'
-      ? { background: 'hsl(var(--primary) / 0.14)', color: 'hsl(var(--primary))', borderColor: 'hsl(var(--primary) / 0.35)' }
-      : tone === 'blue'
-      ? { background: 'hsl(211 100% 55% / 0.14)', color: 'hsl(211 100% 75%)', borderColor: 'hsl(211 100% 55% / 0.35)' }
-      : { background: 'hsl(0 0% 100% / 0.04)', color: 'hsl(0 0% 100% / 0.65)', borderColor: 'hsl(0 0% 100% / 0.10)' };
+function StatCard({ value, label }: { value: string; label: string }) {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-[3px] rounded-full border text-[9px] font-black tracking-[0.22em]"
-      style={style}>
-      {children}
-    </span>
-  );
-}
-
-function SectionLabel({ index, title }: { index: string; title: string }) {
-  return (
-    <div className="flex items-baseline gap-2 mb-3">
-      <span className="text-[9px] font-mono text-primary/70 tracking-widest">§{index}</span>
-      <span className="text-[10px] font-black uppercase tracking-[0.32em] text-white/70">{title}</span>
-      <span className="flex-1 h-px bg-white/[0.08]" />
+    <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-2 py-3 text-center">
+      <p className="font-display font-bold text-[18px] leading-none tracking-tight">{value}</p>
+      <p className="mt-1.5 text-[10px] uppercase tracking-wider text-white/45 font-semibold">{label}</p>
     </div>
   );
 }
 
-function BigStat({ value, label, accent = false }: { value: string; label: string; accent?: boolean }) {
-  return (
-    <div className="px-2 py-4 text-center border-r border-white/[0.06] last:border-r-0">
-      <p className={`font-display font-black leading-none tracking-tight ${accent ? 'text-primary' : ''}`}
-        style={{ fontSize: 24 }}>
-        {value}
-      </p>
-      <p className="mt-1.5 text-[9px] font-black uppercase tracking-[0.22em] text-white/40">{label}</p>
-    </div>
-  );
-}
-
-function IndexRow({ icon, label, meta, onClick }:
-  { icon: React.ReactNode; label: string; meta: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick}
-      className="w-full flex items-baseline gap-2 py-3 text-left active:opacity-70 transition group">
-      <span className="w-5 shrink-0 flex items-center justify-center">{icon}</span>
-      <span className="text-[15px] font-semibold text-white/90 group-active:text-white">{label}</span>
-      <span className="flex-1 border-b border-dotted border-white/15 translate-y-[-4px]" />
-      <span className="text-[11px] font-mono uppercase tracking-widest text-white/45">{meta}</span>
-    </button>
-  );
-}
-
-function RowLink({ icon, label, onClick }:
-  { icon: React.ReactNode; label: string; onClick: () => void }) {
+function Row({ icon, label, hint, onClick }:
+  { icon: React.ReactNode; label: string; hint?: string; onClick: () => void }) {
   return (
     <button onClick={onClick}
       className="w-full flex items-center gap-3 px-4 py-3.5 text-left active:bg-white/[0.04] transition">
-      <div className="w-8 h-8 rounded-lg flex items-center justify-center bg-white/[0.05]">{icon}</div>
-      <span className="flex-1 text-sm font-medium">{label}</span>
-      <span className="text-[10px] font-mono text-white/30 tracking-widest">OPEN</span>
+      <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/[0.06]">{icon}</div>
+      <div className="flex-1 min-w-0">
+        <p className="text-[14px] font-semibold leading-none">{label}</p>
+        {hint && <p className="text-[11.5px] text-white/45 mt-1 truncate">{hint}</p>}
+      </div>
+      <ChevronRight className="w-4 h-4 text-white/30" />
     </button>
   );
 }
