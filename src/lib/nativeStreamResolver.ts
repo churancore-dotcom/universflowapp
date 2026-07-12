@@ -95,7 +95,7 @@ async function fetchPlayer(videoId: string, ctx: { client: Record<string, unknow
   }
 }
 
-function pickBestAudio(data: PlayerResponse): string | null {
+function pickBestAudio(data: PlayerResponse, bitrateCap?: number): string | null {
   const adaptive = data.streamingData?.adaptiveFormats ?? [];
   const audio = adaptive.filter(
     (f) => typeof f.mimeType === 'string' && f.mimeType.startsWith('audio/') && !!f.url,
@@ -107,10 +107,20 @@ function pickBestAudio(data: PlayerResponse): string | null {
     if (aM4a !== bM4a) return bM4a - aM4a;
     return (b.bitrate ?? 0) - (a.bitrate ?? 0);
   });
+  if (bitrateCap && bitrateCap > 0) {
+    // Prefer the highest track under the user's quality cap; fall back to
+    // the lowest available track if every stream exceeds the cap.
+    const underCap = audio.filter((f) => (f.bitrate ?? 0) <= bitrateCap);
+    if (underCap.length) return underCap[0].url ?? null;
+    return audio[audio.length - 1].url ?? null;
+  }
   return audio[0].url ?? null;
 }
 
-export async function resolveYouTubeStreamOnDevice(videoId: string): Promise<NativeStreamResult | null> {
+export async function resolveYouTubeStreamOnDevice(
+  videoId: string,
+  opts?: { bitrateCap?: number },
+): Promise<NativeStreamResult | null> {
   if (!videoId || videoId.length !== 11) return null;
 
   // PRIMARY: Kotlin OkHttp-based InnerTube plugin (no CORS, native HTTP stack,
@@ -135,7 +145,7 @@ export async function resolveYouTubeStreamOnDevice(videoId: string): Promise<Nat
     if (!data) continue;
     const status = data.playabilityStatus?.status;
     if (status && status !== 'OK') continue;
-    const url = pickBestAudio(data);
+    const url = pickBestAudio(data, opts?.bitrateCap);
     if (url) {
       console.log('[native-resolver] ✓ CapacitorHttp fallback', videoId);
       return { streamUrl: url, source: 'native-innertube' };
