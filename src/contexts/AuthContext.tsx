@@ -327,17 +327,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: new Error(getAuthError(error)) };
       }
 
-      // Auto-assign a random animated avatar so the profile feels alive from day one.
-      try {
-        const { pickRandomAvatar } = await import('@/lib/avatars');
-        const newUserId = signUpData?.user?.id;
-        if (newUserId) {
-          await supabase
-            .from('profiles')
-            .update({ avatar_url: pickRandomAvatar() })
-            .eq('user_id', newUserId);
-        }
-      } catch { /* non-fatal */ }
+      // Avatars are rendered from initials + a deterministic gradient per user id.
+      // No animated presets, no storage, no cost. Nothing to assign here.
 
       // Keep the freshly-created Supabase session alive so that once the user
       // clicks the verification link they land back in the app already signed

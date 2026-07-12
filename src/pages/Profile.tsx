@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Settings, LogOut, Shield, Heart, ListMusic, Crown, ChevronRight,
-  Edit2, Check, X, Star, Headphones, Download, Music2, Camera,
+  Edit2, Check, X, Star, Headphones, Download, Music2, Play,
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,8 +15,6 @@ import { TabTransition } from '@/components/PageTransition';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
-import AvatarPickerModal from '@/components/AvatarPickerModal';
-import { resolveAvatar } from '@/lib/avatars';
 import { useDownloads } from '@/contexts/DownloadContext';
 import SEOHead from '@/components/SEOHead';
 import { loadLibrarySongs } from '@/lib/streamSongs';
@@ -24,10 +22,10 @@ import { loadLibrarySongs } from '@/lib/streamSongs';
 interface ProfileData {
   username: string | null;
   username_changed: boolean;
-  avatar_url: string | null;
 }
 type RecentCover = { id: string; title: string; artist: string; cover_url: string | null };
 
+/** Deterministic gradient per user id for the initials avatar */
 function gradientFromSeed(seed: string): string {
   let h = 0;
   for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
@@ -50,12 +48,29 @@ const Profile = () => {
   const [showReview, setShowReview] = useState(false);
   const [showReviewsList, setShowReviewsList] = useState(false);
 
-  const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false, avatar_url: null });
+  const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false });
   const [profileReady, setProfileReady] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [showAvatarPicker, setShowAvatarPicker] = useState(false);
+
+  // Parallax scroll
+  const scrollRef = useRef<HTMLElement | null>(null);
+  const [scrollY, setScrollY] = useState(0);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el) return;
+    let raf = 0;
+    const onScroll = () => {
+      if (raf) return;
+      raf = requestAnimationFrame(() => {
+        setScrollY(el.scrollTop);
+        raf = 0;
+      });
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => { el.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
+  }, []);
 
   useEffect(() => {
     if (user) { setProfileReady(false); setStatsReady(false); fetchStats(); fetchProfile(); }
@@ -81,13 +96,12 @@ const Profile = () => {
     if (!user) { setProfileReady(true); return; }
     try {
       const { data } = await supabase
-        .from('profiles').select('username, username_changed, avatar_url')
+        .from('profiles').select('username, username_changed')
         .eq('user_id', user.id).single();
       if (data) {
         setProfileData({
           username: data.username,
           username_changed: data.username_changed || false,
-          avatar_url: data.avatar_url || null,
         });
         setNewUsername(data.username || '');
       }
@@ -159,7 +173,7 @@ const Profile = () => {
         if (seen.has(key)) continue;
         seen.add(key);
         covers.push({ id: key, title: r.title, artist: r.artist || '', cover_url: r.cover_url });
-        if (covers.length >= 8) break;
+        if (covers.length >= 10) break;
       }
       setRecentCovers(covers);
       setListenStats({
@@ -199,9 +213,14 @@ const Profile = () => {
     return (src.slice(0, 2) || 'U').toUpperCase();
   }, [profileData.username, user?.email]);
   const avatarGradient = useMemo(() => gradientFromSeed(user?.id || 'guest'), [user?.id]);
-  const customAvatarUrl = resolveAvatar(profileData.avatar_url);
   const fmt = (n: number) => (n > 0 ? n.toLocaleString() : '0');
   const backdropArt = recentCovers.find(c => c.cover_url)?.cover_url || null;
+
+  // Parallax math
+  const bgTranslate = scrollY * 0.35;
+  const bgScale = 1 + Math.min(scrollY, 200) * 0.0006;
+  const heroFade = Math.max(0, 1 - scrollY / 280);
+  const heroLift = -scrollY * 0.18;
 
   return (
     <TabTransition>
@@ -211,139 +230,136 @@ const Profile = () => {
         path="/profile"
       />
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
-        <main className="flex-1 overflow-y-auto pb-32 safe-area-pt" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <main
+          ref={scrollRef}
+          className="flex-1 overflow-y-auto pb-32 safe-area-pt relative"
+          style={{ WebkitOverflowScrolling: 'touch' }}
+        >
+          {/* ============ CINEMATIC BACKDROP (parallax) ============ */}
+          <div
+            className="absolute inset-x-0 top-0 h-[520px] pointer-events-none overflow-hidden"
+            aria-hidden
+            style={{ transform: `translate3d(0, ${bgTranslate}px, 0) scale(${bgScale})`, transformOrigin: '50% 0%', willChange: 'transform' }}
+          >
+            {backdropArt ? (
+              <img
+                src={backdropArt}
+                alt=""
+                className="w-full h-full object-cover"
+                style={{ filter: 'blur(72px) saturate(1.5) brightness(0.85)', opacity: 0.55 }}
+              />
+            ) : (
+              <div className="absolute inset-0" style={{ background: avatarGradient, opacity: 0.35, filter: 'blur(60px)' }} />
+            )}
+            {/* Cinematic vignette + fade to bg */}
+            <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 80% at 50% 0%, transparent 0%, hsl(var(--background) / 0.35) 55%, hsl(var(--background)) 92%)' }} />
+            <div className="absolute inset-x-0 bottom-0 h-40" style={{ background: 'linear-gradient(180deg, transparent, hsl(var(--background)))' }} />
+          </div>
 
           {/* ============ HERO ============ */}
           <section className="relative">
-            {/* Ambient backdrop from top artwork */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none" aria-hidden>
-              {backdropArt ? (
-                <>
-                  <img src={backdropArt} alt="" className="w-full h-full object-cover opacity-40" style={{ filter: 'blur(60px) saturate(1.4)' }} />
-                  <div className="absolute inset-0" style={{ background: 'linear-gradient(180deg, hsl(var(--background) / 0.35) 0%, hsl(var(--background)) 92%)' }} />
-                </>
-              ) : (
-                <div className="absolute inset-0" style={{ background: 'radial-gradient(120% 60% at 50% 0%, hsl(var(--primary) / 0.18), transparent 65%)' }} />
-              )}
-            </div>
-
-            <div className="relative px-5 pt-5 pb-8">
-              {/* top bar */}
-              <div className="flex items-center justify-between mb-8">
-                <span className="text-[11px] font-semibold uppercase tracking-[0.2em] text-white/50">Profile</span>
+            <div className="px-5 pt-5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/55">Profile</span>
                 <button
                   onClick={() => navigate('/settings')}
                   aria-label="Settings"
-                  className="w-9 h-9 rounded-full bg-white/[0.08] backdrop-blur border border-white/10 flex items-center justify-center active:scale-90 transition"
+                  className="w-9 h-9 rounded-full bg-white/[0.08] backdrop-blur-md border border-white/[0.12] flex items-center justify-center active:scale-90 transition"
                 >
-                  <Settings className="w-4 h-4 text-white/80" />
+                  <Settings className="w-4 h-4 text-white/85" />
                 </button>
               </div>
+            </div>
 
-              {/* Avatar centered */}
-              <div className="flex flex-col items-center text-center">
-                <button
-                  onClick={() => user && setShowAvatarPicker(true)}
-                  className="relative active:scale-95 transition"
-                  aria-label="Change avatar"
-                >
-                  <div
-                    className="w-28 h-28 rounded-full overflow-hidden flex items-center justify-center"
-                    style={{
-                      background: avatarGradient,
-                      boxShadow: '0 20px 50px -12px rgba(0,0,0,0.6), inset 0 0 0 1px hsl(0 0% 100% / 0.12)',
-                    }}
-                  >
-                    {customAvatarUrl ? (
-                      <img src={customAvatarUrl} alt="" className="w-full h-full object-cover" width={112} height={112} />
-                    ) : (
-                      <span className="text-white font-display font-bold select-none"
-                        style={{ fontSize: 44, lineHeight: 1, textShadow: '0 2px 4px rgba(0,0,0,0.3)' }}>
-                        {initials}
-                      </span>
-                    )}
+            <div
+              className="px-5 pt-10 pb-8 flex flex-col items-center text-center"
+              style={{ transform: `translate3d(0, ${heroLift}px, 0)`, opacity: heroFade, willChange: 'transform, opacity' }}
+            >
+              {/* Static initials avatar — no upload, no video, zero cost */}
+              <div
+                className="w-[104px] h-[104px] rounded-full overflow-hidden flex items-center justify-center"
+                style={{
+                  background: avatarGradient,
+                  boxShadow: '0 24px 60px -18px rgba(0,0,0,0.7), inset 0 0 0 1px hsl(0 0% 100% / 0.14)',
+                }}
+              >
+                <span className="text-white font-display font-bold select-none"
+                  style={{ fontSize: 40, lineHeight: 1, textShadow: '0 2px 6px rgba(0,0,0,0.35)' }}>
+                  {initials}
+                </span>
+              </div>
+
+              {/* Name */}
+              <div className="mt-5 w-full max-w-xs">
+                {!profileSettled ? (
+                  <div className="h-8 w-40 mx-auto rounded bg-white/10 animate-pulse" />
+                ) : isEditingUsername ? (
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={newUsername}
+                      onChange={(e) => setNewUsername(e.target.value)}
+                      className="h-10 bg-white/10 border-white/20 text-center text-base"
+                      placeholder="username" maxLength={20} autoFocus
+                    />
+                    <button onClick={handleSaveUsername} disabled={isSaving} aria-label="Save"
+                      className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
+                      <Check className="w-4 h-4 text-green-400" />
+                    </button>
+                    <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }}
+                      aria-label="Cancel" className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
+                      <X className="w-4 h-4 text-red-400" />
+                    </button>
                   </div>
-                  <div className="absolute bottom-0 right-0 w-8 h-8 rounded-full flex items-center justify-center"
-                    style={{
-                      background: isPremium ? 'linear-gradient(135deg,#fbbf24,#f59e0b)' : 'hsl(0 0% 14%)',
-                      border: '2.5px solid hsl(var(--background))',
-                    }}>
-                    {isPremium ? <Crown className="w-4 h-4 text-black" /> : <Camera className="w-3.5 h-3.5 text-white/85" />}
-                  </div>
-                </button>
-
-                {/* Name */}
-                <div className="mt-5 w-full">
-                  {!profileSettled ? (
-                    <div className="h-8 w-40 mx-auto rounded bg-white/10 animate-pulse" />
-                  ) : isEditingUsername ? (
-                    <div className="flex items-center gap-1.5 max-w-xs mx-auto">
-                      <Input
-                        value={newUsername}
-                        onChange={(e) => setNewUsername(e.target.value)}
-                        className="h-10 bg-white/10 border-white/20 text-center text-base"
-                        placeholder="username" maxLength={20} autoFocus
-                      />
-                      <button onClick={handleSaveUsername} disabled={isSaving} aria-label="Save"
-                        className="w-10 h-10 rounded-full bg-green-500/20 flex items-center justify-center shrink-0">
-                        <Check className="w-4 h-4 text-green-400" />
+                ) : (
+                  <div className="flex items-center justify-center gap-2">
+                    <h1 className="font-display text-[30px] leading-tight tracking-tight font-bold truncate">
+                      {displayName}
+                    </h1>
+                    {canChangeUsername && (
+                      <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username"
+                        className="w-7 h-7 rounded-full bg-white/[0.1] flex items-center justify-center active:scale-90 transition shrink-0">
+                        <Edit2 className="w-3 h-3 text-white/75" />
                       </button>
-                      <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }}
-                        aria-label="Cancel" className="w-10 h-10 rounded-full bg-red-500/20 flex items-center justify-center shrink-0">
-                        <X className="w-4 h-4 text-red-400" />
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center justify-center gap-2">
-                      <h1 className="font-display text-[28px] leading-tight tracking-tight font-bold truncate">
-                        {displayName}
-                      </h1>
-                      {canChangeUsername && (
-                        <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username"
-                          className="w-7 h-7 rounded-full bg-white/[0.08] flex items-center justify-center active:scale-90 transition shrink-0">
-                          <Edit2 className="w-3 h-3 text-white/70" />
-                        </button>
-                      )}
-                    </div>
-                  )}
-                  {user?.email && (
-                    <p className="mt-1 text-[13px] text-white/50 truncate">{user.email}</p>
-                  )}
-                </div>
-
-                {/* Tier chips */}
-                {profileSettled && (
-                  <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
-                    {isPremium ? (
-                      <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold"
-                        style={{ background: 'linear-gradient(135deg, hsl(45 92% 55% / 0.2), hsl(35 92% 50% / 0.2))', color: '#fbbf24', border: '1px solid hsl(45 92% 55% / 0.3)' }}>
-                        <Crown className="w-3 h-3" /> Premium
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold text-white/70 border border-white/15">
-                        Free
-                      </span>
-                    )}
-                    {memberSinceLabel && (
-                      <span className="text-[11px] text-white/45">Member for {memberSinceLabel}</span>
-                    )}
-                    {isAdmin && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
-                        style={{ background: 'hsl(211 100% 55% / 0.16)', color: 'hsl(211 100% 78%)' }}>
-                        <Shield className="w-2.5 h-2.5" /> Admin
-                      </span>
                     )}
                   </div>
                 )}
+                {user?.email && (
+                  <p className="mt-1.5 text-[13px] text-white/55 truncate">{user.email}</p>
+                )}
               </div>
+
+              {/* Tier row */}
+              {profileSettled && (
+                <div className="mt-4 flex items-center justify-center gap-2 flex-wrap">
+                  {isPremium ? (
+                    <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-bold"
+                      style={{ background: 'linear-gradient(135deg, hsl(45 92% 55% / 0.22), hsl(35 92% 50% / 0.22))', color: '#fbbf24', border: '1px solid hsl(45 92% 55% / 0.35)' }}>
+                      <Crown className="w-3 h-3" /> Premium
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-3 py-1 rounded-full text-[11px] font-semibold text-white/70 border border-white/15">
+                      Free
+                    </span>
+                  )}
+                  {memberSinceLabel && (
+                    <span className="text-[11px] text-white/50">Member for {memberSinceLabel}</span>
+                  )}
+                  {isAdmin && (
+                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold"
+                      style={{ background: 'hsl(211 100% 55% / 0.18)', color: 'hsl(211 100% 78%)' }}>
+                      <Shield className="w-2.5 h-2.5" /> Admin
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </section>
 
-          <div className="px-5 space-y-6 -mt-2">
-
+          {/* ============ CONTENT ============ */}
+          <div className="relative px-5 space-y-6">
             <EmailVerificationCard />
 
-            {/* ============ STATS ============ */}
+            {/* Stats */}
             {profileSettled && user && (
               <section className="grid grid-cols-4 gap-2">
                 <StatCard value={fmt(listenStats.minutes)} label="Minutes" />
@@ -353,20 +369,21 @@ const Profile = () => {
               </section>
             )}
 
+            {/* Top artist highlight */}
             {profileSettled && listenStats.topArtist && (
-              <div className="rounded-2xl px-4 py-3 flex items-center gap-3"
-                style={{ background: 'linear-gradient(120deg, hsl(var(--primary) / 0.12), transparent 80%)', border: '1px solid hsl(var(--primary) / 0.18)' }}>
-                <div className="w-10 h-10 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                  <Heart className="w-5 h-5 text-primary" fill="currentColor" />
+              <div className="rounded-2xl px-4 py-3 flex items-center gap-3 backdrop-blur-md"
+                style={{ background: 'linear-gradient(120deg, hsl(var(--primary) / 0.14), hsl(0 0% 100% / 0.03) 80%)', border: '1px solid hsl(var(--primary) / 0.22)' }}>
+                <div className="w-10 h-10 rounded-full bg-primary/18 flex items-center justify-center shrink-0">
+                  <Play className="w-4 h-4 text-primary" fill="currentColor" />
                 </div>
-                <div className="min-w-0">
-                  <p className="text-[11px] text-white/55">Most listened this month</p>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[11px] text-white/55">On heavy rotation</p>
                   <p className="font-semibold truncate">{listenStats.topArtist}</p>
                 </div>
               </div>
             )}
 
-            {/* ============ RECENTLY PLAYED ============ */}
+            {/* Recently played */}
             {profileSettled && recentCovers.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-3">
@@ -382,7 +399,7 @@ const Profile = () => {
                       aria-label={`Replay ${c.title}`}
                     >
                       <div className="w-24 h-24 rounded-xl overflow-hidden bg-white/[0.05]"
-                        style={{ boxShadow: '0 8px 20px -8px rgba(0,0,0,0.5)' }}>
+                        style={{ boxShadow: '0 10px 22px -10px rgba(0,0,0,0.55)' }}>
                         {c.cover_url ? (
                           <img src={c.cover_url} alt={c.title} className="w-full h-full object-cover" loading="lazy" />
                         ) : (
@@ -397,10 +414,10 @@ const Profile = () => {
               </section>
             )}
 
-            {/* ============ LIBRARY ============ */}
+            {/* Library */}
             <section>
               <h2 className="text-[15px] font-bold mb-3">Your library</h2>
-              <div className="rounded-2xl overflow-hidden bg-white/[0.04] border border-white/[0.06] divide-y divide-white/[0.05]">
+              <div className="rounded-2xl overflow-hidden bg-white/[0.04] border border-white/[0.06] divide-y divide-white/[0.05] backdrop-blur-md">
                 <Row icon={<Heart className="w-[18px] h-[18px] text-primary" fill="currentColor" />}
                   label="Liked Songs"
                   hint={profileSettled ? `${stats.likedSongs} ${stats.likedSongs === 1 ? 'song' : 'songs'}` : '—'}
@@ -422,14 +439,14 @@ const Profile = () => {
               </div>
             </section>
 
-            {/* ============ PREMIUM ============ */}
+            {/* Premium */}
             {profileSettled && !isPremium && (
               <button
                 onClick={() => navigate('/premium')}
-                className="w-full rounded-2xl p-4 text-left active:scale-[0.99] transition flex items-center gap-4"
+                className="w-full rounded-2xl p-4 text-left active:scale-[0.99] transition flex items-center gap-4 backdrop-blur-md"
                 style={{
-                  background: 'linear-gradient(135deg, hsl(45 92% 55% / 0.14), hsl(var(--primary) / 0.14))',
-                  border: '1px solid hsl(45 92% 55% / 0.26)',
+                  background: 'linear-gradient(135deg, hsl(45 92% 55% / 0.16), hsl(var(--primary) / 0.16))',
+                  border: '1px solid hsl(45 92% 55% / 0.28)',
                 }}
               >
                 <div className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
@@ -438,16 +455,16 @@ const Profile = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-bold">Try Premium</p>
-                  <p className="text-[12px] text-white/60 mt-0.5">Ad-free · Offline · Studio EQ · Lossless</p>
+                  <p className="text-[12px] text-white/65 mt-0.5">Ad-free · Offline · Studio EQ · Lossless</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-white/40" />
+                <ChevronRight className="w-4 h-4 text-white/45" />
               </button>
             )}
 
-            {/* ============ ACCOUNT ============ */}
+            {/* Account */}
             <section>
               <h2 className="text-[15px] font-bold mb-3">Account</h2>
-              <div className="rounded-2xl overflow-hidden bg-white/[0.04] border border-white/[0.06] divide-y divide-white/[0.05]">
+              <div className="rounded-2xl overflow-hidden bg-white/[0.04] border border-white/[0.06] divide-y divide-white/[0.05] backdrop-blur-md">
                 {profileSettled && isAdmin && (
                   <Row icon={<Shield className="w-[18px] h-[18px] text-primary" />} label="Admin Panel"
                     onClick={() => navigate('/admin')} />
@@ -477,15 +494,6 @@ const Profile = () => {
           onClose={() => setShowReviewsList(false)}
           onWriteReview={() => { setShowReviewsList(false); setTimeout(() => setShowReview(true), 250); }}
         />
-        {user && (
-          <AvatarPickerModal
-            isOpen={showAvatarPicker}
-            onClose={() => setShowAvatarPicker(false)}
-            userId={user.id}
-            currentAvatar={profileData.avatar_url}
-            onSaved={(id) => setProfileData(prev => ({ ...prev, avatar_url: id }))}
-          />
-        )}
       </div>
     </TabTransition>
   );
@@ -493,9 +501,9 @@ const Profile = () => {
 
 function StatCard({ value, label }: { value: string; label: string }) {
   return (
-    <div className="rounded-xl bg-white/[0.04] border border-white/[0.06] px-2 py-3 text-center">
+    <div className="rounded-xl bg-white/[0.05] border border-white/[0.07] px-2 py-3 text-center backdrop-blur-md">
       <p className="font-display font-bold text-[18px] leading-none tracking-tight">{value}</p>
-      <p className="mt-1.5 text-[10px] uppercase tracking-wider text-white/45 font-semibold">{label}</p>
+      <p className="mt-1.5 text-[10px] uppercase tracking-wider text-white/50 font-semibold">{label}</p>
     </div>
   );
 }
