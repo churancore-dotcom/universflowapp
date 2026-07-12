@@ -16,6 +16,12 @@ import { initCapacitorNative } from "@/lib/capacitorBoot";
 initSentry();
 initCapacitorNative();
 
+// Apply saved language + haptics preferences before first render.
+import { applyLanguageToDocument } from "@/lib/userPrefs";
+import { getHapticsEnabled } from "@/hooks/useHaptics";
+applyLanguageToDocument();
+getHapticsEnabled();
+
 
 document.documentElement.dataset.appVersion = BUILD_INFO.version;
 document.documentElement.dataset.appRefresh = BUILD_INFO.refreshedAt;

@@ -26,6 +26,8 @@ import { useEmailVerified } from '@/hooks/useEmailVerified';
 import PremiumBadge from '@/components/PremiumBadge';
 
 import { setEQSettings } from '@/lib/eqSettings';
+import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/useHaptics';
+import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLang } from '@/lib/userPrefs';
 import SEOHead from '@/components/SEOHead';
 
 const EQ_KEY = 'eq_settings';
@@ -152,7 +154,7 @@ const Settings = () => {
   const [autoplay, setAutoplay] = useState(() => localStorage.getItem('uf_autoplay') !== 'false');
   const [notifications, setNotifications] = useState(() => localStorage.getItem('uf_notifications') !== 'false');
   const [moodPushes, setMoodPushes] = useState(() => localStorage.getItem('uf_mood_pushes') !== 'false');
-  const [haptics, setHaptics] = useState(() => localStorage.getItem('uf_haptics') !== 'false');
+  const [haptics, setHaptics] = useState(() => getHapticsEnabled());
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
   const [showEq, setShowEq] = useState(false);
@@ -262,7 +264,12 @@ const Settings = () => {
       Notification.requestPermission();
     }
   };
-  const handleHaptics = (val: boolean) => { setHaptics(val); localStorage.setItem('uf_haptics', String(val)); };
+  const handleHaptics = (val: boolean) => {
+    setHaptics(val);
+    setHapticsEnabled(val);           // aligns with useHaptics's storage key
+    localStorage.setItem('uf_haptics', String(val)); // legacy mirror
+    if (val) triggerHaptic('selection'); // instant confirmation buzz
+  };
 
   const handlePlaybackSpeed = (speed: number) => {
     setPlaybackSpeed(speed);
@@ -276,20 +283,26 @@ const Settings = () => {
     setStreamQuality(v);
     localStorage.setItem('uf_stream_quality', v);
     emitPlaybackSettingsChanged();
+    emitPrefsChanged();
     toast.success(`Streaming quality: ${QUALITY_OPTIONS.find(o => o.id === v)?.label}`);
   };
   const handleDownloadQuality = (v: QualityTier) => {
     setDownloadQuality(v);
     localStorage.setItem('uf_download_quality', v);
+    emitPrefsChanged();
     toast.success(`Download quality: ${QUALITY_OPTIONS.find(o => o.id === v)?.label}`);
   };
   const handleWifiOnly = (v: boolean) => {
     setWifiOnlyDownload(v);
     localStorage.setItem('uf_download_wifi_only', String(v));
+    emitPrefsChanged();
+    toast.success(v ? 'Downloads limited to Wi-Fi' : 'Downloads allowed on any network');
   };
   const handleLanguage = (v: LanguagePref) => {
     setLanguage(v);
     localStorage.setItem('uf_language', v);
+    applyLanguageToDocument(v as PrefLang);
+    emitPrefsChanged();
     toast.success(`Language preference saved: ${LANGUAGE_OPTIONS.find(o => o.id === v)?.label}`);
   };
 
