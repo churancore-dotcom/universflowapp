@@ -54,26 +54,77 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       retryTimers = [];
     };
 
+    // Per-space NATIVE profile — Studio Spaces on APK can't use WebAudio
+    // convolution, so we simulate each acoustic environment via the
+    // AudioEffect chain: virtualizer width, bass shelf, loudness makeup,
+    // and 5-band EQ coloration offsets (in millibels, matches FALLBACK_NATIVE_BANDS).
+    //                                          60Hz  230Hz 910Hz 3.6k  14k
+    const NATIVE_SPACES: Record<string, { virt: number; bass: number; loud: number; eqMb: number[] }> = {
+      off:       { virt: 0,    bass: 0,   loud: 0,   eqMb: [0, 0, 0, 0, 0] },
+      vinyl:     { virt: 400,  bass: 250, loud: 150, eqMb: [300, 150, 0, -300, -600] },
+      studio:    { virt: 250,  bass: 0,   loud: 100, eqMb: [0, 0, 150, 200, 100] },
+      bedroom:   { virt: 550,  bass: 150, loud: 250, eqMb: [200, 50, 0, -100, -250] },
+      hall:      { virt: 900,  bass: 250, loud: 400, eqMb: [350, 150, 0, 200, 400] },
+      cathedral: { virt: 1000, bass: 350, loud: 550, eqMb: [500, 250, -100, 250, 550] },
+      stadium:   { virt: 1000, bass: 450, loud: 650, eqMb: [600, 350, 0, 200, 350] },
+    };
+
+    let native8DTimer: number | null = null;
+    let native8DPhase = 0;
+    const stop8D = () => {
+      if (native8DTimer != null) { window.clearInterval(native8DTimer); native8DTimer = null; }
+    };
+
     const pushNative = (s: ReturnType<typeof getEQSettings>, isPremium: boolean) => {
       if (!isNativePlayerAvailable()) return;
-      // Non-premium or flat → disable all native effects.
       if (!isPremium) {
+        stop8D();
         setNativeEQEnabled(false);
         setNativeBassBoost(0);
         setNativeVirtualizer(0);
         setNativeLoudnessEnhancer(0);
         return;
       }
-      // Per-band EQ → millibels, mapped to native band centers.
-      pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ);
-      // Bass boost 0..100 → 0..1000 strength.
-      setNativeBassBoost(Math.round((s.bassBoost / 100) * 1000));
-      // Spatial / headphone surround → Virtualizer strength.
-      const virtStrength = s.headphoneSurround ? 1000 : s.spatialAudio ? 700 : 0;
-      setNativeVirtualizer(virtStrength);
-      // Late-night = quiet boost via LoudnessEnhancer (~+6dB).
-      setNativeLoudnessEnhancer(s.lateNight ? 600 : 0);
+      const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
+
+      // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
+      // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
+      pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, space.eqMb);
+
+      // Bass boost: user slider OR space profile — whichever is stronger.
+      const userBass = Math.round((s.bassBoost / 100) * 1000);
+      setNativeBassBoost(Math.max(userBass, space.bass));
+
+      // Late Night: real +14 dB loudness compression makeup, not the old +6 dB
+      // that was inaudible on phone speakers. Combine with space loudness.
+      const lateNightMb = s.lateNight ? 1400 : 0;
+      setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud));
+
+      // Virtualizer: headphone surround / space width baseline.
+      const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);
+
+      // 8D: oscillating virtualizer strength gives perceptible stereo movement
+      // on APK (the WebAudio pan LFO can't drive ExoPlayer's audio session).
+      if (s.spatialAudio) {
+        if (native8DTimer == null) {
+          native8DPhase = 0;
+          native8DTimer = window.setInterval(() => {
+            native8DPhase += 0.22;
+            const cur = getEQSettings();
+            if (!cur.spatialAudio) { stop8D(); return; }
+            const sp = NATIVE_SPACES[cur.studioSpace] || NATIVE_SPACES.off;
+            const bv = Math.max(cur.headphoneSurround ? 1000 : 0, sp.virt);
+            const osc = 600 + Math.round(400 * Math.sin(native8DPhase));
+            setNativeVirtualizer(Math.max(osc, bv));
+          }, 220);
+        }
+        setNativeVirtualizer(Math.max(800, baseVirt));
+      } else {
+        stop8D();
+        setNativeVirtualizer(baseVirt);
+      }
     };
+
 
     const doReapply = () => {
       const s = getEQSettings();
