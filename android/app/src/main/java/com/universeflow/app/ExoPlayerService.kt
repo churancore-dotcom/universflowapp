@@ -131,6 +131,26 @@ class ExoPlayerService : MediaSessionService() {
         val sessionBuilder = MediaSession.Builder(this, exo)
         sessionActivity?.let { sessionBuilder.setSessionActivity(it) }
 
+        // Rich Spotify-style artwork on the lock screen / shade notification:
+        // wrap the default HTTP bitmap loader in an in-memory cache so artwork
+        // renders instantly on track transitions and survives session rebinds.
+        try {
+            val httpFactory = DefaultHttpDataSource.Factory()
+                .setUserAgent(HTTP_USER_AGENT)
+                .setConnectTimeoutMs(4000)
+                .setReadTimeoutMs(6000)
+                .setAllowCrossProtocolRedirects(true)
+            val bitmapLoader = CacheBitmapLoader(
+                DataSourceBitmapLoader(
+                    java.util.concurrent.Executors.newSingleThreadExecutor(),
+                    httpFactory,
+                )
+            )
+            sessionBuilder.setBitmapLoader(bitmapLoader)
+        } catch (t: Throwable) {
+            android.util.Log.w("ExoPlayerService", "bitmap loader install failed: ${t.message}")
+        }
+
         this.player = exo
         this.mediaSession = sessionBuilder.build()
 
