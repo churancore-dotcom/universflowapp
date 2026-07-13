@@ -338,7 +338,12 @@ object NativeYouTubeResolver {
             .header("Content-Type", "application/json")
             .header("User-Agent", ctx.userAgent)
             .header("Origin", "https://www.youtube.com")
-            .header("X-Goog-Api-Format-Version", "2")
+            // NOTE: `X-Goog-Api-Format-Version: 2` was removed intentionally.
+            // Sending it caused YouTube's edge to return SABR-only responses
+            // (empty adaptiveFormats + serverAbrStreamingUrl) for the mobile
+            // clients we race, which killed playback because ExoPlayer can't
+            // consume SABR manifests. Default (JSON, no version pin) yields
+            // progressive/adaptive URLs consistently.
             .header("X-YouTube-Client-Name", ctx.clientId)
             .header("X-YouTube-Client-Version", ctx.clientVersion)
         visitorData?.let { reqBuilder.header("X-Goog-Visitor-Id", it) }
@@ -358,15 +363,22 @@ object NativeYouTubeResolver {
             if (status != null && status != "OK") return null
             val streamingData = json.optJSONObject("streamingData") ?: return null
             val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
-            // SABR detection: empty adaptiveFormats + serverAbrStreamingUrl
-            // means YouTube served a SABR manifest instead of progressive
-            // URLs. ExoPlayer can't consume that directly — bail so the race
-            // continues with a mobile client that returns real URLs.
-            if (adaptive.length() == 0 && streamingData.has("serverAbrStreamingUrl")) {
-                Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
-                return null
+            // Try adaptive audio first.
+            pickBestAudio(adaptive, ctx.name)?.let { return it }
+            // Fallback: progressive `formats` list (combined AV muxed) — better
+            // than silence when YouTube ships SABR-only adaptive for this edge.
+            // ExoPlayer will demux the audio track from the muxed stream.
+            val progressive = streamingData.optJSONArray("formats") ?: JSONArray()
+            pickBestAudio(progressive, ctx.name)?.let { return it }
+            for (i in 0 until progressive.length()) {
+                val f = progressive.optJSONObject(i) ?: continue
+                val url = resolveFormatUrl(f) ?: continue
+                return url to f.optInt("itag", 0)
             }
-            return pickBestAudio(adaptive, ctx.name)
+            if (streamingData.has("serverAbrStreamingUrl")) {
+                Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
+            }
+            return null
         }
     }
 
