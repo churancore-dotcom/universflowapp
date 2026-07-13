@@ -16,6 +16,7 @@ import com.getcapacitor.BridgeWebChromeClient
 class MainActivity : BridgeActivity() {
 
     private val cameraReqCode = 4711
+    private val notifReqCode = 4712
     private var pendingPermissionRequest: PermissionRequest? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -29,6 +30,21 @@ class MainActivity : BridgeActivity() {
         // the app launches so the very first song plays instantly instead of
         // paying connection setup on the first tap.
         try { NativeYouTubeResolver.warm() } catch (_: Throwable) {}
+
+        // Android 13+ requires runtime POST_NOTIFICATIONS permission before the
+        // rich MediaStyle lock-screen / shade player can appear.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS)
+                != PackageManager.PERMISSION_GRANTED) {
+                try {
+                    ActivityCompat.requestPermissions(
+                        this,
+                        arrayOf(Manifest.permission.POST_NOTIFICATIONS),
+                        notifReqCode
+                    )
+                } catch (_: Throwable) {}
+            }
+        }
 
         bridge.webView?.let { web: WebView ->
             web.settings.javaScriptEnabled = true
