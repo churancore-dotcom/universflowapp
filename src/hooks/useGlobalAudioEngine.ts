@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, resume, subscribe } from '@/lib/audioEngine';
 import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
+import { getRuntimePremium } from '@/lib/premiumState';
 import {
   isNativePlayerAvailable,
   pushNativeEQFromWebBands,
@@ -76,7 +77,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
 
     const pushNative = (s: ReturnType<typeof getEQSettings>) => {
       if (!isNativePlayerAvailable()) return;
-      if (!hasWebAudioEffects(s)) {
+      if (!getRuntimePremium() || !hasWebAudioEffects(s)) {
         stop8D();
         setNativeEQEnabled(false);
         setNativeBassBoost(0);
@@ -135,7 +136,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.
       pushNative(s);
 
-      const needsWebAudio = hasWebAudioEffects(s);
+      const needsWebAudio = getRuntimePremium() && hasWebAudioEffects(s);
 
       // Android APK audible playback is ExoPlayer. Attaching WebAudio to the
       // muted WebView shadow cannot affect what users hear, and it can also
