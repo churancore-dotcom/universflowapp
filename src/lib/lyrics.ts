@@ -8,14 +8,13 @@ export interface LyricLine {
 export interface LyricsResult {
   synced: LyricLine[];      // empty if unsynced
   plain: string | null;     // raw text if no sync
-  source: 'artist' | 'lrclib' | 'kugou' | 'netease' | 'genius' | null;
-  geniusUrl: string | null;
+  source: 'artist' | 'lrclib' | 'kugou' | 'netease' | 'qqmusic' | 'lyricsovh' | null;
   hasLyrics: boolean;
   isSynced: boolean;
 }
 
 const EMPTY: LyricsResult = {
-  synced: [], plain: null, source: null, geniusUrl: null, hasLyrics: false, isSynced: false,
+  synced: [], plain: null, source: null, hasLyrics: false, isSynced: false,
 };
 
 // localStorage cache (7 days)
