@@ -300,6 +300,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
     <NavDirectionProvider>
     <OfflineGate />
     <Suspense fallback={<LazyFallback />}>
+      <main id="main-content" style={{ display: 'contents' }}>
         <Routes location={location}>
           <Route path="/" element={<RootGate />} />
           <Route path="/get" element={<GetAppGate />} />
@@ -390,6 +391,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           </Route>
           <Route path="*" element={<NotFound />} />
         </Routes>
+      </main>
     </Suspense>
     </NavDirectionProvider>
     </div>
