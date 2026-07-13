@@ -527,12 +527,9 @@ const Settings = () => {
             <Row
               icon={<Sliders className="w-4 h-4" />}
               label="Equalizer & Effects"
-              sub={isPremium ? 'Studio presets & 10-band EQ' : 'Premium only'}
+              sub="Studio presets & 10-band EQ"
               chevron
-              onClick={() => {
-                if (!isPremium) { toast.error('Equalizer is a Premium feature'); navigate('/premium'); return; }
-                setShowEq(true);
-              }}
+              onClick={() => setShowEq(true)}
             />
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>

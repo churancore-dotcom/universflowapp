@@ -1,7 +1,6 @@
 import { useEffect, useState } from 'react';
 import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, resume, subscribe } from '@/lib/audioEngine';
 import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
-import { getRuntimePremium } from '@/lib/premiumState';
 import {
   isNativePlayerAvailable,
   pushNativeEQFromWebBands,
@@ -75,9 +74,9 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (native8DTimer != null) { window.clearInterval(native8DTimer); native8DTimer = null; }
     };
 
-    const pushNative = (s: ReturnType<typeof getEQSettings>, isPremium: boolean) => {
+    const pushNative = (s: ReturnType<typeof getEQSettings>) => {
       if (!isNativePlayerAvailable()) return;
-      if (!isPremium) {
+      if (!hasWebAudioEffects(s)) {
         stop8D();
         setNativeEQEnabled(false);
         setNativeBassBoost(0);
@@ -128,16 +127,15 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
 
     const doReapply = () => {
       const s = getEQSettings();
-      const isPremium = getRuntimePremium();
 
       // Always honor playback rate — native <audio> property, no graph needed.
       audioElement.playbackRate = s.playbackSpeed;
 
       // Always push the native AudioEffect chain on Android — that path is
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.
-      pushNative(s, isPremium);
+      pushNative(s);
 
-      const needsWebAudio = isPremium && hasWebAudioEffects(s);
+      const needsWebAudio = hasWebAudioEffects(s);
 
       // Android APK audible playback is ExoPlayer. Attaching WebAudio to the
       // muted WebView shadow cannot affect what users hear, and it can also
@@ -223,7 +221,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // Some mobile WebViews briefly report a direct/idle engine while the new
       // proxied source is still committing. Keep trying for <1s so the EQ never
       // gets stuck in the "Reloading stream for effects…" state after a swap.
-      if (getRuntimePremium()) scheduleRecoveryBurst();
+      scheduleRecoveryBurst();
     };
 
     const onPlay = () => {
@@ -240,7 +238,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
     // already attached, so this is just AudioParam.setTargetAtTime() calls.
     const onEqChanged = () => {
       reapplyNow();
-      if (getRuntimePremium()) scheduleRecoveryBurst();
+      scheduleRecoveryBurst();
     };
 
     doReapply();
