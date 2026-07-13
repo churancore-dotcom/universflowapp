@@ -122,7 +122,6 @@ export async function fetchLyrics(artist: string, title: string, duration?: numb
         synced: synced.length > 0 ? synced : timedPlain,
         plain,
         source: data.source || null,
-        geniusUrl: data.geniusUrl || null,
         hasLyrics: synced.length > 0 || timedPlain.length > 0 || !!plain,
         isSynced: synced.length > 0 || timedPlain.length > 0,
       };
