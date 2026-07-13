@@ -74,16 +74,6 @@ const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Prop
         <div className="h-full flex flex-col items-center justify-center px-6 text-center gap-3">
           <Music2 className="w-7 h-7 text-white/30" />
           <p className="text-white/55 text-[15px] font-medium">No lyrics found for this track</p>
-          {lyrics.geniusUrl && (
-            <a
-              href={lyrics.geniusUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-[12px] text-white/50 underline underline-offset-4"
-            >
-              View on Genius <ExternalLink className="w-3 h-3" />
-            </a>
-          )}
         </div>
       </div>
     );
