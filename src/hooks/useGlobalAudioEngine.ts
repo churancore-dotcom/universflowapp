@@ -167,17 +167,6 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
 
       if (getState() !== 'processed') return;
 
-      if (!isPremium) {
-        // Non-premium: keep graph transparent. Bands flat, no effects.
-        setBands([0, 0, 0, 0, 0, 0, 0, 0, 0, 0], 0);
-        setReverb(0);
-        engineSetStudioSpace('off');
-        setSpatial(false);
-        setLateNight(false);
-        setHeadphoneSurround(false);
-        return;
-      }
-
       setBands(s.bands, s.bassBoost);
       setReverb(s.reverb);
       engineSetStudioSpace(s.studioSpace);

@@ -348,7 +348,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               {/* Live spectrum viz */}
               <div className="h-14 flex items-end justify-between gap-[3px]">
                 {SPECTRUM_BARS.map((i) => {
-                  const gain = bands[Math.min(bands.length - 1, Math.round((i / spectrum.length) * (bands.length - 1)))].gain;
+                  const gain = bands[Math.min(bands.length - 1, Math.round((i / SPECTRUM_BARS.length) * (bands.length - 1)))].gain;
                   const base = 22 + (gain + 12) * 2; // map -12..+12 → 22..70 px
                   return (
                     <motion.span
