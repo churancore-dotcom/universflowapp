@@ -310,7 +310,14 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const allTokens = tokens.length > 0 && tokenHits === tokens.length;
     const phraseHit = normalizeText(query).length > 2 && haystack.includes(normalizeText(query));
     if (!allowDiscoveryFallback && tokens.length > 0 && tokenHits === 0 && !phraseHit) return;
-    const popularity = Math.min(40, Math.log10(Math.max(1, track.listeners || 0)) * 8);
+    // Viral popularity: much stronger weight so the most-viewed / most-listened
+    // canonical upload lands at the top. Log scale prevents runaway winners
+    // from a single 1B-view track, but still hugely outranks unknown uploads.
+    const listeners = Math.max(0, Number(track.listeners) || 0);
+    const popularity = Math.min(180, Math.log10(1 + listeners) * 26);
+    // Explicit viral tier — anything with 5M+ plays gets a hard floor bump so
+    // "real" hits never sit under a cover, live version, or lyrics upload.
+    const viralTier = listeners >= 5_000_000 ? 220 : listeners >= 500_000 ? 110 : 0;
     const title = normalizeText(track.title || '');
     const artist = normalizeText(track.artist || '');
     const qNorm = normalizeText(query);
@@ -321,8 +328,6 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const titleTokenHits = tokens.reduce((sum, t) => sum + (title.includes(t) ? 1 : 0), 0);
     const artistTokenHits = tokens.reduce((sum, t) => sum + (artist.includes(t) ? 1 : 0), 0);
     const artistIntent = /\b(by|ft|feat|featuring|from)\b/i.test(query);
-    // Only treat as artist match when the artist name fully matches the query,
-    // AND none of the title tokens match — prevents artist hits from outranking real song matches.
     const exactArtist = tokens.length > 0 && tokens.every((t) => artist.includes(t)) && titleTokenHits === 0;
     const relevance =
       (titleStartsWith ? 900 : 0) +
@@ -332,18 +337,22 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
       artistTokenHits * 140 +
       (phraseHit ? 80 : 0) +
       (allTokens ? 60 : 0) +
-      (exactArtist ? 90 : 0); // small bonus, never beats a title match
-    // Originality bonuses/penalties: reward clean canonical uploads,
-    // penalize noisy titles (parenthetical clutter, remaster/remix suffixes,
-    // long promotional strings) so REAL tracks sit above duplicates.
+      (exactArtist ? 90 : 0);
+    // Originality: reward canonical uploads, penalize covers/remixes/lyric-vids.
     const rawTitle = String(track.title || '');
+    const rawArtist = String(track.artist || '');
     const parenNoise = (rawTitle.match(/\([^)]{4,}\)|\[[^\]]{4,}\]/g) || []).length;
-    const noiseWords = /\b(remaster(ed)?|reissue|version|edit|extended|radio\s*edit|deluxe|expanded|bonus|hd|hq|full\s*audio|full\s*song|full\s*hd|official\s*audio)\b/i.test(rawTitle) ? 1 : 0;
-    const cleanBonus = parenNoise === 0 && noiseWords === 0 ? 40 : 0;
-    const noisePenalty = parenNoise * 25 + noiseWords * 35 + (rawTitle.length > 60 ? 20 : 0);
-    const artistUploadBonus = (track as any).source === 'artist_upload' ? 600 : 0;
+    const noiseWords = /\b(remaster(ed)?|reissue|version|edit|extended|radio\s*edit|deluxe|expanded|bonus|hd|hq|full\s*audio|full\s*song|full\s*hd|official\s*audio|slowed|reverb|8d|lofi|cover|karaoke|instrumental|lyrics?|nightcore|mashup|remix)\b/i.test(rawTitle) ? 1 : 0;
+    const cleanBonus = parenNoise === 0 && noiseWords === 0 ? 90 : 0;
+    const noisePenalty = parenNoise * 35 + noiseWords * 120 + (rawTitle.length > 60 ? 30 : 0);
+    // Verified artist / official channel bonus — pushes the original release
+    // above every copycat re-upload for the same title.
+    const isOfficialArtist = /\bVEVO\b/.test(rawArtist) || /\b-?\s*Topic\b/i.test(rawArtist) || /\bofficial\b/i.test(rawArtist);
+    const officialBonus = isOfficialArtist ? 280 : 0;
+    const songKindBonus = track.kind === 'song' ? 340 : 0; // YT Music "Songs" shelf = canonical audio
+    const artistUploadBonus = (track as any).source === 'artist_upload' ? 700 : 0;
     const wrongArtistPenalty = artistIntent && tokens.length >= 2 && titleTokenHits > 0 && artistTokenHits === 0 && !phraseHit ? 260 : 0;
-    const score = base + relevance + popularity + cleanBonus + artistUploadBonus - noisePenalty - wrongArtistPenalty - index * 0.6;
+    const score = base + relevance + popularity + viralTier + cleanBonus + officialBonus + songKindBonus + artistUploadBonus - noisePenalty - wrongArtistPenalty - index * 0.6;
     const existing = rows.get(key);
     if (!existing || score > existing.score || (score === existing.score && sourcePriority > existing.sourcePriority)) {
       rows.set(key, { track, score, firstSeen: existing?.firstSeen ?? firstSeen++, sourcePriority });
