@@ -527,9 +527,16 @@ const Settings = () => {
             <Row
               icon={<Sliders className="w-4 h-4" />}
               label="Equalizer & Effects"
-              sub="Studio presets & 10-band EQ"
+              sub={isPremium ? 'Studio presets & 10-band EQ' : 'Premium studio presets & effects'}
               chevron
-              onClick={() => setShowEq(true)}
+              onClick={() => {
+                if (!isPremium) {
+                  toast.error('Equalizer is a Premium feature');
+                  navigate('/premium');
+                  return;
+                }
+                setShowEq(true);
+              }}
             />
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
@@ -693,7 +700,7 @@ const Settings = () => {
 
         <BottomNav />
         <SupportChatModal isOpen={showSupport} onClose={() => setShowSupport(false)} />
-        <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />
+        {isPremium && <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />}
         <ChangePasswordModal isOpen={showPassword} onClose={() => setShowPassword(false)} />
         <DeleteAccountModal isOpen={showDelete} onClose={() => setShowDelete(false)} />
       </div>

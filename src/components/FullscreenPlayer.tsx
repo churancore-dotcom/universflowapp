@@ -21,6 +21,7 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 import { canDownloadSong, canLikeSong, isIndexedSong } from '@/lib/songSupport';
 import { usePremium } from '@/hooks/usePremium';
 import { getEQPresetLabel, useEQSettings } from '@/lib/eqSettings';
+import { toast } from 'sonner';
 
 const formatTime = (seconds: number) => {
   if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -99,6 +100,16 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const eqLabel = getEQPresetLabel(eqSettings);
   const prevSongIdRef = useRef<string | null>(null);
   const navigate = useNavigate();
+
+  const handleOpenEqualizer = useCallback(() => {
+    triggerHaptic('selection');
+    if (!isPremium) {
+      toast.error('Equalizer is a Premium feature');
+      navigate('/premium');
+      return;
+    }
+    setShowEqualizer(true);
+  }, [isPremium, navigate]);
 
   const vibeSuggestions = useMemo(() => {
     if (!currentSong) return [];
@@ -503,7 +514,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
-                  onClick={() => { triggerHaptic('selection'); setShowEqualizer(true); }}
+                  onClick={handleOpenEqualizer}
                   aria-label="Equalizer"
                 >
                   <Sliders className="w-[18px] h-[18px] text-white/60" />
@@ -524,7 +535,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
       {showShareModal && <SocialShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} song={currentSong} />}
       {showPlaylistModal && <AddToPlaylistModal isOpen={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} song={currentSong} onCreateNew={() => { setShowPlaylistModal(false); setShowCreatePlaylist(true); }} />}
       {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} initialSong={currentSong} onCreated={() => setShowCreatePlaylist(false)} />}
-      {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
+      {showEqualizer && isPremium && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
       <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />
     </>
   );

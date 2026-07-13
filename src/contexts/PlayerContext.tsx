@@ -328,7 +328,7 @@ const isLocalMediaSource = (url?: string | null) => {
 // flat/default playback on the native <audio> path is much faster and avoids
 // Android background WebAudio suspension.
 const isEqProcessingEnabled = () => {
-  try { return hasWebAudioEffects(getEQSettings()); } catch { return false; }
+  try { return getRuntimePremium() && hasWebAudioEffects(getEQSettings()); } catch { return false; }
 };
 
 const isAutoplayEnabled = () => {

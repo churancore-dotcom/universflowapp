@@ -10,6 +10,7 @@ import { resume as engineResume, type StudioSpaceId } from '@/lib/audioEngine';
 import { useEngineState } from '@/hooks/useGlobalAudioEngine';
 import { isNativePlayerAvailable } from '@/lib/nativePlayer';
 import { getEQSettings, isEqActive, setEQSettings, useEQSettings } from '@/lib/eqSettings';
+import { usePremium } from '@/hooks/usePremium';
 
 interface StudioSpace {
   id: StudioSpaceId;
@@ -172,6 +173,7 @@ const PRESET_GROUPS: { label: string; ids: string[] }[] = [
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { currentSong } = usePlayer();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
   const engineMode = useEngineState();
   const isConnected = engineMode === 'processed';
   // On Android APK, ExoPlayer owns audio and EQ is applied via native
@@ -200,10 +202,16 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   // handled by useGlobalAudioEngine listening for the `uf-eq-changed` event
   // that setEQSettings dispatches. The modal is purely a state surface.
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || premiumLoading || isPremium) return;
+    toast.error('Equalizer is a Premium feature');
+    onClose();
+  }, [isOpen, premiumLoading, isPremium, onClose]);
+
+  useEffect(() => {
+    if (!isOpen || premiumLoading || !isPremium) return;
     engineResume();
     window.dispatchEvent(new CustomEvent('uf-eq-changed', { detail: getEQSettings() }));
-  }, [isOpen]);
+  }, [isOpen, premiumLoading, isPremium]);
 
   const handleBandChange = useCallback((index: number, value: number) => {
     setEQSettings((prev) => ({ bands: prev.bands.map((gain, i) => i === index ? value : gain), activePreset: 'custom' }));
@@ -266,7 +274,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     }
   }, []);
 
-  if (!isOpen) return null;
+  if (!isOpen || premiumLoading || !isPremium) return null;
 
   const presetById = new Map(presets.map((p) => [p.id, p]));
 
