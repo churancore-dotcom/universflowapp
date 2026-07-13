@@ -10,7 +10,7 @@ interface Props {
 }
 
 const EMPTY: LyricsResult = {
-  synced: [], plain: null, source: null, geniusUrl: null, hasLyrics: false, isSynced: false,
+  synced: [], plain: null, source: null, hasLyrics: false, isSynced: false,
 };
 
 const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
