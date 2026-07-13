@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music2, ExternalLink } from 'lucide-react';
+import { Music2 } from 'lucide-react';
 import { fetchLyrics, findActiveLine, type LyricsResult, type LyricLine } from '@/lib/lyrics';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 
@@ -11,7 +11,7 @@ interface Props {
 }
 
 const EMPTY: LyricsResult = {
-  synced: [], plain: null, source: null, geniusUrl: null, hasLyrics: false, isSynced: false,
+  synced: [], plain: null, source: null, hasLyrics: false, isSynced: false,
 };
 
 /**
@@ -75,16 +75,6 @@ const AnimatedLyricsStage = ({ artist, title, duration }: Props) => {
         <p className="text-white/35 text-[12px] font-medium max-w-[260px] leading-relaxed">
           Just vibe to the music — when lyrics exist they'll appear here in real-time.
         </p>
-        {lyrics.geniusUrl && (
-          <a
-            href={lyrics.geniusUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 text-[12px] text-white/55 underline underline-offset-4 mt-1"
-          >
-            View on Genius <ExternalLink className="w-3 h-3" />
-          </a>
-        )}
       </div>
     );
   }
