@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music2, ExternalLink } from 'lucide-react';
+import { Music2 } from 'lucide-react';
 import { fetchLyrics, findActiveLine, type LyricsResult, type LyricLine } from '@/lib/lyrics';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 
@@ -11,7 +11,7 @@ interface Props {
 }
 
 const EMPTY: LyricsResult = {
-  synced: [], plain: null, source: null, geniusUrl: null, hasLyrics: false, isSynced: false,
+  synced: [], plain: null, source: null, hasLyrics: false, isSynced: false,
 };
 
 /**
