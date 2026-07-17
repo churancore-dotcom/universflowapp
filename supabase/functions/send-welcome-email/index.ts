@@ -108,50 +108,49 @@ Deno.serve(async (req) => {
     }
 
     const safeName = escape(username);
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#0a0a0b;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
-  <div style="max-width:600px;margin:0 auto;padding:40px 20px">
-    <div style="background:linear-gradient(180deg,#15151a 0%,#0a0a0b 100%);border:1px solid rgba(255,255,255,0.08);border-radius:24px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.5)">
-      <div style="padding:48px 32px 8px;text-align:center">
-        <div style="font-size:30px;font-weight:700;letter-spacing:-0.6px;line-height:1">
-          <span style="background:linear-gradient(135deg,#FF2D55,#BF5AF2,#5E5CE6);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;color:#FF2D55">Univers</span><span style="color:#fff;font-weight:300;margin-left:4px">Flow</span>
-        </div>
-        <div style="margin-top:10px;font-size:10px;letter-spacing:.3em;text-transform:uppercase;color:#6e6e73">Premium Music Experience</div>
+    const features: Array<[string, string]> = [
+      ['Millions of songs', 'A deep, ad-light catalog across every genre.'],
+      ['Follow artists', 'Get their new releases the moment they drop.'],
+      ['Live charts', 'Real trending and viral songs from around the world.'],
+      ['Offline downloads', 'Save what you love and play it anywhere.'],
+    ];
+    const rowsHtml = features.map(([t, d]) => `
+      <tr><td style="padding:12px 0;border-top:1px solid rgba(255,255,255,0.06)">
+        <div style="font:600 14px/1.35 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">${t}</div>
+        <div style="font:400 13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#a1a1a6;margin-top:2px">${d}</div>
+      </td></tr>`).join('');
+
+    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
+  <div style="max-width:600px;margin:0 auto;padding:40px 18px">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px"><tr><td align="center">
+      <img src="https://universflow.in/pwa-512x512.png" width="56" height="56" alt="Universflow" style="display:block;border-radius:14px;box-shadow:0 10px 28px rgba(255,45,85,0.28)">
+      <div style="margin-top:12px;font:700 20px/1 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;letter-spacing:-0.3px">
+        <span style="background:linear-gradient(135deg,#FF2D55,#BF5AF2,#5E5CE6);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;color:#FF2D55">Univers</span><span style="color:#fff;font-weight:300;margin-left:3px">Flow</span>
       </div>
-      <div style="padding:36px 36px 8px;text-align:center">
-        <div style="display:inline-block;width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,#FF2D55,#BF5AF2);line-height:64px;font-size:30px;margin-bottom:18px">🎧</div>
-        <h1 style="margin:0 0 12px;font-size:26px;font-weight:700;letter-spacing:-0.4px">Welcome, ${safeName}</h1>
-        <p style="font-size:15px;line-height:1.6;color:#a1a1a6;margin:0 0 32px;max-width:440px;margin-left:auto;margin-right:auto">
-          Your account is ready. Dive into millions of songs, follow your favourite artists, and discover what's trending right now around the world.
+    </td></tr></table>
+
+    <div style="background:linear-gradient(180deg,#141418 0%,#0a0a0c 100%);border:1px solid rgba(255,255,255,0.08);border-radius:24px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,0.55)">
+      <div style="padding:44px 34px 6px;text-align:center;background:radial-gradient(120% 80% at 50% 0%, rgba(255,45,85,0.14) 0%, transparent 65%)">
+        <div style="display:inline-block;font-size:11px;letter-spacing:.28em;text-transform:uppercase;color:#FF2D55;background:rgba(255,45,85,0.12);border:1px solid rgba(255,45,85,0.30);padding:7px 14px;border-radius:999px">You're in</div>
+        <h1 style="margin:22px 0 12px;font-size:28px;font-weight:700;letter-spacing:-0.5px;line-height:1.2">Welcome, ${safeName}.</h1>
+        <p style="font-size:15px;line-height:1.65;color:#a1a1a6;margin:0 auto 28px;max-width:440px">
+          Your account is ready. Stream millions of songs, follow your favourite artists, and discover what's trending right now around the world.
         </p>
-        <a href="https://universflow.in/home"
-           style="display:inline-block;background:linear-gradient(135deg,#FF2D55,#BF5AF2);color:#fff;text-decoration:none;padding:16px 40px;border-radius:999px;font-weight:600;font-size:15px;letter-spacing:.01em;box-shadow:0 10px 30px rgba(255,45,85,0.35)">
-          Open Universflow
-        </a>
+        <a href="https://universflow.in/home" style="display:inline-block;background:linear-gradient(135deg,#FF2D55,#BF5AF2);color:#fff;text-decoration:none;padding:15px 40px;border-radius:999px;font-weight:600;font-size:15px;letter-spacing:.01em;box-shadow:0 14px 34px rgba(255,45,85,0.40)">Open Universflow</a>
+        <p style="margin:14px 0 34px;font-size:11px;color:#6e6e73;letter-spacing:.04em">Free forever · Premium optional</p>
       </div>
-      <div style="margin:40px 36px 0;padding:24px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:16px">
-        <p style="margin:0 0 16px;font-size:12px;color:#6e6e73;letter-spacing:.05em;text-transform:uppercase;text-align:center">What's inside</p>
-        <table style="width:100%;border-collapse:collapse" cellspacing="0" cellpadding="0">
-          <tr>
-            <td style="padding:8px 0;font-size:14px;color:#e5e5ea">🎵 <span style="color:#a1a1a6">&nbsp;Millions of songs, ad-light</span></td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;font-size:14px;color:#e5e5ea">⭐ <span style="color:#a1a1a6">&nbsp;Follow artists & build playlists</span></td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;font-size:14px;color:#e5e5ea">🔥 <span style="color:#a1a1a6">&nbsp;Trending charts from around the globe</span></td>
-          </tr>
-          <tr>
-            <td style="padding:8px 0;font-size:14px;color:#e5e5ea">📥 <span style="color:#a1a1a6">&nbsp;Offline downloads on Premium</span></td>
-          </tr>
-        </table>
+      <div style="margin:0 30px 26px;padding:6px 22px 14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:18px">
+        <p style="margin:16px 0 4px;font-size:11px;color:#8e8e93;letter-spacing:.18em;text-transform:uppercase">What you get</p>
+        <table style="width:100%;border-collapse:collapse" cellpadding="0" cellspacing="0">${rowsHtml}</table>
       </div>
-      <div style="padding:32px 36px 36px;text-align:center">
-        <p style="margin:0;font-size:11px;color:#48484a;line-height:1.6">If you didn't create this account, you can safely ignore this email.</p>
+      <div style="padding:0 32px 34px;text-align:center">
+        <p style="margin:0;font-size:11px;color:#48484a;line-height:1.7">If you didn't create this account, you can safely ignore this email.</p>
       </div>
     </div>
-    <div style="text-align:center;margin-top:24px;font-size:11px;color:#48484a">
+
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:22px"><tr><td align="center" style="font-size:11px;color:#48484a;line-height:1.8">
       © Universflow · <a href="https://universflow.in" style="color:#6e6e73;text-decoration:none">universflow.in</a>
-    </div>
+    </td></tr></table>
   </div>
 </body></html>`;
 
