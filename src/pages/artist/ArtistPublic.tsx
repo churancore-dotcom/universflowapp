@@ -92,7 +92,8 @@ export default function ArtistPublic() {
       setIsFollowing(!!follow);
       setLoading(false);
 
-      // Monthly listeners — distinct listeners over last 30 days
+      // Monthly listeners — distinct real listeners (user_id or session_id) over last 30 days.
+      // Rows without either identifier are dropped so we never inflate the count.
       const since = new Date(Date.now() - 30 * 86400000).toISOString();
       const ids = list.map((x) => x.id);
       if (ids.length) {
@@ -103,13 +104,20 @@ export default function ArtistPublic() {
           .gte('created_at', since)
           .limit(5000);
         const set = new Set<string>();
-        (ev ?? []).forEach((r: any) => set.add(r.user_id ?? r.session_id ?? Math.random().toString()));
+        for (const r of (ev ?? []) as Array<{ user_id: string | null; session_id: string | null }>) {
+          const key = r.user_id ?? r.session_id;
+          if (key) set.add(key);
+        }
         setMonthly(set.size);
       }
 
-      list.forEach((song) => {
-        supabase.rpc('increment_artist_song_view' as never, { _song_id: song.id } as never);
-      });
+      // Count one profile-page visit per session (not one per song in the list —
+      // that inflated view_count by however many tracks the artist had).
+      const viewedKey = `uf_artist_viewed_${(p as Profile).user_id}`;
+      if (!sessionStorage.getItem(viewedKey) && list.length) {
+        sessionStorage.setItem(viewedKey, '1');
+        supabase.rpc('increment_artist_song_view' as never, { _song_id: list[0].id } as never);
+      }
     })();
   }, [slug, user]);
 
