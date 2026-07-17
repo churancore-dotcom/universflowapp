@@ -1,22 +1,25 @@
 import { useMemo, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music2, Trash2, Plus, Pencil, Cloud, HardDrive, Loader2, ExternalLink } from 'lucide-react';
+import { Music2, Trash2, Plus, Pencil, Cloud, HardDrive, Loader2, ExternalLink, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArtistSong, fmt } from './_shared';
+import { ArtistProfile, ArtistSong, fmt } from './_shared';
 import { detectSource } from '@/lib/artistUploadLinks';
+import ArtistShareCard from '@/components/artist/ArtistShareCard';
 
-type Ctx = { songs: ArtistSong[] };
+type Ctx = { songs: ArtistSong[]; profile: ArtistProfile; followers: number };
 type SortKey = 'recent' | 'plays' | 'likes' | 'views' | 'downloads';
 
 export default function ArtistSongs() {
-  const { songs } = useOutletContext<Ctx>();
+  const { songs, profile, followers } = useOutletContext<Ctx>();
   const [sort, setSort] = useState<SortKey>('recent');
   const [editing, setEditing] = useState<ArtistSong | null>(null);
+  const [sharing, setSharing] = useState<ArtistSong | null>(null);
+
 
   const sorted = useMemo(() => {
     const arr = [...songs];
