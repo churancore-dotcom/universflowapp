@@ -74,7 +74,12 @@ export default function ArtistSongs() {
           <div className="mt-3 space-y-2.5">
             <AnimatePresence initial={false}>
               {sorted.map((s) => (
-                <SongRow key={s.id} song={s} onEdit={() => setEditing(s)} />
+                <SongRow
+                  key={s.id}
+                  song={s}
+                  onEdit={() => setEditing(s)}
+                  onShare={() => setSharing(s)}
+                />
               ))}
             </AnimatePresence>
           </div>
@@ -82,6 +87,13 @@ export default function ArtistSongs() {
       )}
 
       <EditSongModal song={editing} onClose={() => setEditing(null)} />
+      <ArtistShareCard
+        isOpen={!!sharing}
+        onClose={() => setSharing(null)}
+        profile={profile}
+        followers={followers}
+        song={sharing}
+      />
     </div>
   );
 }
