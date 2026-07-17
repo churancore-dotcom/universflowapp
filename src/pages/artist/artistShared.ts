@@ -3,6 +3,10 @@ export type ArtistSocialLinks = {
   youtube?: string | null;
   spotify?: string | null;
   apple_music?: string | null;
+  tiktok?: string | null;
+  twitter?: string | null;
+  facebook?: string | null;
+  soundcloud?: string | null;
   [key: string]: string | null | undefined;
 };
 
@@ -15,6 +19,12 @@ export type ArtistProfile = {
   avatar_url: string | null;
   banner_url: string | null;
   social_links: ArtistSocialLinks | null;
+  tagline?: string | null;
+  accent_color?: string | null;
+  genres?: string[] | null;
+  location?: string | null;
+  pronouns?: string | null;
+  website?: string | null;
 };
 
 export type ArtistSong = {
