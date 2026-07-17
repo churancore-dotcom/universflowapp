@@ -209,22 +209,34 @@ const YOUTUBE_API_KEY_2 = Deno.env.get('YOUTUBE_API_KEY_2') || '';
 const YOUTUBE_API_KEYS = [YOUTUBE_API_KEY, YOUTUBE_API_KEY_2].filter(Boolean);
 const LASTFM_BASE_URL = 'https://ws.audioscrobbler.com/2.0/';
 
-// ── Instance lists (refreshed 2026-07; pruned pipedapi.tokhmi.xyz, api.piped.yt) ──
+// ── Instance lists (refreshed 2026-07-17 after mass 401/403/500 outages) ──
+// Stale entries that were serving HTML error pages or LOGIN_REQUIRED walls
+// have been pruned. New entries verified against public uptime trackers
+// (kavin.rocks piped-instances + api.invidious.io/instances.json).
 
 const PIPED_INSTANCES = [
+  'https://pipedapi.reallyaweso.me',
+  'https://pipedapi.drgns.space',
+  'https://pipedapi.orangenet.cc',
+  'https://pipedapi.ducks.party',
+  'https://pipedapi.smnz.de',
   'https://api.piped.private.coffee',
   'https://pipedapi.moomoo.me',
   'https://pipedapi.syncpundit.io',
   'https://api-piped.mha.fi',
   'https://pipedapi.leptons.xyz',
   'https://pipedapi.r4fo.com',
-  'https://pipedapi.kavin.rocks',
   'https://pipedapi.adminforge.de',
 ];
 
 
 const INVIDIOUS_INSTANCES = [
-  'https://inv.thepixora.com',
+  'https://invidious.reallyaweso.me',
+  'https://invidious.dhusch.de',
+  'https://invidious.materialio.us',
+  'https://invidious.perennialte.ch',
+  'https://iv.melmac.space',
+  'https://iv.datura.network',
   'https://inv.nadeko.net',
   'https://invidious.f5.si',
   'https://invidious.nerdvpn.de',
