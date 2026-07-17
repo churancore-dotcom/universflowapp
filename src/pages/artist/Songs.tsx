@@ -158,6 +158,13 @@ function SongRow({ song, onEdit, onShare }: { song: ArtistSong; onEdit: () => vo
       </div>
       <div className="flex flex-col gap-1.5">
         <button
+          onClick={onShare}
+          className="w-9 h-9 rounded-full bg-white/[0.05] flex items-center justify-center text-foreground active:scale-95"
+          aria-label="Share song"
+        >
+          <Share2 className="w-4 h-4" />
+        </button>
+        <button
           onClick={onEdit}
           className="w-9 h-9 rounded-full bg-white/[0.05] flex items-center justify-center text-foreground active:scale-95"
           aria-label="Edit song"
