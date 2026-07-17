@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { UserPlus, Trophy, Music2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { UserPlus, Trophy, Music2, ShieldCheck, AlertCircle, Play, Globe2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArtistSong, fmt } from './_shared';
 
@@ -8,12 +8,18 @@ type Ctx = { songs: ArtistSong[]; user: { id: string } };
 
 type Item = {
   id: string;
-  kind: 'follower' | 'milestone' | 'status';
+  kind: 'follower' | 'milestone' | 'status' | 'play';
   ts: string;
   title: string;
   body?: string;
   icon: React.ReactNode;
 };
+
+function flagEmoji(cc: string | null) {
+  if (!cc || cc.length !== 2) return '🌍';
+  const A = 0x1F1E6, base = 'A'.charCodeAt(0);
+  return String.fromCodePoint(...cc.toUpperCase().split('').map((c) => A + (c.charCodeAt(0) - base)));
+}
 
 const MILESTONES = [100, 1_000, 10_000, 100_000, 1_000_000];
 
