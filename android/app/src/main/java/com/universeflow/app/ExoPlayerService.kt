@@ -4,11 +4,13 @@ import android.app.PendingIntent
 import android.content.Intent
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
+import android.media.audiofx.EnvironmentalReverb
 import android.media.audiofx.LoudnessEnhancer
 import android.media.audiofx.Virtualizer
 import android.net.wifi.WifiManager
 import android.os.PowerManager
 import androidx.media3.common.AudioAttributes
+import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
@@ -50,6 +52,8 @@ class ExoPlayerService : MediaSessionService() {
         private set
     var loudnessEnhancer: LoudnessEnhancer? = null
         private set
+    var environmentalReverb: EnvironmentalReverb? = null
+        private set
 
     // Persisted audio-effect state — survives audio-session rebinds so the
     // user's EQ / bass / virtualizer / loudness settings stick across every
@@ -60,6 +64,7 @@ class ExoPlayerService : MediaSessionService() {
     @Volatile var savedBassBoostStrength: Short = 0
     @Volatile var savedVirtualizerStrength: Short = 0
     @Volatile var savedLoudnessGainMb: Int = 0
+    @Volatile var savedReverbAmount: Int = 0
 
     private var boundSessionId: Int = C.AUDIO_SESSION_ID_UNSET
 
@@ -69,6 +74,8 @@ class ExoPlayerService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+
+        restoreEffectState()
 
         val audioAttrs = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -171,9 +178,10 @@ class ExoPlayerService : MediaSessionService() {
     fun ensureEffectsBound() {
         val sid = player?.audioSessionId ?: return
         if (sid == C.AUDIO_SESSION_ID_UNSET || sid == 0) return
-        if (sid == boundSessionId
-            && equalizer != null && bassBoost != null
-            && virtualizer != null && loudnessEnhancer != null) return
+        // Optional AudioEffect implementations vary by manufacturer. Do not
+        // repeatedly tear down the working EQ just because (for example) a
+        // device does not implement Virtualizer or LoudnessEnhancer.
+        if (sid == boundSessionId) return
 
         releaseEffects()
         try {
@@ -216,7 +224,75 @@ class ExoPlayerService : MediaSessionService() {
                 } else enabled = false
             }
         } catch (_: Throwable) { loudnessEnhancer = null }
+        try {
+            environmentalReverb = EnvironmentalReverb(0, 0).apply {
+                applyReverbParameters(this, savedReverbAmount)
+            }
+            if (savedReverbAmount > 0) {
+                player?.setAuxEffectInfo(AuxEffectInfo(environmentalReverb!!.id, savedReverbAmount / 100f))
+            }
+        } catch (_: Throwable) { environmentalReverb = null }
         boundSessionId = sid
+    }
+
+    fun applyReverb(amount: Int) {
+        savedReverbAmount = amount.coerceIn(0, 100)
+        val effect = environmentalReverb
+        if (effect != null) {
+            try {
+                applyReverbParameters(effect, savedReverbAmount)
+                player?.setAuxEffectInfo(
+                    if (savedReverbAmount > 0) AuxEffectInfo(effect.id, savedReverbAmount / 100f)
+                    else AuxEffectInfo(0, 0f)
+                )
+            } catch (_: Throwable) {}
+        }
+        persistEffectState()
+    }
+
+    private fun applyReverbParameters(effect: EnvironmentalReverb, amount: Int) {
+        val wet = amount.coerceIn(0, 100)
+        effect.enabled = wet > 0
+        if (wet <= 0) return
+        effect.roomLevel = (-6000 + wet * 50).coerceIn(-6000, -1000).toShort()
+        effect.reverbLevel = (-6000 + wet * 65).coerceIn(-6000, 500).toShort()
+        effect.decayTime = (500 + wet * 75).coerceIn(100, 8000)
+        effect.decayHFRatio = (500 + wet * 5).coerceIn(100, 1000).toShort()
+        effect.diffusion = (400 + wet * 6).coerceIn(0, 1000).toShort()
+        effect.density = (500 + wet * 5).coerceIn(0, 1000).toShort()
+    }
+
+    fun persistEffectState() {
+        try {
+            val bands = savedEqBands.entries.joinToString(",") { "${it.key}:${it.value}" }
+            getSharedPreferences("uf_native_eq", MODE_PRIVATE).edit()
+                .putBoolean("enabled", eqEnabled)
+                .putString("bands", bands)
+                .putInt("bass", savedBassBoostStrength.toInt())
+                .putInt("virtualizer", savedVirtualizerStrength.toInt())
+                .putInt("loudness", savedLoudnessGainMb)
+                .putInt("reverb", savedReverbAmount)
+                .apply()
+        } catch (_: Throwable) {}
+    }
+
+    private fun restoreEffectState() {
+        try {
+            val prefs = getSharedPreferences("uf_native_eq", MODE_PRIVATE)
+            eqEnabled = prefs.getBoolean("enabled", true)
+            savedBassBoostStrength = prefs.getInt("bass", 0).coerceIn(0, 1000).toShort()
+            savedVirtualizerStrength = prefs.getInt("virtualizer", 0).coerceIn(0, 1000).toShort()
+            savedLoudnessGainMb = prefs.getInt("loudness", 0).coerceIn(0, 2000)
+            savedReverbAmount = prefs.getInt("reverb", 0).coerceIn(0, 100)
+            prefs.getString("bands", null)?.split(',')?.forEach { entry ->
+                val pair = entry.split(':')
+                if (pair.size == 2) {
+                    val band = pair[0].toShortOrNull()
+                    val level = pair[1].toShortOrNull()
+                    if (band != null && level != null) savedEqBands[band] = level
+                }
+            }
+        } catch (_: Throwable) {}
     }
 
     private fun releaseEffects() {
@@ -224,10 +300,12 @@ class ExoPlayerService : MediaSessionService() {
         try { bassBoost?.release() } catch (_: Throwable) {}
         try { virtualizer?.release() } catch (_: Throwable) {}
         try { loudnessEnhancer?.release() } catch (_: Throwable) {}
+        try { environmentalReverb?.release() } catch (_: Throwable) {}
         equalizer = null
         bassBoost = null
         virtualizer = null
         loudnessEnhancer = null
+        environmentalReverb = null
         boundSessionId = C.AUDIO_SESSION_ID_UNSET
     }
 

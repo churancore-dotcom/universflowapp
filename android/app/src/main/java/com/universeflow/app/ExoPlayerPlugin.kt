@@ -605,11 +605,12 @@ class ExoPlayerPlugin : Plugin() {
     @PluginMethod
     fun setEQEnabled(call: PluginCall) {
         val enabled = call.getBoolean("enabled") ?: true
-        runOnMain {
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.eqEnabled = enabled
             svc?.ensureEffectsBound()
             try { svc?.equalizer?.enabled = enabled } catch (_: Throwable) {}
+            svc?.persistEffectState()
             call.resolve()
         }
     }
@@ -618,7 +619,7 @@ class ExoPlayerPlugin : Plugin() {
     fun setEQBand(call: PluginCall) {
         val band = call.getInt("band") ?: run { call.reject("missing band"); return }
         val mb = call.getInt("levelMillibels") ?: run { call.reject("missing levelMillibels"); return }
-        runOnMain {
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.ensureEffectsBound()
             val eq = svc?.equalizer
@@ -626,6 +627,7 @@ class ExoPlayerPlugin : Plugin() {
                 // Even if the effect isn't bound yet (no audio session id), save
                 // the intended level so it gets applied the moment effects bind.
                 svc?.savedEqBands?.put(band.toShort(), mb.toShort())
+                svc?.persistEffectState()
                 call.resolve(); return@runOnMain
             }
             try {
@@ -636,13 +638,14 @@ class ExoPlayerPlugin : Plugin() {
                 eq.setBandLevel(band.toShort(), clamped)
                 svc.savedEqBands[band.toShort()] = clamped
             } catch (_: Throwable) {}
+            svc?.persistEffectState()
             call.resolve()
         }
     }
 
     @PluginMethod
     fun getEQBands(call: PluginCall) {
-        runOnMain {
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.ensureEffectsBound()
             val eq = svc?.equalizer
@@ -699,6 +702,7 @@ class ExoPlayerPlugin : Plugin() {
                     }
                 }
             } catch (_: Throwable) {}
+            svc?.persistEffectState()
             call.resolve()
         }
     }
@@ -706,7 +710,7 @@ class ExoPlayerPlugin : Plugin() {
     @PluginMethod
     fun setVirtualizer(call: PluginCall) {
         val strength = (call.getInt("strength") ?: 0).coerceIn(0, 1000)
-        runOnMain {
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.savedVirtualizerStrength = strength.toShort()
             svc?.ensureEffectsBound()
@@ -720,6 +724,7 @@ class ExoPlayerPlugin : Plugin() {
                     }
                 }
             } catch (_: Throwable) {}
+            svc?.persistEffectState()
             call.resolve()
         }
     }
@@ -727,7 +732,7 @@ class ExoPlayerPlugin : Plugin() {
     @PluginMethod
     fun setLoudnessEnhancer(call: PluginCall) {
         val gainMb = (call.getInt("gainMb") ?: 0).coerceIn(0, 2000)
-        runOnMain {
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.savedLoudnessGainMb = gainMb
             svc?.ensureEffectsBound()
@@ -741,6 +746,18 @@ class ExoPlayerPlugin : Plugin() {
                     }
                 }
             } catch (_: Throwable) {}
+            svc?.persistEffectState()
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun setReverb(call: PluginCall) {
+        val amount = (call.getInt("amount") ?: 0).coerceIn(0, 100)
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
+            val svc = service()
+            svc?.ensureEffectsBound()
+            svc?.applyReverb(amount)
             call.resolve()
         }
     }
