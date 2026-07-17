@@ -298,7 +298,6 @@ class ExoPlayerPlugin : Plugin() {
         })
         listenerAttached = true
         listenerPlayer = player
-        call?.let { ensureListener(null) }
     }
 
     @PluginMethod

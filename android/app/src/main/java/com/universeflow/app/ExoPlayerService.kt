@@ -185,7 +185,7 @@ class ExoPlayerService : MediaSessionService() {
 
         releaseEffects()
         try {
-            equalizer = Equalizer(0, sid).apply {
+            equalizer = Equalizer(1, sid).apply {
                 enabled = eqEnabled
                 // Re-apply every previously saved band level so user EQ
                 // survives per-song audio-session rebinds.
@@ -201,7 +201,7 @@ class ExoPlayerService : MediaSessionService() {
             }
         } catch (_: Throwable) { equalizer = null }
         try {
-            bassBoost = BassBoost(0, sid).apply {
+            bassBoost = BassBoost(1, sid).apply {
                 if (savedBassBoostStrength > 0) {
                     enabled = true
                     if (strengthSupported) try { setStrength(savedBassBoostStrength) } catch (_: Throwable) {}
@@ -209,7 +209,7 @@ class ExoPlayerService : MediaSessionService() {
             }
         } catch (_: Throwable) { bassBoost = null }
         try {
-            virtualizer = Virtualizer(0, sid).apply {
+            virtualizer = Virtualizer(1, sid).apply {
                 if (savedVirtualizerStrength > 0) {
                     enabled = true
                     if (strengthSupported) try { setStrength(savedVirtualizerStrength) } catch (_: Throwable) {}
@@ -225,7 +225,7 @@ class ExoPlayerService : MediaSessionService() {
             }
         } catch (_: Throwable) { loudnessEnhancer = null }
         try {
-            environmentalReverb = EnvironmentalReverb(0, 0).apply {
+            environmentalReverb = EnvironmentalReverb(1, 0).apply {
                 applyReverbParameters(this, savedReverbAmount)
             }
             if (savedReverbAmount > 0) {
