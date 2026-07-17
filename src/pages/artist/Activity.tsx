@@ -27,6 +27,7 @@ export default function Activity() {
   const { songs, user } = useOutletContext<Ctx>();
   const [followers, setFollowers] = useState<Array<{ id: string; created_at: string; name: string }>>([]);
   const [statusEvents, setStatusEvents] = useState<Array<{ status: string; reviewed_at: string | null; updated_at: string }>>([]);
+  const [plays, setPlays] = useState<Array<{ id: string; created_at: string; song_title: string; country_code: string | null; country_name: string | null }>>([]);
 
   useEffect(() => {
     let alive = true;
