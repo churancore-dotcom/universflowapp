@@ -122,7 +122,7 @@ function SourceBadge({ url }: { url: string }) {
   );
 }
 
-function SongRow({ song, onEdit }: { song: ArtistSong; onEdit: () => void }) {
+function SongRow({ song, onEdit, onShare }: { song: ArtistSong; onEdit: () => void; onShare: () => void }) {
   const onDelete = async () => {
     if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return;
     const { error } = await supabase.from('artist_songs').delete().eq('id', song.id);
