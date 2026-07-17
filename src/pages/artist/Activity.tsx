@@ -73,17 +73,20 @@ export default function Activity() {
       });
     }
     for (const s of songs) {
-      for (const m of MILESTONES) {
-        if ((s.play_count || 0) >= m) {
-          out.push({
-            id: `m-${s.id}-${m}`,
-            kind: 'milestone',
-            ts: s.created_at,
-            title: `${s.title} just crossed ${fmt(m)} plays`,
-            body: 'Keep promoting — momentum compounds.',
-            icon: <Trophy className="w-4 h-4" />,
-          });
-        }
+      // Only surface the highest milestone actually achieved — not every tier below it.
+      // Use the song's most recent update as the moment marker (best signal we have
+      // without a per-milestone log) so it sorts near real events instead of stale uploads.
+      let hit = 0;
+      for (const m of MILESTONES) if ((s.play_count || 0) >= m) hit = m;
+      if (hit > 0) {
+        out.push({
+          id: `m-${s.id}-${hit}`,
+          kind: 'milestone',
+          ts: s.created_at,
+          title: `${s.title} crossed ${fmt(hit)} plays`,
+          body: 'Keep promoting — momentum compounds.',
+          icon: <Trophy className="w-4 h-4" />,
+        });
       }
     }
     for (const a of statusEvents) {
