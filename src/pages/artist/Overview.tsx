@@ -314,10 +314,33 @@ export default function Overview() {
       {/* ============ QUICK ACTIONS ============ */}
       <section className="grid grid-cols-2 gap-3 mt-4">
         <QuickAction to="/artist/studio/upload" icon={<Upload className="w-4 h-4" />} label="Upload song" accent />
+        <button
+          type="button"
+          onClick={() => { setShareSong(null); setShareOpen('profile'); }}
+          className="rounded-2xl p-4 flex items-center gap-3 transition active:scale-[0.98] text-left"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '0.5px solid rgba(255,255,255,0.06)',
+            boxShadow: '0 6px 20px -8px rgba(0,0,0,0.6)',
+          }}
+        >
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/[0.05]">
+            <Share2 className="w-4 h-4" />
+          </div>
+          <span className="text-[13px] font-medium">Share card</span>
+        </button>
         <QuickAction to="/artist/studio/analytics" icon={<BarChart3 className="w-4 h-4" />} label="Analytics" />
-        <QuickAction to="/artist/studio/notifications" icon={<Bell className="w-4 h-4" />} label="Notifications" />
         <QuickAction to="/artist/studio/profile" icon={<UserCog className="w-4 h-4" />} label="Edit profile" />
+        <QuickAction to="/artist/studio/notifications" icon={<Bell className="w-4 h-4" />} label="Notifications" />
       </section>
+
+      <ArtistShareCard
+        isOpen={shareOpen !== false}
+        onClose={() => setShareOpen(false)}
+        profile={profile}
+        followers={followers}
+        song={shareOpen === 'song' ? shareSong : null}
+      />
     </div>
   );
 }
