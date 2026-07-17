@@ -628,7 +628,7 @@ class ExoPlayerPlugin : Plugin() {
                 // the intended level so it gets applied the moment effects bind.
                 svc?.savedEqBands?.put(band.toShort(), mb.toShort())
                 svc?.persistEffectState()
-                call.resolve(); return@runOnMain
+                call.resolve(); return@runWhenReady
             }
             try {
                 val range = eq.bandLevelRange
@@ -657,7 +657,7 @@ class ExoPlayerPlugin : Plugin() {
                 out.put("maxLevel", 0)
                 out.put("bands", org.json.JSONArray())
                 call.resolve(out)
-                return@runOnMain
+                return@runWhenReady
             }
             try {
                 val n = eq.numberOfBands.toInt()
@@ -688,7 +688,7 @@ class ExoPlayerPlugin : Plugin() {
     @PluginMethod
     fun setBassBoost(call: PluginCall) {
         val strength = (call.getInt("strength") ?: 0).coerceIn(0, 1000)
-        runOnMain {
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.savedBassBoostStrength = strength.toShort()
             svc?.ensureEffectsBound()
