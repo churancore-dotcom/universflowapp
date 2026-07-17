@@ -127,22 +127,32 @@ export default function Activity() {
         out.push({ id: `s-rejected-${when}`, kind: 'status', ts: when, title: 'Application update', body: 'Your application needs another look — check Status.', icon: <AlertCircle className="w-4 h-4" /> });
       }
     }
+    for (const p of plays) {
+      const where = p.country_name ? ` from ${flagEmoji(p.country_code)} ${p.country_name}` : '';
+      out.push({
+        id: `p-${p.id}`,
+        kind: 'play',
+        ts: p.created_at,
+        title: `Someone played "${p.song_title}"${where}`,
+        icon: <Play className="w-4 h-4" />,
+      });
+    }
     return out
       .sort((a, b) => +new Date(b.ts) - +new Date(a.ts))
-      .slice(0, 60);
-  }, [followers, songs, statusEvents]);
+      .slice(0, 80);
+  }, [followers, songs, statusEvents, plays]);
 
   return (
     <div className="max-w-2xl mx-auto px-5 pt-5 pb-12">
       <h2 className="text-[22px] font-semibold tracking-tight">Activity</h2>
-      <p className="text-[12.5px] text-muted-foreground mt-0.5">Everything happening on your music — newest first.</p>
+      <p className="text-[12.5px] text-muted-foreground mt-0.5">Real events on your music — newest first. No fake hype.</p>
 
       {!items.length ? (
         <div className="mt-12 text-center text-[13px] text-muted-foreground flex flex-col items-center gap-3">
           <div className="w-14 h-14 rounded-2xl bg-white/[0.05] flex items-center justify-center">
             <Music2 className="w-6 h-6 text-muted-foreground" />
           </div>
-          Quiet for now. Once listeners follow or play your tracks, you’ll see it here.
+          Quiet for now. Once listeners follow or play your tracks, you'll see it here.
         </div>
       ) : (
         <div className="mt-5 space-y-2.5">
@@ -151,6 +161,7 @@ export default function Activity() {
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 it.kind === 'follower' ? 'bg-primary/15 text-primary'
                   : it.kind === 'milestone' ? 'bg-amber-500/15 text-amber-300'
+                  : it.kind === 'play' ? 'bg-emerald-500/12 text-emerald-300'
                   : 'bg-white/[0.06] text-foreground'
               }`}>{it.icon}</div>
               <div className="flex-1 min-w-0">
