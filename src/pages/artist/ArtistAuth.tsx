@@ -326,22 +326,22 @@ const ArtistAuth = () => {
                 <span className="italic font-light">center stage.</span>
               </h1>
 
-              <p className="mt-3 text-[13px] leading-snug text-white/85 max-w-[280px]">
+              <p className="mt-3 text-[13px] leading-snug text-white/85 max-w-[300px]">
                 Upload your tracks, earn the rose checkmark, and reach listeners who actually care about new music.
               </p>
 
-              {/* Stat strip */}
+              {/* Honest promise strip — no fake stats, no royalty claims */}
               <div className="mt-5 grid grid-cols-3 gap-2">
                 {[
-                  { k: 'Artists', v: '12k+' },
-                  { k: 'Streams/mo', v: '4.2M' },
-                  { k: 'Royalty', v: '100%' },
+                  { k: 'Uploads', v: 'Free' },
+                  { k: 'Verify', v: 'Live face' },
+                  { k: 'Own it', v: '100%' },
                 ].map((s) => (
                   <div
                     key={s.k}
                     className="rounded-2xl px-2.5 py-2 bg-black/25 border border-white/10 backdrop-blur-sm"
                   >
-                    <div className="text-[15px] font-display tabular-nums text-white tracking-tight leading-none">
+                    <div className="text-[14px] font-display text-white tracking-tight leading-none">
                       {s.v}
                     </div>
                     <div className="mt-1 text-[8.5px] uppercase tracking-[0.18em] text-white/65 font-medium">
@@ -350,6 +350,11 @@ const ArtistAuth = () => {
                   </div>
                 ))}
               </div>
+
+              <p className="mt-3 text-[10.5px] leading-snug text-white/55">
+                Universflow does not currently pay royalties or per-stream payouts. Publishing is voluntary — you keep 100% of your rights.
+              </p>
+
             </div>
           </motion.div>
 

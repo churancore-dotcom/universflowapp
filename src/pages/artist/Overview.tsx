@@ -5,11 +5,13 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'rec
 import {
   Music2, Heart, Eye, Users, TrendingUp, TrendingDown, Upload, BarChart3,
   UserCog, Bell, ExternalLink, Headphones, ArrowUpRight, Globe2,
-  Play, BadgeCheck,
+  Play, BadgeCheck, Share2,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArtistProfile, ArtistSong, fmt } from './_shared';
 import BentoCard from '@/components/artist/BentoCard';
+import ArtistShareCard from '@/components/artist/ArtistShareCard';
+
 
 type Ctx = { profile: ArtistProfile; songs: ArtistSong[]; followers: number; user: { id: string } };
 
@@ -34,6 +36,9 @@ export default function Overview() {
   const { profile, songs, followers } = useOutletContext<Ctx>();
   const [recent, setRecent] = useState<PlayRow[]>([]);
   const [prevWindow, setPrevWindow] = useState<PlayRow[]>([]);
+  const [shareSong, setShareSong] = useState<ArtistSong | null>(null);
+  const [shareOpen, setShareOpen] = useState<false | 'profile' | 'song'>(false);
+
 
   const songIds = useMemo(() => songs.map((s) => s.id), [songs]);
 
@@ -254,9 +259,17 @@ export default function Overview() {
         {/* Top track */}
         {top && (top.play_count > 0 || top.like_count > 0) && (
           <BentoCard className="col-span-6 sm:col-span-4 p-4" delay={0.16}>
-            <p className="text-[10.5px] uppercase tracking-[0.2em] text-primary/90 font-semibold flex items-center gap-1.5">
-              <TrendingUp className="w-3 h-3" /> Top track this period
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-[10.5px] uppercase tracking-[0.2em] text-primary/90 font-semibold flex items-center gap-1.5">
+                <TrendingUp className="w-3 h-3" /> Top track this period
+              </p>
+              <button
+                onClick={() => { setShareSong(top); setShareOpen('song'); }}
+                className="inline-flex items-center gap-1 text-[10.5px] font-semibold px-2 h-6 rounded-full bg-white/[0.05] hover:bg-white/[0.1] border border-white/[0.06] transition active:scale-95"
+              >
+                <Share2 className="w-3 h-3" /> Share
+              </button>
+            </div>
             <div className="mt-3 flex items-center gap-3">
               <div className="w-16 h-16 rounded-2xl overflow-hidden bg-black/40 shrink-0 ring-1 ring-white/10">
                 {top.cover_url
@@ -273,6 +286,7 @@ export default function Overview() {
             </div>
           </BentoCard>
         )}
+
 
         {/* Top country (compact) */}
         <BentoCard className="col-span-3 sm:col-span-2 p-4" delay={0.18}>
@@ -300,10 +314,33 @@ export default function Overview() {
       {/* ============ QUICK ACTIONS ============ */}
       <section className="grid grid-cols-2 gap-3 mt-4">
         <QuickAction to="/artist/studio/upload" icon={<Upload className="w-4 h-4" />} label="Upload song" accent />
+        <button
+          type="button"
+          onClick={() => { setShareSong(null); setShareOpen('profile'); }}
+          className="rounded-2xl p-4 flex items-center gap-3 transition active:scale-[0.98] text-left"
+          style={{
+            background: 'rgba(255,255,255,0.03)',
+            border: '0.5px solid rgba(255,255,255,0.06)',
+            boxShadow: '0 6px 20px -8px rgba(0,0,0,0.6)',
+          }}
+        >
+          <div className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/[0.05]">
+            <Share2 className="w-4 h-4" />
+          </div>
+          <span className="text-[13px] font-medium">Share card</span>
+        </button>
         <QuickAction to="/artist/studio/analytics" icon={<BarChart3 className="w-4 h-4" />} label="Analytics" />
-        <QuickAction to="/artist/studio/notifications" icon={<Bell className="w-4 h-4" />} label="Notifications" />
         <QuickAction to="/artist/studio/profile" icon={<UserCog className="w-4 h-4" />} label="Edit profile" />
+        <QuickAction to="/artist/studio/notifications" icon={<Bell className="w-4 h-4" />} label="Notifications" />
       </section>
+
+      <ArtistShareCard
+        isOpen={shareOpen !== false}
+        onClose={() => setShareOpen(false)}
+        profile={profile}
+        followers={followers}
+        song={shareOpen === 'song' ? shareSong : null}
+      />
     </div>
   );
 }

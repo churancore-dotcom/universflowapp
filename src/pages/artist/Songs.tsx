@@ -1,22 +1,25 @@
 import { useMemo, useState } from 'react';
 import { useOutletContext, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music2, Trash2, Plus, Pencil, Cloud, HardDrive, Loader2, ExternalLink } from 'lucide-react';
+import { Music2, Trash2, Plus, Pencil, Cloud, HardDrive, Loader2, ExternalLink, Share2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { ArtistSong, fmt } from './_shared';
+import { ArtistProfile, ArtistSong, fmt } from './_shared';
 import { detectSource } from '@/lib/artistUploadLinks';
+import ArtistShareCard from '@/components/artist/ArtistShareCard';
 
-type Ctx = { songs: ArtistSong[] };
+type Ctx = { songs: ArtistSong[]; profile: ArtistProfile; followers: number };
 type SortKey = 'recent' | 'plays' | 'likes' | 'views' | 'downloads';
 
 export default function ArtistSongs() {
-  const { songs } = useOutletContext<Ctx>();
+  const { songs, profile, followers } = useOutletContext<Ctx>();
   const [sort, setSort] = useState<SortKey>('recent');
   const [editing, setEditing] = useState<ArtistSong | null>(null);
+  const [sharing, setSharing] = useState<ArtistSong | null>(null);
+
 
   const sorted = useMemo(() => {
     const arr = [...songs];
@@ -71,7 +74,12 @@ export default function ArtistSongs() {
           <div className="mt-3 space-y-2.5">
             <AnimatePresence initial={false}>
               {sorted.map((s) => (
-                <SongRow key={s.id} song={s} onEdit={() => setEditing(s)} />
+                <SongRow
+                  key={s.id}
+                  song={s}
+                  onEdit={() => setEditing(s)}
+                  onShare={() => setSharing(s)}
+                />
               ))}
             </AnimatePresence>
           </div>
@@ -79,6 +87,13 @@ export default function ArtistSongs() {
       )}
 
       <EditSongModal song={editing} onClose={() => setEditing(null)} />
+      <ArtistShareCard
+        isOpen={!!sharing}
+        onClose={() => setSharing(null)}
+        profile={profile}
+        followers={followers}
+        song={sharing}
+      />
     </div>
   );
 }
@@ -107,7 +122,7 @@ function SourceBadge({ url }: { url: string }) {
   );
 }
 
-function SongRow({ song, onEdit }: { song: ArtistSong; onEdit: () => void }) {
+function SongRow({ song, onEdit, onShare }: { song: ArtistSong; onEdit: () => void; onShare: () => void }) {
   const onDelete = async () => {
     if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return;
     const { error } = await supabase.from('artist_songs').delete().eq('id', song.id);
@@ -142,6 +157,13 @@ function SongRow({ song, onEdit }: { song: ArtistSong; onEdit: () => void }) {
         )}
       </div>
       <div className="flex flex-col gap-1.5">
+        <button
+          onClick={onShare}
+          className="w-9 h-9 rounded-full bg-white/[0.05] flex items-center justify-center text-foreground active:scale-95"
+          aria-label="Share song"
+        >
+          <Share2 className="w-4 h-4" />
+        </button>
         <button
           onClick={onEdit}
           className="w-9 h-9 rounded-full bg-white/[0.05] flex items-center justify-center text-foreground active:scale-95"
