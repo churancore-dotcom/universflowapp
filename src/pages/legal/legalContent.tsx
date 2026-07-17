@@ -88,8 +88,9 @@ export const ArtistTermsBody = (): ReactNode => (
     <h2>4. URL-only publishing</h2>
     <p>You publish songs by providing a direct stream URL (your own website, CDN, label HLS, etc.). We do <strong>not</strong> accept YouTube, JioSaavn, Spotify, SoundCloud or other aggregator links — those will be rejected automatically. You are responsible for keeping the URL online; if it stops responding the song will appear unavailable.</p>
 
-    <h2>5. No monetization (today)</h2>
-    <p>The Artist programme is currently a promotion and discovery channel. We do <strong>not</strong> pay royalties, advances, or per-stream payouts at this time. If we add monetization in the future, separate terms will apply.</p>
+    <h2>5. No royalties, no payouts (today)</h2>
+    <p>The Artist programme is currently a <strong>promotion and discovery channel only</strong>. {COMPANY_DISPLAY} does <strong>not</strong> pay royalties, advances, per-stream payouts, ad revenue, streaming bonuses, signing fees, or any other monetary compensation to artists at this stage. Plays, likes, followers and downloads on your songs generate <strong>no earnings</strong> and no right to a payment.</p>
+    <p>By publishing music you accept that your participation is entirely voluntary and unpaid. You are free to withdraw your music at any time from the Artist Studio. If we ever introduce a paid monetization programme, participation will be opt-in and covered by separate, clearly disclosed terms — this Section 5 will be replaced at that point.</p>
 
     <h2>6. Removal & takedown</h2>
     <p>We may remove any song, take down your profile, or revoke your Verified badge if (a) we receive a credible copyright complaint, (b) the content violates the User Terms, or (c) the verification proofs you provided turn out to be false. You can delete your songs at any time from the Artist Studio.</p>

@@ -168,9 +168,21 @@ const ArtistAuth = () => {
           if (app) { navigate('/artist/status', { replace: true }); return; }
         } catch { /* fall through */ }
 
-        // Truly no artist record on this account.
-        await supabase.auth.signOut();
-        toast.error('No artist account found for this email. Please sign up as an artist first.');
+        // No application on file yet. If the account was registered as an
+        // artist (metadata says so), resume the onboarding at /artist/apply
+        // instead of signing them out — this fixes "artists who close the app
+        // mid-verification can never log back in".
+        const meta = (authedUser.user_metadata || {}) as Record<string, unknown>;
+        if (meta.account_type === 'artist') {
+          toast.success('Welcome back — finish setting up your artist profile.');
+          navigate('/artist/apply', { replace: true });
+          return;
+        }
+
+        // The email belongs to a listener account. Keep them signed in and
+        // switch the form to signup so they can create an artist profile.
+        toast.info('This email is a listener account. Switch to Sign up to create an artist profile.');
+        setMode('signup');
         return;
       } else {
         const fullPhone = `${dial.dial} ${phone.trim()}`;

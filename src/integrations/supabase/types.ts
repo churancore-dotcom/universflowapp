@@ -393,58 +393,76 @@ export type Database = {
       }
       artist_profiles: {
         Row: {
+          accent_color: string | null
           avatar_url: string | null
           banner_url: string | null
           bio: string | null
           country_code: string | null
           created_at: string
+          genres: string[] | null
           id: string
           is_verified: boolean
+          location: string | null
           music_platform_url: string | null
+          pronouns: string | null
           slug: string
           social_links: Json
           stage_name: string
+          tagline: string | null
           total_followers: number
           total_likes: number
           total_plays: number
           updated_at: string
           user_id: string
+          website: string | null
         }
         Insert: {
+          accent_color?: string | null
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
           country_code?: string | null
           created_at?: string
+          genres?: string[] | null
           id?: string
           is_verified?: boolean
+          location?: string | null
           music_platform_url?: string | null
+          pronouns?: string | null
           slug: string
           social_links?: Json
           stage_name: string
+          tagline?: string | null
           total_followers?: number
           total_likes?: number
           total_plays?: number
           updated_at?: string
           user_id: string
+          website?: string | null
         }
         Update: {
+          accent_color?: string | null
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
           country_code?: string | null
           created_at?: string
+          genres?: string[] | null
           id?: string
           is_verified?: boolean
+          location?: string | null
           music_platform_url?: string | null
+          pronouns?: string | null
           slug?: string
           social_links?: Json
           stage_name?: string
+          tagline?: string | null
           total_followers?: number
           total_likes?: number
           total_plays?: number
           updated_at?: string
           user_id?: string
+          website?: string | null
         }
         Relationships: []
       }

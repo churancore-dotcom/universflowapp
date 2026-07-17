@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Loader2, Image as ImageIcon, Check } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Check, Palette, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -12,37 +12,97 @@ import { ArtistProfile } from './_shared';
 
 type Ctx = { profile: ArtistProfile; user: { id: string } };
 
+const ACCENT_SWATCHES = [
+  '#FF2D55', '#FF6B6B', '#F59E0B', '#EAB308', '#22C55E', '#10B981',
+  '#06B6D4', '#3B82F6', '#8B5CF6', '#A855F7', '#EC4899', '#F43F5E',
+];
+
+const GENRE_PRESETS = [
+  'Hip-Hop', 'R&B', 'Pop', 'Rock', 'Indie', 'Electronic', 'House', 'Techno',
+  'Lo-Fi', 'Jazz', 'Soul', 'Afrobeats', 'Punjabi', 'Hindi', 'Bollywood',
+  'Trap', 'Drill', 'Ambient', 'Classical', 'Country', 'Reggae', 'K-Pop',
+];
+
 export default function EditProfile() {
   const { profile, user } = useOutletContext<Ctx>();
   const stage = profile.stage_name;
+
+  // Identity + display
   const [bio, setBio] = useState(profile.bio ?? '');
+  const [tagline, setTagline] = useState(profile.tagline ?? '');
+  const [pronouns, setPronouns] = useState(profile.pronouns ?? '');
+  const [location, setLocation] = useState(profile.location ?? '');
+  const [website, setWebsite] = useState(profile.website ?? '');
+  const [accent, setAccent] = useState(profile.accent_color ?? '#FF2D55');
+  const [genres, setGenres] = useState<string[]>(profile.genres ?? []);
+
+  // Socials
   const [insta, setInsta] = useState(profile.social_links?.instagram ?? '');
   const [yt, setYt] = useState(profile.social_links?.youtube ?? '');
   const [sp, setSp] = useState(profile.social_links?.spotify ?? '');
   const [apm, setApm] = useState(profile.social_links?.apple_music ?? '');
+  const [tiktok, setTiktok] = useState(profile.social_links?.tiktok ?? '');
+  const [twitter, setTwitter] = useState(profile.social_links?.twitter ?? '');
+  const [facebook, setFacebook] = useState(profile.social_links?.facebook ?? '');
+  const [soundcloud, setSoundcloud] = useState(profile.social_links?.soundcloud ?? '');
+
+  // Media
   const [avatar, setAvatar] = useState<File | null>(null);
   const [banner, setBanner] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
+  const accentValid = useMemo(() => /^#[0-9a-fA-F]{6}$/.test(accent), [accent]);
+
+  const toggleGenre = (g: string) => {
+    setGenres((prev) => {
+      if (prev.includes(g)) return prev.filter((x) => x !== g);
+      if (prev.length >= 5) {
+        toast.info('Pick up to 5 genres — the top 5 already work best.');
+        return prev;
+      }
+      return [...prev, g];
+    });
+  };
+
+  const cleanUrl = (v: string) => {
+    const t = v.trim();
+    if (!t) return null;
+    if (!/^https?:\/\//i.test(t)) return `https://${t}`;
+    return t;
+  };
+
   const save = async () => {
+    if (accent && !accentValid) {
+      toast.error('Accent must be a hex color like #FF2D55.');
+      return;
+    }
     setSaving(true);
     try {
       const [newAvatar, newBanner] = await Promise.all([
         avatar ? uploadArtistPhoto(user.id, avatar) : Promise.resolve(profile.avatar_url),
         banner ? uploadArtistCover(user.id, banner) : Promise.resolve(profile.banner_url),
       ]);
-      // NOTE: stage_name is locked after verification. To change it, contact support.
       const { error } = await supabase
         .from('artist_profiles')
         .update({
           bio: bio.trim() || null,
+          tagline: tagline.trim() || null,
+          pronouns: pronouns.trim() || null,
+          location: location.trim() || null,
+          website: cleanUrl(website),
+          accent_color: accentValid ? accent : null,
+          genres: genres.length ? genres : null,
           avatar_url: newAvatar,
           banner_url: newBanner,
           social_links: {
-            instagram: insta.trim() || null,
-            youtube: yt.trim() || null,
-            spotify: sp.trim() || null,
-            apple_music: apm.trim() || null,
+            instagram: cleanUrl(insta),
+            youtube: cleanUrl(yt),
+            spotify: cleanUrl(sp),
+            apple_music: cleanUrl(apm),
+            tiktok: cleanUrl(tiktok),
+            twitter: cleanUrl(twitter),
+            facebook: cleanUrl(facebook),
+            soundcloud: cleanUrl(soundcloud),
           },
         })
         .eq('user_id', user.id);
@@ -56,42 +116,114 @@ export default function EditProfile() {
   };
 
   return (
-    <div className="max-w-2xl mx-auto px-5 pt-5">
+    <div className="max-w-2xl mx-auto px-5 pt-5 pb-32">
       <h2 className="text-[20px] font-semibold tracking-tight">Edit profile</h2>
       <p className="text-[12.5px] text-muted-foreground mt-0.5">
-        These changes go live on your public page at <code className="text-foreground">/a/{profile.slug}</code>.
+        Live on your public page at <code className="text-foreground">/a/{profile.slug}</code>.
       </p>
 
-      <div className="space-y-4 mt-5">
-        <Field label="Stage name (locked)">
-          <Input value={stage} disabled readOnly className="opacity-70 cursor-not-allowed" />
-          <p className="mt-1.5 text-[11px] text-muted-foreground/80">
-            Your verified stage name is locked. Contact support if you really need to change it.
-          </p>
-        </Field>
+      <div className="space-y-5 mt-5">
+        <Section title="Identity">
+          <Field label="Stage name (locked)">
+            <Input value={stage} disabled readOnly className="opacity-70 cursor-not-allowed" />
+            <p className="mt-1.5 text-[11px] text-muted-foreground/80">
+              Verified stage names are locked. Contact support to change it.
+            </p>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Pronouns">
+              <Input value={pronouns} onChange={(e) => setPronouns(e.target.value)} maxLength={24} placeholder="she/her" />
+            </Field>
+            <Field label="Location">
+              <Input value={location} onChange={(e) => setLocation(e.target.value)} maxLength={60} placeholder="Mumbai, IN" />
+            </Field>
+          </div>
+          <Field label="Tagline">
+            <Input value={tagline} onChange={(e) => setTagline(e.target.value)} maxLength={80} placeholder="One line that describes your sound." />
+            <p className="mt-1 text-[11px] text-muted-foreground/70">{tagline.length}/80</p>
+          </Field>
+          <Field label="Bio">
+            <Textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={500} rows={4} placeholder="Tell listeners about your sound." />
+            <p className="mt-1 text-[11px] text-muted-foreground/70">{bio.length}/500</p>
+          </Field>
+        </Section>
 
-        <Field label="Bio">
-          <Textarea value={bio} onChange={(e) => setBio(e.target.value)} maxLength={500} rows={4} placeholder="Tell listeners about your sound." />
-        </Field>
+        <Section title="Photos">
+          <div className="grid grid-cols-2 gap-3">
+            <PhotoField label="Profile photo" current={profile.avatar_url} file={avatar} onPick={setAvatar} />
+            <PhotoField label="Banner" current={profile.banner_url} file={banner} onPick={setBanner} />
+          </div>
+        </Section>
 
-        <div className="grid grid-cols-2 gap-3">
-          <PhotoField label="Profile photo" current={profile.avatar_url} file={avatar} onPick={setAvatar} />
-          <PhotoField label="Banner" current={profile.banner_url} file={banner} onPick={setBanner} />
-        </div>
+        <Section title="Brand color" hint="Used as your public-page accent.">
+          <div className="flex items-center gap-3">
+            <div
+              className="w-11 h-11 rounded-xl border border-white/10 shrink-0"
+              style={{ background: accentValid ? accent : 'transparent' }}
+            />
+            <Input
+              value={accent}
+              onChange={(e) => setAccent(e.target.value)}
+              maxLength={7}
+              className="font-mono"
+              placeholder="#FF2D55"
+            />
+            <Palette className="w-4 h-4 text-muted-foreground shrink-0" />
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {ACCENT_SWATCHES.map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setAccent(c)}
+                aria-label={`Accent ${c}`}
+                className={`w-8 h-8 rounded-full border transition ${accent.toLowerCase() === c.toLowerCase() ? 'border-white scale-110' : 'border-white/10'}`}
+                style={{ background: c }}
+              />
+            ))}
+          </div>
+        </Section>
 
-        <div>
-          <p className="text-[11px] uppercase tracking-[0.16em] text-muted-foreground/70 mb-2">Social links</p>
+        <Section title="Genres" hint="Pick up to 5.">
+          <div className="flex flex-wrap gap-2">
+            {GENRE_PRESETS.map((g) => {
+              const active = genres.includes(g);
+              return (
+                <button
+                  key={g}
+                  type="button"
+                  onClick={() => toggleGenre(g)}
+                  className={`px-3 h-8 rounded-full text-[12.5px] font-medium border transition ${
+                    active
+                      ? 'bg-white text-black border-white'
+                      : 'bg-white/[0.03] text-muted-foreground border-white/10 hover:text-foreground'
+                  }`}
+                >
+                  {active && <Check className="w-3 h-3 inline -mt-0.5 mr-1" />}
+                  {g}
+                </button>
+              );
+            })}
+          </div>
+        </Section>
+
+        <Section title="Links">
           <div className="space-y-2.5">
+            <Input value={website} onChange={(e) => setWebsite(e.target.value)} placeholder="Website (yoursite.com)" />
             <Input value={insta} onChange={(e) => setInsta(e.target.value)} placeholder="Instagram URL" />
+            <Input value={tiktok} onChange={(e) => setTiktok(e.target.value)} placeholder="TikTok URL" />
             <Input value={yt} onChange={(e) => setYt(e.target.value)} placeholder="YouTube URL" />
+            <Input value={twitter} onChange={(e) => setTwitter(e.target.value)} placeholder="X / Twitter URL" />
+            <Input value={facebook} onChange={(e) => setFacebook(e.target.value)} placeholder="Facebook URL" />
             <Input value={sp} onChange={(e) => setSp(e.target.value)} placeholder="Spotify artist URL" />
             <Input value={apm} onChange={(e) => setApm(e.target.value)} placeholder="Apple Music URL" />
+            <Input value={soundcloud} onChange={(e) => setSoundcloud(e.target.value)} placeholder="SoundCloud URL" />
           </div>
-        </div>
+        </Section>
 
         <Button
           className="w-full h-12 rounded-xl font-semibold text-white"
-          style={{ background: '#FF2D55' }}
+          style={{ background: accentValid ? accent : '#FF2D55' }}
           disabled={saving}
           onClick={save}
         >
@@ -99,8 +231,24 @@ export default function EditProfile() {
             <span className="flex items-center gap-2"><Check className="w-4 h-4" /> Save changes</span>
           )}
         </Button>
+
+        <p className="text-[11px] text-muted-foreground/70 text-center">
+          Reminder: Universflow does not currently pay royalties or per-stream payouts. Publishing music is voluntary.
+        </p>
       </div>
     </div>
+  );
+}
+
+function Section({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+  return (
+    <section className="rounded-2xl border border-white/5 bg-white/[0.015] p-4 space-y-3">
+      <div className="flex items-baseline justify-between">
+        <h3 className="text-[13px] font-semibold tracking-tight">{title}</h3>
+        {hint && <span className="text-[11px] text-muted-foreground/70">{hint}</span>}
+      </div>
+      {children}
+    </section>
   );
 }
 
@@ -130,6 +278,16 @@ function PhotoField({
         <span className="text-[12px] text-muted-foreground flex-1 truncate">
           {file ? file.name : preview ? 'Tap to replace' : 'Tap to upload'}
         </span>
+        {file && (
+          <button
+            type="button"
+            onClick={(e) => { e.preventDefault(); onPick(null); }}
+            className="p-1 rounded-full hover:bg-white/10"
+            aria-label="Remove"
+          >
+            <X className="w-3.5 h-3.5" />
+          </button>
+        )}
         <input
           type="file"
           accept="image/*"
