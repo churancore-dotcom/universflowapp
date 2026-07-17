@@ -36,6 +36,9 @@ export default function Overview() {
   const { profile, songs, followers } = useOutletContext<Ctx>();
   const [recent, setRecent] = useState<PlayRow[]>([]);
   const [prevWindow, setPrevWindow] = useState<PlayRow[]>([]);
+  const [shareSong, setShareSong] = useState<ArtistSong | null>(null);
+  const [shareOpen, setShareOpen] = useState<false | 'profile' | 'song'>(false);
+
 
   const songIds = useMemo(() => songs.map((s) => s.id), [songs]);
 
