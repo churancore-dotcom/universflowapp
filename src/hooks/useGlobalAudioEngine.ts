@@ -8,6 +8,7 @@ import {
   setNativeBassBoost,
   setNativeEQEnabled,
   setNativeLoudnessEnhancer,
+  setNativeReverb,
   setNativeVirtualizer,
 } from '@/lib/nativePlayer';
 // nativeMirror removed — on Android, ExoPlayer always owns audio when available.
@@ -83,6 +84,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
         setNativeBassBoost(0);
         setNativeVirtualizer(0);
         setNativeLoudnessEnhancer(0);
+        setNativeReverb(0);
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
@@ -99,6 +101,10 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // that was inaudible on phone speakers. Combine with space loudness.
       const lateNightMb = s.lateNight ? 1400 : 0;
       setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud));
+
+      // Android ExoPlayer cannot hear the WebAudio convolver. Attach a native
+      // EnvironmentalReverb as an aux effect so the Reverb control is real.
+      setNativeReverb(s.reverb);
 
       // Virtualizer: headphone surround / space width baseline.
       const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);

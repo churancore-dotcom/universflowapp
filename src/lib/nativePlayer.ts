@@ -74,6 +74,7 @@ interface ExoPlayerPluginShape {
   setBassBoost: (opts: { strength: number }) => Promise<void>;
   setVirtualizer: (opts: { strength: number }) => Promise<void>;
   setLoudnessEnhancer: (opts: { gainMb: number }) => Promise<void>;
+  setReverb: (opts: { amount: number }) => Promise<void>;
   addListener: (
     event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
     cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition) => void,
@@ -171,6 +172,11 @@ export async function setNativeVirtualizer(strength: number): Promise<void> {
 export async function setNativeLoudnessEnhancer(gainMb: number): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   try { await ExoPlayerPlugin.setLoudnessEnhancer({ gainMb: Math.max(0, Math.min(2000, Math.round(gainMb))) }); } catch {}
+}
+
+export async function setNativeReverb(amount: number): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await ExoPlayerPlugin.setReverb({ amount: Math.max(0, Math.min(100, Math.round(amount))) }); } catch {}
 }
 
 /**
