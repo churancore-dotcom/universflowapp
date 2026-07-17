@@ -56,6 +56,22 @@ export default function Activity() {
         .order('updated_at', { ascending: false })
         .limit(5);
 
+      // Real recent listens (last 14 days, most recent first) — the actual pulse of the artist.
+      const songIds = songs.map((s) => s.id);
+      let recentPlays: Array<{ id: string; created_at: string; song_id: string; country_code: string | null; country_name: string | null }> = [];
+      if (songIds.length) {
+        const playsSince = new Date(Date.now() - 14 * 86400000).toISOString();
+        const { data: ev } = await supabase
+          .from('song_play_events')
+          .select('id, created_at, song_id, country_code, country_name')
+          .in('song_id', songIds)
+          .gte('created_at', playsSince)
+          .order('created_at', { ascending: false })
+          .limit(40);
+        recentPlays = (ev ?? []) as typeof recentPlays;
+      }
+      const titleById = new Map(songs.map((s) => [s.id, s.title]));
+
       if (!alive) return;
       setFollowers((follows ?? []).map((f) => ({
         id: f.id,
@@ -63,9 +79,16 @@ export default function Activity() {
         name: profMap.get(f.follower_user_id) ?? 'A listener',
       })));
       setStatusEvents((apps ?? []) as Array<{ status: string; reviewed_at: string | null; updated_at: string }>);
+      setPlays(recentPlays.map((r) => ({
+        id: r.id,
+        created_at: r.created_at,
+        song_title: titleById.get(r.song_id) ?? 'A song',
+        country_code: r.country_code,
+        country_name: r.country_name,
+      })));
     })();
     return () => { alive = false; };
-  }, [user.id]);
+  }, [user.id, songs]);
 
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
