@@ -60,10 +60,12 @@ export default function Notifications() {
   const notes = useMemo<Note[]>(() => {
     const out: Note[] = [];
     for (const f of follows) out.push({ id: `f-${f.id}`, kind: 'follower', ts: f.created_at, title: `${f.name} followed you` });
-    for (const s of songs) for (const m of MILESTONES) {
-      if ((s.play_count || 0) >= m) out.push({
-        id: `m-${s.id}-${m}`, kind: 'milestone', ts: s.created_at,
-        title: `${s.title} hit ${fmt(m)} plays`,
+    for (const s of songs) {
+      let hit = 0;
+      for (const m of MILESTONES) if ((s.play_count || 0) >= m) hit = m;
+      if (hit > 0) out.push({
+        id: `m-${s.id}-${hit}`, kind: 'milestone', ts: s.created_at,
+        title: `${s.title} hit ${fmt(hit)} plays`,
       });
     }
     for (const a of statusEvents) {

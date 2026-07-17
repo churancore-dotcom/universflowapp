@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { UserPlus, Trophy, Music2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { UserPlus, Trophy, Music2, ShieldCheck, AlertCircle, Play, Globe2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArtistSong, fmt } from './_shared';
 
@@ -8,12 +8,18 @@ type Ctx = { songs: ArtistSong[]; user: { id: string } };
 
 type Item = {
   id: string;
-  kind: 'follower' | 'milestone' | 'status';
+  kind: 'follower' | 'milestone' | 'status' | 'play';
   ts: string;
   title: string;
   body?: string;
   icon: React.ReactNode;
 };
+
+function flagEmoji(cc: string | null) {
+  if (!cc || cc.length !== 2) return '🌍';
+  const A = 0x1F1E6, base = 'A'.charCodeAt(0);
+  return String.fromCodePoint(...cc.toUpperCase().split('').map((c) => A + (c.charCodeAt(0) - base)));
+}
 
 const MILESTONES = [100, 1_000, 10_000, 100_000, 1_000_000];
 
@@ -21,6 +27,7 @@ export default function Activity() {
   const { songs, user } = useOutletContext<Ctx>();
   const [followers, setFollowers] = useState<Array<{ id: string; created_at: string; name: string }>>([]);
   const [statusEvents, setStatusEvents] = useState<Array<{ status: string; reviewed_at: string | null; updated_at: string }>>([]);
+  const [plays, setPlays] = useState<Array<{ id: string; created_at: string; song_title: string; country_code: string | null; country_name: string | null }>>([]);
 
   useEffect(() => {
     let alive = true;
@@ -49,6 +56,22 @@ export default function Activity() {
         .order('updated_at', { ascending: false })
         .limit(5);
 
+      // Real recent listens (last 14 days, most recent first) — the actual pulse of the artist.
+      const songIds = songs.map((s) => s.id);
+      let recentPlays: Array<{ id: string; created_at: string; song_id: string; country_code: string | null; country_name: string | null }> = [];
+      if (songIds.length) {
+        const playsSince = new Date(Date.now() - 14 * 86400000).toISOString();
+        const { data: ev } = await supabase
+          .from('song_play_events')
+          .select('id, created_at, song_id, country_code, country_name')
+          .in('song_id', songIds)
+          .gte('created_at', playsSince)
+          .order('created_at', { ascending: false })
+          .limit(40);
+        recentPlays = (ev ?? []) as typeof recentPlays;
+      }
+      const titleById = new Map(songs.map((s) => [s.id, s.title]));
+
       if (!alive) return;
       setFollowers((follows ?? []).map((f) => ({
         id: f.id,
@@ -56,9 +79,16 @@ export default function Activity() {
         name: profMap.get(f.follower_user_id) ?? 'A listener',
       })));
       setStatusEvents((apps ?? []) as Array<{ status: string; reviewed_at: string | null; updated_at: string }>);
+      setPlays(recentPlays.map((r) => ({
+        id: r.id,
+        created_at: r.created_at,
+        song_title: titleById.get(r.song_id) ?? 'A song',
+        country_code: r.country_code,
+        country_name: r.country_name,
+      })));
     })();
     return () => { alive = false; };
-  }, [user.id]);
+  }, [user.id, songs]);
 
   const items = useMemo<Item[]>(() => {
     const out: Item[] = [];
@@ -73,17 +103,20 @@ export default function Activity() {
       });
     }
     for (const s of songs) {
-      for (const m of MILESTONES) {
-        if ((s.play_count || 0) >= m) {
-          out.push({
-            id: `m-${s.id}-${m}`,
-            kind: 'milestone',
-            ts: s.created_at,
-            title: `${s.title} just crossed ${fmt(m)} plays`,
-            body: 'Keep promoting — momentum compounds.',
-            icon: <Trophy className="w-4 h-4" />,
-          });
-        }
+      // Only surface the highest milestone actually achieved — not every tier below it.
+      // Use the song's most recent update as the moment marker (best signal we have
+      // without a per-milestone log) so it sorts near real events instead of stale uploads.
+      let hit = 0;
+      for (const m of MILESTONES) if ((s.play_count || 0) >= m) hit = m;
+      if (hit > 0) {
+        out.push({
+          id: `m-${s.id}-${hit}`,
+          kind: 'milestone',
+          ts: s.created_at,
+          title: `${s.title} crossed ${fmt(hit)} plays`,
+          body: 'Keep promoting — momentum compounds.',
+          icon: <Trophy className="w-4 h-4" />,
+        });
       }
     }
     for (const a of statusEvents) {
@@ -94,22 +127,32 @@ export default function Activity() {
         out.push({ id: `s-rejected-${when}`, kind: 'status', ts: when, title: 'Application update', body: 'Your application needs another look — check Status.', icon: <AlertCircle className="w-4 h-4" /> });
       }
     }
+    for (const p of plays) {
+      const where = p.country_name ? ` from ${flagEmoji(p.country_code)} ${p.country_name}` : '';
+      out.push({
+        id: `p-${p.id}`,
+        kind: 'play',
+        ts: p.created_at,
+        title: `Someone played "${p.song_title}"${where}`,
+        icon: <Play className="w-4 h-4" />,
+      });
+    }
     return out
       .sort((a, b) => +new Date(b.ts) - +new Date(a.ts))
-      .slice(0, 60);
-  }, [followers, songs, statusEvents]);
+      .slice(0, 80);
+  }, [followers, songs, statusEvents, plays]);
 
   return (
     <div className="max-w-2xl mx-auto px-5 pt-5 pb-12">
       <h2 className="text-[22px] font-semibold tracking-tight">Activity</h2>
-      <p className="text-[12.5px] text-muted-foreground mt-0.5">Everything happening on your music — newest first.</p>
+      <p className="text-[12.5px] text-muted-foreground mt-0.5">Real events on your music — newest first. No fake hype.</p>
 
       {!items.length ? (
         <div className="mt-12 text-center text-[13px] text-muted-foreground flex flex-col items-center gap-3">
           <div className="w-14 h-14 rounded-2xl bg-white/[0.05] flex items-center justify-center">
             <Music2 className="w-6 h-6 text-muted-foreground" />
           </div>
-          Quiet for now. Once listeners follow or play your tracks, you’ll see it here.
+          Quiet for now. Once listeners follow or play your tracks, you'll see it here.
         </div>
       ) : (
         <div className="mt-5 space-y-2.5">
@@ -118,6 +161,7 @@ export default function Activity() {
               <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
                 it.kind === 'follower' ? 'bg-primary/15 text-primary'
                   : it.kind === 'milestone' ? 'bg-amber-500/15 text-amber-300'
+                  : it.kind === 'play' ? 'bg-emerald-500/12 text-emerald-300'
                   : 'bg-white/[0.06] text-foreground'
               }`}>{it.icon}</div>
               <div className="flex-1 min-w-0">
