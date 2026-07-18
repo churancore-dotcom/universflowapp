@@ -1,0 +1,1 @@
+GRANT INSERT, UPDATE, DELETE ON public.app_versions TO authenticated;

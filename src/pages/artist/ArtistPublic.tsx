@@ -111,13 +111,15 @@ export default function ArtistPublic() {
         setMonthly(set.size);
       }
 
-      // Count one profile-page visit per session (not one per song in the list —
-      // that inflated view_count by however many tracks the artist had).
-      const viewedKey = `uf_artist_viewed_${(p as Profile).user_id}`;
-      if (!sessionStorage.getItem(viewedKey) && list.length) {
-        sessionStorage.setItem(viewedKey, '1');
-        supabase.rpc('increment_artist_song_view' as never, { _song_id: list[0].id } as never);
+      // Bump view_count once per song per session so every track on the profile
+      // ticks up (not just the newest), while refreshes don't inflate counts.
+      for (const song of list) {
+        const key = `uf_song_viewed_${song.id}`;
+        if (sessionStorage.getItem(key)) continue;
+        sessionStorage.setItem(key, '1');
+        supabase.rpc('increment_artist_song_view' as never, { _song_id: song.id } as never);
       }
+
     })();
   }, [slug, user]);
 
