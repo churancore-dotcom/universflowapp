@@ -68,7 +68,8 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
