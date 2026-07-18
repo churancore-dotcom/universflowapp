@@ -327,6 +327,18 @@ const Auth = () => {
                 </div>
               </div>
 
+              {isLogin && (
+                <div className="flex justify-end -mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setForgotOpen(true)}
+                    className="text-[11px] tracking-tight text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full h-12 text-[14px] font-semibold rounded-xl border-0 text-white active:scale-[0.98] transition-transform mt-1"
@@ -334,10 +346,12 @@ const Auth = () => {
                   background: 'linear-gradient(180deg, #FF3B5C 0%, #E11D48 100%)',
                   boxShadow: '0 10px 28px hsl(340 100% 45% / 0.4), inset 0 1px 0 rgba(255,255,255,0.18)',
                 }}
-                disabled={loading}
+                disabled={loading || cooldownMs > 0}
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
+                ) : cooldownMs > 0 ? (
+                  <span>Try again in {formatCooldown(cooldownMs)}</span>
                 ) : (
                   <span className="flex items-center gap-2">
                     {isLogin ? 'Sign in' : 'Create account'}
@@ -345,6 +359,12 @@ const Auth = () => {
                   </span>
                 )}
               </Button>
+
+              {cooldownMs > 0 && (
+                <p className="text-center text-[11px] text-muted-foreground/80 -mt-1">
+                  Too many attempts for this email. The form will unlock automatically.
+                </p>
+              )}
 
               {!isLogin && (
                 <p className="text-center text-[10.5px] leading-relaxed text-muted-foreground/70 px-3 pt-1">
