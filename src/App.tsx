@@ -314,6 +314,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           <Route path="/blog/universflow-vs-jiosaavn-vs-gaana" element={<BlogUniversflowVsJiosaavnVsGaana />} />
           <Route path="/blog/trending-punjabi-songs-2026" element={<BlogTrendingPunjabiSongs2026 />} />
           <Route path="/blog/new-hindi-songs-2026" element={<BlogNewHindiSongs2026 />} />
+          <Route path="/blog/best-bhojpuri-song-download-apps" element={<BlogBhojpuriSongDownload />} />
           <Route path="/welcome" element={<Navigate to="/auth" replace />} />
           <Route path="/auth" element={
             user ? <Navigate to="/" replace /> :
