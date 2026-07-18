@@ -60,6 +60,7 @@ const BlogFreeMusicDownloadAppsIndia = lazy(() => import("./pages/BlogFreeMusicD
 const BlogUniversflowVsJiosaavnVsGaana = lazy(() => import("./pages/BlogUniversflowVsJiosaavnVsGaana"));
 const BlogTrendingPunjabiSongs2026 = lazy(() => import("./pages/BlogTrendingPunjabiSongs2026"));
 const BlogNewHindiSongs2026 = lazy(() => import("./pages/BlogNewHindiSongs2026"));
+const BlogBhojpuriSongDownload = lazy(() => import("./pages/BlogBhojpuriSongDownload"));
 
 
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
