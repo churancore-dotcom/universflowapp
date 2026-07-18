@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,13 @@ import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, AtSign } from 'lucide-rea
 import { toast } from 'sonner';
 import { FadeTransition } from '@/components/PageTransition';
 import SEOHead from '@/components/SEOHead';
+import ForgotPasswordModal from '@/components/ForgotPasswordModal';
+import {
+  getCooldownMs,
+  registerFailure,
+  clearCooldown,
+  formatCooldown,
+} from '@/lib/authCooldown';
 import appLogo from '@/assets/app-logo.webp';
 
 
