@@ -24,7 +24,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
     onClose();
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
