@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -23,7 +24,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
     onClose();
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -60,7 +61,8 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 

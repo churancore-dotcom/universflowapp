@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Mail, Send } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -69,8 +70,10 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
 
   const locked = cooldownMs > 0;
 
-  return (
+  return createPortal(
     <AnimatePresence>
+
+
       {isOpen && (
         <>
           <motion.div
@@ -117,7 +120,8 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
