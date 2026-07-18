@@ -83,27 +83,41 @@ const Auth = () => {
       toast.error('You are offline. Connect to the internet and try again.');
       return;
     }
+    const id = email.trim();
+    const locked = getCooldownMs(cooldownAction, id);
+    if (locked > 0) {
+      toast.error(`Too many attempts. Try again in ${formatCooldown(locked)}.`);
+      return;
+    }
     setLoading(true);
     try {
       if (isLogin) {
         const { error, isAdmin } = await signIn(email, password);
         if (error) {
           if ((error as Error & { code?: string }).message === 'EMAIL_NOT_VERIFIED') {
-            // Session is kept alive — the verification screen will auto-advance
-            // the moment the user taps the link, without re-asking for password.
+            // Not a credential failure — don't penalize the cooldown counter.
             try {
               await supabase.functions.invoke('send-verification-link', { body: { email } });
             } catch { /* non-fatal */ }
             navigate(`/check-email?email=${encodeURIComponent(email)}`, { state: { email }, replace: true });
             return;
           }
+          const lock = registerFailure('login', id);
+          setCooldownMs(lock);
           toast.error(error.message);
           return;
         }
+        clearCooldown('login', id);
         navigate(isAdmin ? '/admin' : '/home');
       } else {
         const { error } = await signUp(email, password, username, detectCountryCode());
-        if (error) { toast.error(error.message); return; }
+        if (error) {
+          const lock = registerFailure('signup', id);
+          setCooldownMs(lock);
+          toast.error(error.message);
+          return;
+        }
+        clearCooldown('signup', id);
         localStorage.setItem('uf_just_signed_up', '1');
         navigate(
           `/check-email?email=${encodeURIComponent(email)}&u=${encodeURIComponent(username)}`,
