@@ -61,7 +61,8 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
