@@ -55,7 +55,7 @@ const BlogTrendingPunjabiSongs2026 = () => {
   return (
     <div className="min-h-[100dvh] bg-black text-white">
       <SEOHead
-        title="Trending Punjabi Songs 2026 — Top Artists & Hits | Universflow"
+        title="Trending Punjabi Songs 2026 — Top Hits | Universflow"
         description="Discover the biggest Punjabi songs of 2026 — Diljit, AP Dhillon, Karan Aujla, Shubh and more. Stream the latest Punjabi hits free on Universflow."
         keywords="punjabi songs, latest punjabi hits, trending punjabi songs 2026, diljit dosanjh, ap dhillon, karan aujla, sidhu moose wala, punjabi playlist, free punjabi music"
         url={PAGE_URL}
