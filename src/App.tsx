@@ -58,6 +58,7 @@ const Downloads = lazy(() => import("./pages/Downloads"));
 const BlogFreeMusicDownloadAppsIndia = lazy(() => import("./pages/BlogFreeMusicDownloadAppsIndia"));
 const BlogUniversflowVsJiosaavnVsGaana = lazy(() => import("./pages/BlogUniversflowVsJiosaavnVsGaana"));
 const BlogTrendingPunjabiSongs2026 = lazy(() => import("./pages/BlogTrendingPunjabiSongs2026"));
+const BlogNewHindiSongs2026 = lazy(() => import("./pages/BlogNewHindiSongs2026"));
 
 
 const DownloadQueuePanel = lazy(() => import("./components/DownloadQueuePanel"));
@@ -310,6 +311,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           <Route path="/blog/free-music-download-apps-india" element={<BlogFreeMusicDownloadAppsIndia />} />
           <Route path="/blog/universflow-vs-jiosaavn-vs-gaana" element={<BlogUniversflowVsJiosaavnVsGaana />} />
           <Route path="/blog/trending-punjabi-songs-2026" element={<BlogTrendingPunjabiSongs2026 />} />
+          <Route path="/blog/new-hindi-songs-2026" element={<BlogNewHindiSongs2026 />} />
           <Route path="/welcome" element={<Navigate to="/auth" replace />} />
           <Route path="/auth" element={
             user ? <Navigate to="/" replace /> :
