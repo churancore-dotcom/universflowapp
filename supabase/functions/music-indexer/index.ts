@@ -1299,32 +1299,39 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
     return { success: false, error: 'Could not find a playable stream for this track', fallback: true };
   }
 
-  let firstVideoId: string | null = null;
-  for (const candidate of candidates.slice(0, 6)) {
-    const videoId = String(candidate.videoId);
-    if (!firstVideoId) firstVideoId = videoId;
+  const shortlist = candidates.slice(0, 4).map((c) => String(c.videoId));
+  const firstVideoId: string | null = shortlist[0] || null;
+
+  // Race the top candidates in parallel — one bad videoId no longer stalls
+  // the whole resolve for 4-8s before moving on.
+  const races = shortlist.map(async (videoId) => {
     console.log(`[resolve] trying videoId: ${videoId}`);
-    const resolved = await resolveVideoId(videoId);
-    if (resolved) {
-      const result: ResolveResult = {
-        success: true,
-        streamUrl: resolved.streamUrl,
-        videoId,
-        duration: resolved.duration || Number(candidate.lengthSeconds || candidate.duration || 0) || undefined,
-        title, artist,
-          cover_url: await resolveArtwork(artist, title),
-      };
-      setCached(ck, result, 45 * 60 * 1000); // cache resolved streams for 45 min
-      // Persist to DB so other users / cold-started workers get instant resolution
-      void writeDbCachedStream(artist, title, {
-        streamUrl: result.streamUrl!,
-        videoId: result.videoId,
-        duration: result.duration,
-        cover_url: result.cover_url,
-      });
-      return result;
-    }
-  }
+    const r = await resolveVideoId(videoId);
+    if (!r) throw new Error(`vid ${videoId} failed`);
+    return { videoId, ...r };
+  });
+
+  try {
+    const winner = await Promise.any(races);
+    const cover_url = await resolveArtwork(artist, title);
+    const cand = candidates.find((c) => String(c.videoId) === winner.videoId);
+    const result: ResolveResult = {
+      success: true,
+      streamUrl: winner.streamUrl,
+      videoId: winner.videoId,
+      duration: winner.duration || Number(cand?.lengthSeconds || cand?.duration || 0) || undefined,
+      title, artist, cover_url,
+    };
+    setCached(ck, result, 45 * 60 * 1000);
+    void writeDbCachedStream(artist, title, {
+      streamUrl: result.streamUrl!,
+      videoId: result.videoId,
+      duration: result.duration,
+      cover_url: result.cover_url,
+    });
+    return result;
+  } catch { /* fall through to iframe fallback */ }
+
 
   // YouTube IFrame fallback — guaranteed playback even when no audio host is reachable
   if (firstVideoId) {
