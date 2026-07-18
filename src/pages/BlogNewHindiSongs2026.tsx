@@ -57,7 +57,7 @@ const BlogNewHindiSongs2026 = () => {
   return (
     <div className="min-h-[100dvh] bg-black text-white">
       <SEOHead
-        title="New Hindi Songs 2026 — Top 100 Hits to Stream & Download | Universflow"
+        title="New Hindi Songs 2026 — Top Hits | Universflow"
         description="The biggest new Hindi songs of 2026 — Arijit Singh, Pritam, Jubin Nautiyal and more. Stream free and download Hindi hits offline on Universflow."
         keywords="new hindi songs, new hindi songs 2026, hindi songs download, latest bollywood songs, new songs, arijit singh, hindi music, free hindi songs, bollywood 2026"
         url={PAGE_URL}
