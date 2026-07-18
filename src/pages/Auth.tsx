@@ -49,10 +49,23 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [cooldownMs, setCooldownMs] = useState(0);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
   const isLogin = mode === 'login';
+  const cooldownAction = isLogin ? 'login' : 'signup';
+
+  // Live countdown for the current identifier.
+  useEffect(() => {
+    const id = (isLogin ? email : email) || '';
+    if (!id) { setCooldownMs(0); return; }
+    const tick = () => setCooldownMs(getCooldownMs(cooldownAction, id));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [email, isLogin, cooldownAction]);
 
   const handleTab = (m: Mode) => {
     if (m === mode) return;
