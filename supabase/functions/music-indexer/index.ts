@@ -1222,54 +1222,49 @@ async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } 
 async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
   const t0 = Date.now();
 
-  // Health-probe pools in parallel so we only try instances that are actually
-  // responding right now. Old code hard-pinned inv.thepixora.com as "primary"
-  // which was returning HTML error pages and crashing JSON parse.
-  const [invHealthy, pipedHealthy] = await Promise.all([
-    pickHealthy(getInvidiousInstances(), 'invidious', 6),
-    pickHealthy(getPipedInstances(), 'piped', 6),
-  ]);
+  // Skip the pre-flight /stats & /healthcheck probes — they blocked ALL
+  // instances when their status endpoints were rate-limited even though
+  // /api/v1/videos still worked. Instead, race the actual resolve calls
+  // across every instance not in the short-lived failedUntil cache and let
+  // the fastest real response win. Cobalt joins the same race so we don't
+  // pay a serial fallback wait.
+  const invPool = getInvidiousInstances().filter(isHealthy).slice(0, 8);
+  const pipedPool = getPipedInstances().filter(isHealthy).slice(0, 8);
 
   const attempts: Promise<{ streamUrl: string; duration?: number; src: string }>[] = [
-    ...invHealthy.map(async (inst) => {
+    ...invPool.map(async (inst) => {
       try {
-        const data = await fetchJson(`${inst}/api/v1/videos/${videoId}`, 6000);
+        const data = await fetchJson(`${inst}/api/v1/videos/${videoId}`, 4000);
         const url = pickBestStream(data, inst);
         if (!url) throw new Error('no audio stream');
-        if (!(await probePlayableStream(url))) throw new Error('stream not playable');
         return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined, src: inst };
       } catch (e) { markFailed(inst); throw e; }
     }),
-    ...pipedHealthy.map(async (inst) => {
+    ...pipedPool.map(async (inst) => {
       try {
-        const data = await fetchJson(`${inst}/streams/${videoId}`, 6000);
+        const data = await fetchJson(`${inst}/streams/${videoId}`, 4000);
         const url = await pickBestPipedStream(data, inst);
         if (!url) throw new Error('no audio stream');
         return { streamUrl: url, duration: Number(data.duration || 0) || undefined, src: inst };
       } catch (e) { markFailed(inst); throw e; }
     }),
+    // Cobalt in parallel — no more serial 5s wait after pool fails.
+    (async () => {
+      const c = await resolveViaCobalt(videoId);
+      if (!c?.streamUrl) throw new Error('cobalt: no url');
+      return { streamUrl: c.streamUrl, src: 'cobalt' };
+    })(),
   ];
 
-  if (attempts.length) {
-    try {
-      const winner = await Promise.any(attempts);
-      console.log(`[resolve] ✓ ${videoId} via ${winner.src} (${Date.now() - t0}ms, tried=${attempts.length})`);
-      return { streamUrl: winner.streamUrl, duration: winner.duration };
-    } catch (e) {
-      const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.join(', ');
-      console.warn(`[resolve] all pool fallbacks failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
-    }
-  } else {
-    console.warn(`[resolve] no healthy instances for ${videoId} (inv=${getInvidiousInstances().length}, piped=${getPipedInstances().length})`);
+  try {
+    const winner = await Promise.any(attempts);
+    console.log(`[resolve] ✓ ${videoId} via ${winner.src} (${Date.now() - t0}ms, tried=${attempts.length})`);
+    return { streamUrl: winner.streamUrl, duration: winner.duration };
+  } catch (e) {
+    const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.slice(0, 3).join(', ');
+    console.warn(`[resolve] all sources failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
+    return null;
   }
-
-  // Last real-audio fallback via Cobalt.
-  const cobalt = await resolveViaCobalt(videoId);
-  if (cobalt?.streamUrl && await probePlayableStream(cobalt.streamUrl, 5000)) {
-    console.log(`[resolve] ✓ ${videoId} via cobalt-final (${Date.now() - t0}ms)`);
-    return { streamUrl: cobalt.streamUrl };
-  }
-  return null;
 }
 
 
