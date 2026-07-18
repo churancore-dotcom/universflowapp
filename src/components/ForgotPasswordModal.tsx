@@ -70,9 +70,9 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
 
   const locked = cooldownMs > 0;
 
-  return (
   return createPortal(
     <AnimatePresence>
+
 
       {isOpen && (
         <>
