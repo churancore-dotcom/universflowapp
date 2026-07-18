@@ -34,7 +34,7 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
     }
   };
 
-  return (
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
