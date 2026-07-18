@@ -320,6 +320,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           } />
           <Route path="/verify" element={<VerifyEmail />} />
           <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/offline-player" element={<OfflinePlayerShell />} />
           <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
           <Route path="/home" element={<Navigate to="/" replace />} />
