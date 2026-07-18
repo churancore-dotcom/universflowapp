@@ -22,6 +22,7 @@ import SEOHead from "./components/SEOHead";
 import Auth from "./pages/Auth";
 import VerifyEmail from "./pages/VerifyEmail";
 import CheckEmail from "./pages/CheckEmail";
+import ResetPassword from "./pages/ResetPassword";
 
 import NotFound from "./pages/NotFound";
 import { usePushRegistration } from "./hooks/usePushRegistration";
@@ -319,6 +320,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           } />
           <Route path="/verify" element={<VerifyEmail />} />
           <Route path="/check-email" element={<CheckEmail />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/offline-player" element={<OfflinePlayerShell />} />
           <Route path="/.lovable/oauth/consent" element={<OAuthConsent />} />
           <Route path="/home" element={<Navigate to="/" replace />} />

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/contexts/AuthContext';
@@ -9,6 +9,13 @@ import { Mail, Lock, ArrowRight, Loader2, Eye, EyeOff, AtSign } from 'lucide-rea
 import { toast } from 'sonner';
 import { FadeTransition } from '@/components/PageTransition';
 import SEOHead from '@/components/SEOHead';
+import ForgotPasswordModal from '@/components/ForgotPasswordModal';
+import {
+  getCooldownMs,
+  registerFailure,
+  clearCooldown,
+  formatCooldown,
+} from '@/lib/authCooldown';
 import appLogo from '@/assets/app-logo.webp';
 
 
@@ -42,10 +49,23 @@ const Auth = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
+  const [cooldownMs, setCooldownMs] = useState(0);
   const { signIn, signUp, user } = useAuth();
   const navigate = useNavigate();
 
   const isLogin = mode === 'login';
+  const cooldownAction = isLogin ? 'login' : 'signup';
+
+  // Live countdown for the current identifier.
+  useEffect(() => {
+    const id = (isLogin ? email : email) || '';
+    if (!id) { setCooldownMs(0); return; }
+    const tick = () => setCooldownMs(getCooldownMs(cooldownAction, id));
+    tick();
+    const t = setInterval(tick, 1000);
+    return () => clearInterval(t);
+  }, [email, isLogin, cooldownAction]);
 
   const handleTab = (m: Mode) => {
     if (m === mode) return;
@@ -63,27 +83,41 @@ const Auth = () => {
       toast.error('You are offline. Connect to the internet and try again.');
       return;
     }
+    const id = email.trim();
+    const locked = getCooldownMs(cooldownAction, id);
+    if (locked > 0) {
+      toast.error(`Too many attempts. Try again in ${formatCooldown(locked)}.`);
+      return;
+    }
     setLoading(true);
     try {
       if (isLogin) {
         const { error, isAdmin } = await signIn(email, password);
         if (error) {
           if ((error as Error & { code?: string }).message === 'EMAIL_NOT_VERIFIED') {
-            // Session is kept alive — the verification screen will auto-advance
-            // the moment the user taps the link, without re-asking for password.
+            // Not a credential failure — don't penalize the cooldown counter.
             try {
               await supabase.functions.invoke('send-verification-link', { body: { email } });
             } catch { /* non-fatal */ }
             navigate(`/check-email?email=${encodeURIComponent(email)}`, { state: { email }, replace: true });
             return;
           }
+          const lock = registerFailure('login', id);
+          setCooldownMs(lock);
           toast.error(error.message);
           return;
         }
+        clearCooldown('login', id);
         navigate(isAdmin ? '/admin' : '/home');
       } else {
         const { error } = await signUp(email, password, username, detectCountryCode());
-        if (error) { toast.error(error.message); return; }
+        if (error) {
+          const lock = registerFailure('signup', id);
+          setCooldownMs(lock);
+          toast.error(error.message);
+          return;
+        }
+        clearCooldown('signup', id);
         localStorage.setItem('uf_just_signed_up', '1');
         navigate(
           `/check-email?email=${encodeURIComponent(email)}&u=${encodeURIComponent(username)}`,
@@ -293,6 +327,18 @@ const Auth = () => {
                 </div>
               </div>
 
+              {isLogin && (
+                <div className="flex justify-end -mt-1">
+                  <button
+                    type="button"
+                    onClick={() => setForgotOpen(true)}
+                    className="text-[11px] tracking-tight text-muted-foreground hover:text-foreground transition-colors underline-offset-2 hover:underline"
+                  >
+                    Forgot password?
+                  </button>
+                </div>
+              )}
+
               <Button
                 type="submit"
                 className="w-full h-12 text-[14px] font-semibold rounded-xl border-0 text-white active:scale-[0.98] transition-transform mt-1"
@@ -300,10 +346,12 @@ const Auth = () => {
                   background: 'linear-gradient(180deg, #FF3B5C 0%, #E11D48 100%)',
                   boxShadow: '0 10px 28px hsl(340 100% 45% / 0.4), inset 0 1px 0 rgba(255,255,255,0.18)',
                 }}
-                disabled={loading}
+                disabled={loading || cooldownMs > 0}
               >
                 {loading ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
+                ) : cooldownMs > 0 ? (
+                  <span>Try again in {formatCooldown(cooldownMs)}</span>
                 ) : (
                   <span className="flex items-center gap-2">
                     {isLogin ? 'Sign in' : 'Create account'}
@@ -311,6 +359,12 @@ const Auth = () => {
                   </span>
                 )}
               </Button>
+
+              {cooldownMs > 0 && (
+                <p className="text-center text-[11px] text-muted-foreground/80 -mt-1">
+                  Too many attempts for this email. The form will unlock automatically.
+                </p>
+              )}
 
               {!isLogin && (
                 <p className="text-center text-[10.5px] leading-relaxed text-muted-foreground/70 px-3 pt-1">
@@ -328,6 +382,11 @@ const Auth = () => {
           Universflow · Built for music lovers
         </p>
       </div>
+      <ForgotPasswordModal
+        isOpen={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        defaultEmail={email}
+      />
     </FadeTransition>
   );
 };
