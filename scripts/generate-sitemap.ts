@@ -41,6 +41,7 @@ const staticEntries: SitemapEntry[] = [
   { path: "/blog/universflow-vs-jiosaavn-vs-gaana", lastmod: today, changefreq: "monthly", priority: "0.7" },
   { path: "/blog/trending-punjabi-songs-2026", lastmod: today, changefreq: "weekly", priority: "0.75" },
   { path: "/blog/new-hindi-songs-2026", lastmod: today, changefreq: "weekly", priority: "0.8" },
+  { path: "/blog/best-bhojpuri-song-download-apps", lastmod: today, changefreq: "monthly", priority: "0.75" },
   { path: "/legal/terms", lastmod: today, changefreq: "yearly", priority: "0.35" },
   { path: "/legal/privacy", lastmod: today, changefreq: "yearly", priority: "0.35" },
   { path: "/legal/artist-terms", lastmod: today, changefreq: "yearly", priority: "0.3" },
