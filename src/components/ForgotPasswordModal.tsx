@@ -120,7 +120,8 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 };
 
