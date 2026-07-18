@@ -382,6 +382,11 @@ const Auth = () => {
           Universflow · Built for music lovers
         </p>
       </div>
+      <ForgotPasswordModal
+        isOpen={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        defaultEmail={email}
+      />
     </FadeTransition>
   );
 };
