@@ -177,6 +177,114 @@ export default function EditProfile() {
           </div>
         </Section>
 
+        <Section title="Artist Pick" hint="Featured on your public page.">
+          {liveSongs.length === 0 ? (
+            <p className="text-[12.5px] text-muted-foreground">
+              Publish a live song to feature it here.
+            </p>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 gap-1.5 max-h-64 overflow-y-auto pr-1">
+                <button
+                  type="button"
+                  onClick={() => setPickSongId(null)}
+                  className={`flex items-center gap-3 p-2 rounded-xl border text-left transition ${
+                    !pickSongId ? 'border-white/40 bg-white/[0.05]' : 'border-white/5 bg-white/[0.02]'
+                  }`}
+                >
+                  <div className="w-10 h-10 rounded-lg bg-white/[0.04] grid place-items-center">
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </div>
+                  <span className="text-[13px]">No Artist Pick</span>
+                </button>
+                {liveSongs.map((s) => (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => setPickSongId(s.id)}
+                    className={`flex items-center gap-3 p-2 rounded-xl border text-left transition ${
+                      pickSongId === s.id ? 'border-white/40 bg-white/[0.05]' : 'border-white/5 bg-white/[0.02]'
+                    }`}
+                  >
+                    <div className="w-10 h-10 rounded-lg overflow-hidden bg-white/[0.04] shrink-0">
+                      {s.cover_url
+                        ? <img src={s.cover_url} className="w-full h-full object-cover" alt="" />
+                        : <div className="w-full h-full grid place-items-center"><ImageIcon className="w-4 h-4 text-muted-foreground" /></div>}
+                    </div>
+                    <span className="text-[13px] truncate flex-1">{s.title}</span>
+                    {pickSongId === s.id && (
+                      <Star className="w-4 h-4 text-yellow-400 shrink-0" fill="currentColor" />
+                    )}
+                  </button>
+                ))}
+              </div>
+              {pickSongId && (
+                <div className="mt-3">
+                  <Textarea
+                    value={pickMessage}
+                    onChange={(e) => setPickMessage(e.target.value)}
+                    maxLength={140}
+                    rows={2}
+                    placeholder="A short message to your fans about this track…"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground/70">{pickMessage.length}/140</p>
+                </div>
+              )}
+            </>
+          )}
+        </Section>
+
+        <Section title="Photo gallery" hint={`Up to 12. ${gallery.length}/12`}>
+          <div className="grid grid-cols-3 gap-2">
+            {gallery.map((url, idx) => (
+              <div
+                key={url + idx}
+                className="relative aspect-square rounded-xl overflow-hidden bg-white/[0.03] border border-white/5 group"
+              >
+                <img src={url} alt="" className="w-full h-full object-cover" />
+                <button
+                  type="button"
+                  onClick={() => setGallery((g) => g.filter((_, i) => i !== idx))}
+                  className="absolute top-1.5 right-1.5 w-7 h-7 rounded-full grid place-items-center bg-black/60 backdrop-blur-md border border-white/15 opacity-0 group-hover:opacity-100 focus:opacity-100 transition"
+                  aria-label="Remove"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ))}
+            {gallery.length < 12 && (
+              <label
+                className={`aspect-square rounded-xl border border-dashed border-white/15 bg-white/[0.02] grid place-items-center cursor-pointer text-muted-foreground text-[11px] ${
+                  uploadingGallery ? 'opacity-60 pointer-events-none' : 'hover:bg-white/[0.04]'
+                }`}
+              >
+                {uploadingGallery
+                  ? <Loader2 className="w-4 h-4 animate-spin" />
+                  : <div className="flex flex-col items-center gap-1"><Plus className="w-4 h-4" /><span>Add</span></div>}
+                <input
+                  type="file"
+                  accept="image/*"
+                  className="sr-only"
+                  onChange={async (e) => {
+                    const f = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!f) return;
+                    setUploadingGallery(true);
+                    try {
+                      const url = await uploadArtistGalleryPhoto(user.id, f);
+                      setGallery((g) => [...g, url].slice(0, 12));
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : 'Upload failed');
+                    } finally {
+                      setUploadingGallery(false);
+                    }
+                  }}
+                />
+              </label>
+            )}
+          </div>
+        </Section>
+
         <Section title="Brand color" hint="Used as your public-page accent.">
           <div className="flex items-center gap-3">
             <div
