@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   ArrowLeft, BadgeCheck, Heart, Music2, Play, UserPlus, UserCheck,
-  Instagram, Youtube, Shuffle, Share2, Headphones, Globe2,
+  Instagram, Youtube, Shuffle, Share2, Headphones, Globe2, Star, Camera,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SEOHead from '@/components/SEOHead';
