@@ -66,7 +66,7 @@ async function fetchDynamic(): Promise<SitemapEntry[]> {
         if (!r.slug) continue;
         out.push({
           path: `/a/${encodeURIComponent(r.slug)}`,
-          lastmod: (r.updated_at || today).slice(0, 10),
+          lastmod: r.updated_at ? r.updated_at.slice(0, 10) : undefined,
           changefreq: "weekly",
           priority: "0.75",
         });
@@ -79,7 +79,7 @@ async function fetchDynamic(): Promise<SitemapEntry[]> {
       for (const r of rows) {
         out.push({
           path: `/playlist/${r.id}`,
-          lastmod: (r.updated_at || today).slice(0, 10),
+          lastmod: r.updated_at ? r.updated_at.slice(0, 10) : undefined,
           changefreq: "weekly",
           priority: "0.65",
         });
