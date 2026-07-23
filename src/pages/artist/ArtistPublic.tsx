@@ -20,10 +20,17 @@ type Profile = {
   stage_name: string;
   slug: string;
   bio: string | null;
+  tagline?: string | null;
+  location?: string | null;
+  accent_color?: string | null;
+  genres?: string[] | null;
   avatar_url: string | null;
   banner_url: string | null;
   social_links: Record<string, any> | null;
   is_verified: boolean;
+  artist_pick_song_id?: string | null;
+  artist_pick_message?: string | null;
+  gallery_urls?: string[] | null;
 };
 
 type Song = {
