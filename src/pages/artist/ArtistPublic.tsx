@@ -588,6 +588,32 @@ export default function ArtistPublic() {
             )}
           </section>
 
+          {/* Gallery */}
+          {gallery.length > 0 && (
+            <section className="mt-8">
+              <div className="flex items-center gap-1.5 mb-3">
+                <Camera className="w-3.5 h-3.5 text-muted-foreground" />
+                <h2 className="font-display text-[18px] tracking-tight">Gallery</h2>
+              </div>
+              <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 snap-x snap-mandatory scrollbar-none">
+                {gallery.map((url, i) => (
+                  <div
+                    key={url + i}
+                    className="w-40 h-52 rounded-2xl overflow-hidden shrink-0 ring-1 ring-white/10 snap-start bg-black/40"
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+
           {/* About */}
           {(profile.bio || ig || yt) && (
             <section className="mt-8">
