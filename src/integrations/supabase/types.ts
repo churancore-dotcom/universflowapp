@@ -2093,6 +2093,15 @@ export type Database = {
           username: string
         }[]
       }
+      get_artist_analytics: {
+        Args: {
+          _artist_user_id: string
+          _bucket?: string
+          _since: string
+          _until?: string
+        }
+        Returns: Json
+      }
       get_artist_follower_count: {
         Args: { _artist_user_id: string }
         Returns: number
@@ -2108,6 +2117,15 @@ export type Database = {
       get_my_artist_application_note: {
         Args: { _app_id: string }
         Returns: string
+      }
+      get_song_analytics: {
+        Args: {
+          _bucket?: string
+          _since: string
+          _song_id: string
+          _until?: string
+        }
+        Returns: Json
       }
       get_user_count: { Args: never; Returns: number }
       get_viral_song_events: {

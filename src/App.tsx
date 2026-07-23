@@ -108,6 +108,7 @@ const ArtistOverview = lazy(() => import("./pages/artist/Overview"));
 const ArtistUploadPage = lazy(() => import("./pages/artist/Upload"));
 const ArtistSongsPage = lazy(() => import("./pages/artist/Songs"));
 const ArtistAnalyticsPage = lazy(() => import("./pages/artist/Analytics"));
+const ArtistSongAnalyticsPage = lazy(() => import("./pages/artist/SongAnalytics"));
 const ArtistFollowersPage = lazy(() => import("./pages/artist/Followers"));
 const ArtistEditProfile = lazy(() => import("./pages/artist/EditProfile"));
 const ArtistActivity = lazy(() => import("./pages/artist/Activity"));
@@ -347,6 +348,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
             <Route path="upload" element={<ArtistUploadPage />} />
             <Route path="songs" element={<ArtistSongsPage />} />
             <Route path="analytics" element={<ArtistAnalyticsPage />} />
+            <Route path="songs/:id/analytics" element={<ArtistSongAnalyticsPage />} />
             <Route path="followers" element={<ArtistFollowersPage />} />
             <Route path="promote" element={<ArtistPromote />} />
             <Route path="profile" element={<ArtistEditProfile />} />
