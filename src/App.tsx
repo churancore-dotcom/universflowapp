@@ -108,6 +108,7 @@ const ArtistOverview = lazy(() => import("./pages/artist/Overview"));
 const ArtistUploadPage = lazy(() => import("./pages/artist/Upload"));
 const ArtistSongsPage = lazy(() => import("./pages/artist/Songs"));
 const ArtistAnalyticsPage = lazy(() => import("./pages/artist/Analytics"));
+const ArtistSongAnalyticsPage = lazy(() => import("./pages/artist/SongAnalytics"));
 const ArtistFollowersPage = lazy(() => import("./pages/artist/Followers"));
 const ArtistEditProfile = lazy(() => import("./pages/artist/EditProfile"));
 const ArtistActivity = lazy(() => import("./pages/artist/Activity"));
