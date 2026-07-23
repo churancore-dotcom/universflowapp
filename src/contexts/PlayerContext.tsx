@@ -3393,10 +3393,57 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   );
 };
 
-export const usePlayer = () => {
+// Inert stub used when a component that calls usePlayer() somehow renders
+// outside PlayerProvider (Sentry error-boundary fallback, portaled toast
+// content, dev HMR race, etc). Throwing here spammed Sentry's weekly
+// digest with the same "must be used within a PlayerProvider" a dozen
+// times without any actionable component stack.
+const noop = () => {};
+const INERT_PLAYER: PlayerContextType = {
+  currentSong: null,
+  isPlaying: false,
+  volume: 1,
+  queue: [],
+  shuffle: false,
+  repeat: 'off',
+  isExpanded: false,
+  crossfade: false,
+  crossfadeDuration: 6,
+  crossfadeCurve: 'equal-power',
+  gaplessPro: false,
+  audioElement: null,
+  showPrerollAd: false,
+  adType: 'start',
+  playSong: noop,
+  togglePlay: noop,
+  pause: noop,
+  play: noop,
+  stopSong: noop,
+  nextSong: noop,
+  prevSong: noop,
+  seek: noop,
+  setVolume: noop,
+  setQueue: noop,
+  addToQueue: noop,
+  toggleShuffle: noop,
+  toggleRepeat: noop,
+  setExpanded: noop,
+  toggleCrossfade: noop,
+  setCrossfadeDuration: noop,
+  setCrossfadeCurve: noop,
+  toggleGaplessPro: noop,
+  onPrerollAdComplete: noop,
+};
+
+let warnedMissingProvider = false;
+export const usePlayer = (): PlayerContextType => {
   const context = useContext(PlayerContext);
   if (context === undefined) {
-    throw new Error('usePlayer must be used within a PlayerProvider');
+    if (!warnedMissingProvider && typeof console !== 'undefined') {
+      warnedMissingProvider = true;
+      console.warn('[usePlayer] rendered outside PlayerProvider; using inert stub');
+    }
+    return INERT_PLAYER;
   }
   return context;
 };
