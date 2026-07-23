@@ -93,11 +93,20 @@ const OptimizedImage = memo(({
       )}
       
       {/* Actual image - only rendered when shouldLoad is true */}
-      {shouldLoad && !hasError && (
+      {shouldLoad && !hasError && (() => {
+        // Guard against generic/empty/filename alt text so images always
+        // have a meaningful accessible description.
+        const rawAlt = (alt ?? "").trim();
+        const looksGeneric =
+          !rawAlt ||
+          /^(image|photo|picture|img|thumbnail|cover|artwork)$/i.test(rawAlt) ||
+          /\.(jpe?g|png|webp|gif|svg|avif)$/i.test(rawAlt);
+        const safeAlt = looksGeneric ? "Album artwork" : rawAlt;
+        return (
         <img
           ref={imgRef}
           src={upgradeArtworkUrl(src)}
-          alt={alt}
+          alt={safeAlt}
           className={cn(
             "w-full h-full object-cover transition-opacity duration-300",
             isLoaded ? "opacity-100" : "opacity-0"
@@ -109,7 +118,8 @@ const OptimizedImage = memo(({
           draggable={false}
           referrerPolicy="no-referrer"
         />
-      )}
+        );
+      })()}
 
       {/* Error fallback */}
       {hasError && (
