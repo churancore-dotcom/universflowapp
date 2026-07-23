@@ -1,12 +1,12 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useOutletContext } from 'react-router-dom';
-import { Loader2, Image as ImageIcon, Check, Palette, X } from 'lucide-react';
+import { Loader2, Image as ImageIcon, Check, Palette, X, Star, Plus, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { uploadArtistPhoto, uploadArtistCover } from '@/lib/artist';
+import { uploadArtistPhoto, uploadArtistCover, uploadArtistGalleryPhoto } from '@/lib/artist';
 import { useFilePreview } from '@/lib/useFilePreview';
 import { ArtistProfile } from './_shared';
 
