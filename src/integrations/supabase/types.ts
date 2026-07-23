@@ -394,11 +394,15 @@ export type Database = {
       artist_profiles: {
         Row: {
           accent_color: string | null
+          artist_pick_message: string | null
+          artist_pick_set_at: string | null
+          artist_pick_song_id: string | null
           avatar_url: string | null
           banner_url: string | null
           bio: string | null
           country_code: string | null
           created_at: string
+          gallery_urls: string[] | null
           genres: string[] | null
           id: string
           is_verified: boolean
@@ -418,11 +422,15 @@ export type Database = {
         }
         Insert: {
           accent_color?: string | null
+          artist_pick_message?: string | null
+          artist_pick_set_at?: string | null
+          artist_pick_song_id?: string | null
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
           country_code?: string | null
           created_at?: string
+          gallery_urls?: string[] | null
           genres?: string[] | null
           id?: string
           is_verified?: boolean
@@ -442,11 +450,15 @@ export type Database = {
         }
         Update: {
           accent_color?: string | null
+          artist_pick_message?: string | null
+          artist_pick_set_at?: string | null
+          artist_pick_song_id?: string | null
           avatar_url?: string | null
           banner_url?: string | null
           bio?: string | null
           country_code?: string | null
           created_at?: string
+          gallery_urls?: string[] | null
           genres?: string[] | null
           id?: string
           is_verified?: boolean
@@ -464,7 +476,15 @@ export type Database = {
           user_id?: string
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "artist_profiles_artist_pick_song_id_fkey"
+            columns: ["artist_pick_song_id"]
+            isOneToOne: false
+            referencedRelation: "artist_songs"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       artist_push_throttle: {
         Row: {
