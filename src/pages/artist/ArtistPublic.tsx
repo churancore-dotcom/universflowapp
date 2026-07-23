@@ -220,7 +220,9 @@ export default function ArtistPublic() {
 
   const ig = profile.social_links?.instagram;
   const yt = profile.social_links?.youtube;
-  const accent = '#FF2D55';
+  const accent = (profile.accent_color && /^#[0-9a-fA-F]{6}$/.test(profile.accent_color)) ? profile.accent_color : '#FF2D55';
+  const pickSong = profile.artist_pick_song_id ? songs.find((s) => s.id === profile.artist_pick_song_id) : null;
+  const gallery = (profile.gallery_urls ?? []).filter(Boolean);
 
   const canonicalUrl = `https://universflow.in/a/${profile.slug}`;
   const shareImage =
