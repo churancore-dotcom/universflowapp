@@ -25,6 +25,10 @@ export type ArtistProfile = {
   location?: string | null;
   pronouns?: string | null;
   website?: string | null;
+  artist_pick_song_id?: string | null;
+  artist_pick_message?: string | null;
+  artist_pick_set_at?: string | null;
+  gallery_urls?: string[] | null;
 };
 
 export type ArtistSong = {
