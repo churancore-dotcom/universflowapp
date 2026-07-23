@@ -127,3 +127,11 @@ export async function getMyArtistProfile(userId: string) {
     .maybeSingle();
   return data;
 }
+
+export async function uploadArtistGalleryPhoto(userId: string, file: File): Promise<string> {
+  const compressed = await compressPhoto(file);
+  const path = `artist-gallery/${userId}/${Date.now()}-${uniqueUploadId()}.webp`;
+  await uploadFile(COVERS_BUCKET, path, compressed);
+  const { data } = supabase.storage.from(COVERS_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}

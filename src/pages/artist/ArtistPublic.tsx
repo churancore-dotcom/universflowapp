@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   ArrowLeft, BadgeCheck, Heart, Music2, Play, UserPlus, UserCheck,
-  Instagram, Youtube, Shuffle, Share2, Headphones, Globe2,
+  Instagram, Youtube, Shuffle, Share2, Headphones, Globe2, Star, Camera,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import SEOHead from '@/components/SEOHead';
@@ -20,10 +20,17 @@ type Profile = {
   stage_name: string;
   slug: string;
   bio: string | null;
+  tagline?: string | null;
+  location?: string | null;
+  accent_color?: string | null;
+  genres?: string[] | null;
   avatar_url: string | null;
   banner_url: string | null;
   social_links: Record<string, any> | null;
   is_verified: boolean;
+  artist_pick_song_id?: string | null;
+  artist_pick_message?: string | null;
+  gallery_urls?: string[] | null;
 };
 
 type Song = {
@@ -213,7 +220,9 @@ export default function ArtistPublic() {
 
   const ig = profile.social_links?.instagram;
   const yt = profile.social_links?.youtube;
-  const accent = '#FF2D55';
+  const accent = (profile.accent_color && /^#[0-9a-fA-F]{6}$/.test(profile.accent_color)) ? profile.accent_color : '#FF2D55';
+  const pickSong = profile.artist_pick_song_id ? songs.find((s) => s.id === profile.artist_pick_song_id) : null;
+  const gallery = (profile.gallery_urls ?? []).filter(Boolean);
 
   const canonicalUrl = `https://universflow.in/a/${profile.slug}`;
   const shareImage =
@@ -436,7 +445,70 @@ export default function ArtistPublic() {
             <StatPill icon={<Globe2 className="w-3 h-3" />} label="Monthly" value={fmt(monthly)} />
           </section>
 
-          {/* Popular */}
+          {/* Genres */}
+          {profile.genres && profile.genres.length > 0 && (
+            <div className="mt-4 flex flex-wrap gap-1.5">
+              {profile.genres.map((g) => (
+                <span
+                  key={g}
+                  className="px-2.5 h-6 inline-flex items-center rounded-full text-[10.5px] font-semibold tracking-wide uppercase"
+                  style={{ background: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.08)' }}
+                >
+                  {g}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Tagline */}
+          {profile.tagline && (
+            <p className="mt-4 text-[13.5px] text-white/85 italic font-display leading-snug">
+              “{profile.tagline}”
+            </p>
+          )}
+
+          {/* Artist Pick */}
+          {pickSong && (
+            <section className="mt-6">
+              <div className="flex items-center gap-1.5 mb-2">
+                <Star className="w-3.5 h-3.5 text-yellow-400" fill="currentColor" />
+                <span className="text-[10.5px] uppercase tracking-[0.22em] font-semibold text-yellow-400">
+                  Artist Pick
+                </span>
+              </div>
+              <button
+                onClick={() => playSong(pickSong)}
+                className="w-full rounded-2xl overflow-hidden text-left relative group"
+                style={{
+                  background: `linear-gradient(140deg, ${accent}26, rgba(16,16,18,0.7))`,
+                  border: `1px solid ${accent}40`,
+                }}
+              >
+                <div className="flex items-center gap-3 p-3">
+                  <div className="w-16 h-16 rounded-xl overflow-hidden bg-black/40 shrink-0 ring-1 ring-white/10">
+                    {pickSong.cover_url
+                      ? <img src={pickSong.cover_url} alt="" className="w-full h-full object-cover" />
+                      : <div className="w-full h-full grid place-items-center"><Music2 className="w-5 h-5 text-muted-foreground" /></div>}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-[15px] font-semibold truncate">{pickSong.title}</p>
+                    {profile.artist_pick_message && (
+                      <p className="text-[12px] text-white/75 line-clamp-2 mt-0.5">
+                        {profile.artist_pick_message}
+                      </p>
+                    )}
+                  </div>
+                  <div
+                    className="w-10 h-10 rounded-full grid place-items-center shrink-0 text-white"
+                    style={{ background: accent, boxShadow: `0 10px 24px -8px ${accent}88` }}
+                  >
+                    <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+                  </div>
+                </div>
+              </button>
+            </section>
+          )}
+
           {popular.length > 0 && popular[0].play_count > 0 && (
             <section className="mt-7">
               <div className="flex items-baseline justify-between mb-3">
@@ -515,6 +587,32 @@ export default function ArtistPublic() {
               </ul>
             )}
           </section>
+
+          {/* Gallery */}
+          {gallery.length > 0 && (
+            <section className="mt-8">
+              <div className="flex items-center gap-1.5 mb-3">
+                <Camera className="w-3.5 h-3.5 text-muted-foreground" />
+                <h2 className="font-display text-[18px] tracking-tight">Gallery</h2>
+              </div>
+              <div className="flex gap-2 overflow-x-auto -mx-5 px-5 pb-1 snap-x snap-mandatory scrollbar-none">
+                {gallery.map((url, i) => (
+                  <div
+                    key={url + i}
+                    className="w-40 h-52 rounded-2xl overflow-hidden shrink-0 ring-1 ring-white/10 snap-start bg-black/40"
+                  >
+                    <img
+                      src={url}
+                      alt=""
+                      loading="lazy"
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
 
           {/* About */}
           {(profile.bio || ig || yt) && (
