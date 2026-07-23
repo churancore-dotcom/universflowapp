@@ -456,40 +456,61 @@ export async function resolveIndexedTrack(
   if (existing) return existing;
 
   const pending = (async () => {
-    // FAST PATH: shared DB cache first. This avoids waiting on external search
-    // APIs for popular songs and cuts APK tap-to-audio latency.
-    const dbHit = opts.forceRefresh ? null : await tryDbCachedStream(artist, title);
-    if (dbHit?.streamUrl) {
-      setCachedStream(cacheKey, dbHit.streamUrl, {
-        title: dbHit.title,
-        artist: dbHit.artist,
-        cover_url: dbHit.cover_url,
-        duration: dbHit.duration,
-      });
-      return dbHit;
-    }
+    // INSTANT PLAY: race every source in parallel. Whichever returns a usable
+    // stream URL first wins — no more waiting for the DB cache to miss before
+    // pinging Saavn, or waiting for Saavn to miss before hitting the edge.
+    const dbP: Promise<ResolveTrackResponse | null> = opts.forceRefresh
+      ? Promise.resolve(null)
+      : tryDbCachedStream(artist, title).catch(() => null);
 
-    // Next: use the deployed JioSaavn API. It returns direct CDN audio URLs
-    // with CORS, avoiding stale/proxy YouTube streams.
-    const saavnHit = await findSongStreamUrl(title, artist, opts).catch(() => null);
-    if (saavnHit?.streamUrl) {
-      const result: ResolveTrackResponse = {
+    const saavnP: Promise<ResolveTrackResponse | null> = findSongStreamUrl(title, artist, opts)
+      .then((s) => s?.streamUrl ? ({
         success: true,
-        streamUrl: saavnHit.streamUrl,
-        title: saavnHit.title || title,
-        artist: saavnHit.artist || artist,
-        cover_url: saavnHit.image,
-        duration: Number(saavnHit.duration) || undefined,
+        streamUrl: s.streamUrl,
+        title: s.title || title,
+        artist: s.artist || artist,
+        cover_url: s.image,
+        duration: Number(s.duration) || undefined,
+      } as ResolveTrackResponse) : null)
+      .catch(() => null);
+
+    const edgeP: Promise<ResolveTrackResponse | null> = resolveViaEdgeFunction(
+      artist, title, cacheKey, opts.forceRefresh === true,
+    ).catch(() => null);
+
+    const racers = [dbP, saavnP, edgeP];
+    const first = await new Promise<ResolveTrackResponse | null>((resolve) => {
+      let settled = false;
+      let remaining = racers.length;
+      const done = (r: ResolveTrackResponse | null) => {
+        if (settled) return;
+        if (r?.success && r.streamUrl) {
+          settled = true;
+          resolve(r);
+          return;
+        }
+        remaining -= 1;
+        if (remaining <= 0) { settled = true; resolve(null); }
       };
-      setCachedStream(cacheKey, result.streamUrl!, result);
-      return result;
+      racers.forEach((p) => p.then(done, () => done(null)));
+    });
+
+    if (first?.streamUrl) {
+      setCachedStream(cacheKey, first.streamUrl, {
+        title: first.title,
+        artist: first.artist,
+        cover_url: first.cover_url,
+        duration: first.duration,
+        videoId: first.videoId,
+      });
+      return first;
     }
 
-    // Fallback: slower edge resolver.
-    return await resolveViaEdgeFunction(artist, title, cacheKey, opts.forceRefresh === true);
+    throw new Error('Could not find a playable stream for this track');
   })().finally(() => {
     inFlightResolutions.delete(cacheKey);
   });
+
 
   inFlightResolutions.set(cacheKey, pending);
   return pending;
