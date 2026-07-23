@@ -113,6 +113,9 @@ export default function EditProfile() {
           genres: genres.length ? genres : null,
           avatar_url: newAvatar,
           banner_url: newBanner,
+          artist_pick_song_id: pickSongId,
+          artist_pick_message: pickSongId ? (pickMessage.trim() || null) : null,
+          gallery_urls: gallery,
           social_links: {
             instagram: cleanUrl(insta),
             youtube: cleanUrl(yt),
