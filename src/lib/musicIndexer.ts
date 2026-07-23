@@ -543,38 +543,24 @@ export async function resolveYouTubeVideoStream(
     invalidateYtmCached(id);
   }
 
-  // 1.5) FAST PATH — if we know title/artist, try JioSaavn directly. This
-  // bypasses every YouTube resolver (which can be IP-blocked or slow on web)
-  // and delivers a CORS-clean CDN URL with no delay. Only accepted when the
-  // match is confident (isConfidentMatch inside findSongStreamUrl).
-  if ((opts.title || opts.artist) && !opts.forceRefresh) {
-    try {
-      const saavn = await findSongStreamUrl(opts.title || '', opts.artist || '');
-      if (saavn?.streamUrl) {
-        const result: ResolveTrackResponse = {
+  // INSTANT PLAY: race JioSaavn (fast CDN, CORS-clean) in parallel with the
+  // YouTube resolver stack. First real audio URL wins.
+  const saavnRacer: Promise<ResolveTrackResponse | null> = (opts.title || opts.artist) && !opts.forceRefresh
+    ? findSongStreamUrl(opts.title || '', opts.artist || '')
+        .then((s) => s?.streamUrl ? ({
           success: true,
-          streamUrl: saavn.streamUrl,
+          streamUrl: s.streamUrl,
           videoId: id,
-          title: saavn.title || opts.title,
-          artist: saavn.artist || opts.artist,
-          cover_url: saavn.image,
-          duration: Number(saavn.duration) || undefined,
-        };
-        setYtmCached(id, result.streamUrl!, {
-          title: result.title,
-          artist: result.artist,
-          cover_url: result.cover_url,
-          duration: result.duration,
-        });
-        return result;
-      }
-    } catch { /* fall through to YouTube resolvers */ }
-  }
+          title: s.title || opts.title,
+          artist: s.artist || opts.artist,
+          cover_url: s.image,
+          duration: Number(s.duration) || undefined,
+        } as ResolveTrackResponse) : null)
+        .catch(() => null)
+    : Promise.resolve(null);
 
-  // 2) Race BOTH resolver stacks in parallel. Waiting for extract-audio to fail
-  // before trying music-indexer made every tap feel frozen when a proxy batch was
-  // bad. The first real audio URL wins; failed/iframe results are ignored.
   const resolvers: Promise<ResolveTrackResponse | null>[] = [
+    saavnRacer,
     (async () => {
       try {
         const { data, error } = await supabase.functions.invoke('extract-audio', {
@@ -628,6 +614,7 @@ export async function resolveYouTubeVideoStream(
     };
     resolvers.forEach((resolver) => resolver.then(done).catch(() => done(null)));
   }), 9000, null);
+
 
   if (winner?.streamUrl) {
     setYtmCached(id, winner.streamUrl, {
