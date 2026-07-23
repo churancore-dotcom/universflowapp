@@ -199,35 +199,91 @@ function isSafeSharedCachedStream(url?: string | null) {
 
 // Try to grab a cached audio_url directly from the DB (stream_songs table) before
 // hitting the edge function. This is shared across ALL users — instant warm cache.
-async function tryDbCachedStream(artist: string, title: string): Promise<ResolveTrackResponse | null> {
+//
+// Batches concurrent lookups within a 20ms window into a single `.in()` query so
+// prefetching a queue of N tracks costs 1 round-trip instead of N (fixes the
+// Sentry N+1 on `stream_songs`).
+type DbCacheRow = {
+  audio_url: string | null;
+  title: string | null;
+  artist: string | null;
+  cover_url: string | null;
+  duration: number | null;
+  last_seen_at: string;
+};
+type PendingLookup = {
+  artist: string;
+  title: string;
+  resolve: (r: ResolveTrackResponse | null) => void;
+};
+let dbLookupQueue: PendingLookup[] = [];
+let dbLookupTimer: ReturnType<typeof setTimeout> | null = null;
+
+function rowToResponse(row: DbCacheRow, artist: string, title: string): ResolveTrackResponse | null {
+  if (!row.audio_url) return null;
+  if (!isSafeSharedCachedStream(row.audio_url)) return null;
+  if (isKnownBrokenStreamUrl(row.audio_url)) return null;
+  const ageMs = Date.now() - new Date(row.last_seen_at).getTime();
+  if (ageMs > 4 * 60 * 60 * 1000) return null;
+  return {
+    success: true,
+    streamUrl: row.audio_url,
+    title: row.title || title,
+    artist: row.artist || artist,
+    cover_url: row.cover_url || undefined,
+    duration: row.duration || undefined,
+  };
+}
+
+async function flushDbLookupQueue() {
+  const batch = dbLookupQueue;
+  dbLookupQueue = [];
+  dbLookupTimer = null;
+  if (batch.length === 0) return;
+
+  // Deduplicate identical (artist,title) pairs so N players prefetching the same
+  // track produce one row-result reused across all waiters.
+  const uniqueArtists = Array.from(new Set(batch.map((b) => b.artist)));
+  const uniqueTitles = Array.from(new Set(batch.map((b) => b.title)));
+
   try {
     const { data } = await supabase
       .from('stream_songs')
       .select('audio_url, title, artist, cover_url, duration, last_seen_at')
-      .eq('artist', artist)
-      .eq('title', title)
-      .order('last_seen_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+      .in('artist', uniqueArtists)
+      .in('title', uniqueTitles)
+      .order('last_seen_at', { ascending: false });
 
-    if (!data?.audio_url) return null;
-    if (!isSafeSharedCachedStream(data.audio_url)) return null;
-    if (isKnownBrokenStreamUrl(data.audio_url)) return null;
-    // Treat audio_url as fresh if seen in last 4h (server refreshes on resolve)
-    const ageMs = Date.now() - new Date(data.last_seen_at).getTime();
-    if (ageMs > 4 * 60 * 60 * 1000) return null;
+    const rows = (data || []) as DbCacheRow[];
+    // Newest-first index by (artist|title)
+    const byKey = new Map<string, DbCacheRow>();
+    for (const row of rows) {
+      const key = `${(row.artist || '').toLowerCase()}|${(row.title || '').toLowerCase()}`;
+      if (!byKey.has(key)) byKey.set(key, row);
+    }
 
-    return {
-      success: true,
-      streamUrl: data.audio_url,
-      title: data.title,
-      artist: data.artist,
-      cover_url: data.cover_url || undefined,
-      duration: data.duration || undefined,
-    };
+    for (const item of batch) {
+      const key = `${item.artist.toLowerCase()}|${item.title.toLowerCase()}`;
+      const row = byKey.get(key);
+      item.resolve(row ? rowToResponse(row, item.artist, item.title) : null);
+    }
   } catch {
-    return null;
+    for (const item of batch) item.resolve(null);
   }
+}
+
+async function tryDbCachedStream(artist: string, title: string): Promise<ResolveTrackResponse | null> {
+  return new Promise<ResolveTrackResponse | null>((resolve) => {
+    dbLookupQueue.push({ artist, title, resolve });
+    if (!dbLookupTimer) {
+      dbLookupTimer = setTimeout(() => { void flushDbLookupQueue(); }, 20);
+    }
+    // Flush eagerly if the batch is getting large (queue prefetch of 30+ tracks).
+    if (dbLookupQueue.length >= 25) {
+      if (dbLookupTimer) { clearTimeout(dbLookupTimer); dbLookupTimer = null; }
+      void flushDbLookupQueue();
+    }
+  });
 }
 
 async function requestFunction<T>(functionName: string, body: Record<string, unknown>, requireSuccess = false): Promise<T> {
