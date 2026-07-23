@@ -241,7 +241,6 @@ const PIPED_INSTANCES = [
 
 const INVIDIOUS_INSTANCES = [
   'https://invidious.reallyaweso.me',
-  'https://invidious.dhusch.de',
   'https://invidious.materialio.us',
   'https://invidious.perennialte.ch',
   'https://iv.melmac.space',
