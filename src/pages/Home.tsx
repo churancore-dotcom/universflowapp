@@ -286,7 +286,9 @@ const Home = () => {
           style={{ WebkitOverflowScrolling: 'touch' }}
           {...pullToRefresh.handlers}
         >
-        <h1 className="sr-only">Universflow — Stream and Download Free Music</h1>
+        <h1 className="px-1 pt-1 pb-2 text-[13px] font-medium text-muted-foreground/80 tracking-tight">
+          Universflow — Stream and download free music
+        </h1>
         <PullToRefreshIndicator
           pullDistance={pullToRefresh.pullDistance}
           isRefreshing={pullToRefresh.isRefreshing}
