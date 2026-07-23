@@ -241,7 +241,6 @@ const PIPED_INSTANCES = [
 
 const INVIDIOUS_INSTANCES = [
   'https://invidious.reallyaweso.me',
-  'https://invidious.dhusch.de',
   'https://invidious.materialio.us',
   'https://invidious.perennialte.ch',
   'https://iv.melmac.space',
@@ -1237,6 +1236,9 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
         const data = await fetchJson(`${inst}/api/v1/videos/${videoId}`, 4000);
         const url = pickBestStream(data, inst);
         if (!url) throw new Error('no audio stream');
+        // Verify the URL is actually playable — otherwise a dead/expired/HTML
+        // redirect URL can win Promise.any and get cached for 45 minutes.
+        if (!(await probePlayableStream(url))) throw new Error('invidious url not playable');
         return { streamUrl: url, duration: Number(data.lengthSeconds || 0) || undefined, src: inst };
       } catch (e) { markFailed(inst); throw e; }
     }),
@@ -1252,6 +1254,7 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
     (async () => {
       const c = await resolveViaCobalt(videoId);
       if (!c?.streamUrl) throw new Error('cobalt: no url');
+      if (!(await probePlayableStream(c.streamUrl, 5000))) throw new Error('cobalt url not playable');
       return { streamUrl: c.streamUrl, src: 'cobalt' };
     })(),
   ];
