@@ -51,6 +51,25 @@ export default function EditProfile() {
   const [banner, setBanner] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
 
+  // Artist Pick + Gallery
+  const [pickSongId, setPickSongId] = useState<string | null>(profile.artist_pick_song_id ?? null);
+  const [pickMessage, setPickMessage] = useState<string>(profile.artist_pick_message ?? '');
+  const [liveSongs, setLiveSongs] = useState<Array<{ id: string; title: string; cover_url: string | null }>>([]);
+  const [gallery, setGallery] = useState<string[]>(profile.gallery_urls ?? []);
+  const [uploadingGallery, setUploadingGallery] = useState(false);
+
+  useEffect(() => {
+    (async () => {
+      const { data } = await supabase
+        .from('artist_songs')
+        .select('id,title,cover_url')
+        .eq('artist_user_id', user.id)
+        .eq('status', 'live')
+        .order('created_at', { ascending: false });
+      setLiveSongs((data ?? []) as Array<{ id: string; title: string; cover_url: string | null }>);
+    })();
+  }, [user.id]);
+
   const accentValid = useMemo(() => /^#[0-9a-fA-F]{6}$/.test(accent), [accent]);
 
   const toggleGenre = (g: string) => {
