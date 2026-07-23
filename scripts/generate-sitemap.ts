@@ -17,35 +17,36 @@ interface SitemapEntry {
   priority?: string;
 }
 
-const today = new Date().toISOString().slice(0, 10);
-
 // Only PUBLIC, indexable routes. Auth-gated app routes (/home, /library, /search,
-// /profile, /settings, /downloads, /subscription, /verify, /check-email, /offline*,
-// /artist/status, /artist/studio/*) are excluded — they redirect logged-out crawlers
-// to /auth, which Google reports as "Page with redirect" and refuses to index.
+// /profile, /settings, /downloads, /subscription, /verify, /check-email, /reset-password,
+// /offline*, /.lovable/*, /artist/status, /artist/studio/*) are excluded — they
+// redirect logged-out crawlers to /auth, which Google reports as "Page with redirect"
+// and refuses to index.
+// Note: <lastmod> is intentionally omitted from static entries because we have no
+// authoritative per-page timestamp for them; dynamic entries below carry a real
+// updated_at value from the row.
 const staticEntries: SitemapEntry[] = [
-  { path: "/", lastmod: today, changefreq: "daily", priority: "1.0" },
-  { path: "/get", lastmod: today, changefreq: "weekly", priority: "0.9" },
-  { path: "/download", lastmod: today, changefreq: "weekly", priority: "0.9" },
-  { path: "/app", lastmod: today, changefreq: "weekly", priority: "0.85" },
-  { path: "/apk", lastmod: today, changefreq: "weekly", priority: "0.85" },
-  { path: "/welcome", lastmod: today, changefreq: "monthly", priority: "0.5" },
-  { path: "/verify", lastmod: today, changefreq: "monthly", priority: "0.3" },
-  { path: "/premium", lastmod: today, changefreq: "monthly", priority: "0.8" },
-  { path: "/artists", lastmod: today, changefreq: "weekly", priority: "0.85" },
-  { path: "/support", lastmod: today, changefreq: "monthly", priority: "0.65" },
-  { path: "/auth", lastmod: today, changefreq: "monthly", priority: "0.4" },
-  { path: "/artist/auth", lastmod: today, changefreq: "monthly", priority: "0.4" },
-  { path: "/artist/apply", lastmod: today, changefreq: "monthly", priority: "0.45" },
-  { path: "/blog/free-music-download-apps-india", lastmod: today, changefreq: "monthly", priority: "0.7" },
-  { path: "/blog/universflow-vs-jiosaavn-vs-gaana", lastmod: today, changefreq: "monthly", priority: "0.7" },
-  { path: "/blog/trending-punjabi-songs-2026", lastmod: today, changefreq: "weekly", priority: "0.75" },
-  { path: "/blog/new-hindi-songs-2026", lastmod: today, changefreq: "weekly", priority: "0.8" },
-  { path: "/blog/best-bhojpuri-song-download-apps", lastmod: today, changefreq: "monthly", priority: "0.75" },
-  { path: "/legal/terms", lastmod: today, changefreq: "yearly", priority: "0.35" },
-  { path: "/legal/privacy", lastmod: today, changefreq: "yearly", priority: "0.35" },
-  { path: "/legal/artist-terms", lastmod: today, changefreq: "yearly", priority: "0.3" },
-  { path: "/legal/artist-privacy", lastmod: today, changefreq: "yearly", priority: "0.3" },
+  { path: "/", changefreq: "daily", priority: "1.0" },
+  { path: "/get", changefreq: "weekly", priority: "0.9" },
+  { path: "/download", changefreq: "weekly", priority: "0.9" },
+  { path: "/app", changefreq: "weekly", priority: "0.85" },
+  { path: "/apk", changefreq: "weekly", priority: "0.85" },
+  { path: "/welcome", changefreq: "monthly", priority: "0.5" },
+  { path: "/premium", changefreq: "monthly", priority: "0.8" },
+  { path: "/artists", changefreq: "weekly", priority: "0.85" },
+  { path: "/support", changefreq: "monthly", priority: "0.65" },
+  { path: "/auth", changefreq: "monthly", priority: "0.4" },
+  { path: "/artist/auth", changefreq: "monthly", priority: "0.4" },
+  { path: "/artist/apply", changefreq: "monthly", priority: "0.45" },
+  { path: "/blog/free-music-download-apps-india", changefreq: "monthly", priority: "0.7" },
+  { path: "/blog/universflow-vs-jiosaavn-vs-gaana", changefreq: "monthly", priority: "0.7" },
+  { path: "/blog/trending-punjabi-songs-2026", changefreq: "weekly", priority: "0.75" },
+  { path: "/blog/new-hindi-songs-2026", changefreq: "weekly", priority: "0.8" },
+  { path: "/blog/best-bhojpuri-song-download-apps", changefreq: "monthly", priority: "0.75" },
+  { path: "/legal/terms", changefreq: "yearly", priority: "0.35" },
+  { path: "/legal/privacy", changefreq: "yearly", priority: "0.35" },
+  { path: "/legal/artist-terms", changefreq: "yearly", priority: "0.3" },
+  { path: "/legal/artist-privacy", changefreq: "yearly", priority: "0.3" },
 ];
 
 async function fetchDynamic(): Promise<SitemapEntry[]> {
