@@ -114,6 +114,7 @@ const ArtistEditProfile = lazy(() => import("./pages/artist/EditProfile"));
 const ArtistActivity = lazy(() => import("./pages/artist/Activity"));
 const ArtistNotifications = lazy(() => import("./pages/artist/Notifications"));
 const ArtistPromote = lazy(() => import("./pages/artist/Promote"));
+const ArtistEarnings = lazy(() => import("./pages/artist/Earnings"));
 const ArtistPublic = lazy(() => import("./pages/artist/ArtistPublic"));
 
 // Legal
