@@ -29,9 +29,16 @@ const GENRES = [
 const STEPS = [
   { key: 'source', label: 'Source', sub: 'Where is the audio?' },
   { key: 'details', label: 'Details', sub: 'Title, art, mood' },
+  { key: 'schedule', label: 'Schedule', sub: 'Release now or later' },
   { key: 'review', label: 'Review', sub: 'Publish to your page' },
 ] as const;
 type StepKey = typeof STEPS[number]['key'];
+
+/** Format a Date into a value compatible with <input type="datetime-local">. */
+function toLocalInputValue(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 /* ---------------- Synthetic waveform (CORS-safe pseudo-preview) ---------------- */
 function hashString(s: string) {
