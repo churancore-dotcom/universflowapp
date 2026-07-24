@@ -102,6 +102,9 @@ const AdminPayouts = lazy(() => import("./pages/admin/Payouts"));
 
 // Artist program
 const ArtistApply = lazy(() => import("./pages/artist/Apply"));
+const ArtistOnboarding = lazy(() => import("./pages/artist/Onboarding"));
+const ArtistClaimProfile = lazy(() => import("./pages/artist/ClaimProfile"));
+const AdminArtistClaims = lazy(() => import("./pages/admin/ArtistClaims"));
 const ArtistAuth = lazy(() => import("./pages/artist/ArtistAuth"));
 const ArtistStatus = lazy(() => import("./pages/artist/Status"));
 const ArtistLayout = lazy(() => import("./pages/artist/ArtistLayout"));
@@ -343,6 +346,8 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
 
           {/* Artist program — these MUST come before /artist/:artistId so static segments win */}
           <Route path="/artist/auth" element={user ? <Navigate to="/" replace /> : <ArtistAuth />} />
+          <Route path="/artist/onboarding" element={<ArtistProtectedRoute><ArtistOnboarding /></ArtistProtectedRoute>} />
+          <Route path="/artist/claim" element={<ArtistProtectedRoute><ArtistClaimProfile /></ArtistProtectedRoute>} />
           <Route path="/artist/apply" element={<ArtistProtectedRoute><ArtistApply /></ArtistProtectedRoute>} />
           <Route path="/artist/status" element={<ArtistProtectedRoute><ArtistStatus /></ArtistProtectedRoute>} />
           <Route path="/artist/studio" element={<ArtistProtectedRoute requireArtistRole><ArtistLayout /></ArtistProtectedRoute>}>
@@ -388,6 +393,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
             
             <Route path="payments" element={<PaymentRequests />} />
             <Route path="payouts" element={<AdminPayouts />} />
+            <Route path="artist-claims" element={<AdminArtistClaims />} />
             <Route path="notifications" element={<PushNotifications />} />
             <Route path="devices" element={<RegisteredDevices />} />
             <Route path="engagement" element={<UserEngagement />} />

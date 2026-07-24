@@ -130,8 +130,8 @@ const ArtistAuth = () => {
               await supabase.functions.invoke('send-verification-link', { body: { email } });
             } catch { /* non-fatal */ }
             navigate(
-              `/check-email?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/artist/apply')}`,
-              { state: { email, next: '/artist/apply' }, replace: true },
+              `/check-email?email=${encodeURIComponent(email)}&next=${encodeURIComponent('/artist/onboarding')}`,
+              { state: { email, next: '/artist/onboarding' }, replace: true },
             );
             return;
           }
@@ -175,7 +175,7 @@ const ArtistAuth = () => {
         const meta = (authedUser.user_metadata || {}) as Record<string, unknown>;
         if (meta.account_type === 'artist') {
           toast.success('Welcome back — finish setting up your artist profile.');
-          navigate('/artist/apply', { replace: true });
+          navigate('/artist/onboarding', { replace: true });
           return;
         }
 
@@ -220,10 +220,10 @@ const ArtistAuth = () => {
         } catch { /* non-fatal */ }
 
         localStorage.setItem('uf_just_signed_up', '1');
-        localStorage.setItem('uf_post_verify_next', '/artist/apply');
+        localStorage.setItem('uf_post_verify_next', '/artist/onboarding');
         navigate(
-          `/check-email?email=${encodeURIComponent(email)}&u=${encodeURIComponent(username)}&next=${encodeURIComponent('/artist/apply')}`,
-          { state: { email, username, next: '/artist/apply' }, replace: true },
+          `/check-email?email=${encodeURIComponent(email)}&u=${encodeURIComponent(username)}&next=${encodeURIComponent('/artist/onboarding')}`,
+          { state: { email, username, next: '/artist/onboarding' }, replace: true },
         );
         supabase.functions
           .invoke('send-verification-link', { body: { email, username, accountType: 'artist' } })

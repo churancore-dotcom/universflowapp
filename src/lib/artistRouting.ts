@@ -1,7 +1,7 @@
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
 
-export type ArtistDestination = '/artist/studio' | '/artist/status' | '/artist/apply' | null;
+export type ArtistDestination = '/artist/studio' | '/artist/status' | '/artist/onboarding' | null;
 
 async function latestApplicationForUser(userId: string): Promise<{ status?: string } | null> {
   const { data } = await supabase
@@ -64,5 +64,5 @@ export async function getArtistDestination(user?: User | null): Promise<ArtistDe
     // Fall through to /artist/apply
   }
 
-  return '/artist/apply';
+  return '/artist/onboarding';
 }
