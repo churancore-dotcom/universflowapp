@@ -752,14 +752,19 @@ function WaveformPreview({
 
 /* ============================== Step 3 — Review ============================== */
 function ReviewStep({
-  title, genre, hasLyrics, coverPreview, source,
+  title, genre, hasLyrics, coverPreview, source, releaseMode, scheduledAtDate,
 }: {
   title: string;
   genre: string;
   hasLyrics: boolean;
   coverPreview: string | null;
   source: 'drive' | 'dropbox' | null;
+  releaseMode: 'now' | 'schedule';
+  scheduledAtDate: Date | null;
 }) {
+  const scheduleLabel = releaseMode === 'schedule' && scheduledAtDate
+    ? scheduledAtDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
   return (
     <div className="space-y-4">
       <BentoCard className="p-5">
