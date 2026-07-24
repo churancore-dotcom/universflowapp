@@ -368,6 +368,19 @@ export default function ArtistUpload() {
               streamUrl={linkState?.ok ? linkState.normalized : ''}
             />
           )}
+          {step === 'schedule' && (
+            <ScheduleStep
+              releaseMode={releaseMode}
+              setReleaseMode={setReleaseMode}
+              scheduledAt={scheduledAt}
+              setScheduledAt={setScheduledAt}
+              scheduledAtDate={scheduledAtDate}
+              scheduleValid={scheduleValid}
+              description={description}
+              setDescription={setDescription}
+              minScheduleAt={defaultScheduleAt}
+            />
+          )}
           {step === 'review' && (
             <ReviewStep
               title={title}
@@ -375,6 +388,8 @@ export default function ArtistUpload() {
               hasLyrics={Boolean(lyricsPlain.trim() || lyricsSynced.trim())}
               coverPreview={coverPreview}
               source={linkState?.ok ? linkState.source : null}
+              releaseMode={releaseMode}
+              scheduledAtDate={scheduledAtDate}
             />
           )}
         </motion.div>
