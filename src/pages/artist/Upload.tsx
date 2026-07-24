@@ -151,10 +151,14 @@ export default function ArtistUpload() {
   };
 
   const save = async () => {
-    if (!title.trim() || !linkState?.ok) return;
+    if (!title.trim() || !linkState?.ok || !scheduleValid) return;
     setSaving(true);
     try {
       const coverUrl = cover ? await uploadArtistCover(user.id, cover) : null;
+      const scheduledISO = releaseMode === 'schedule' && scheduledAtDate ? scheduledAtDate.toISOString() : null;
+      const releaseDateISO = scheduledAtDate
+        ? scheduledAtDate.toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from('artist_songs')
         .insert({
@@ -162,19 +166,22 @@ export default function ArtistUpload() {
           title: title.trim(),
           stream_url: linkState.normalized,
           cover_url: coverUrl,
+          genre: genre || null,
+          description: description.trim() || null,
+          release_date: releaseDateISO,
+          scheduled_release_at: scheduledISO,
           lyrics_plain: lyricsPlain.trim() || null,
           lyrics_synced: lyricsSynced.trim() || null,
           lyrics_source: lyricsPlain.trim() || lyricsSynced.trim() ? 'artist' : null,
         })
-        .select('id, title, cover_url')
+        .select('id, title, cover_url, status')
         .single();
       if (error) throw error;
       if (!data?.id) throw new Error('Insert returned no row — check artist permissions.');
-      // Show inline celebration on the upload screen, then reset the form
-      // so artists can upload the next song without navigating away.
-      setJustPublished({ id: data.id, title: data.title, coverUrl: data.cover_url ?? null });
+      const wasScheduled = data.status === 'scheduled';
+      setJustPublished({ id: data.id, title: data.title, coverUrl: data.cover_url ?? null, scheduled: wasScheduled });
       fireCelebration();
-      toast.success('Song published 🎉');
+      toast.success(wasScheduled ? 'Song scheduled 🗓️' : 'Song published 🎉');
       resetForm();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not publish song.';
