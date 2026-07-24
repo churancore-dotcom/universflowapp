@@ -241,13 +241,15 @@ export default function ArtistUpload() {
                   initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/85"
                 >
-                  🎉 🎆 🎇 🎊  Published!
+                  {justPublished.scheduled ? '🗓️  Scheduled!' : '🎉 🎆 🎇 🎊  Published!'}
                 </motion.p>
                 <p className="mt-1 font-display text-[20px] leading-none tracking-tight truncate">
                   {justPublished.title}
                 </p>
                 <p className="mt-1.5 text-[11.5px] text-white/75">
-                  Live on your artist page. Views, likes and plays will start updating instantly.
+                  {justPublished.scheduled
+                    ? 'Locked in. It goes live automatically at your chosen time.'
+                    : 'Live on your artist page. Views, likes and plays will start updating instantly.'}
                 </p>
               </div>
             </div>
