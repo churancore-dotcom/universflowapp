@@ -2242,7 +2242,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "moderator" | "user" | "artist"
       artist_app_status: "pending" | "approved" | "rejected"
-      artist_song_status: "live" | "taken_down"
+      artist_song_status: "live" | "taken_down" | "scheduled" | "draft"
       subscription_platform: "android" | "ios" | "web" | "donation"
       subscription_status: "active" | "expired" | "cancelled" | "pending"
       subscription_type: "free" | "premium_monthly" | "premium_yearly"
@@ -2375,7 +2375,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "moderator", "user", "artist"],
       artist_app_status: ["pending", "approved", "rejected"],
-      artist_song_status: ["live", "taken_down"],
+      artist_song_status: ["live", "taken_down", "scheduled", "draft"],
       subscription_platform: ["android", "ios", "web", "donation"],
       subscription_status: ["active", "expired", "cancelled", "pending"],
       subscription_type: ["free", "premium_monthly", "premium_yearly"],
