@@ -98,6 +98,7 @@ const PerformancePanel = lazy(() => import("./pages/admin/PerformancePanel"));
 const AppUpdates = lazy(() => import("./pages/admin/AppUpdates"));
 const ArtistApplications = lazy(() => import("./pages/admin/ArtistApplications"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
+const AdminPayouts = lazy(() => import("./pages/admin/Payouts"));
 
 // Artist program
 const ArtistApply = lazy(() => import("./pages/artist/Apply"));
@@ -114,6 +115,7 @@ const ArtistEditProfile = lazy(() => import("./pages/artist/EditProfile"));
 const ArtistActivity = lazy(() => import("./pages/artist/Activity"));
 const ArtistNotifications = lazy(() => import("./pages/artist/Notifications"));
 const ArtistPromote = lazy(() => import("./pages/artist/Promote"));
+const ArtistEarnings = lazy(() => import("./pages/artist/Earnings"));
 const ArtistPublic = lazy(() => import("./pages/artist/ArtistPublic"));
 
 // Legal
@@ -348,6 +350,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
             <Route path="upload" element={<ArtistUploadPage />} />
             <Route path="songs" element={<ArtistSongsPage />} />
             <Route path="analytics" element={<ArtistAnalyticsPage />} />
+            <Route path="earnings" element={<ArtistEarnings />} />
             <Route path="songs/:id/analytics" element={<ArtistSongAnalyticsPage />} />
             <Route path="followers" element={<ArtistFollowersPage />} />
             <Route path="promote" element={<ArtistPromote />} />
@@ -384,6 +387,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
             <Route path="listener-insights" element={<ListenerInsights />} />
             
             <Route path="payments" element={<PaymentRequests />} />
+            <Route path="payouts" element={<AdminPayouts />} />
             <Route path="notifications" element={<PushNotifications />} />
             <Route path="devices" element={<RegisteredDevices />} />
             <Route path="engagement" element={<UserEngagement />} />

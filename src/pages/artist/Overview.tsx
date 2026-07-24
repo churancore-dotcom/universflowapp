@@ -5,7 +5,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'rec
 import {
   Music2, Heart, Eye, Users, TrendingUp, TrendingDown, Upload, BarChart3,
   UserCog, Bell, ExternalLink, Headphones, ArrowUpRight, Globe2,
-  Play, BadgeCheck, Share2,
+  Play, BadgeCheck, Share2, IndianRupee,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArtistProfile, ArtistSong, fmt } from './_shared';
@@ -330,6 +330,7 @@ export default function Overview() {
           <span className="text-[13px] font-medium">Share card</span>
         </button>
         <QuickAction to="/artist/studio/analytics" icon={<BarChart3 className="w-4 h-4" />} label="Analytics" />
+        <QuickAction to="/artist/studio/earnings" icon={<IndianRupee className="w-4 h-4" />} label={`Earnings · ₹${Math.round(stats.plays * 0.025).toLocaleString('en-IN')}`} />
         <QuickAction to="/artist/studio/profile" icon={<UserCog className="w-4 h-4" />} label="Edit profile" />
         <QuickAction to="/artist/studio/notifications" icon={<Bell className="w-4 h-4" />} label="Notifications" />
       </section>
