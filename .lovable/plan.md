@@ -1,83 +1,94 @@
-# Spotify for Artists — Full Parity Plan
+# Spotify-for-Artists Parity — Gap Analysis + Build Plan
 
-Ship in 4 sequential passes. Each pass is independently useful; nothing is left half-done.
+You already have most of what that prompt asks for. Rather than rebuild it, this plan **fills the missing pieces** so UniversFlow reaches full parity without breaking existing surfaces.
 
-## Current state
+## What already exists (verified against current codebase)
 
-We already have: verification (MediaPipe liveness + music platform proof), `artist_profiles`, `artist_songs`, uploads to `covers` bucket, follower system, basic Studio/Overview/Analytics/Songs pages, share cards, `song_play_events` table with country/city, real view/play/like/download counters, admin approval flow.
+- **Artist upload** (`/artist/upload`) — 4-step wizard: source → details (title, genre, cover, description) → schedule → review. Direct upload to storage.
+- **Artist dashboard** (`/artist/studio`) — songs list with plays, likes, downloads, view counts; take-down; edit.
+- **Artist analytics** (`/artist/analytics`) — KPI cards, streams/listeners time-series, top cities/countries, top songs, follower growth (from `get_artist_analytics` RPC + `song_play_events`).
+- **Public artist page** (`/a/:slug`) — Artist Pick, gallery, accent color, follow button, verified badge, popular tracks.
+- **Scheduling** — `scheduled_release_at`, `publish_due_scheduled_songs()` cron promoter, trigger auto-flip to `live`.
+- **Notifications** — `notify_system_push` + `send-system-push` edge function; approval/rejection pushes wired.
+- **Verification** — MediaPipe liveness + Gemini face-match + ownership code + social verification.
 
-Missing vs Spotify: real-time analytics depth, audience demographics/top-cities per song, Artist Pick, gallery, canvas videos, pre-save/smart links, release scheduling, release calendar, richer profile customization.
+## What's actually missing (this plan)
 
----
+### 1. Admin song review queue
+- New admin route `/admin/song-reviews` listing `artist_songs` with `status = 'draft'` pending review (currently uploads go straight to `live` or `scheduled` — need an optional "review before live" pipeline).
+- Add enum value `pending_review` to `artist_song_status`, plus a `review_required` app setting toggle so trusted verified artists can bypass.
+- Admin actions: preview audio, approve (→ live or keep scheduled), reject with reason (writes to `takedown_reason`, notifies artist), flag explicit.
+- Artist gets push on approve/reject via existing `notify_system_push`.
 
-## Pass 1 — Analytics Dashboard (Spotify-grade)
+### 2. Royalties + payouts
+- New table `artist_payouts` (artist_user_id, streams_count, amount_inr, amount_usd, period_start/end, status, upi_id, requested_at, paid_at, admin_note).
+- Rate: ₹25 per 1000 verified streams (streams counted from `song_play_events` where `action = 'stream'`, deduped by `user_id`/`session_id` per song per day to prevent farming).
+- SECURITY DEFINER RPC `request_artist_payout()` — validates ≥ ₹500 unpaid balance, locks the streams window into a pending payout row.
+- Artist "Earnings" tab in `/artist/studio`: lifetime streams, unpaid balance, payout history table, "Request payout" button (opens UPI form).
+- Admin `/admin/payouts` queue: pending list with UPI, mark-as-paid RPC, audit log entry.
 
-**Data (single migration):**
-- Add `song_saves_daily`, `song_plays_daily`, `artist_listeners_daily` materialized-ish rollup tables (real tables, refreshed by trigger from `song_play_events` + `user_library`) — powers fast charts without scanning raw events.
-- `get_artist_analytics(artist_user_id, since, until)` SECURITY DEFINER RPC returning: streams, listeners, saves, followers-gained, top-songs, top-cities, top-countries, age-unknown/gender-unknown buckets (we don't collect demographics — show "coming soon" placeholder honestly).
-- `get_song_analytics(song_id, since, until)` RPC: per-song streams/saves/skips/completion + top cities.
+### 3. Milestone notifications
+- Trigger on `artist_songs` update: when `play_count` crosses 100 / 1k / 10k / 100k / 1M, fire `notify_system_push` to the artist. Track last-fired milestone in a new `milestone_reached` int column to avoid duplicate pushes.
+- Trigger on `artist_followers` insert: notify artist "New follower: {username}" (throttled via existing `artist_push_throttle` at 1/hour).
 
-**UI — `src/pages/artist/Analytics.tsx` rebuild:**
-- Header KPI row: Streams / Listeners / Saves / Followers with 7d delta arrows.
-- Time-series area chart (28d default, toggles 7d/28d/90d/12mo/lifetime) — recharts.
-- Top Songs table (sortable), Top Cities map-less list, Top Countries with flags.
-- Per-song drill-down page `src/pages/artist/SongAnalytics.tsx` (route `/artist/songs/:id/analytics`).
-- Realtime: subscribe to `song_play_events` for the artist's own songs; increment KPI counters live.
+### 4. Minor gaps in the prompt
+- Featured artists, language, mood tags, explicit toggle → add to `artist_songs` (`featured_artists text[]`, `language text`, `mood_tags text[]`, `is_explicit bool`) and expose in Upload wizard step 2.
+- Monthly listener count on public page → compute from `song_play_events` distinct listeners last 30 days, add to `ArtistPublic.tsx` header.
+- "Estimated earnings" card in `/artist/studio` overview using the same ₹25/1k formula.
 
-## Pass 2 — Profile Customization (Artist Pick, Gallery, richer bio)
+## What we're deliberately NOT doing
 
-**Data:**
-- `artist_profiles`: add `artist_pick` jsonb (`{ type: 'song'|'playlist'|'message', ref_id, message, pinned_at }`), `gallery_urls text[]`, `tagline`, `pronouns`, `location`, `accent_color`.
-- Storage: reuse `covers` bucket, path `artist-gallery/{user_id}/…` with RLS "artist can write own".
+- No new pages for things already shipped (`/artist/upload`, `/artist/dashboard`→`/artist/studio`, `/artist/analytics`, `/a/:slug`). Just enhancing them.
+- No UI restyle — dark theme + rose accent stays.
+- No changes to verification flow.
 
-**UI:**
-- `src/pages/artist/EditProfile.tsx` rebuild: sections for Bio, Artist Pick (search own songs, add note), Gallery (up to 8 images, drag-reorder), Tagline, Pronouns, Location, Accent color picker (drives page gradient).
-- `src/pages/artist/ArtistPublic.tsx`: show Artist Pick card above discography, gallery carousel below, accent color used in banner gradient.
+## Technical outline
 
-## Pass 3 — Release & Upload Flow (scheduling + calendar)
+```text
+artist_songs
+  + featured_artists text[]
+  + language text
+  + mood_tags text[]
+  + is_explicit bool default false
+  + milestone_reached int default 0
+  + status enum adds 'pending_review'
 
-**Data:**
-- `artist_songs`: add `release_at timestamptz`, `visibility text` ('draft'|'scheduled'|'live'|'taken_down'), keep `status` for moderation.
-- Cron edge fn `release-scheduler` runs every 5 min: flips `scheduled → live` when `release_at <= now()` and moderation passed.
+artist_payouts (new table, RLS: artist reads own; admin reads all)
+  id, artist_user_id, streams_count, amount_inr, amount_usd,
+  period_start, period_end, status ('pending'|'processing'|'paid'|'rejected'),
+  upi_id, requested_at, paid_at, admin_note
 
-**UI:**
-- Rebuild `src/pages/artist/Upload.tsx` as a 4-step wizard: Audio → Metadata → Cover → Release (now / schedule date+time / save draft).
-- `src/pages/artist/Releases.tsx` — calendar view (month grid) + list of upcoming/past releases, edit/reschedule/cancel.
-- `src/pages/artist/Songs.tsx`: filter chips for Draft / Scheduled / Live / Taken down.
+RPCs (SECURITY DEFINER)
+  request_artist_payout(_upi_id text) -> jsonb
+  admin_mark_payout_paid(_payout_id uuid) -> jsonb
+  get_artist_earnings_summary(_artist_user_id uuid) -> jsonb
 
-## Pass 4 — Promo tools (Canvas, Pre-save, Share cards, Campaigns)
+Triggers
+  artist_songs milestone check on UPDATE of play_count
+  artist_followers new-follower push on INSERT (throttled)
 
-**Canvas (looping 3–8s vertical video per song):**
-- `artist_songs.canvas_url`. Upload to `covers` bucket under `canvas/{song_id}/…`. Server validates dimensions (9:16) and duration (3–8s) in edge fn `validate-canvas`. Player fullscreen view already exists — swap static cover for `<video loop muted autoplay playsInline>` when `canvas_url` present.
+Cron
+  Reuse existing publish_due_scheduled_songs schedule.
 
-**Pre-save / Smart links:**
-- Public page `/link/:slug` — `smart_links` table (`slug`, `song_id`, `artist_user_id`, `created_at`, `click_count`, `presave_count`).
-- Users signed in → one-tap "Add to Library on release" → row in `presaves` table; when song flips to `live`, edge fn `flush-presaves` inserts to `user_library` and sends push.
-- Signed out → deep-link into app + web fallback.
+Frontend
+  src/pages/artist/Upload.tsx        (add featured/language/mood/explicit)
+  src/pages/artist/Studio.tsx        (add Earnings tab)
+  src/pages/artist/Earnings.tsx      (new — history + request payout)
+  src/pages/ArtistPublic.tsx         (add monthly listeners)
+  src/pages/admin/SongReviews.tsx    (new)
+  src/pages/admin/Payouts.tsx        (new)
+```
 
-**Share cards:** already exist (`ArtistShareCard.tsx`) — extend with song-specific card + Canvas frame preview.
+## Build order (2 passes)
 
-**Campaigns (Marquee-lite):**
-- `artist_campaigns` table (`artist_user_id`, `song_id`, `headline`, `budget_credits`, `starts_at`, `ends_at`, `status`, `impressions`, `clicks`).
-- Renders as a promoted card in `HomeBento` for followers of the artist (free), or all users if `budget_credits > 0` (later). Budget in "credits" — no real payment yet; admin approves.
-- Admin page `src/pages/admin/CampaignReview.tsx`.
+**Pass A — Money + trust**
+1. Migration: `artist_payouts` table + RLS + earnings RPCs + milestone trigger + new `artist_songs` columns.
+2. `/artist/studio` Earnings tab + `/admin/payouts` queue.
+3. Milestone + follower pushes.
 
----
+**Pass B — Metadata + review pipeline**
+4. Upload wizard extra fields (featured/language/mood/explicit).
+5. `pending_review` status + `/admin/song-reviews` queue + toggle setting.
+6. Monthly-listeners badge on public artist page.
 
-## Technical notes
-
-- All new tables get `GRANT` block + RLS: artists read/write own rows, public reads only where applicable (`artist_pick`, `gallery_urls`, `canvas_url`, `smart_links`).
-- Analytics realtime: `supabase.channel(...).on('postgres_changes', ...)` filtered by artist's own song IDs.
-- Storage RLS: `artist-gallery/{user_id}/…` and `canvas/{song_id}/…` only writable by owner.
-- Cron: use `pg_cron` + `net.http_post` for `release-scheduler` and `flush-presaves` (matches existing patterns).
-- No breaking changes to existing `Studio.tsx`; new pages added, old pages upgraded in-place.
-- Estimated size: ~15 new/rebuilt files per pass, 1 migration per pass.
-
-## Order of execution
-
-1. Pass 1 (Analytics) — highest-value, most-visible Spotify feature.
-2. Pass 2 (Profile) — visible win, small surface.
-3. Pass 3 (Release) — unlocks scheduling.
-4. Pass 4 (Promo) — Canvas + Pre-save + Campaigns.
-
-I'll start with Pass 1 as soon as you approve. Confirm and I ship.
+Reply **GO** to start Pass A, or tell me which subset you want first.
