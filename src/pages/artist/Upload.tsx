@@ -310,13 +310,18 @@ export default function ArtistUpload() {
                       {fmt(s.play_count)} plays · {fmt(s.like_count)} likes · {fmt(s.download_count)} dl
                     </p>
                   </div>
-                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
-                    s.status === 'live' ? 'bg-emerald-500/15 text-emerald-300'
-                      : s.status === 'scheduled' ? 'bg-amber-500/15 text-amber-300'
-                      : 'bg-white/[0.06] text-muted-foreground'
-                  }`}>
-                    {s.status === 'live' ? 'Live' : s.status === 'scheduled' ? 'Scheduled' : s.status}
-                  </span>
+                  {(() => {
+                    const st = String(s.status);
+                    return (
+                      <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                        st === 'live' ? 'bg-emerald-500/15 text-emerald-300'
+                          : st === 'scheduled' ? 'bg-amber-500/15 text-amber-300'
+                          : 'bg-white/[0.06] text-muted-foreground'
+                      }`}>
+                        {st === 'live' ? 'Live' : st === 'scheduled' ? 'Scheduled' : st}
+                      </span>
+                    );
+                  })()}
                 </motion.div>
               ))}
             </AnimatePresence>
