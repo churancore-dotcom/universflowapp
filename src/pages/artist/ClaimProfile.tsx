@@ -18,7 +18,7 @@ type SearchRow = {
 };
 
 export default function ArtistClaimProfile() {
-  const { user, loading } = useAuth();
+  const { user, isLoading: loading } = useAuth();
   const navigate = useNavigate();
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchRow[]>([]);

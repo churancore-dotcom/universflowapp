@@ -15,7 +15,7 @@ import ArtistLoading from './ArtistLoading';
  *   B) New artist / distribute  → /artist/apply  (existing KYC wizard)
  */
 export default function ArtistOnboarding() {
-  const { user, loading } = useAuth();
+  const { user, isLoading: loading } = useAuth();
   const navigate = useNavigate();
   const [checking, setChecking] = useState(true);
 
