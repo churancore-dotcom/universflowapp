@@ -5,7 +5,7 @@ import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip } from 'rec
 import {
   Music2, Heart, Eye, Users, TrendingUp, TrendingDown, Upload, BarChart3,
   UserCog, Bell, ExternalLink, Headphones, ArrowUpRight, Globe2,
-  Play, BadgeCheck, Share2,
+  Play, BadgeCheck, Share2, IndianRupee,
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArtistProfile, ArtistSong, fmt } from './_shared';
