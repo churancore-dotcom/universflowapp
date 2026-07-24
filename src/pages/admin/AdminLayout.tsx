@@ -42,6 +42,7 @@ const navItems = [
   
   { icon: Crown, label: 'Payment Requests', path: '/admin/payments' },
   { icon: IndianRupee, label: 'Artist Payouts', path: '/admin/payouts' },
+  { icon: Shield, label: 'Artist Claims', path: '/admin/artist-claims' },
   { icon: Zap, label: 'Engagement', path: '/admin/engagement' },
   { icon: Bell, label: 'Push Notifications', path: '/admin/notifications' },
   { icon: Smartphone, label: 'Registered Devices', path: '/admin/devices' },
