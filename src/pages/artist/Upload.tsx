@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image as ImageIcon, Loader2, Upload as UploadIcon, Link2, CheckCircle2,
   AlertCircle, Cloud, HardDrive, ArrowLeft, ArrowRight, Play, Pause,
-  Music2,
+  Music2, CalendarClock, Zap, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
@@ -29,9 +29,16 @@ const GENRES = [
 const STEPS = [
   { key: 'source', label: 'Source', sub: 'Where is the audio?' },
   { key: 'details', label: 'Details', sub: 'Title, art, mood' },
+  { key: 'schedule', label: 'Schedule', sub: 'Release now or later' },
   { key: 'review', label: 'Review', sub: 'Publish to your page' },
 ] as const;
 type StepKey = typeof STEPS[number]['key'];
+
+/** Format a Date into a value compatible with <input type="datetime-local">. */
+function toLocalInputValue(d: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
 
 /* ---------------- Synthetic waveform (CORS-safe pseudo-preview) ---------------- */
 function hashString(s: string) {
@@ -66,11 +73,29 @@ export default function ArtistUpload() {
   const [streamUrl, setStreamUrl] = useState('');
   const [title, setTitle] = useState('');
   const [genre, setGenre] = useState('');
+  const [description, setDescription] = useState('');
   const [lyricsPlain, setLyricsPlain] = useState('');
   const [lyricsSynced, setLyricsSynced] = useState('');
   const [cover, setCover] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [justPublished, setJustPublished] = useState<null | { id: string; title: string; coverUrl: string | null }>(null);
+  const [justPublished, setJustPublished] = useState<null | { id: string; title: string; coverUrl: string | null; scheduled: boolean }>(null);
+
+  // release scheduling
+  const [releaseMode, setReleaseMode] = useState<'now' | 'schedule'>('now');
+  const defaultScheduleAt = useMemo(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 60); // one hour from now
+    d.setSeconds(0, 0);
+    return toLocalInputValue(d);
+  }, []);
+  const [scheduledAt, setScheduledAt] = useState<string>(defaultScheduleAt);
+
+  const scheduledAtDate = useMemo(() => {
+    if (releaseMode !== 'schedule' || !scheduledAt) return null;
+    const d = new Date(scheduledAt);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }, [releaseMode, scheduledAt]);
+  const scheduleValid = releaseMode === 'now' || (scheduledAtDate !== null && scheduledAtDate.getTime() > Date.now() + 60_000);
 
   const coverPreview = useFilePreview(cover);
   const linkState: LinkValidation | null = useMemo(
@@ -83,23 +108,27 @@ export default function ArtistUpload() {
   const canNext = (() => {
     if (step === 'source') return !!linkState?.ok;
     if (step === 'details') return title.trim().length > 0;
+    if (step === 'schedule') return scheduleValid;
     return true;
   })();
 
   const next = () => {
     if (!canNext) return;
     if (step === 'source') setStep('details');
-    else if (step === 'details') setStep('review');
+    else if (step === 'details') setStep('schedule');
+    else if (step === 'schedule') setStep('review');
   };
   const back = () => {
     if (step === 'source') navigate('/artist/studio');
     else if (step === 'details') setStep('source');
-    else setStep('details');
+    else if (step === 'schedule') setStep('details');
+    else setStep('schedule');
   };
 
   const resetForm = () => {
-    setStreamUrl(''); setTitle(''); setGenre('');
+    setStreamUrl(''); setTitle(''); setGenre(''); setDescription('');
     setLyricsPlain(''); setLyricsSynced(''); setCover(null);
+    setReleaseMode('now'); setScheduledAt(defaultScheduleAt);
     setStep('source');
   };
 
@@ -122,10 +151,14 @@ export default function ArtistUpload() {
   };
 
   const save = async () => {
-    if (!title.trim() || !linkState?.ok) return;
+    if (!title.trim() || !linkState?.ok || !scheduleValid) return;
     setSaving(true);
     try {
       const coverUrl = cover ? await uploadArtistCover(user.id, cover) : null;
+      const scheduledISO = releaseMode === 'schedule' && scheduledAtDate ? scheduledAtDate.toISOString() : null;
+      const releaseDateISO = scheduledAtDate
+        ? scheduledAtDate.toISOString().slice(0, 10)
+        : new Date().toISOString().slice(0, 10);
       const { data, error } = await supabase
         .from('artist_songs')
         .insert({
@@ -133,19 +166,22 @@ export default function ArtistUpload() {
           title: title.trim(),
           stream_url: linkState.normalized,
           cover_url: coverUrl,
+          genre: genre || null,
+          description: description.trim() || null,
+          release_date: releaseDateISO,
+          scheduled_release_at: scheduledISO,
           lyrics_plain: lyricsPlain.trim() || null,
           lyrics_synced: lyricsSynced.trim() || null,
           lyrics_source: lyricsPlain.trim() || lyricsSynced.trim() ? 'artist' : null,
         })
-        .select('id, title, cover_url')
+        .select('id, title, cover_url, status')
         .single();
       if (error) throw error;
       if (!data?.id) throw new Error('Insert returned no row — check artist permissions.');
-      // Show inline celebration on the upload screen, then reset the form
-      // so artists can upload the next song without navigating away.
-      setJustPublished({ id: data.id, title: data.title, coverUrl: data.cover_url ?? null });
+      const wasScheduled = data.status === 'scheduled';
+      setJustPublished({ id: data.id, title: data.title, coverUrl: data.cover_url ?? null, scheduled: wasScheduled });
       fireCelebration();
-      toast.success('Song published 🎉');
+      toast.success(wasScheduled ? 'Song scheduled 🗓️' : 'Song published 🎉');
       resetForm();
     } catch (e) {
       const msg = e instanceof Error ? e.message : 'Could not publish song.';
@@ -205,13 +241,15 @@ export default function ArtistUpload() {
                   initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
                   className="text-[11px] font-semibold uppercase tracking-[0.22em] text-white/85"
                 >
-                  🎉 🎆 🎇 🎊  Published!
+                  {justPublished.scheduled ? '🗓️  Scheduled!' : '🎉 🎆 🎇 🎊  Published!'}
                 </motion.p>
                 <p className="mt-1 font-display text-[20px] leading-none tracking-tight truncate">
                   {justPublished.title}
                 </p>
                 <p className="mt-1.5 text-[11.5px] text-white/75">
-                  Live on your artist page. Views, likes and plays will start updating instantly.
+                  {justPublished.scheduled
+                    ? 'Locked in. It goes live automatically at your chosen time.'
+                    : 'Live on your artist page. Views, likes and plays will start updating instantly.'}
                 </p>
               </div>
             </div>
@@ -272,11 +310,18 @@ export default function ArtistUpload() {
                       {fmt(s.play_count)} plays · {fmt(s.like_count)} likes · {fmt(s.download_count)} dl
                     </p>
                   </div>
-                  <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
-                    s.status === 'live' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/[0.06] text-muted-foreground'
-                  }`}>
-                    {s.status === 'live' ? 'Live' : s.status}
-                  </span>
+                  {(() => {
+                    const st = String(s.status);
+                    return (
+                      <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
+                        st === 'live' ? 'bg-emerald-500/15 text-emerald-300'
+                          : st === 'scheduled' ? 'bg-amber-500/15 text-amber-300'
+                          : 'bg-white/[0.06] text-muted-foreground'
+                      }`}>
+                        {st === 'live' ? 'Live' : st === 'scheduled' ? 'Scheduled' : st}
+                      </span>
+                    );
+                  })()}
                 </motion.div>
               ))}
             </AnimatePresence>
@@ -323,6 +368,19 @@ export default function ArtistUpload() {
               streamUrl={linkState?.ok ? linkState.normalized : ''}
             />
           )}
+          {step === 'schedule' && (
+            <ScheduleStep
+              releaseMode={releaseMode}
+              setReleaseMode={setReleaseMode}
+              scheduledAt={scheduledAt}
+              setScheduledAt={setScheduledAt}
+              scheduledAtDate={scheduledAtDate}
+              scheduleValid={scheduleValid}
+              description={description}
+              setDescription={setDescription}
+              minScheduleAt={defaultScheduleAt}
+            />
+          )}
           {step === 'review' && (
             <ReviewStep
               title={title}
@@ -330,6 +388,8 @@ export default function ArtistUpload() {
               hasLyrics={Boolean(lyricsPlain.trim() || lyricsSynced.trim())}
               coverPreview={coverPreview}
               source={linkState?.ok ? linkState.source : null}
+              releaseMode={releaseMode}
+              scheduledAtDate={scheduledAtDate}
             />
           )}
         </motion.div>
@@ -690,16 +750,117 @@ function WaveformPreview({
   );
 }
 
-/* ============================== Step 3 — Review ============================== */
+/* ============================== Step 3 — Schedule ============================== */
+function ScheduleStep({
+  releaseMode, setReleaseMode, scheduledAt, setScheduledAt, scheduledAtDate,
+  scheduleValid, description, setDescription, minScheduleAt,
+}: {
+  releaseMode: 'now' | 'schedule';
+  setReleaseMode: (v: 'now' | 'schedule') => void;
+  scheduledAt: string;
+  setScheduledAt: (v: string) => void;
+  scheduledAtDate: Date | null;
+  scheduleValid: boolean;
+  description: string;
+  setDescription: (v: string) => void;
+  minScheduleAt: string;
+}) {
+  return (
+    <div className="space-y-4">
+      <BentoCard className="p-5">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/80 font-semibold mb-3">
+          When should it go live?
+        </p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => setReleaseMode('now')}
+            className={`text-left p-3.5 rounded-2xl border transition ${
+              releaseMode === 'now'
+                ? 'bg-primary/10 border-primary/60 shadow-[0_0_0_1px_rgba(255,45,85,0.35)]'
+                : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 text-[12px] font-semibold">
+              <Zap className="w-3.5 h-3.5" /> Publish now
+            </div>
+            <p className="mt-1 text-[10.5px] text-muted-foreground leading-snug">
+              Goes live the moment you hit publish.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReleaseMode('schedule')}
+            className={`text-left p-3.5 rounded-2xl border transition ${
+              releaseMode === 'schedule'
+                ? 'bg-primary/10 border-primary/60 shadow-[0_0_0_1px_rgba(255,45,85,0.35)]'
+                : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 text-[12px] font-semibold">
+              <CalendarClock className="w-3.5 h-3.5" /> Schedule
+            </div>
+            <p className="mt-1 text-[10.5px] text-muted-foreground leading-snug">
+              Pick a future date & time. Auto-publishes.
+            </p>
+          </button>
+        </div>
+
+        {releaseMode === 'schedule' && (
+          <div className="mt-4">
+            <Field label="Release date & time">
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                min={minScheduleAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[13px] focus:outline-none focus:border-primary/60"
+              />
+            </Field>
+            <p className={`mt-2 text-[11px] flex items-center gap-1.5 ${scheduleValid ? 'text-emerald-300/90' : 'text-amber-300/90'}`}>
+              <Clock className="w-3 h-3" />
+              {scheduleValid && scheduledAtDate
+                ? `Goes live ${scheduledAtDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`
+                : 'Pick a time at least a minute in the future.'}
+            </p>
+          </div>
+        )}
+      </BentoCard>
+
+      <BentoCard className="p-5">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/80 font-semibold mb-3">
+          Release notes <span className="text-muted-foreground/50 normal-case tracking-normal">· optional</span>
+        </p>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value.slice(0, 400))}
+          placeholder="Tell fans the story behind this track…"
+          rows={4}
+          className="w-full p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[13px] leading-relaxed focus:outline-none focus:border-primary/60 resize-none"
+        />
+        <div className="mt-1 text-right text-[10px] text-muted-foreground/60 tabular-nums">
+          {description.length}/400
+        </div>
+      </BentoCard>
+    </div>
+  );
+}
+
+/* ============================== Step 4 — Review ============================== */
 function ReviewStep({
-  title, genre, hasLyrics, coverPreview, source,
+  title, genre, hasLyrics, coverPreview, source, releaseMode, scheduledAtDate,
 }: {
   title: string;
   genre: string;
   hasLyrics: boolean;
   coverPreview: string | null;
   source: 'drive' | 'dropbox' | null;
+  releaseMode: 'now' | 'schedule';
+  scheduledAtDate: Date | null;
 }) {
+  const scheduleLabel = releaseMode === 'schedule' && scheduledAtDate
+    ? scheduledAtDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })
+    : null;
   return (
     <div className="space-y-4">
       <BentoCard className="p-5">
@@ -737,6 +898,16 @@ function ReviewStep({
                   Lyrics ready
                 </span>
               )}
+              <span
+                className="px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1"
+                style={{
+                  background: scheduleLabel ? 'rgba(245,158,11,0.14)' : 'rgba(52,199,89,0.14)',
+                  color: scheduleLabel ? '#FCD34D' : '#86EFAC',
+                }}
+              >
+                {scheduleLabel ? <CalendarClock className="w-2.5 h-2.5" /> : <Zap className="w-2.5 h-2.5" />}
+                {scheduleLabel ? `Live ${scheduleLabel}` : 'Publish instantly'}
+              </span>
             </div>
           </div>
         </div>

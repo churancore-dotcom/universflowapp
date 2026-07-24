@@ -512,14 +512,18 @@ export type Database = {
           artist_user_id: string
           cover_url: string | null
           created_at: string
+          description: string | null
           download_count: number
           duration: number | null
+          genre: string | null
           id: string
           like_count: number
           lyrics_plain: string | null
           lyrics_source: string | null
           lyrics_synced: string | null
           play_count: number
+          release_date: string | null
+          scheduled_release_at: string | null
           status: Database["public"]["Enums"]["artist_song_status"]
           stream_url: string
           takedown_reason: string | null
@@ -531,14 +535,18 @@ export type Database = {
           artist_user_id: string
           cover_url?: string | null
           created_at?: string
+          description?: string | null
           download_count?: number
           duration?: number | null
+          genre?: string | null
           id?: string
           like_count?: number
           lyrics_plain?: string | null
           lyrics_source?: string | null
           lyrics_synced?: string | null
           play_count?: number
+          release_date?: string | null
+          scheduled_release_at?: string | null
           status?: Database["public"]["Enums"]["artist_song_status"]
           stream_url: string
           takedown_reason?: string | null
@@ -550,14 +558,18 @@ export type Database = {
           artist_user_id?: string
           cover_url?: string | null
           created_at?: string
+          description?: string | null
           download_count?: number
           duration?: number | null
+          genre?: string | null
           id?: string
           like_count?: number
           lyrics_plain?: string | null
           lyrics_source?: string | null
           lyrics_synced?: string | null
           play_count?: number
+          release_date?: string | null
+          scheduled_release_at?: string | null
           status?: Database["public"]["Enums"]["artist_song_status"]
           stream_url?: string
           takedown_reason?: string | null
@@ -2215,6 +2227,7 @@ export type Database = {
         Returns: undefined
       }
       process_premium_expiry_notifications: { Args: never; Returns: Json }
+      publish_due_scheduled_songs: { Args: never; Returns: number }
       register_device_token: {
         Args: { _device_info?: Json; _platform?: string; _token: string }
         Returns: string
@@ -2242,7 +2255,7 @@ export type Database = {
     Enums: {
       app_role: "admin" | "moderator" | "user" | "artist"
       artist_app_status: "pending" | "approved" | "rejected"
-      artist_song_status: "live" | "taken_down"
+      artist_song_status: "live" | "taken_down" | "scheduled" | "draft"
       subscription_platform: "android" | "ios" | "web" | "donation"
       subscription_status: "active" | "expired" | "cancelled" | "pending"
       subscription_type: "free" | "premium_monthly" | "premium_yearly"
@@ -2375,7 +2388,7 @@ export const Constants = {
     Enums: {
       app_role: ["admin", "moderator", "user", "artist"],
       artist_app_status: ["pending", "approved", "rejected"],
-      artist_song_status: ["live", "taken_down"],
+      artist_song_status: ["live", "taken_down", "scheduled", "draft"],
       subscription_platform: ["android", "ios", "web", "donation"],
       subscription_status: ["active", "expired", "cancelled", "pending"],
       subscription_type: ["free", "premium_monthly", "premium_yearly"],
