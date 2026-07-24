@@ -330,6 +330,7 @@ export default function Overview() {
           <span className="text-[13px] font-medium">Share card</span>
         </button>
         <QuickAction to="/artist/studio/analytics" icon={<BarChart3 className="w-4 h-4" />} label="Analytics" />
+        <QuickAction to="/artist/studio/earnings" icon={<IndianRupee className="w-4 h-4" />} label={`Earnings · ₹${Math.round(stats.plays * 0.025).toLocaleString('en-IN')}`} />
         <QuickAction to="/artist/studio/profile" icon={<UserCog className="w-4 h-4" />} label="Edit profile" />
         <QuickAction to="/artist/studio/notifications" icon={<Bell className="w-4 h-4" />} label="Notifications" />
       </section>
