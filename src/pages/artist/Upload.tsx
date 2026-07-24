@@ -73,11 +73,29 @@ export default function ArtistUpload() {
   const [streamUrl, setStreamUrl] = useState('');
   const [title, setTitle] = useState('');
   const [genre, setGenre] = useState('');
+  const [description, setDescription] = useState('');
   const [lyricsPlain, setLyricsPlain] = useState('');
   const [lyricsSynced, setLyricsSynced] = useState('');
   const [cover, setCover] = useState<File | null>(null);
   const [saving, setSaving] = useState(false);
-  const [justPublished, setJustPublished] = useState<null | { id: string; title: string; coverUrl: string | null }>(null);
+  const [justPublished, setJustPublished] = useState<null | { id: string; title: string; coverUrl: string | null; scheduled: boolean }>(null);
+
+  // release scheduling
+  const [releaseMode, setReleaseMode] = useState<'now' | 'schedule'>('now');
+  const defaultScheduleAt = useMemo(() => {
+    const d = new Date();
+    d.setMinutes(d.getMinutes() + 60); // one hour from now
+    d.setSeconds(0, 0);
+    return toLocalInputValue(d);
+  }, []);
+  const [scheduledAt, setScheduledAt] = useState<string>(defaultScheduleAt);
+
+  const scheduledAtDate = useMemo(() => {
+    if (releaseMode !== 'schedule' || !scheduledAt) return null;
+    const d = new Date(scheduledAt);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }, [releaseMode, scheduledAt]);
+  const scheduleValid = releaseMode === 'now' || (scheduledAtDate !== null && scheduledAtDate.getTime() > Date.now() + 60_000);
 
   const coverPreview = useFilePreview(cover);
   const linkState: LinkValidation | null = useMemo(
@@ -90,23 +108,27 @@ export default function ArtistUpload() {
   const canNext = (() => {
     if (step === 'source') return !!linkState?.ok;
     if (step === 'details') return title.trim().length > 0;
+    if (step === 'schedule') return scheduleValid;
     return true;
   })();
 
   const next = () => {
     if (!canNext) return;
     if (step === 'source') setStep('details');
-    else if (step === 'details') setStep('review');
+    else if (step === 'details') setStep('schedule');
+    else if (step === 'schedule') setStep('review');
   };
   const back = () => {
     if (step === 'source') navigate('/artist/studio');
     else if (step === 'details') setStep('source');
-    else setStep('details');
+    else if (step === 'schedule') setStep('details');
+    else setStep('schedule');
   };
 
   const resetForm = () => {
-    setStreamUrl(''); setTitle(''); setGenre('');
+    setStreamUrl(''); setTitle(''); setGenre(''); setDescription('');
     setLyricsPlain(''); setLyricsSynced(''); setCover(null);
+    setReleaseMode('now'); setScheduledAt(defaultScheduleAt);
     setStep('source');
   };
 
