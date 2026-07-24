@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image as ImageIcon, Loader2, Upload as UploadIcon, Link2, CheckCircle2,
   AlertCircle, Cloud, HardDrive, ArrowLeft, ArrowRight, Play, Pause,
-  Music2,
+  Music2, CalendarClock, Zap, Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import confetti from 'canvas-confetti';
