@@ -346,6 +346,8 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
 
           {/* Artist program — these MUST come before /artist/:artistId so static segments win */}
           <Route path="/artist/auth" element={user ? <Navigate to="/" replace /> : <ArtistAuth />} />
+          <Route path="/artist/onboarding" element={<ArtistProtectedRoute><ArtistOnboarding /></ArtistProtectedRoute>} />
+          <Route path="/artist/claim" element={<ArtistProtectedRoute><ArtistClaimProfile /></ArtistProtectedRoute>} />
           <Route path="/artist/apply" element={<ArtistProtectedRoute><ArtistApply /></ArtistProtectedRoute>} />
           <Route path="/artist/status" element={<ArtistProtectedRoute><ArtistStatus /></ArtistProtectedRoute>} />
           <Route path="/artist/studio" element={<ArtistProtectedRoute requireArtistRole><ArtistLayout /></ArtistProtectedRoute>}>
