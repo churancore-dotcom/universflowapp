@@ -750,7 +750,103 @@ function WaveformPreview({
   );
 }
 
-/* ============================== Step 3 — Review ============================== */
+/* ============================== Step 3 — Schedule ============================== */
+function ScheduleStep({
+  releaseMode, setReleaseMode, scheduledAt, setScheduledAt, scheduledAtDate,
+  scheduleValid, description, setDescription, minScheduleAt,
+}: {
+  releaseMode: 'now' | 'schedule';
+  setReleaseMode: (v: 'now' | 'schedule') => void;
+  scheduledAt: string;
+  setScheduledAt: (v: string) => void;
+  scheduledAtDate: Date | null;
+  scheduleValid: boolean;
+  description: string;
+  setDescription: (v: string) => void;
+  minScheduleAt: string;
+}) {
+  return (
+    <div className="space-y-4">
+      <BentoCard className="p-5">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/80 font-semibold mb-3">
+          When should it go live?
+        </p>
+        <div className="grid grid-cols-2 gap-2.5">
+          <button
+            type="button"
+            onClick={() => setReleaseMode('now')}
+            className={`text-left p-3.5 rounded-2xl border transition ${
+              releaseMode === 'now'
+                ? 'bg-primary/10 border-primary/60 shadow-[0_0_0_1px_rgba(255,45,85,0.35)]'
+                : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 text-[12px] font-semibold">
+              <Zap className="w-3.5 h-3.5" /> Publish now
+            </div>
+            <p className="mt-1 text-[10.5px] text-muted-foreground leading-snug">
+              Goes live the moment you hit publish.
+            </p>
+          </button>
+          <button
+            type="button"
+            onClick={() => setReleaseMode('schedule')}
+            className={`text-left p-3.5 rounded-2xl border transition ${
+              releaseMode === 'schedule'
+                ? 'bg-primary/10 border-primary/60 shadow-[0_0_0_1px_rgba(255,45,85,0.35)]'
+                : 'bg-white/[0.03] border-white/[0.06] hover:bg-white/[0.05]'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 text-[12px] font-semibold">
+              <CalendarClock className="w-3.5 h-3.5" /> Schedule
+            </div>
+            <p className="mt-1 text-[10.5px] text-muted-foreground leading-snug">
+              Pick a future date & time. Auto-publishes.
+            </p>
+          </button>
+        </div>
+
+        {releaseMode === 'schedule' && (
+          <div className="mt-4">
+            <Field label="Release date & time">
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                min={minScheduleAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className="w-full h-11 px-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[13px] focus:outline-none focus:border-primary/60"
+              />
+            </Field>
+            <p className={`mt-2 text-[11px] flex items-center gap-1.5 ${scheduleValid ? 'text-emerald-300/90' : 'text-amber-300/90'}`}>
+              <Clock className="w-3 h-3" />
+              {scheduleValid && scheduledAtDate
+                ? `Goes live ${scheduledAtDate.toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}`
+                : 'Pick a time at least a minute in the future.'}
+            </p>
+          </div>
+        )}
+      </BentoCard>
+
+      <BentoCard className="p-5">
+        <p className="text-[10px] uppercase tracking-[0.22em] text-muted-foreground/80 font-semibold mb-3">
+          Release notes <span className="text-muted-foreground/50 normal-case tracking-normal">· optional</span>
+        </p>
+        <textarea
+          value={description}
+          onChange={(e) => setDescription(e.target.value.slice(0, 400))}
+          placeholder="Tell fans the story behind this track…"
+          rows={4}
+          className="w-full p-3 rounded-xl bg-white/[0.04] border border-white/[0.06] text-[13px] leading-relaxed focus:outline-none focus:border-primary/60 resize-none"
+        />
+        <div className="mt-1 text-right text-[10px] text-muted-foreground/60 tabular-nums">
+          {description.length}/400
+        </div>
+      </BentoCard>
+    </div>
+  );
+}
+
+/* ============================== Step 4 — Review ============================== */
 function ReviewStep({
   title, genre, hasLyrics, coverPreview, source, releaseMode, scheduledAtDate,
 }: {
