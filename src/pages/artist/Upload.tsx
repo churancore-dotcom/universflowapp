@@ -802,6 +802,16 @@ function ReviewStep({
                   Lyrics ready
                 </span>
               )}
+              <span
+                className="px-2 py-0.5 rounded-full text-[10px] font-medium inline-flex items-center gap-1"
+                style={{
+                  background: scheduleLabel ? 'rgba(245,158,11,0.14)' : 'rgba(52,199,89,0.14)',
+                  color: scheduleLabel ? '#FCD34D' : '#86EFAC',
+                }}
+              >
+                {scheduleLabel ? <CalendarClock className="w-2.5 h-2.5" /> : <Zap className="w-2.5 h-2.5" />}
+                {scheduleLabel ? `Live ${scheduleLabel}` : 'Publish instantly'}
+              </span>
             </div>
           </div>
         </div>
