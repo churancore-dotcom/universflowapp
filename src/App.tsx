@@ -98,6 +98,7 @@ const PerformancePanel = lazy(() => import("./pages/admin/PerformancePanel"));
 const AppUpdates = lazy(() => import("./pages/admin/AppUpdates"));
 const ArtistApplications = lazy(() => import("./pages/admin/ArtistApplications"));
 const AdminPanel = lazy(() => import("./pages/admin/AdminPanel"));
+const AdminPayouts = lazy(() => import("./pages/admin/Payouts"));
 
 // Artist program
 const ArtistApply = lazy(() => import("./pages/artist/Apply"));
