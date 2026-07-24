@@ -370,6 +370,62 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_claim_requests: {
+        Row: {
+          admin_note: string | null
+          created_at: string
+          id: string
+          proof_music_url: string | null
+          proof_note: string | null
+          proof_social_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          stage_name: string
+          status: string
+          target_profile_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_note?: string | null
+          created_at?: string
+          id?: string
+          proof_music_url?: string | null
+          proof_note?: string | null
+          proof_social_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          stage_name: string
+          status?: string
+          target_profile_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_note?: string | null
+          created_at?: string
+          id?: string
+          proof_music_url?: string | null
+          proof_note?: string | null
+          proof_social_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          stage_name?: string
+          status?: string
+          target_profile_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_claim_requests_target_profile_id_fkey"
+            columns: ["target_profile_id"]
+            isOneToOne: false
+            referencedRelation: "artist_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artist_followers: {
         Row: {
           artist_user_id: string
@@ -2165,6 +2221,10 @@ export type Database = {
         Args: { _admin_note?: string; _payout_id: string }
         Returns: Json
       }
+      admin_review_artist_claim: {
+        Args: { _admin_note?: string; _claim_id: string; _decision: string }
+        Returns: Json
+      }
       admin_review_payment_request: {
         Args: { p_request_id: string; p_status: string }
         Returns: Json
@@ -2308,6 +2368,17 @@ export type Database = {
       }
       request_artist_payout: { Args: { _upi_id: string }; Returns: Json }
       safe_jsonb_text: { Args: { _value: Json }; Returns: string }
+      search_unclaimed_artist_profiles: {
+        Args: { _limit?: number; _query: string }
+        Returns: {
+          avatar_url: string
+          id: string
+          is_claimed: boolean
+          slug: string
+          stage_name: string
+          total_plays: number
+        }[]
+      }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
       submit_artist_application: {
@@ -2323,6 +2394,15 @@ export type Database = {
           p_social_links: Json
           p_social_verified_url?: string
           p_stage_name: string
+        }
+        Returns: Json
+      }
+      submit_artist_claim: {
+        Args: {
+          _proof_music_url: string
+          _proof_note: string
+          _proof_social_url: string
+          _target_profile_id: string
         }
         Returns: Json
       }
