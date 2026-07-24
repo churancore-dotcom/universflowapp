@@ -391,6 +391,57 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_payouts: {
+        Row: {
+          admin_note: string | null
+          amount_inr: number
+          amount_usd: number
+          artist_user_id: string
+          created_at: string
+          id: string
+          paid_at: string | null
+          period_end: string
+          period_start: string
+          requested_at: string
+          status: string
+          streams_count: number
+          updated_at: string
+          upi_id: string | null
+        }
+        Insert: {
+          admin_note?: string | null
+          amount_inr?: number
+          amount_usd?: number
+          artist_user_id: string
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          period_end: string
+          period_start: string
+          requested_at?: string
+          status?: string
+          streams_count?: number
+          updated_at?: string
+          upi_id?: string | null
+        }
+        Update: {
+          admin_note?: string | null
+          amount_inr?: number
+          amount_usd?: number
+          artist_user_id?: string
+          created_at?: string
+          id?: string
+          paid_at?: string | null
+          period_end?: string
+          period_start?: string
+          requested_at?: string
+          status?: string
+          streams_count?: number
+          updated_at?: string
+          upi_id?: string | null
+        }
+        Relationships: []
+      }
       artist_profiles: {
         Row: {
           accent_color: string | null
@@ -515,12 +566,17 @@ export type Database = {
           description: string | null
           download_count: number
           duration: number | null
+          featured_artists: string[] | null
           genre: string | null
           id: string
+          is_explicit: boolean
+          language: string | null
           like_count: number
           lyrics_plain: string | null
           lyrics_source: string | null
           lyrics_synced: string | null
+          milestone_reached: number
+          mood_tags: string[] | null
           play_count: number
           release_date: string | null
           scheduled_release_at: string | null
@@ -538,12 +594,17 @@ export type Database = {
           description?: string | null
           download_count?: number
           duration?: number | null
+          featured_artists?: string[] | null
           genre?: string | null
           id?: string
+          is_explicit?: boolean
+          language?: string | null
           like_count?: number
           lyrics_plain?: string | null
           lyrics_source?: string | null
           lyrics_synced?: string | null
+          milestone_reached?: number
+          mood_tags?: string[] | null
           play_count?: number
           release_date?: string | null
           scheduled_release_at?: string | null
@@ -561,12 +622,17 @@ export type Database = {
           description?: string | null
           download_count?: number
           duration?: number | null
+          featured_artists?: string[] | null
           genre?: string | null
           id?: string
+          is_explicit?: boolean
+          language?: string | null
           like_count?: number
           lyrics_plain?: string | null
           lyrics_source?: string | null
           lyrics_synced?: string | null
+          milestone_reached?: number
+          mood_tags?: string[] | null
           play_count?: number
           release_date?: string | null
           scheduled_release_at?: string | null
@@ -2095,6 +2161,10 @@ export type Database = {
         Args: { p_details?: Json; p_event_type: string; p_severity?: string }
         Returns: string
       }
+      admin_mark_payout_paid: {
+        Args: { _admin_note?: string; _payout_id: string }
+        Returns: Json
+      }
       admin_review_payment_request: {
         Args: { p_request_id: string; p_status: string }
         Returns: Json
@@ -2132,6 +2202,10 @@ export type Database = {
           _since: string
           _until?: string
         }
+        Returns: Json
+      }
+      get_artist_earnings_summary: {
+        Args: { _artist_user_id: string }
         Returns: Json
       }
       get_artist_follower_count: {
@@ -2232,6 +2306,7 @@ export type Database = {
         Args: { _device_info?: Json; _platform?: string; _token: string }
         Returns: string
       }
+      request_artist_payout: { Args: { _upi_id: string }; Returns: Json }
       safe_jsonb_text: { Args: { _value: Json }; Returns: string }
       show_limit: { Args: never; Returns: number }
       show_trgm: { Args: { "": string }; Returns: string[] }
