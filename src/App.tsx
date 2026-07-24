@@ -393,6 +393,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
             
             <Route path="payments" element={<PaymentRequests />} />
             <Route path="payouts" element={<AdminPayouts />} />
+            <Route path="artist-claims" element={<AdminArtistClaims />} />
             <Route path="notifications" element={<PushNotifications />} />
             <Route path="devices" element={<RegisteredDevices />} />
             <Route path="engagement" element={<UserEngagement />} />
