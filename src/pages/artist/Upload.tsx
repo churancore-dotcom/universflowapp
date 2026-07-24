@@ -311,9 +311,11 @@ export default function ArtistUpload() {
                     </p>
                   </div>
                   <span className={`text-[9.5px] px-1.5 py-0.5 rounded-full font-semibold uppercase tracking-wider ${
-                    s.status === 'live' ? 'bg-emerald-500/15 text-emerald-300' : 'bg-white/[0.06] text-muted-foreground'
+                    s.status === 'live' ? 'bg-emerald-500/15 text-emerald-300'
+                      : s.status === 'scheduled' ? 'bg-amber-500/15 text-amber-300'
+                      : 'bg-white/[0.06] text-muted-foreground'
                   }`}>
-                    {s.status === 'live' ? 'Live' : s.status}
+                    {s.status === 'live' ? 'Live' : s.status === 'scheduled' ? 'Scheduled' : s.status}
                   </span>
                 </motion.div>
               ))}
