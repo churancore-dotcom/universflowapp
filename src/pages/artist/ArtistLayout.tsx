@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, memo } from 'react';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Upload, Music2, BarChart3, Users, UserCog, LogOut,
-  Menu, X, ExternalLink, CheckCircle2, Bell, Activity as ActivityIcon, Megaphone, IndianRupee,
+  Menu, X, ExternalLink, CheckCircle2, Bell, Activity as ActivityIcon, Megaphone, IndianRupee, Shield,
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +15,7 @@ const nav = [
   { to: '/artist/studio/songs', label: 'My music', icon: Music2 },
   { to: '/artist/studio/analytics', label: 'Analytics', icon: BarChart3 },
   { to: '/artist/studio/earnings', label: 'Earnings', icon: IndianRupee },
+  { to: '/artist/studio/team', label: 'Team access', icon: Shield },
   { to: '/artist/studio/promote', label: 'Promote', icon: Megaphone },
   { to: '/artist/studio/followers', label: 'Followers', icon: Users },
   { to: '/artist/studio/activity', label: 'Activity', icon: ActivityIcon },
