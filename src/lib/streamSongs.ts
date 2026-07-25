@@ -94,7 +94,7 @@ const flushStreamSongUpserts = async () => {
   const rows = Array.from(_pendingUpserts.values());
   _pendingUpserts.clear();
   try {
-    await supabase.from('stream_songs').upsert(rows, { onConflict: 'track_id' });
+    await supabase.from('stream_songs').upsert(rows as never, { onConflict: 'track_id' });
   } catch {
     // best-effort metadata write
   }
