@@ -105,6 +105,9 @@
     <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700;800;900&display=swap" onload="this.onload=null;this.rel='stylesheet'" />
     <noscript><link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Barlow:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" /></noscript>
 
+    <!-- LCP hero image: homepage header logo. Preload + eager + fetchpriority so it paints fast. -->
+    <link rel="preload" as="image" href="/app-logo.webp" type="image/webp" fetchpriority="high" />
+
     <!-- pwa-192x192.png is referenced as favicon/apple-touch-icon above and via
          MediaSession at runtime — no <img> uses it, so we don't preload it
          (browsers warn "preloaded but not used within a few seconds"). -->
