@@ -181,7 +181,10 @@ export default function ArtistUpload() {
   const stepIndex = STEPS.findIndex((s) => s.key === step);
 
   const canNext = (() => {
-    if (step === 'source') return !!linkState?.ok;
+    if (step === 'source') {
+      if (tab === 'upload') return !!uploadedAudioUrl && !uploading;
+      return !!linkState?.ok;
+    }
     if (step === 'details') return title.trim().length > 0;
     if (step === 'schedule') return scheduleValid;
     return true;
