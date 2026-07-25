@@ -207,6 +207,7 @@ export default function ArtistUpload() {
     setStreamUrl(''); setTitle(''); setGenre(''); setDescription('');
     setLyricsPlain(''); setLyricsSynced(''); setCover(null);
     setReleaseMode('now'); setScheduledAt(defaultScheduleAt);
+    setAudioFile(null); setUploadedAudioUrl(null); setUploadProgress(0); setUploading(false);
     setStep('source');
   };
 
