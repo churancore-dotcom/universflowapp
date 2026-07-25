@@ -67,7 +67,82 @@ export default function ArtistUpload() {
   const recentUploads = songs.slice(0, 5);
   const navigate = useNavigate();
   const [step, setStep] = useState<StepKey>('source');
-  const [tab, setTab] = useState<'drive' | 'dropbox'>('drive');
+  const [tab, setTab] = useState<'upload' | 'drive' | 'dropbox'>('upload');
+
+  // Direct file upload state
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
+
+  const handleAudioFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const nameOk = /\.(mp3|wav|flac|m4a|aac|ogg)$/i.test(file.name);
+    const typeOk = /^audio\//i.test(file.type);
+    if (!nameOk && !typeOk) {
+      toast.error('Only MP3, WAV, FLAC, M4A files allowed');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('File too large. Maximum 100MB');
+      return;
+    }
+
+    setAudioFile(file);
+    setUploadedAudioUrl(null);
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const ext = (file.name.split('.').pop() || 'mp3').toLowerCase();
+      const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+
+      const { data: sess } = await supabase.auth.getSession();
+      const accessToken = sess?.session?.access_token;
+      if (!accessToken) throw new Error('You are signed out. Please sign in again.');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const endpoint = `${supabaseUrl}/storage/v1/object/artist-audio/${path}`;
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', endpoint);
+        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+        xhr.setRequestHeader('Content-Type', file.type || 'audio/mpeg');
+        xhr.setRequestHeader('x-upsert', 'true');
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) {
+            setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`Upload failed (${xhr.status}): ${xhr.responseText}`));
+        };
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.send(file);
+      });
+
+      const { data: pub } = supabase.storage.from('artist-audio').getPublicUrl(path);
+      const publicUrl = pub?.publicUrl;
+      if (!publicUrl) throw new Error('Could not get public URL for upload');
+
+      setUploadedAudioUrl(publicUrl);
+      setUploadProgress(100);
+      toast.success('Audio uploaded ✓');
+    } catch (err) {
+      console.error('[artist-upload] direct upload failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
+      setAudioFile(null);
+      setUploadProgress(0);
+      setUploadedAudioUrl(null);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // form state
   const [streamUrl, setStreamUrl] = useState('');
