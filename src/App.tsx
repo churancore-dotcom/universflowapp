@@ -102,8 +102,12 @@ const AdminPayouts = lazy(() => import("./pages/admin/Payouts"));
 
 // Artist program
 const ArtistApply = lazy(() => import("./pages/artist/Apply"));
-const ArtistOnboarding = lazy(() => import("./pages/artist/Onboarding"));
+const ArtistOnboarding = lazy(() => import("./pages/artist/AccessHub"));
 const ArtistClaimProfile = lazy(() => import("./pages/artist/ClaimProfile"));
+const ArtistJoinTeam = lazy(() => import("./pages/artist/JoinTeam"));
+const ArtistLabelAccess = lazy(() => import("./pages/artist/LabelAccess"));
+const ArtistTeamManagement = lazy(() => import("./pages/artist/TeamManagement"));
+const AdminLabelRequests = lazy(() => import("./pages/admin/LabelRequests"));
 const AdminArtistClaims = lazy(() => import("./pages/admin/ArtistClaims"));
 const ArtistAuth = lazy(() => import("./pages/artist/ArtistAuth"));
 const ArtistStatus = lazy(() => import("./pages/artist/Status"));
