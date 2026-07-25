@@ -1,68 +1,103 @@
-# Spotify-for-Artists → Univers Flow Parity
+# Spotify-for-Artists Style Access System
 
-Goal: mirror every core Spotify for Artists (S4A) flow inside Univers Flow, adapted to our stack (Supabase + native APK + editorial rails). No fake features — every screen backed by real data.
+Rebuild artist onboarding to match how Spotify accepts artists — not a raw signup form, but a **claim-based access system** with roles, invites, and team management.
 
-## How Spotify actually works (researched)
+## What Spotify actually does (verified)
 
-1. **Two entry points**
-   - **New artist**: create Spotify account → sign up to Spotify for Artists → connect via a distributor (DistroKid, TuneCore, CD Baby, Amuse, etc.) → distributor delivers song → Spotify auto-creates artist profile → artist claims it.
-   - **Existing artist**: already has releases on Spotify → goes to `artists.spotify.com` → requests access → verifies via social/email → gets dashboard.
-2. **Verification** = blue checkmark (not paid). Automatic after: 1 release live + claim + basic profile filled.
-3. **Dashboard tabs**: Home · Music · Audience · Playlists · Campaigns · Profile.
-4. **Monetization**: ~$0.003–$0.005/stream, monthly rollup, paid via distributor (Spotify pays distributor, distributor pays artist).
-5. **Distribution**: Spotify Distribution (via SoundOn / DistroKid partnership) → 1 upload → 150+ platforms.
-6. **Profile tools**: Artist Pick, Canvas (looping video), Bio, Gallery, Concerts, Merch, Playlist submission for editorial.
+1. **Claim your profile** — Artists don't "sign up as artist". They claim an existing artist profile that's already on Spotify (indexed from their released music). If no profile exists, they upload via a distributor first.
+2. **Verify identity** — Prove ownership via social/streaming link or distributor.
+3. **Invite team** — Once approved, the artist can invite Managers, Admins, Editors, Viewers, Analysts to their dashboard with role-based permissions.
+4. **Label access** — Labels/distributors get org-level access spanning multiple artists.
+5. **Access requests** — Pending/approved/revoked flows for every team seat.
 
-## Univers Flow parity plan — 5 passes
+## What we'll build (Univers Flow versions)
 
-Already shipped (from prior passes): OAuth, artist auth, KYC + face liveness, upload wizard w/ scheduling, analytics, earnings + payout, milestones, follower push, artist pick + gallery, accent color.
+### 1. `/artist` — Access Hub (rebuild)
+Three big cards, Spotify-style:
+- **Claim your artist profile** → `/artist/claim` (already exists — polish)
+- **I'm on a team** → `/artist/team/join` (accept invite via code/link)
+- **I'm a label / distributor** → `/artist/label/access` (multi-artist org access)
 
-Remaining gaps → build in 5 passes.
+Kills the current "signup as artist" framing.
 
-### Pass 1 — Signup & Onboarding Rewrite (Spotify-parity)
-- Rewrite `/artist/apply` as 4-step onboarding: **Account → Identity → Music Proof → Review**.
-- Add "I already have music on Univers Flow" vs "I'm a new artist / distribute with us" branch.
-- **Claim existing profile**: match user by stage name → auto-list unclaimed `artist_profiles` → send claim request.
-- **New artist distribution**: use existing Upload wizard as the delivery pipeline (Univers Flow = its own distributor).
-- Progress bar, save-and-resume state in `artist_applications`.
+### 2. `/artist/team` — Team Management (new)
+Owner/Admin view of their artist profile team:
+- List members with role + status (active/pending/revoked)
+- Invite by email → generates one-time invite code + link
+- Change role, revoke access
+- Roles: **Owner**, **Admin**, **Editor**, **Analyst**, **Viewer**
 
-### Pass 2 — Native Distributor Layer ("UF Distribution")
-- New table `distribution_releases` (release-level container: 1 release = N songs, artwork, UPC/ISRC placeholder, release date, territories).
-- `/artist/studio/releases` — releases list (draft / in-review / live / takedown).
-- New release wizard: **Release type (Single/EP/Album) → Tracks → Artwork → Metadata → Rights → Schedule → Review**.
-- Rights checkbox: "I own or control 100% of the rights" (legal gate).
-- Auto-assign internal UF-ISRC (`UF-{year}-{seq}`) and UF-UPC.
-- Songs auto-materialized into `artist_songs` on approval.
+Permissions matrix:
+```text
+                Owner  Admin  Editor  Analyst  Viewer
+Upload/edit songs  ✓     ✓      ✓       ·        ·
+Edit profile       ✓     ✓      ✓       ·        ·
+Request payouts    ✓     ✓      ·       ·        ·
+View analytics     ✓     ✓      ✓       ✓        ✓
+Invite team        ✓     ✓      ·       ·        ·
+Transfer ownership ✓     ·      ·       ·        ·
+```
 
-### Pass 3 — Dashboard Rebuild (S4A layout)
-- Rebuild `/artist/studio` (Overview) into S4A layout: Hero card + 28-day metric strip + Top songs + Recent listeners map + Playlist placements.
-- Add `/artist/studio/audience` — gender/age skip (privacy), country breakdown, superfans (top 1% listeners), source of streams (search/library/rails).
-- Add `/artist/studio/playlists` — where the artist's songs appear (auto-generated Daily Mix, Mood, Editorial).
-- Add `/artist/studio/pitch` — submit unreleased song for editorial rail consideration (goes to admin queue).
+### 3. `/artist/team/join?code=XXX` — Accept Invite (new)
+- Signed-out users are routed through auth first, code preserved
+- Shows artist name, inviter, role being granted
+- Accept → membership becomes active
+- Decline → invite marked declined
 
-### Pass 4 — Verified Badge System (real, not decorative)
-- Auto-verify rules: (≥1 live song) AND (KYC approved) AND (profile ≥ 80% complete) AND (≥100 followers) → award `is_verified = true`.
-- Nightly cron via `pg_cron` on `artist_profiles`.
-- Manual admin override.
-- Verified badge shown on Search, Rails, Public page, Player.
+### 4. `/artist/label/access` — Label Access (new)
+- Request label-level access covering multiple artist profiles
+- Fields: label name, roster (artist stage names), proof (distributor dashboard URL, label website)
+- Goes into admin review queue
 
-### Pass 5 — Promo Tools & Pitch
-- **Canvas**: 3–8s looping video per song (reuse existing video upload; render behind fullscreen player).
-- **Pre-save links**: `/pre/:releaseId` public landing for scheduled releases.
-- **Marquee**: artist-purchased promo card in Home rail (uses existing payment_requests table for INR payout).
-- **Share Cards** already shipped — link into Promote tab.
+### 5. `/admin/artist-access` — Admin queue (new)
+- Unified review of claims + label access requests
+- Approve/reject with note
 
-## Technical section
+## Database (new tables)
 
-- **Migrations**: `distribution_releases`, `release_tracks`, `release_pitches`, `canvas_videos`, `pre_save_intents`; add `verified_reason` + `verified_at` to `artist_profiles`.
-- **RPCs**: `submit_release`, `admin_approve_release`, `claim_artist_profile`, `submit_editorial_pitch`, `recompute_verified_status`.
-- **Cron**: nightly verified recompute + weekly audience aggregation into a materialized view `artist_audience_28d`.
-- **Storage buckets**: `release-artwork` (public read), `canvas-videos` (public read), reuse `artist-avatars`.
-- **Push**: release approved / release live / editorial accepted / verified awarded.
-- **Files touched** (approx 25): `Apply.tsx`, new `Releases.tsx` + `NewRelease.tsx`, `Overview.tsx` rebuild, new `Audience.tsx` + `Playlists.tsx` + `Pitch.tsx` + `Canvas.tsx` + `PreSave.tsx`, `App.tsx` routes, `ArtistLayout.tsx` nav, admin `ReleaseQueue.tsx` + `EditorialPitches.tsx`.
+```text
+artist_team_members
+  id, artist_profile_id, user_id, role, status, invited_by,
+  invited_at, joined_at, revoked_at
 
-## Execution order
+artist_team_invites
+  id, artist_profile_id, email, role, code (unique),
+  invited_by, expires_at, status (pending|accepted|declined|expired|revoked)
 
-Pass 1 → 2 → 3 → 4 → 5. Each pass ends in a shippable state. I'll ask before starting each pass so you can reprioritize.
+label_access_requests
+  id, user_id, label_name, roster jsonb, proof_url,
+  status, admin_note, reviewed_by, reviewed_at
+```
 
-Reply **GO** to start Pass 1 (Signup & Onboarding Rewrite).
+RLS + GRANTs following the standard pattern. Owner auto-created when a claim is approved. `has_artist_access(user_id, artist_profile_id, min_role)` security-definer function drives all permission checks.
+
+## Migration of existing behavior
+
+- Current "artist owner = `artist_profiles.user_id`" stays as the Owner row in `artist_team_members` (auto-backfilled).
+- All existing artist RPCs (`request_artist_payout`, upload, edit) gated through `has_artist_access(..., 'editor'|'admin')`.
+- The old `/artist/apply` flow stays as an option under Claim, for artists who don't have a profile indexed yet.
+
+## Files touched
+
+New:
+- `src/pages/artist/AccessHub.tsx` (replaces current onboarding hub)
+- `src/pages/artist/TeamManagement.tsx`
+- `src/pages/artist/JoinTeam.tsx`
+- `src/pages/artist/LabelAccess.tsx`
+- `src/pages/admin/ArtistAccessQueue.tsx`
+- Migration for 3 tables + `has_artist_access` fn + owner backfill
+
+Edited:
+- `src/App.tsx` routes
+- `src/pages/artist/ArtistLayout.tsx` — Team nav item for Owner/Admin
+- `src/pages/artist/Onboarding.tsx` → redirects to new AccessHub
+
+## Out of scope (this pass)
+
+- Email delivery for invites (link + code shown in UI; email pipe can plug in later via existing `send-system-push`)
+- 2FA on ownership transfer
+- Bulk CSV roster import for labels
+
+## Confirmation
+
+This is a large, multi-file rebuild of the artist access model. Approve and I'll ship it in one pass — migration, pages, routes, permission gating.
