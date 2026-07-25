@@ -431,6 +431,11 @@ export default function ArtistUpload() {
               streamUrl={streamUrl}
               setStreamUrl={setStreamUrl}
               linkState={linkState}
+              audioFile={audioFile}
+              uploading={uploading}
+              uploadProgress={uploadProgress}
+              uploadedAudioUrl={uploadedAudioUrl}
+              onAudioFileSelect={handleAudioFileSelect}
             />
           )}
           {step === 'details' && (
