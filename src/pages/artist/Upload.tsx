@@ -245,7 +245,7 @@ export default function ArtistUpload() {
         .insert({
           artist_user_id: user.id,
           title: title.trim(),
-          stream_url: linkState.normalized,
+          stream_url: finalStreamUrl,
           cover_url: coverUrl,
           genre: genre || null,
           description: description.trim() || null,
