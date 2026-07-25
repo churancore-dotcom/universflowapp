@@ -74,7 +74,7 @@ const GetApp = () => {
             <div className="w-[88px] h-[88px] rounded-full overflow-hidden bg-gradient-to-br from-[#FF2D55]/30 to-black border border-white/10 shadow-[0_20px_60px_-15px_rgba(255,45,85,0.55)] flex items-center justify-center">
               <img
                 src={appLogo}
-                alt="Universflow logo"
+                alt="Universflow app icon — free music streaming and download for Android"
                 className="w-[78%] h-[78%] object-contain"
                 width={88}
                 height={88}
