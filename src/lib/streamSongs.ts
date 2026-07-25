@@ -85,7 +85,7 @@ export const getTrackSource = (song: Pick<Song, 'id' | 'source'>) => {
 //   2) NEVER write the ephemeral audio_url (that lives in stream_url_cache)
 //   3) flush queued writes in a single batched upsert every 1s
 const _persistedRecently = new Map<string, number>();
-const _pendingUpserts = new Map<string, Record<string, unknown>>();
+const _pendingUpserts = new Map<string, { track_id: string; source: string; title: string; artist: string; album: string | null; cover_url: string | null; duration: number | null; artist_image_url: string | null; metadata: Record<string, unknown>; last_seen_at: string }>();
 let _flushTimer: ReturnType<typeof setTimeout> | null = null;
 
 const flushStreamSongUpserts = async () => {
