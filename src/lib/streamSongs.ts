@@ -78,32 +78,57 @@ export const getTrackSource = (song: Pick<Song, 'id' | 'source'>) => {
   return isCatalogSongId(song.id) ? 'library' : 'indexed';
 };
 
+// Coalesced, batched upsert queue for stream_songs metadata.
+// Rationale: previously every play upserted a row with an ephemeral (signed)
+// audio_url, causing 8k+ writes and up to 7s tail latency on the DB. We now:
+//   1) skip if same track was persisted in the last 30 min
+//   2) NEVER write the ephemeral audio_url (that lives in stream_url_cache)
+//   3) flush queued writes in a single batched upsert every 1s
 const _persistedRecently = new Map<string, number>();
+const _pendingUpserts = new Map<string, { track_id: string; source: string; title: string; artist: string; album: string | null; cover_url: string | null; duration: number | null; artist_image_url: string | null; metadata: Record<string, unknown>; last_seen_at: string }>();
+let _flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+const flushStreamSongUpserts = async () => {
+  _flushTimer = null;
+  if (_pendingUpserts.size === 0) return;
+  const rows = Array.from(_pendingUpserts.values());
+  _pendingUpserts.clear();
+  try {
+    await supabase.from('stream_songs').upsert(rows as never, { onConflict: 'track_id' });
+  } catch {
+    // best-effort metadata write
+  }
+};
+
 export const persistStreamSong = async (song: Song) => {
   if (!song?.id || isCatalogSongId(song.id)) return;
   const now = Date.now();
   const last = _persistedRecently.get(song.id) ?? 0;
-  if (now - last < 5 * 60 * 1000) return; // skip duplicate upsert within 5 min
+  if (now - last < 30 * 60 * 1000) return; // 30-min dedup (was 5)
   _persistedRecently.set(song.id, now);
-  if (_persistedRecently.size > 500) {
-    // simple LRU-ish trim
-    const cutoff = now - 10 * 60 * 1000;
+  if (_persistedRecently.size > 1000) {
+    const cutoff = now - 60 * 60 * 1000;
     for (const [k, t] of _persistedRecently) if (t < cutoff) _persistedRecently.delete(k);
   }
 
-  await supabase.from('stream_songs').upsert({
+  _pendingUpserts.set(song.id, {
     track_id: song.id,
     source: getTrackSource(song),
     title: song.title,
     artist: song.artist,
     album: song.album ?? null,
     cover_url: song.cover_url ?? null,
-    audio_url: song.audio_url ?? null,
+    // audio_url intentionally omitted — it's an expiring signed URL and
+    // belongs in stream_url_cache, not this metadata row.
     duration: song.duration ?? null,
     artist_image_url: song.artist_photo_url ?? null,
     metadata: {},
     last_seen_at: new Date().toISOString(),
   });
+
+  if (!_flushTimer) {
+    _flushTimer = setTimeout(flushStreamSongUpserts, 1000);
+  }
 };
 
 
