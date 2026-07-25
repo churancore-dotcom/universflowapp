@@ -33,7 +33,7 @@ import { TabTransition } from '@/components/PageTransition';
 import { Music, Lock, ListMusic, Sliders } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { usePremium } from '@/hooks/usePremium';
-import appLogo from '@/assets/app-logo.webp';
+// LCP hero logo is served from /public so it can be preloaded in index.html
 import { HomeSkeleton } from '@/components/PageSkeletons';
 
 import SEOHead from '@/components/SEOHead';
@@ -244,7 +244,7 @@ const Home = () => {
                   border: '1.5px solid hsl(var(--primary) / 0.3)',
                 }}
               >
-                <img src={appLogo} alt="Universflow app logo" width={40} height={40} {...({ fetchpriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)} decoding="async" className="w-full h-full rounded-full object-cover" />
+                <img src="/app-logo.webp" alt="Universflow app logo" width={40} height={40} loading="eager" {...({ fetchpriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)} decoding="async" className="w-full h-full rounded-full object-cover" />
               </div>
               <div>
                 <p className="text-[19px] leading-none text-foreground font-extrabold tracking-tight">
