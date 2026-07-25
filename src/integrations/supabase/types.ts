@@ -701,6 +701,109 @@ export type Database = {
         }
         Relationships: []
       }
+      artist_team_invites: {
+        Row: {
+          accepted_at: string | null
+          accepted_by: string | null
+          artist_profile_id: string
+          code: string
+          created_at: string
+          email: string
+          expires_at: string
+          id: string
+          invited_by: string
+          role: Database["public"]["Enums"]["artist_team_role"]
+          status: Database["public"]["Enums"]["artist_team_status"]
+          updated_at: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          artist_profile_id: string
+          code: string
+          created_at?: string
+          email: string
+          expires_at?: string
+          id?: string
+          invited_by: string
+          role?: Database["public"]["Enums"]["artist_team_role"]
+          status?: Database["public"]["Enums"]["artist_team_status"]
+          updated_at?: string
+        }
+        Update: {
+          accepted_at?: string | null
+          accepted_by?: string | null
+          artist_profile_id?: string
+          code?: string
+          created_at?: string
+          email?: string
+          expires_at?: string
+          id?: string
+          invited_by?: string
+          role?: Database["public"]["Enums"]["artist_team_role"]
+          status?: Database["public"]["Enums"]["artist_team_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_team_invites_artist_profile_id_fkey"
+            columns: ["artist_profile_id"]
+            isOneToOne: false
+            referencedRelation: "artist_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      artist_team_members: {
+        Row: {
+          artist_profile_id: string
+          created_at: string
+          id: string
+          invited_at: string | null
+          invited_by: string | null
+          joined_at: string
+          revoked_at: string | null
+          role: Database["public"]["Enums"]["artist_team_role"]
+          status: Database["public"]["Enums"]["artist_team_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          artist_profile_id: string
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          joined_at?: string
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["artist_team_role"]
+          status?: Database["public"]["Enums"]["artist_team_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          artist_profile_id?: string
+          created_at?: string
+          id?: string
+          invited_at?: string | null
+          invited_by?: string | null
+          joined_at?: string
+          revoked_at?: string | null
+          role?: Database["public"]["Enums"]["artist_team_role"]
+          status?: Database["public"]["Enums"]["artist_team_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "artist_team_members_artist_profile_id_fkey"
+            columns: ["artist_profile_id"]
+            isOneToOne: false
+            referencedRelation: "artist_profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       artists: {
         Row: {
           bio: string | null
@@ -1105,6 +1208,54 @@ export type Database = {
           ip_hash?: string
           request_count?: number
           window_start?: string
+        }
+        Relationships: []
+      }
+      label_access_requests: {
+        Row: {
+          admin_note: string | null
+          contact_email: string | null
+          created_at: string
+          id: string
+          label_name: string
+          proof_url: string | null
+          reviewed_at: string | null
+          reviewed_by: string | null
+          roster: Json
+          status: string
+          updated_at: string
+          user_id: string
+          website: string | null
+        }
+        Insert: {
+          admin_note?: string | null
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          label_name: string
+          proof_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          roster?: Json
+          status?: string
+          updated_at?: string
+          user_id: string
+          website?: string | null
+        }
+        Update: {
+          admin_note?: string | null
+          contact_email?: string | null
+          created_at?: string
+          id?: string
+          label_name?: string
+          proof_url?: string | null
+          reviewed_at?: string | null
+          reviewed_by?: string | null
+          roster?: Json
+          status?: string
+          updated_at?: string
+          user_id?: string
+          website?: string | null
         }
         Relationships: []
       }
@@ -2209,6 +2360,7 @@ export type Database = {
       }
     }
     Functions: {
+      accept_artist_invite: { Args: { _code: string }; Returns: Json }
       admin_get_artist_application_note: {
         Args: { _app_id: string }
         Returns: string
@@ -2223,6 +2375,10 @@ export type Database = {
       }
       admin_review_artist_claim: {
         Args: { _admin_note?: string; _claim_id: string; _decision: string }
+        Returns: Json
+      }
+      admin_review_label_access: {
+        Args: { _admin_note: string; _decision: string; _id: string }
         Returns: Json
       }
       admin_review_payment_request: {
@@ -2246,6 +2402,15 @@ export type Database = {
         Returns: boolean
       }
       consume_free_skip: { Args: never; Returns: Json }
+      create_artist_invite: {
+        Args: {
+          _artist_profile_id: string
+          _email: string
+          _role: Database["public"]["Enums"]["artist_team_role"]
+        }
+        Returns: Json
+      }
+      decline_artist_invite: { Args: { _code: string }; Returns: Json }
       expire_old_subscriptions: { Args: never; Returns: number }
       find_profile_by_share_code: {
         Args: { p_share_code: string }
@@ -2319,6 +2484,14 @@ export type Database = {
           track_id: string
         }[]
       }
+      has_artist_access: {
+        Args: {
+          _artist_profile_id: string
+          _min_role?: Database["public"]["Enums"]["artist_team_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
       has_premium_subscription: { Args: { _user_id: string }; Returns: boolean }
       has_role: {
         Args: {
@@ -2367,6 +2540,10 @@ export type Database = {
         Returns: string
       }
       request_artist_payout: { Args: { _upi_id: string }; Returns: Json }
+      revoke_artist_member: {
+        Args: { _artist_profile_id: string; _user_id: string }
+        Returns: Json
+      }
       safe_jsonb_text: { Args: { _value: Json }; Returns: string }
       search_unclaimed_artist_profiles: {
         Args: { _limit?: number; _query: string }
@@ -2406,11 +2583,31 @@ export type Database = {
         }
         Returns: Json
       }
+      submit_label_access_request: {
+        Args: {
+          _contact_email: string
+          _label_name: string
+          _proof_url: string
+          _roster: Json
+          _website: string
+        }
+        Returns: Json
+      }
+      update_artist_member_role: {
+        Args: {
+          _artist_profile_id: string
+          _role: Database["public"]["Enums"]["artist_team_role"]
+          _user_id: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       app_role: "admin" | "moderator" | "user" | "artist"
       artist_app_status: "pending" | "approved" | "rejected"
       artist_song_status: "live" | "taken_down" | "scheduled" | "draft"
+      artist_team_role: "owner" | "admin" | "editor" | "analyst" | "viewer"
+      artist_team_status: "active" | "pending" | "revoked" | "declined"
       subscription_platform: "android" | "ios" | "web" | "donation"
       subscription_status: "active" | "expired" | "cancelled" | "pending"
       subscription_type: "free" | "premium_monthly" | "premium_yearly"
@@ -2544,6 +2741,8 @@ export const Constants = {
       app_role: ["admin", "moderator", "user", "artist"],
       artist_app_status: ["pending", "approved", "rejected"],
       artist_song_status: ["live", "taken_down", "scheduled", "draft"],
+      artist_team_role: ["owner", "admin", "editor", "analyst", "viewer"],
+      artist_team_status: ["active", "pending", "revoked", "declined"],
       subscription_platform: ["android", "ios", "web", "donation"],
       subscription_status: ["active", "expired", "cancelled", "pending"],
       subscription_type: ["free", "premium_monthly", "premium_yearly"],

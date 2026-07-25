@@ -102,8 +102,12 @@ const AdminPayouts = lazy(() => import("./pages/admin/Payouts"));
 
 // Artist program
 const ArtistApply = lazy(() => import("./pages/artist/Apply"));
-const ArtistOnboarding = lazy(() => import("./pages/artist/Onboarding"));
+const ArtistOnboarding = lazy(() => import("./pages/artist/AccessHub"));
 const ArtistClaimProfile = lazy(() => import("./pages/artist/ClaimProfile"));
+const ArtistJoinTeam = lazy(() => import("./pages/artist/JoinTeam"));
+const ArtistLabelAccess = lazy(() => import("./pages/artist/LabelAccess"));
+const ArtistTeamManagement = lazy(() => import("./pages/artist/TeamManagement"));
+const AdminLabelRequests = lazy(() => import("./pages/admin/LabelRequests"));
 const AdminArtistClaims = lazy(() => import("./pages/admin/ArtistClaims"));
 const ArtistAuth = lazy(() => import("./pages/artist/ArtistAuth"));
 const ArtistStatus = lazy(() => import("./pages/artist/Status"));
@@ -348,6 +352,8 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           <Route path="/artist/auth" element={user ? <Navigate to="/" replace /> : <ArtistAuth />} />
           <Route path="/artist/onboarding" element={<ArtistProtectedRoute><ArtistOnboarding /></ArtistProtectedRoute>} />
           <Route path="/artist/claim" element={<ArtistProtectedRoute><ArtistClaimProfile /></ArtistProtectedRoute>} />
+          <Route path="/artist/team/join" element={<ArtistProtectedRoute><ArtistJoinTeam /></ArtistProtectedRoute>} />
+          <Route path="/artist/label/access" element={<ArtistProtectedRoute><ArtistLabelAccess /></ArtistProtectedRoute>} />
           <Route path="/artist/apply" element={<ArtistProtectedRoute><ArtistApply /></ArtistProtectedRoute>} />
           <Route path="/artist/status" element={<ArtistProtectedRoute><ArtistStatus /></ArtistProtectedRoute>} />
           <Route path="/artist/studio" element={<ArtistProtectedRoute requireArtistRole><ArtistLayout /></ArtistProtectedRoute>}>
@@ -362,6 +368,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
             <Route path="profile" element={<ArtistEditProfile />} />
             <Route path="activity" element={<ArtistActivity />} />
             <Route path="notifications" element={<ArtistNotifications />} />
+            <Route path="team" element={<ArtistTeamManagement />} />
           </Route>
           <Route path="/artist/:artistId" element={<ProtectedRoute><ArtistDetail /></ProtectedRoute>} />
           <Route path="/a/:slug" element={<ArtistPublic />} />
@@ -394,6 +401,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
             <Route path="payments" element={<PaymentRequests />} />
             <Route path="payouts" element={<AdminPayouts />} />
             <Route path="artist-claims" element={<AdminArtistClaims />} />
+            <Route path="label-requests" element={<AdminLabelRequests />} />
             <Route path="notifications" element={<PushNotifications />} />
             <Route path="devices" element={<RegisteredDevices />} />
             <Route path="engagement" element={<UserEngagement />} />
