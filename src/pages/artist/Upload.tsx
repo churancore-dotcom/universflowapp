@@ -67,7 +67,82 @@ export default function ArtistUpload() {
   const recentUploads = songs.slice(0, 5);
   const navigate = useNavigate();
   const [step, setStep] = useState<StepKey>('source');
-  const [tab, setTab] = useState<'drive' | 'dropbox'>('drive');
+  const [tab, setTab] = useState<'upload' | 'drive' | 'dropbox'>('upload');
+
+  // Direct file upload state
+  const [audioFile, setAudioFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedAudioUrl, setUploadedAudioUrl] = useState<string | null>(null);
+
+  const handleAudioFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = '';
+
+    const nameOk = /\.(mp3|wav|flac|m4a|aac|ogg)$/i.test(file.name);
+    const typeOk = /^audio\//i.test(file.type);
+    if (!nameOk && !typeOk) {
+      toast.error('Only MP3, WAV, FLAC, M4A files allowed');
+      return;
+    }
+    if (file.size > 100 * 1024 * 1024) {
+      toast.error('File too large. Maximum 100MB');
+      return;
+    }
+
+    setAudioFile(file);
+    setUploadedAudioUrl(null);
+    setUploading(true);
+    setUploadProgress(0);
+
+    try {
+      const ext = (file.name.split('.').pop() || 'mp3').toLowerCase();
+      const path = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+
+      const { data: sess } = await supabase.auth.getSession();
+      const accessToken = sess?.session?.access_token;
+      if (!accessToken) throw new Error('You are signed out. Please sign in again.');
+
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      const endpoint = `${supabaseUrl}/storage/v1/object/artist-audio/${path}`;
+
+      await new Promise<void>((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('POST', endpoint);
+        xhr.setRequestHeader('Authorization', `Bearer ${accessToken}`);
+        xhr.setRequestHeader('Content-Type', file.type || 'audio/mpeg');
+        xhr.setRequestHeader('x-upsert', 'true');
+        xhr.upload.onprogress = (ev) => {
+          if (ev.lengthComputable) {
+            setUploadProgress(Math.round((ev.loaded / ev.total) * 100));
+          }
+        };
+        xhr.onload = () => {
+          if (xhr.status >= 200 && xhr.status < 300) resolve();
+          else reject(new Error(`Upload failed (${xhr.status}): ${xhr.responseText}`));
+        };
+        xhr.onerror = () => reject(new Error('Network error during upload'));
+        xhr.send(file);
+      });
+
+      const { data: pub } = supabase.storage.from('artist-audio').getPublicUrl(path);
+      const publicUrl = pub?.publicUrl;
+      if (!publicUrl) throw new Error('Could not get public URL for upload');
+
+      setUploadedAudioUrl(publicUrl);
+      setUploadProgress(100);
+      toast.success('Audio uploaded ✓');
+    } catch (err) {
+      console.error('[artist-upload] direct upload failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Upload failed');
+      setAudioFile(null);
+      setUploadProgress(0);
+      setUploadedAudioUrl(null);
+    } finally {
+      setUploading(false);
+    }
+  };
 
   // form state
   const [streamUrl, setStreamUrl] = useState('');
@@ -106,7 +181,10 @@ export default function ArtistUpload() {
   const stepIndex = STEPS.findIndex((s) => s.key === step);
 
   const canNext = (() => {
-    if (step === 'source') return !!linkState?.ok;
+    if (step === 'source') {
+      if (tab === 'upload') return !!uploadedAudioUrl && !uploading;
+      return !!linkState?.ok;
+    }
     if (step === 'details') return title.trim().length > 0;
     if (step === 'schedule') return scheduleValid;
     return true;
@@ -129,6 +207,7 @@ export default function ArtistUpload() {
     setStreamUrl(''); setTitle(''); setGenre(''); setDescription('');
     setLyricsPlain(''); setLyricsSynced(''); setCover(null);
     setReleaseMode('now'); setScheduledAt(defaultScheduleAt);
+    setAudioFile(null); setUploadedAudioUrl(null); setUploadProgress(0); setUploading(false);
     setStep('source');
   };
 
@@ -151,7 +230,9 @@ export default function ArtistUpload() {
   };
 
   const save = async () => {
-    if (!title.trim() || !linkState?.ok || !scheduleValid) return;
+    if (!title.trim() || !scheduleValid) return;
+    const finalStreamUrl = tab === 'upload' ? uploadedAudioUrl : (linkState?.ok ? linkState.normalized : null);
+    if (!finalStreamUrl) return;
     setSaving(true);
     try {
       const coverUrl = cover ? await uploadArtistCover(user.id, cover) : null;
@@ -164,7 +245,7 @@ export default function ArtistUpload() {
         .insert({
           artist_user_id: user.id,
           title: title.trim(),
-          stream_url: linkState.normalized,
+          stream_url: finalStreamUrl,
           cover_url: coverUrl,
           genre: genre || null,
           description: description.trim() || null,
@@ -350,6 +431,11 @@ export default function ArtistUpload() {
               streamUrl={streamUrl}
               setStreamUrl={setStreamUrl}
               linkState={linkState}
+              audioFile={audioFile}
+              uploading={uploading}
+              uploadProgress={uploadProgress}
+              uploadedAudioUrl={uploadedAudioUrl}
+              onAudioFileSelect={handleAudioFileSelect}
             />
           )}
           {step === 'details' && (
@@ -474,14 +560,21 @@ function ProgressRail({ index }: { index: number }) {
 }
 
 /* ============================== Step 1 — Source ============================== */
+type SourceTab = 'upload' | 'drive' | 'dropbox';
 function SourceStep({
   tab, setTab, streamUrl, setStreamUrl, linkState,
+  audioFile, uploading, uploadProgress, uploadedAudioUrl, onAudioFileSelect,
 }: {
-  tab: 'drive' | 'dropbox';
-  setTab: (t: 'drive' | 'dropbox') => void;
+  tab: SourceTab;
+  setTab: (t: SourceTab) => void;
   streamUrl: string;
   setStreamUrl: (s: string) => void;
   linkState: LinkValidation | null;
+  audioFile: File | null;
+  uploading: boolean;
+  uploadProgress: number;
+  uploadedAudioUrl: string | null;
+  onAudioFileSelect: (e: React.ChangeEvent<HTMLInputElement>) => void;
 }) {
   const isValid = !!linkState?.ok;
   const linkMessage = linkState
@@ -490,21 +583,27 @@ function SourceStep({
       : `${linkState.source === 'drive' ? 'Google Drive' : 'Dropbox'} link looks good — we'll stream it directly.`
     : null;
 
+  const TABS: { key: SourceTab; label: string; icon: JSX.Element }[] = [
+    { key: 'upload', label: 'Direct Upload', icon: <UploadIcon className="w-4 h-4" /> },
+    { key: 'drive', label: 'Google Drive', icon: <HardDrive className="w-4 h-4" /> },
+    { key: 'dropbox', label: 'Dropbox', icon: <Cloud className="w-4 h-4" /> },
+  ];
+
   return (
     <div className="space-y-4">
       <BentoCard className="overflow-hidden">
-        <div className="grid grid-cols-2">
-          {(['drive', 'dropbox'] as const).map((t) => (
+        <div className="grid grid-cols-3">
+          {TABS.map((t) => (
             <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={`px-4 py-3 text-[12.5px] font-medium flex items-center justify-center gap-2 transition relative ${
-                tab === t ? 'text-foreground' : 'text-muted-foreground'
+              key={t.key}
+              onClick={() => setTab(t.key)}
+              className={`px-3 py-3 text-[12px] font-medium flex items-center justify-center gap-1.5 transition relative ${
+                tab === t.key ? 'text-foreground' : 'text-muted-foreground'
               }`}
             >
-              {t === 'drive' ? <HardDrive className="w-4 h-4" /> : <Cloud className="w-4 h-4" />}
-              {t === 'drive' ? 'Google Drive' : 'Dropbox'}
-              {tab === t && (
+              {t.icon}
+              <span className="truncate">{t.label}</span>
+              {tab === t.key && (
                 <motion.span
                   layoutId="upload-tab-underline"
                   className="absolute bottom-0 left-3 right-3 h-[2px] rounded-full"
@@ -514,57 +613,126 @@ function SourceStep({
             </button>
           ))}
         </div>
-        <div className="p-5 pt-4 text-[12.5px] leading-relaxed text-muted-foreground space-y-2.5 border-t border-white/[0.05]">
-          {tab === 'drive' ? (
-            <>
-              <Step n={1} text="Upload your MP3 / WAV to Google Drive." />
-              <Step n={2} text={<>Right-click the file <span className="text-foreground">→ Share</span>.</>} />
-              <Step n={3} text={<>Set access to <span className="text-foreground">"Anyone with the link"</span>.</>} />
-              <Step n={4} text={<>Hit <span className="text-foreground">Copy link</span> and paste below.</>} />
-            </>
-          ) : (
-            <>
-              <Step n={1} text="Upload your MP3 / WAV to Dropbox." />
-              <Step n={2} text={<>Hover the file <span className="text-foreground">→ Share → Create link</span>.</>} />
-              <Step n={3} text={<>Hit <span className="text-foreground">Copy link</span> and paste below.</>} />
-              <Step n={4} text={<>We auto-swap <code className="text-foreground">?dl=0</code> to <code className="text-foreground">?dl=1</code> so it streams.</>} />
-            </>
-          )}
-        </div>
-      </BentoCard>
 
-      <Field label="Public share link">
-        <div className="relative">
-          <Link2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input
-            value={streamUrl}
-            onChange={(e) => setStreamUrl(e.target.value)}
-            placeholder="https://drive.google.com/file/d/…   or   https://dropbox.com/s/…"
-            className="h-12 pl-9 bg-white/[0.03] border-white/[0.08]"
-            spellCheck={false}
-            autoCapitalize="off"
-            autoCorrect="off"
-          />
-        </div>
-        <AnimatePresence mode="wait">
-          {linkState && (
-            <motion.div
-              key={isValid ? 'ok' : 'bad'}
-              initial={{ opacity: 0, y: -4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              className={`mt-2 flex items-start gap-2 text-[11.5px] ${
-                isValid ? 'text-emerald-300' : 'text-rose-400'
+        {tab === 'upload' ? (
+          <div className="p-5 pt-4 border-t border-white/[0.05] space-y-4">
+            <label
+              className={`block rounded-2xl border-2 border-dashed p-8 text-center cursor-pointer transition ${
+                audioFile
+                  ? 'border-emerald-500/50 bg-emerald-500/5'
+                  : 'border-white/10 hover:border-white/20 bg-white/[0.02]'
               }`}
             >
-              {isValid
-                ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
-                : <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
-              <span>{linkMessage}</span>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </Field>
+              <input
+                type="file"
+                accept="audio/mpeg,audio/wav,audio/flac,audio/mp4,audio/aac,audio/ogg,.mp3,.wav,.flac,.m4a,.aac,.ogg"
+                className="sr-only"
+                onChange={onAudioFileSelect}
+                disabled={uploading}
+              />
+              {!audioFile ? (
+                <>
+                  <Music2 className="w-10 h-10 mx-auto text-muted-foreground mb-3" />
+                  <p className="text-[14px] font-semibold">Tap to upload your song</p>
+                  <p className="text-[12px] text-muted-foreground mt-1">MP3, WAV, FLAC, M4A · Max 100MB</p>
+                </>
+              ) : (
+                <>
+                  {uploadedAudioUrl ? (
+                    <CheckCircle2 className="w-10 h-10 mx-auto text-emerald-400 mb-3" />
+                  ) : (
+                    <Loader2 className="w-10 h-10 mx-auto text-muted-foreground mb-3 animate-spin" />
+                  )}
+                  <p className="text-[14px] font-semibold truncate">{audioFile.name}</p>
+                  <p className="text-[12px] text-muted-foreground mt-1">
+                    {(audioFile.size / 1024 / 1024).toFixed(1)} MB
+                  </p>
+                </>
+              )}
+            </label>
+
+            {uploading && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-[12px]">
+                  <span className="text-muted-foreground">Uploading…</span>
+                  <span className="text-primary font-medium tabular-nums">{uploadProgress}%</span>
+                </div>
+                <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${uploadProgress}%`,
+                      background: 'linear-gradient(90deg, #FF2D55, #FF5A77)',
+                    }}
+                  />
+                </div>
+              </div>
+            )}
+
+            {uploadedAudioUrl && !uploading && (
+              <div className="flex items-center gap-2 text-emerald-400 text-[12.5px]">
+                <CheckCircle2 className="w-4 h-4" />
+                Audio uploaded successfully — continue to details.
+              </div>
+            )}
+          </div>
+        ) : (
+          <>
+            <div className="p-5 pt-4 text-[12.5px] leading-relaxed text-muted-foreground space-y-2.5 border-t border-white/[0.05]">
+              {tab === 'drive' ? (
+                <>
+                  <Step n={1} text="Upload your MP3 / WAV to Google Drive." />
+                  <Step n={2} text={<>Right-click the file <span className="text-foreground">→ Share</span>.</>} />
+                  <Step n={3} text={<>Set access to <span className="text-foreground">"Anyone with the link"</span>.</>} />
+                  <Step n={4} text={<>Hit <span className="text-foreground">Copy link</span> and paste below.</>} />
+                </>
+              ) : (
+                <>
+                  <Step n={1} text="Upload your MP3 / WAV to Dropbox." />
+                  <Step n={2} text={<>Hover the file <span className="text-foreground">→ Share → Create link</span>.</>} />
+                  <Step n={3} text={<>Hit <span className="text-foreground">Copy link</span> and paste below.</>} />
+                  <Step n={4} text={<>We auto-swap <code className="text-foreground">?dl=0</code> to <code className="text-foreground">?dl=1</code> so it streams.</>} />
+                </>
+              )}
+            </div>
+          </>
+        )}
+      </BentoCard>
+
+      {tab !== 'upload' && (
+        <Field label="Public share link">
+          <div className="relative">
+            <Link2 className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground" />
+            <Input
+              value={streamUrl}
+              onChange={(e) => setStreamUrl(e.target.value)}
+              placeholder="https://drive.google.com/file/d/…   or   https://dropbox.com/s/…"
+              className="h-12 pl-9 bg-white/[0.03] border-white/[0.08]"
+              spellCheck={false}
+              autoCapitalize="off"
+              autoCorrect="off"
+            />
+          </div>
+          <AnimatePresence mode="wait">
+            {linkState && (
+              <motion.div
+                key={isValid ? 'ok' : 'bad'}
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0 }}
+                className={`mt-2 flex items-start gap-2 text-[11.5px] ${
+                  isValid ? 'text-emerald-300' : 'text-rose-400'
+                }`}
+              >
+                {isValid
+                  ? <CheckCircle2 className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+                  : <AlertCircle className="w-3.5 h-3.5 mt-0.5 shrink-0" />}
+                <span>{linkMessage}</span>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Field>
+      )}
     </div>
   );
 }
