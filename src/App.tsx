@@ -352,6 +352,8 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
           <Route path="/artist/auth" element={user ? <Navigate to="/" replace /> : <ArtistAuth />} />
           <Route path="/artist/onboarding" element={<ArtistProtectedRoute><ArtistOnboarding /></ArtistProtectedRoute>} />
           <Route path="/artist/claim" element={<ArtistProtectedRoute><ArtistClaimProfile /></ArtistProtectedRoute>} />
+          <Route path="/artist/team/join" element={<ArtistProtectedRoute><ArtistJoinTeam /></ArtistProtectedRoute>} />
+          <Route path="/artist/label/access" element={<ArtistProtectedRoute><ArtistLabelAccess /></ArtistProtectedRoute>} />
           <Route path="/artist/apply" element={<ArtistProtectedRoute><ArtistApply /></ArtistProtectedRoute>} />
           <Route path="/artist/status" element={<ArtistProtectedRoute><ArtistStatus /></ArtistProtectedRoute>} />
           <Route path="/artist/studio" element={<ArtistProtectedRoute requireArtistRole><ArtistLayout /></ArtistProtectedRoute>}>
