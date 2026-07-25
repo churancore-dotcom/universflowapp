@@ -230,7 +230,9 @@ export default function ArtistUpload() {
   };
 
   const save = async () => {
-    if (!title.trim() || !linkState?.ok || !scheduleValid) return;
+    if (!title.trim() || !scheduleValid) return;
+    const finalStreamUrl = tab === 'upload' ? uploadedAudioUrl : (linkState?.ok ? linkState.normalized : null);
+    if (!finalStreamUrl) return;
     setSaving(true);
     try {
       const coverUrl = cover ? await uploadArtistCover(user.id, cover) : null;
