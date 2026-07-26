@@ -1,15 +1,20 @@
 import { useEffect } from "react";
 import { useLocation } from "react-router-dom";
-import { trackPageView } from "@/lib/analytics";
+import { trackPageView, setAnalyticsUser } from "@/lib/analytics";
+import { useAuth } from "@/contexts/AuthContext";
 
 /**
- * Fires a GA4 `page_view` event whenever the SPA route changes.
- * Mounted once inside <BrowserRouter>. Skips the very first render because
- * gtag.js already sends the initial page_view via its `config` call in
- * index.html — avoids a duplicate hit on cold load.
+ * Fires a GA4 `page_view` event on every SPA route change, and attaches the
+ * signed-in user's ID so GA4 can attribute engagement across sessions.
+ * Mounted once inside <BrowserRouter>.
  */
 export default function AnalyticsRouteTracker() {
   const location = useLocation();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    setAnalyticsUser(user?.id ?? null);
+  }, [user?.id]);
 
   useEffect(() => {
     // Defer to next tick so document.title (set by SEOHead) is up-to-date.
