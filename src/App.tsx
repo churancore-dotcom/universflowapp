@@ -185,7 +185,20 @@ const ArtistProtectedRoute = ({ children, requireArtistRole = false }: { childre
           _user_id: user.id,
           _role: 'artist',
         });
-        if (!cancelled) setVerifiedArtist(!error && !!data);
+        if (!error && data) {
+          if (!cancelled) setVerifiedArtist(true);
+          return;
+        }
+        // Team members (manager/editor/analyst/viewer) don't have the 'artist'
+        // user_role but should still access the studio via active membership.
+        const { data: mem } = await supabase
+          .from('artist_team_members')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('status', 'active')
+          .limit(1)
+          .maybeSingle();
+        if (!cancelled) setVerifiedArtist(!!mem);
       } catch {
         if (!cancelled) setVerifiedArtist(false);
       }

@@ -32,7 +32,7 @@ export default function ArtistOnboarding() {
 
       // If they have an in-flight application → status page.
       const { data: app } = await supabase
-        .from('artist_applications').select('status').eq('user_id', user.id).maybeSingle();
+        .from('artist_applications_safe').select('status').eq('user_id', user.id).maybeSingle();
       if (!alive) return;
       if (app?.status && app.status !== 'rejected') {
         navigate('/artist/status', { replace: true }); return;
