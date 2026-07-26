@@ -19,6 +19,7 @@ import GlobalPlayerLayer from "./components/GlobalPlayerLayer";
 import AnnouncementBanner from "./components/AnnouncementBanner";
 
 import SEOHead from "./components/SEOHead";
+import AnalyticsRouteTracker from "./components/AnalyticsRouteTracker";
 import Auth from "./pages/Auth";
 import VerifyEmail from "./pages/VerifyEmail";
 import CheckEmail from "./pages/CheckEmail";
