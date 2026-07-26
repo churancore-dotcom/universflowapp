@@ -120,6 +120,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
                 : sending ? 'Sending…' : (<><Send className="w-4 h-4" /> Send reset link</>)}
             </button>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,
