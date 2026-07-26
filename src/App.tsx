@@ -325,6 +325,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
     <div ref={ref} style={{ display: 'contents' }}>
     <NavDirectionProvider>
     <OfflineGate />
+    <AnalyticsRouteTracker />
     <Suspense fallback={<LazyFallback />}>
       <main id="main-content" style={{ display: 'contents' }}>
         <Routes location={location}>
