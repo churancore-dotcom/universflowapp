@@ -29,9 +29,10 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
       {isOpen && (
         <>
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md" />
+          <div className="fixed inset-0 z-[81] flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[81] w-[calc(100%-2rem)] max-w-sm rounded-3xl bg-card/95 backdrop-blur-xl border border-white/10 p-5"
+            className="pointer-events-auto w-full max-w-sm rounded-3xl bg-card/95 backdrop-blur-xl border border-white/10 p-5"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -59,6 +60,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
               {saving ? 'Updating…' : 'Update Password'}
             </button>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,

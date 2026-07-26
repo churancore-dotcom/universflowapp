@@ -46,17 +46,18 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
     }
     setSending(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.functions.invoke('send-reset-email', {
+        body: {
+          email: trimmed,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
       });
       if (error) {
         const lock = registerFailure('reset', trimmed);
         setCooldownMs(lock);
-        toast.error(error.message || 'Could not send reset email');
+        toast.error('Could not send reset email');
         return;
       }
-      // Count sends toward the cooldown too so honest users don't hammer it
-      // and trigger GoTrue's stricter server-side 429.
       registerFailure('reset', trimmed);
       clearCooldown('login', trimmed);
       toast.success('Password reset link sent. Check your inbox.');
@@ -81,9 +82,10 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
             onClick={onClose}
             className="fixed inset-0 z-[80] bg-black/70 backdrop-blur-md"
           />
+          <div className="fixed inset-0 z-[81] flex items-center justify-center p-4 pointer-events-none">
           <motion.div
             initial={{ y: 40, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 40, opacity: 0 }}
-            className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-[81] w-[calc(100%-2rem)] max-w-sm rounded-3xl bg-card/95 backdrop-blur-xl border border-white/10 p-5"
+            className="pointer-events-auto w-full max-w-sm rounded-3xl bg-card/95 backdrop-blur-xl border border-white/10 p-5"
           >
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-2">
@@ -118,6 +120,7 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
                 : sending ? 'Sending…' : (<><Send className="w-4 h-4" /> Send reset link</>)}
             </button>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,
