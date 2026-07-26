@@ -20,6 +20,7 @@ import AnnouncementBanner from "./components/AnnouncementBanner";
 
 import SEOHead from "./components/SEOHead";
 import AnalyticsRouteTracker from "./components/AnalyticsRouteTracker";
+import AnalyticsDebugPanel from "./components/AnalyticsDebugPanel";
 import Auth from "./pages/Auth";
 import VerifyEmail from "./pages/VerifyEmail";
 import CheckEmail from "./pages/CheckEmail";
@@ -327,6 +328,7 @@ const AnimatedRoutes = forwardRef<HTMLDivElement>((_props, ref) => {
     <NavDirectionProvider>
     <OfflineGate />
     <AnalyticsRouteTracker />
+    <AnalyticsDebugPanel />
     <Suspense fallback={<LazyFallback />}>
       <main id="main-content" style={{ display: 'contents' }}>
         <Routes location={location}>
