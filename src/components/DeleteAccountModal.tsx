@@ -67,6 +67,7 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
               {loading ? 'Deactivating…' : 'Deactivate Account'}
             </button>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,
