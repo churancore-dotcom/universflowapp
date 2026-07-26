@@ -46,17 +46,18 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
     }
     setSending(true);
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(trimmed, {
-        redirectTo: `${window.location.origin}/reset-password`,
+      const { error } = await supabase.functions.invoke('send-reset-email', {
+        body: {
+          email: trimmed,
+          redirectTo: `${window.location.origin}/reset-password`,
+        },
       });
       if (error) {
         const lock = registerFailure('reset', trimmed);
         setCooldownMs(lock);
-        toast.error(error.message || 'Could not send reset email');
+        toast.error('Could not send reset email');
         return;
       }
-      // Count sends toward the cooldown too so honest users don't hammer it
-      // and trigger GoTrue's stricter server-side 429.
       registerFailure('reset', trimmed);
       clearCooldown('login', trimmed);
       toast.success('Password reset link sent. Check your inbox.');
