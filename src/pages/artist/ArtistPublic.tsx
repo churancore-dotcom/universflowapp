@@ -145,6 +145,10 @@ export default function ArtistPublic() {
 
   const toggleFollow = async () => {
     if (!user || !profile) { navigate('/auth'); return; }
+    if (user.id === profile.user_id) {
+      toast.error("You can't follow your own artist page");
+      return;
+    }
     if (isFollowing) {
       const { error } = await supabase.from('artist_followers')
         .delete()
