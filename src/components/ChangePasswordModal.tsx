@@ -60,6 +60,7 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
               {saving ? 'Updating…' : 'Update Password'}
             </button>
           </motion.div>
+          </div>
         </>
       )}
     </AnimatePresence>,
