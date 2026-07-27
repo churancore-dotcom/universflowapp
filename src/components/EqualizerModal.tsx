@@ -120,7 +120,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const nativeAudio = isNativePlayerAvailable();
   const settings = useEQSettings();
   const bands = defaultBands.map((b, i) => ({ ...b, gain: settings.bands[i] ?? 0 }));
-  const { bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight, headphoneSurround, activePreset } = settings;
+  const { bassBoost, studioSpace, activePreset } = settings;
   const effectsActive = isEqActive(settings);
   const connectionLabel = !currentSong
     ? 'Play a song to connect'
