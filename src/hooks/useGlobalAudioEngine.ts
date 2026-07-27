@@ -181,6 +181,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       setSpatial(s.spatialAudio);
       setLateNight(s.lateNight);
       setHeadphoneSurround(s.headphoneSurround);
+      setStemMode(s.stemMode);
     };
 
 
