@@ -171,15 +171,16 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
     return first ? { id: first.artist, name: first.artist, image: first.cover_url || null } : null;
   }, [artistOfWeek, charts]);
   const jumpBack = useMemo(
-    () => dedupeSongs([...recentSongs, ...queue, ...pool]).filter((s) => s.cover_url).slice(0, 3),
-    [recentSongs, queue, pool],
+    () => dedupeSongs(recentSongs).filter((s) => s.cover_url).slice(0, 3),
+    [recentSongs],
   );
   const newRelease = useMemo(() => {
     return liveReleases.find((s) => s.cover_url && !isSpamSong(s));
   }, [liveReleases]);
 
 
-  const hero = currentSong || recentSongs[0] || pool[0];
+  // Never label a discovery recommendation as listening history.
+  const hero = currentSong || recentSongs[0];
   const heroIsCurrent = !!currentSong && currentSong.id === hero?.id;
   const heroPlaying = heroIsCurrent && isPlaying;
   const heroProgressPct =
