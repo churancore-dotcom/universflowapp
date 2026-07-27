@@ -566,7 +566,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     <button
                       key={m.id}
                       onClick={() => {
-                        if (!isPremium && m.id !== 'off') { onPremiumRequired?.(); return; }
                         setEQSettings({ stemMode: m.id });
                       }}
                       className={`px-2 py-2 rounded-lg text-[11px] font-medium transition-all border ${
