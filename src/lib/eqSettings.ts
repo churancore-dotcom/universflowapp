@@ -13,6 +13,7 @@ export interface EQSettings {
   studioSpace: StudioSpaceId;
   lateNight: boolean;
   headphoneSurround: boolean;
+  stemMode: StemModeId;
   activePreset: string;
 }
 
@@ -25,6 +26,7 @@ export const DEFAULT_EQ_SETTINGS: EQSettings = {
   studioSpace: 'off',
   lateNight: false,
   headphoneSurround: false,
+  stemMode: 'off',
   activePreset: 'flat',
 };
 
