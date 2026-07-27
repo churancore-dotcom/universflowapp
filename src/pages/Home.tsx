@@ -316,7 +316,7 @@ const Home = () => {
               {!isOffline && <FollowedArtistSongsSection songs={allSongs} />}
               {!isOffline && <TrendingNowSection songs={allSongs} enabled={discoveryEnabled} />}
               {/* Discovery — Featured Artists */}
-              {!isOffline && <FeaturedArtistsSection />}
+              {!isOffline && <FeaturedArtistsSection songs={allSongs} />}
               {!isOffline && <MadeForYouSection />}
               {/* Viral Now Rail — live country chart, real data */}
               {!isOffline && <CountryViralSection />}
