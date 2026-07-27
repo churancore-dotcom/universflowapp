@@ -166,6 +166,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
         setSpatial(false);
         setLateNight(false);
         setHeadphoneSurround(false);
+        setStemMode('off');
         return;
       }
 
