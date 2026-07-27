@@ -5,15 +5,18 @@
 const MAX_ENTRIES = 24;
 
 export type LocalRecentEntry = {
-  song_id: string; // catalog UUID
+  song_id: string;
   played_at: number; // epoch ms
+  title?: string;
+  artist?: string;
+  album?: string;
+  cover_url?: string;
+  audio_url?: string;
+  duration?: number;
 };
 
 const keyFor = (userId: string | null | undefined) =>
   `universflow.recentlyPlayed.v1.${userId || "anon"}`;
-
-const isUuid = (s: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 export function readLocalRecent(userId: string | null | undefined): LocalRecentEntry[] {
   try {
@@ -29,11 +32,23 @@ export function readLocalRecent(userId: string | null | undefined): LocalRecentE
   }
 }
 
-export function pushLocalRecent(userId: string | null | undefined, songId: string) {
-  if (!songId || !isUuid(songId)) return;
+export function pushLocalRecent(
+  userId: string | null | undefined,
+  song: { id: string; title?: string; artist?: string; album?: string; cover_url?: string; audio_url?: string; duration?: number },
+) {
+  if (!song.id || !song.title || !song.artist) return;
   try {
-    const list = readLocalRecent(userId).filter((e) => e.song_id !== songId);
-    list.unshift({ song_id: songId, played_at: Date.now() });
+    const list = readLocalRecent(userId).filter((e) => e.song_id !== song.id);
+    list.unshift({
+      song_id: song.id,
+      played_at: Date.now(),
+      title: song.title,
+      artist: song.artist,
+      album: song.album,
+      cover_url: song.cover_url,
+      audio_url: song.audio_url,
+      duration: song.duration,
+    });
     localStorage.setItem(keyFor(userId), JSON.stringify(list.slice(0, MAX_ENTRIES)));
     window.dispatchEvent(new CustomEvent("universflow:recently-played-changed"));
   } catch {
