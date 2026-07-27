@@ -163,8 +163,15 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
 
   const pool = useMemo(() => dedupeSongs(songs), [songs]);
   const spotlight = useMemo<ArtistOfWeek | null>(() => {
-    return artistOfWeek || null;
-  }, [artistOfWeek]);
+    if (artistOfWeek) return artistOfWeek;
+    const liveArtist = pool.find((song) => song.artist && song.cover_url);
+    if (!liveArtist) return null;
+    return {
+      id: liveArtist.artist_id || liveArtist.artist,
+      name: liveArtist.artist,
+      image: liveArtist.artist_photo_url || liveArtist.cover_url || null,
+    };
+  }, [artistOfWeek, pool]);
   const jumpBack = useMemo(
     () => dedupeSongs([...recentSongs, ...queue]).filter((s) => s.cover_url).slice(0, 3),
     [recentSongs, queue],
@@ -189,8 +196,6 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
     if (currentSong?.id === song.id) togglePlay();
     else playSong(song, null, pool.slice(0, 40));
   };
-
-  if (!hero && !spotlight && jumpBack.length === 0) return null;
 
   return (
     <div className="space-y-3 font-body">

@@ -18,7 +18,12 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
 
   const trending = useMemo(() => {
     const seen = new Set<string>();
-    return (charts?.trending ?? []).filter((song) => {
+    const officialChart = charts?.trending?.length
+      ? charts.trending
+      : charts?.top?.length
+        ? charts.top
+        : charts?.videos ?? [];
+    return officialChart.filter((song) => {
       const identity = `${song.artist.toLowerCase()}::${song.title.toLowerCase()}`;
       if (seen.has(identity) || isSpamSong(song)) return false;
       seen.add(identity);
