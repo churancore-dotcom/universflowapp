@@ -10,6 +10,9 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { getUserArtistPrefs } from '@/lib/userArtistPrefs';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { useUserCountry } from '@/hooks/useUserCountry';
+import { useYtmCharts, useYtmNewReleases } from '@/lib/ytmRails';
+import { isSpamSong } from '@/pages/Search';
 
 interface Props {
   songs: Song[];
@@ -101,6 +104,9 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
   const { progress, duration } = usePlayerProgress();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const country = useUserCountry();
+  const { data: charts } = useYtmCharts(country);
+  const { data: liveReleases = [] } = useYtmNewReleases(country, 12);
 
   // Local recently-played changes (this device only)
   useEffect(() => {
@@ -123,8 +129,11 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
     staleTime: 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
       const local = readLocalRecent(user!.id).slice(0, 12);
+      const snapshots = new Map(
+        local.filter((entry) => entry.song).map((entry) => [entry.song_id, entry.song as Song]),
+      );
       const ids = local.map((r) => r.song_id).filter(isCatalogId);
-      if (ids.length === 0) return [];
+      if (ids.length === 0) return local.map((entry) => snapshots.get(entry.song_id)).filter(Boolean) as Song[];
       const { data: rows, error: songError } = await supabase
         .from('songs')
         .select('id,title,artist,album,cover_url,audio_url,duration,genre,mood,created_at,artist_id')
@@ -132,7 +141,9 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
         .eq('is_visible', true);
       if (songError) throw songError;
       const byId = new Map((rows || []).map((row) => [row.id, songFromRow(row as SongRowLike)]));
-      return ids.map((id) => byId.get(id)).filter(Boolean) as Song[];
+      return local
+        .map((entry) => byId.get(entry.song_id) || snapshots.get(entry.song_id))
+        .filter(Boolean) as Song[];
     },
   });
 
@@ -155,25 +166,21 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
   const pool = useMemo(() => dedupeSongs(songs), [songs]);
   const spotlight = useMemo<ArtistOfWeek | null>(() => {
     if (artistOfWeek) return artistOfWeek;
-    const first = pool.find((s) => s.artist && s.cover_url);
+    const first = charts?.trending?.find((s) => s.artist && s.cover_url && !isSpamSong(s))
+      || charts?.top?.find((s) => s.artist && s.cover_url && !isSpamSong(s));
     return first ? { id: first.artist, name: first.artist, image: first.cover_url || null } : null;
-  }, [artistOfWeek, pool]);
+  }, [artistOfWeek, charts]);
   const jumpBack = useMemo(
-    () => dedupeSongs([...recentSongs, ...queue, ...pool]).filter((s) => s.cover_url).slice(0, 3),
-    [recentSongs, queue, pool],
+    () => dedupeSongs(recentSongs).filter((s) => s.cover_url).slice(0, 3),
+    [recentSongs],
   );
   const newRelease = useMemo(() => {
-    const withCover = pool.filter((s) => s.cover_url && s.created_at);
-    withCover.sort((a, b) => {
-      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
-      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
-      return tb - ta;
-    });
-    return withCover[0] || pool.find((s) => s.cover_url);
-  }, [pool]);
+    return liveReleases.find((s) => s.cover_url && !isSpamSong(s));
+  }, [liveReleases]);
 
 
-  const hero = currentSong || recentSongs[0] || pool[0];
+  // Never label a discovery recommendation as listening history.
+  const hero = currentSong || recentSongs[0];
   const heroIsCurrent = !!currentSong && currentSong.id === hero?.id;
   const heroPlaying = heroIsCurrent && isPlaying;
   const heroProgressPct =
