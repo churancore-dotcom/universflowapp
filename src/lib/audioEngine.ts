@@ -558,6 +558,82 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   applyLateNightToLimiter();
   // Re-apply Headphone 3D Surround on the fresh chain
   applySurround();
+  // Re-apply persisted Stem Isolator mode
+  applyStemMode();
+}
+
+// ── Stem Isolator ──────────────────────────────────────────────────────────
+let currentStemMode: StemModeId = 'off';
+
+interface StemProfile {
+  m: number; // mid mix
+  s: number; // side mix (sign flip on R produces side subtraction)
+  filterType: BiquadFilterType;
+  freq: number;
+  q: number;
+  gain?: number; // makeup for lost energy (approx)
+}
+
+const STEM_PROFILES: Record<Exclude<StemModeId, 'off'>, StemProfile> = {
+  // Karaoke — kill center (vocals+kick+bass most of the time). Post highpass
+  // pushes residual mono bass out of the way. Small makeup gain.
+  'karaoke':      { m: 0, s: 1, filterType: 'highpass', freq: 140, q: 0.6, gain: 1.35 },
+  // Acapella — mono center bandpassed to human voice range (300-4kHz).
+  'acapella':     { m: 1, s: 0, filterType: 'bandpass', freq: 1200, q: 0.5, gain: 1.4 },
+  // Bass-only — full mix, lowpassed hard. Great for feeling the beat.
+  'bass-only':    { m: 1, s: 1, filterType: 'lowpass', freq: 220, q: 0.8, gain: 1.8 },
+  // Instrumental — soft vocal ducking (partial center removal).
+  'instrumental': { m: 0.35, s: 1.15, filterType: 'peaking', freq: 2200, q: 0.9, gain: 1.1 },
+};
+
+function applyStemMode() {
+  if (engine.mode !== 'processed' || !engine.ctx) return;
+  const { stemLL, stemLR, stemRL, stemRR, stemFilter } = engine;
+  if (!stemLL || !stemLR || !stemRL || !stemRR || !stemFilter) return;
+  const now = engine.ctx.currentTime;
+
+  let m = 1, s = 1, makeup = 1;
+  let filterType: BiquadFilterType = 'allpass';
+  let freq = 1000;
+  let q = 0.707;
+
+  if (currentStemMode !== 'off') {
+    const p = STEM_PROFILES[currentStemMode];
+    m = p.m; s = p.s; makeup = p.gain ?? 1;
+    filterType = p.filterType; freq = p.freq; q = p.q;
+  }
+
+  // Matrix — a = (m+s)/2, b = (m-s)/2, then makeup applied to all four legs
+  const a = ((m + s) / 2) * makeup;
+  const b = ((m - s) / 2) * makeup;
+
+  stemLL.gain.cancelScheduledValues(now); stemLL.gain.setTargetAtTime(a, now, SMOOTH);
+  stemRR.gain.cancelScheduledValues(now); stemRR.gain.setTargetAtTime(a, now, SMOOTH);
+  stemLR.gain.cancelScheduledValues(now); stemLR.gain.setTargetAtTime(b, now, SMOOTH);
+  stemRL.gain.cancelScheduledValues(now); stemRL.gain.setTargetAtTime(b, now, SMOOTH);
+
+  // BiquadFilter.type is not an AudioParam — swap directly (no zipper because
+  // signal already passed through the smoothed gain ramps above).
+  stemFilter.type = filterType;
+  stemFilter.frequency.cancelScheduledValues(now);
+  stemFilter.frequency.setTargetAtTime(freq, now, SMOOTH);
+  stemFilter.Q.cancelScheduledValues(now);
+  stemFilter.Q.setTargetAtTime(q, now, SMOOTH);
+  if (filterType === 'peaking') {
+    stemFilter.gain.setTargetAtTime(-6, now, SMOOTH); // dip vocal band for instrumental
+  } else {
+    stemFilter.gain.setTargetAtTime(0, now, SMOOTH);
+  }
+}
+
+export function setStemMode(mode: StemModeId) {
+  currentStemMode = mode;
+  if (engine.mode !== 'processed') return;
+  applyStemMode();
+}
+
+export function getStemMode(): StemModeId {
+  return currentStemMode;
 }
 
 function applySurround() {
