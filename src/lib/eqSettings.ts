@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { StudioSpaceId } from '@/lib/audioEngine';
+import type { StudioSpaceId, StemModeId } from '@/lib/audioEngine';
 
 export const EQ_SETTINGS_KEY = 'eq_settings';
 
