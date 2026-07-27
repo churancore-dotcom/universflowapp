@@ -190,8 +190,6 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
     else playSong(song, null, pool.slice(0, 40));
   };
 
-  if (!hero && !spotlight && jumpBack.length === 0) return null;
-
   return (
     <div className="space-y-3 font-body">
       {/* ====== HERO: CONTINUE LISTENING ====== */}
