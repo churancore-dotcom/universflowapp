@@ -116,6 +116,7 @@ export function hasWebAudioEffects(settings = currentSettings): boolean {
   if (settings.studioSpace && settings.studioSpace !== 'off') return true;
   if (settings.lateNight) return true;
   if (settings.headphoneSurround) return true;
+  if (settings.stemMode && settings.stemMode !== 'off') return true;
   return false;
 }
 
