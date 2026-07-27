@@ -727,6 +727,13 @@ function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext
   engine.surroundLpRL = null;
   engine.surroundXfeedLR = null;
   engine.surroundXfeedRL = null;
+  engine.stemSplitter = null;
+  engine.stemMerger = null;
+  engine.stemLL = null;
+  engine.stemLR = null;
+  engine.stemRL = null;
+  engine.stemRR = null;
+  engine.stemFilter = null;
   engine.limiter = null;
   if (engine.panLfo) {
     try { engine.panLfo.stop(); } catch { /* ignore */ }
