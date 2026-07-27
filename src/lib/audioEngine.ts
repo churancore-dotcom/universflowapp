@@ -377,6 +377,9 @@ function disconnectAll() {
     engine.surroundDelayLR, engine.surroundDelayRL,
     engine.surroundLpLR, engine.surroundLpRL,
     engine.surroundXfeedLR, engine.surroundXfeedRL,
+    engine.stemSplitter, engine.stemMerger,
+    engine.stemLL, engine.stemLR, engine.stemRL, engine.stemRR,
+    engine.stemFilter,
     engine.limiter,
   ];
   for (const n of nodes) {
