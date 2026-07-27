@@ -277,10 +277,10 @@ export default function ArtistPublic() {
   ].join(', ');
 
   const socialSameAs = [
-    ig ? `https://instagram.com/${String(ig).replace(/^@/, '')}` : null,
-    yt ? (String(yt).startsWith('http') ? String(yt) : `https://youtube.com/${String(yt).replace(/^@/, '@')}`) : null,
-    profile.social_links?.spotify || null,
-    profile.social_links?.website || null,
+    ig,
+    yt,
+    safeHttpHref(profile.social_links?.spotify),
+    safeHttpHref(profile.social_links?.website),
   ].filter(Boolean) as string[];
 
   const jsonLd = {
