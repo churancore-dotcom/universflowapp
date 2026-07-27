@@ -50,6 +50,9 @@ export function normalizeEQSettings(input: Partial<EQSettings> | null | undefine
     studioSpace: (input?.studioSpace as StudioSpaceId) || DEFAULT_EQ_SETTINGS.studioSpace,
     lateNight: !!input?.lateNight,
     headphoneSurround: !!input?.headphoneSurround,
+    stemMode: (['off','karaoke','acapella','bass-only','instrumental'] as StemModeId[]).includes(input?.stemMode as StemModeId)
+      ? (input!.stemMode as StemModeId)
+      : DEFAULT_EQ_SETTINGS.stemMode,
     activePreset: input?.activePreset || DEFAULT_EQ_SETTINGS.activePreset,
   };
 }
