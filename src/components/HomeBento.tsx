@@ -2,7 +2,7 @@ import React, { memo, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pause, Play, ChevronRight, Music2 } from 'lucide-react';
+import { Pause, Play, ChevronRight } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -196,7 +196,7 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
     <div className="space-y-3 font-body">
       {/* ====== HERO: CONTINUE LISTENING ====== */}
       {hero && (
-        {spotlight ? <motion.button
+        <motion.button
           {...fadeUp(0)}
           onClick={handleResume}
           className="w-full text-left rounded-3xl p-5 relative overflow-hidden block active:scale-[0.98] transition-transform"
@@ -262,9 +262,9 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
       )}
 
       {/* ====== ROW 1: ARTIST OF THE WEEK | JUMP BACK IN ====== */}
-      <div className="grid grid-cols-2 gap-3">
+      <div className={`grid gap-3 ${spotlight ? 'grid-cols-2' : 'grid-cols-1'}`}>
         {/* Artist of the Week */}
-        <motion.button
+        {spotlight ? <motion.button
           {...fadeUp(1)}
           onClick={() => {
             if (!spotlight) return;
