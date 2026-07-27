@@ -426,89 +426,47 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   />
                 </div>
 
-                {/* Reverb */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Waves className="w-4 h-4 text-blue-400" />
-                      <span className="text-sm font-medium">Reverb</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">{reverb}%</span>
-                  </div>
-                  <Slider
-                    value={[reverb]}
-                    min={0}
-                    max={45}
-                    step={5}
-                    onValueChange={([value]) => setEQSettings({ reverb: value, studioSpace: 'off', activePreset: 'custom' })}
-                    className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500/60"
-                  />
-                </div>
-
-                {/* Playback Speed */}
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Radio className="w-4 h-4 text-rose-400" />
-                      <span className="text-sm font-medium">Playback Speed</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">{playbackSpeed}x</span>
-                  </div>
-                  <Slider
-                    value={[playbackSpeed * 100]}
-                    min={50}
-                    max={200}
-                    step={25}
-                    onValueChange={([value]) => setEQSettings({ playbackSpeed: value / 100, activePreset: 'custom' })}
-                    className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500"
-                  />
-                  <div className="flex justify-between mt-1">
-                    {[0.5, 1, 1.5, 2].map(s => (
-                      <span key={s} className="text-[10px] text-muted-foreground/50">{s}x</span>
-                    ))}
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* Stem Isolator — Premium DSP that pulls the mix apart in real time */}
-            <div>
-              <div className="mb-3">
-                <h3 className="text-sm font-medium flex items-center gap-2">
-                  Stem Isolator
-                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary text-primary-foreground">PREMIUM</span>
-                </h3>
-                <p className="text-[11px] text-muted-foreground mt-0.5">Remove vocals, isolate beats, or hear the acapella — instantly on every song.</p>
+            {/* Stem Isolator — Premium DSP (web only; native ExoPlayer has no stem processor) */}
+            {!nativeAudio && (
+              <div>
+                <div className="mb-3">
+                  <h3 className="text-sm font-medium flex items-center gap-2">
+                    Stem Isolator
+                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary text-primary-foreground">PREMIUM</span>
+                  </h3>
+                  <p className="text-[11px] text-muted-foreground mt-0.5">Remove vocals, isolate beats, or hear the acapella.</p>
+                </div>
+                <div className="grid grid-cols-5 gap-1.5">
+                  {([
+                    { id: 'off', label: 'Off' },
+                    { id: 'karaoke', label: 'Karaoke' },
+                    { id: 'instrumental', label: 'No Vocals' },
+                    { id: 'acapella', label: 'Acapella' },
+                    { id: 'bass-only', label: 'Beat' },
+                  ] as const).map((m) => {
+                    const active = settings.stemMode === m.id;
+                    return (
+                      <button
+                        key={m.id}
+                        onClick={() => setEQSettings({ stemMode: m.id })}
+                        className={`px-2 py-2 rounded-lg text-[11px] font-medium transition-all border ${
+                          active
+                            ? 'bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.4)]'
+                            : 'bg-white/5 border-white/10 text-foreground/80 hover:bg-white/10'
+                        }`}
+                      >
+                        {m.label}
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-              <div className="grid grid-cols-5 gap-1.5">
-                {([
-                  { id: 'off', label: 'Off' },
-                  { id: 'karaoke', label: 'Karaoke' },
-                  { id: 'instrumental', label: 'No Vocals' },
-                  { id: 'acapella', label: 'Acapella' },
-                  { id: 'bass-only', label: 'Beat' },
-                ] as const).map((m) => {
-                  const active = settings.stemMode === m.id;
-                  return (
-                    <button
-                      key={m.id}
-                      onClick={() => {
-                        setEQSettings({ stemMode: m.id });
-                      }}
-                      className={`px-2 py-2 rounded-lg text-[11px] font-medium transition-all border ${
-                        active
-                          ? 'bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.4)]'
-                          : 'bg-white/5 border-white/10 text-foreground/80 hover:bg-white/10'
-                      }`}
-                    >
-                      {m.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
+            )}
 
-            {/* Studio Spaces — Premium-exclusive acoustic environments */}
+            {/* Studio Spaces — acoustic environments */}
             <div>
               <div className="flex items-center justify-between mb-3">
                 <div>
@@ -549,107 +507,6 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   );
                 })}
               </div>
-              {studioSpace !== 'off' && (
-                <p className="text-[10px] text-muted-foreground/70 mt-1 px-1">
-                  Reverb slider is overridden while a Studio Space is active.
-                </p>
-              )}
-            </div>
-
-            {/* 8D Spatial Audio */}
-            <div
-              className="flex items-center justify-between p-4 rounded-2xl"
-              style={{
-                background: 'rgba(28, 28, 30, 0.8)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{
-                    background: spatialAudio
-                      ? 'linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(280 80% 55% / 0.3))'
-                      : 'rgba(255,255,255,0.05)',
-                  }}
-                >
-                  <Globe className={`w-5 h-5 ${spatialAudio ? 'text-primary' : 'text-muted-foreground'}`} />
-                </div>
-                <div>
-                  <span className="text-sm font-medium">8D Audio</span>
-                  <p className="text-[11px] text-muted-foreground">Auto-rotating immersive spatial sound</p>
-                </div>
-              </div>
-              <Switch
-                checked={spatialAudio}
-                onCheckedChange={(value) => setEQSettings({ spatialAudio: value, activePreset: 'custom' })}
-                className="data-[state=checked]:bg-primary"
-              />
-            </div>
-
-            {/* Late Night Mode */}
-            <div
-              className="flex items-center justify-between p-4 rounded-2xl"
-              style={{
-                background: 'rgba(28, 28, 30, 0.8)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{
-                    background: lateNight
-                      ? 'linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(220 70% 45% / 0.3))'
-                      : 'rgba(255,255,255,0.05)',
-                  }}
-                >
-                  <Moon className={`w-5 h-5 ${lateNight ? 'text-primary' : 'text-muted-foreground'}`} />
-                </div>
-                <div>
-                  <span className="text-sm font-medium">Late Night Mode</span>
-                  <p className="text-[11px] text-muted-foreground">Lifts whispers, tames peaks for quiet listening</p>
-                </div>
-              </div>
-              <Switch
-                checked={lateNight}
-                onCheckedChange={(value) => setEQSettings({ lateNight: value, activePreset: 'custom' })}
-                className="data-[state=checked]:bg-primary"
-              />
-            </div>
-
-            {/* Headphone 3D Surround — premium binaural crossfeed */}
-            <div
-              className="flex items-center justify-between p-4 rounded-2xl"
-              style={{
-                background: 'rgba(28, 28, 30, 0.8)',
-                border: '1px solid rgba(255, 255, 255, 0.06)',
-              }}
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className="w-10 h-10 rounded-xl flex items-center justify-center"
-                  style={{
-                    background: headphoneSurround
-                      ? 'linear-gradient(135deg, hsl(var(--primary) / 0.4), hsl(280 80% 55% / 0.3))'
-                      : 'rgba(255,255,255,0.05)',
-                  }}
-                >
-                  <Headphones className={`w-5 h-5 ${headphoneSurround ? 'text-primary' : 'text-muted-foreground'}`} />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium">Headphone 3D Surround</span>
-                    <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary text-primary-foreground">EXCLUSIVE</span>
-                  </div>
-                  <p className="text-[11px] text-muted-foreground">Binaural crossfeed — sound out of your head, not inside it</p>
-                </div>
-              </div>
-              <Switch
-                checked={headphoneSurround}
-                onCheckedChange={(value) => setEQSettings({ headphoneSurround: value, activePreset: 'custom' })}
-                className="data-[state=checked]:bg-primary"
-              />
             </div>
           </div>
         </motion.div>
