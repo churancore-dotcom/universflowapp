@@ -322,53 +322,42 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 </div>
               )}
 
-            {/* Grouped sound-mode presets — exclusive tiles */}
-            {PRESET_GROUPS.map((group) => (
-              <div key={group.label}>
-                <div className="flex items-center gap-2 mb-3">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/50">{group.label}</span>
-                  <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.12), transparent)' }} />
-                </div>
-                <div className="grid grid-cols-4 gap-2">
-                  {group.ids.map((id) => {
-                    const preset = presetById.get(id);
-                    if (!preset) return null;
-                    const Icon = preset.icon;
-                    const isSelected = activePreset === preset.id;
-                    return (
-                      <motion.button
-                        key={preset.id}
-                        onClick={() => handlePresetSelect(preset)}
-                        className="relative flex min-h-[74px] flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl overflow-hidden"
-                        style={{
-                          background: isSelected
-                            ? 'linear-gradient(160deg, hsl(var(--primary)) 0%, hsl(340 100% 60%) 100%)'
-                            : 'linear-gradient(160deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.02) 100%)',
-                          border: isSelected
-                            ? '1px solid hsl(var(--primary) / 0.9)'
-                            : '1px solid rgba(255,255,255,0.06)',
-                          boxShadow: isSelected ? '0 10px 30px -10px hsl(var(--primary) / 0.65), inset 0 1px 0 rgba(255,255,255,0.2)' : 'inset 0 1px 0 rgba(255,255,255,0.04)',
-                        }}
-                        whileTap={{ scale: 0.94 }}
-                      >
-                        {isSelected && (
-                          <motion.span
-                            aria-hidden
-                            className="absolute inset-0 pointer-events-none"
-                            style={{ background: 'radial-gradient(circle at 50% 0%, rgba(255,255,255,0.35), transparent 55%)' }}
-                            initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                          />
-                        )}
-                        <Icon className={`w-[18px] h-[18px] relative z-10 ${isSelected ? 'text-white drop-shadow-[0_1px_6px_rgba(255,255,255,0.6)]' : 'text-white/70'}`} />
-                        <span className={`relative z-10 text-[10.5px] font-semibold leading-tight text-center ${isSelected ? 'text-white' : 'text-white/75'}`}>
-                          {preset.name}
-                        </span>
-                      </motion.button>
-                    );
-                  })}
-                </div>
+            {/* Presets — one flat grid, curated */}
+            <div>
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/50">Presets</span>
+                <span className="flex-1 h-px" style={{ background: 'linear-gradient(90deg, rgba(255,255,255,0.12), transparent)' }} />
               </div>
-            ))}
+              <div className="grid grid-cols-4 gap-2">
+                {presets.map((preset) => {
+                  const Icon = preset.icon;
+                  const isSelected = activePreset === preset.id;
+                  return (
+                    <motion.button
+                      key={preset.id}
+                      onClick={() => handlePresetSelect(preset)}
+                      className="relative flex min-h-[74px] flex-col items-center justify-center gap-1.5 py-2.5 px-1 rounded-2xl overflow-hidden"
+                      style={{
+                        background: isSelected
+                          ? 'linear-gradient(160deg, hsl(var(--primary)) 0%, hsl(340 100% 60%) 100%)'
+                          : 'linear-gradient(160deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.02) 100%)',
+                        border: isSelected
+                          ? '1px solid hsl(var(--primary) / 0.9)'
+                          : '1px solid rgba(255,255,255,0.06)',
+                        boxShadow: isSelected ? '0 10px 30px -10px hsl(var(--primary) / 0.65), inset 0 1px 0 rgba(255,255,255,0.2)' : 'inset 0 1px 0 rgba(255,255,255,0.04)',
+                      }}
+                      whileTap={{ scale: 0.94 }}
+                    >
+                      <Icon className={`w-[18px] h-[18px] relative z-10 ${isSelected ? 'text-white drop-shadow-[0_1px_6px_rgba(255,255,255,0.6)]' : 'text-white/70'}`} />
+                      <span className={`relative z-10 text-[10.5px] font-semibold leading-tight text-center ${isSelected ? 'text-white' : 'text-white/75'}`}>
+                        {preset.name}
+                      </span>
+                    </motion.button>
+                  );
+                })}
+              </div>
+            </div>
+
 
             {/* 10-Band Equalizer */}
             <div>
