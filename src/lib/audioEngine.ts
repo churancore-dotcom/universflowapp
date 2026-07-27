@@ -49,6 +49,14 @@ interface Engine {
   surroundXfeedLR: GainNode | null;
   surroundXfeedRL: GainNode | null;
   limiter: DynamicsCompressorNode | null;
+  // Stem isolator (mid/side matrix + post-shaping filter)
+  stemSplitter: ChannelSplitterNode | null;
+  stemMerger: ChannelMergerNode | null;
+  stemLL: GainNode | null;
+  stemLR: GainNode | null;
+  stemRL: GainNode | null;
+  stemRR: GainNode | null;
+  stemFilter: BiquadFilterNode | null;
   el: HTMLAudioElement | null;
   signature: string | null;
   mode: Mode;
