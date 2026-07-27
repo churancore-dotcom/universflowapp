@@ -186,6 +186,27 @@ function signature(el: HTMLAudioElement): string | null {
 /** Studio Space presets — each defines an acoustic environment. */
 export type StudioSpaceId = 'off' | 'vinyl' | 'studio' | 'bedroom' | 'hall' | 'cathedral' | 'stadium';
 
+/**
+ * Stem Isolator — real-time DSP that pulls apart the mix using mid/side
+ * matrix decoding. Vocals, kick and bass typically sit in the center
+ * (identical in L+R). Guitars, hats, reverb tails and ambience sit in the
+ * sides (differ between L+R). We rebuild the output by mixing mid + side
+ * with per-mode gains, then band-shape the result so residual bleed is
+ * pushed into inaudible ranges.
+ *
+ *   M = (L+R)/2    S = (L-R)/2
+ *   L' = a·L + b·R    where a = (m+s)/2   b = (m-s)/2
+ *   R' = b·L + a·R
+ *
+ * Modes:
+ *   off          m=1  s=1     identity (pass-through, allpass shape)
+ *   karaoke      m=0  s=1     kills center vocals & kick, keeps sides
+ *   acapella     m=1  s=0     mono center, bandpassed to vocal range
+ *   bass-only    m=1  s=1     lowpass 220Hz — beat-only listen-through
+ *   instrumental m=0.35 s=1.15  soft vocal ducking, keeps bass drums
+ */
+export type StemModeId = 'off' | 'karaoke' | 'acapella' | 'bass-only' | 'instrumental';
+
 interface SpaceProfile {
   duration: number;   // IR length in seconds
   decay: number;      // exponential decay curve (higher = faster fade)
