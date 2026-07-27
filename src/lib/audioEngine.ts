@@ -455,6 +455,21 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   const surroundXfeedLR = ctx.createGain(); surroundXfeedLR.gain.value = 0; // off until enabled
   const surroundXfeedRL = ctx.createGain(); surroundXfeedRL.gain.value = 0;
 
+  // --- Stem Isolator (mid/side matrix + post shape) ---
+  // Insert BEFORE the final limiter so all colouring downstream (limiter
+  // makeup for Late Night, etc.) still applies. Bit-perfect pass-through
+  // when off (a=1, b=0, allpass filter).
+  const stemSplitter = ctx.createChannelSplitter(2);
+  const stemMerger = ctx.createChannelMerger(2);
+  const stemLL = ctx.createGain(); stemLL.gain.value = 1; // L -> L (a)
+  const stemLR = ctx.createGain(); stemLR.gain.value = 0; // L -> R (b)
+  const stemRL = ctx.createGain(); stemRL.gain.value = 0; // R -> L (b)
+  const stemRR = ctx.createGain(); stemRR.gain.value = 1; // R -> R (a)
+  const stemFilter = ctx.createBiquadFilter();
+  stemFilter.type = 'allpass';
+  stemFilter.frequency.value = 1000;
+  stemFilter.Q.value = 0.707;
+
   // Wire graph
   source.connect(filters[0]);
   for (let i = 0; i < filters.length - 1; i++) filters[i].connect(filters[i + 1]);
@@ -467,7 +482,7 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   dryGain.connect(stereoPanner);
   wetGain.connect(stereoPanner);
 
-  // stereoPanner -> [splitter L/R] -> direct + crossfeed -> [merger] -> limiter
+  // stereoPanner -> [splitter L/R] -> direct + crossfeed -> [merger] -> stem -> limiter
   stereoPanner.connect(surroundSplitter);
   surroundSplitter.connect(surroundDirectL, 0); surroundDirectL.connect(surroundMerger, 0, 0);
   surroundSplitter.connect(surroundDirectR, 1); surroundDirectR.connect(surroundMerger, 0, 1);
@@ -482,7 +497,14 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   surroundLpRL.connect(surroundXfeedRL);
   surroundXfeedRL.connect(surroundMerger, 0, 0);
 
-  surroundMerger.connect(limiter);
+  // stem stage: splitter -> 4 cross gains -> merger -> post-shape filter
+  surroundMerger.connect(stemSplitter);
+  stemSplitter.connect(stemLL, 0); stemLL.connect(stemMerger, 0, 0);
+  stemSplitter.connect(stemLR, 0); stemLR.connect(stemMerger, 0, 1);
+  stemSplitter.connect(stemRL, 1); stemRL.connect(stemMerger, 0, 0);
+  stemSplitter.connect(stemRR, 1); stemRR.connect(stemMerger, 0, 1);
+  stemMerger.connect(stemFilter);
+  stemFilter.connect(limiter);
   limiter.connect(ctx.destination);
 
   engine.source = source;
@@ -502,6 +524,13 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.surroundLpRL = surroundLpRL;
   engine.surroundXfeedLR = surroundXfeedLR;
   engine.surroundXfeedRL = surroundXfeedRL;
+  engine.stemSplitter = stemSplitter;
+  engine.stemMerger = stemMerger;
+  engine.stemLL = stemLL;
+  engine.stemLR = stemLR;
+  engine.stemRL = stemRL;
+  engine.stemRR = stemRR;
+  engine.stemFilter = stemFilter;
   engine.limiter = limiter;
 
   // Persistent 8D LFO — built ONCE with the chain and left running forever.
