@@ -1,6 +1,6 @@
 import { useEffect, useSyncExternalStore } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import type { StudioSpaceId } from '@/lib/audioEngine';
+import type { StudioSpaceId, StemModeId } from '@/lib/audioEngine';
 
 export const EQ_SETTINGS_KEY = 'eq_settings';
 
@@ -13,6 +13,7 @@ export interface EQSettings {
   studioSpace: StudioSpaceId;
   lateNight: boolean;
   headphoneSurround: boolean;
+  stemMode: StemModeId;
   activePreset: string;
 }
 
@@ -25,6 +26,7 @@ export const DEFAULT_EQ_SETTINGS: EQSettings = {
   studioSpace: 'off',
   lateNight: false,
   headphoneSurround: false,
+  stemMode: 'off',
   activePreset: 'flat',
 };
 
@@ -48,6 +50,9 @@ export function normalizeEQSettings(input: Partial<EQSettings> | null | undefine
     studioSpace: (input?.studioSpace as StudioSpaceId) || DEFAULT_EQ_SETTINGS.studioSpace,
     lateNight: !!input?.lateNight,
     headphoneSurround: !!input?.headphoneSurround,
+    stemMode: (['off','karaoke','acapella','bass-only','instrumental'] as StemModeId[]).includes(input?.stemMode as StemModeId)
+      ? (input!.stemMode as StemModeId)
+      : DEFAULT_EQ_SETTINGS.stemMode,
     activePreset: input?.activePreset || DEFAULT_EQ_SETTINGS.activePreset,
   };
 }
@@ -111,6 +116,7 @@ export function hasWebAudioEffects(settings = currentSettings): boolean {
   if (settings.studioSpace && settings.studioSpace !== 'off') return true;
   if (settings.lateNight) return true;
   if (settings.headphoneSurround) return true;
+  if (settings.stemMode && settings.stemMode !== 'off') return true;
   return false;
 }
 

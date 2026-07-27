@@ -544,6 +544,43 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               </div>
             </div>
 
+            {/* Stem Isolator — Premium DSP that pulls the mix apart in real time */}
+            <div>
+              <div className="mb-3">
+                <h3 className="text-sm font-medium flex items-center gap-2">
+                  Stem Isolator
+                  <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-primary text-primary-foreground">PREMIUM</span>
+                </h3>
+                <p className="text-[11px] text-muted-foreground mt-0.5">Remove vocals, isolate beats, or hear the acapella — instantly on every song.</p>
+              </div>
+              <div className="grid grid-cols-5 gap-1.5">
+                {([
+                  { id: 'off', label: 'Off' },
+                  { id: 'karaoke', label: 'Karaoke' },
+                  { id: 'instrumental', label: 'No Vocals' },
+                  { id: 'acapella', label: 'Acapella' },
+                  { id: 'bass-only', label: 'Beat' },
+                ] as const).map((m) => {
+                  const active = settings.stemMode === m.id;
+                  return (
+                    <button
+                      key={m.id}
+                      onClick={() => {
+                        setEQSettings({ stemMode: m.id });
+                      }}
+                      className={`px-2 py-2 rounded-lg text-[11px] font-medium transition-all border ${
+                        active
+                          ? 'bg-primary text-primary-foreground border-primary shadow-[0_0_20px_hsl(var(--primary)/0.4)]'
+                          : 'bg-white/5 border-white/10 text-foreground/80 hover:bg-white/10'
+                      }`}
+                    >
+                      {m.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {/* Studio Spaces — Premium-exclusive acoustic environments */}
             <div>
               <div className="flex items-center justify-between mb-3">
