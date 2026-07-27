@@ -76,41 +76,38 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (native8DTimer != null) { window.clearInterval(native8DTimer); native8DTimer = null; }
     };
 
-    const pushNative = (s: ReturnType<typeof getEQSettings>) => {
-      if (!isNativePlayerAvailable()) return;
+    // Serialize native EQ pushes: rapid uf-eq-changed bursts (from
+    // reapplyNativeEqSoon or slider drags) fire overlapping async calls that
+    // race inside the plugin and leave the AudioEffect chain in a mixed state
+    // ("EQ dead on some songs"). One-in-flight + latest-wins fixes that.
+    let nativePushInFlight: Promise<void> | null = null;
+    let pendingNativeSettings: ReturnType<typeof getEQSettings> | null = null;
+
+    const applyNativeNow = async (s: ReturnType<typeof getEQSettings>) => {
       if (!getRuntimePremium() || !hasWebAudioEffects(s)) {
         stop8D();
-        setNativeEQEnabled(false);
-        setNativeBassBoost(0);
-        setNativeVirtualizer(0);
-        setNativeLoudnessEnhancer(0);
-        setNativeReverb(0);
+        await setNativeEQEnabled(false);
+        await setNativeBassBoost(0);
+        await setNativeVirtualizer(0);
+        await setNativeLoudnessEnhancer(0);
+        await setNativeReverb(0);
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
 
-      // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
-      // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
-      pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, space.eqMb);
+      // Enable BEFORE writing bands so the first push after "flat → preset"
+      // actually reaches the AudioEffect chain (some OEM builds ignore
+      // setBandLevel while enabled=false).
+      await setNativeEQEnabled(true);
+      await pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, space.eqMb);
 
-      // Bass boost: user slider OR space profile — whichever is stronger.
       const userBass = Math.round((s.bassBoost / 100) * 1000);
-      setNativeBassBoost(Math.max(userBass, space.bass));
+      await setNativeBassBoost(Math.max(userBass, space.bass));
 
-      // Late Night: real +14 dB loudness compression makeup, not the old +6 dB
-      // that was inaudible on phone speakers. Combine with space loudness.
-      const lateNightMb = s.lateNight ? 1400 : 0;
-      setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud));
+      await setNativeLoudnessEnhancer(space.loud);
+      await setNativeReverb(s.reverb);
 
-      // Android ExoPlayer cannot hear the WebAudio convolver. Attach a native
-      // EnvironmentalReverb as an aux effect so the Reverb control is real.
-      setNativeReverb(s.reverb);
-
-      // Virtualizer: headphone surround / space width baseline.
-      const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);
-
-      // 8D: oscillating virtualizer strength gives perceptible stereo movement
-      // on APK (the WebAudio pan LFO can't drive ExoPlayer's audio session).
+      const baseVirt = space.virt;
       if (s.spatialAudio) {
         if (native8DTimer == null) {
           native8DPhase = 0;
@@ -119,16 +116,30 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
             const cur = getEQSettings();
             if (!cur.spatialAudio) { stop8D(); return; }
             const sp = NATIVE_SPACES[cur.studioSpace] || NATIVE_SPACES.off;
-            const bv = Math.max(cur.headphoneSurround ? 1000 : 0, sp.virt);
             const osc = 600 + Math.round(400 * Math.sin(native8DPhase));
-            setNativeVirtualizer(Math.max(osc, bv));
+            setNativeVirtualizer(Math.max(osc, sp.virt));
           }, 220);
         }
-        setNativeVirtualizer(Math.max(800, baseVirt));
+        await setNativeVirtualizer(Math.max(800, baseVirt));
       } else {
         stop8D();
-        setNativeVirtualizer(baseVirt);
+        await setNativeVirtualizer(baseVirt);
       }
+    };
+
+    const pushNative = (s: ReturnType<typeof getEQSettings>) => {
+      if (!isNativePlayerAvailable()) return;
+      pendingNativeSettings = s;
+      if (nativePushInFlight) return;
+      const drain = async () => {
+        while (pendingNativeSettings) {
+          const next = pendingNativeSettings;
+          pendingNativeSettings = null;
+          try { await applyNativeNow(next); } catch {}
+        }
+        nativePushInFlight = null;
+      };
+      nativePushInFlight = drain();
     };
 
 
