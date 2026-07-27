@@ -53,96 +53,43 @@ interface Preset {
   headphoneSurround?: boolean;
 }
 
-// Full sound-mode presets — each preset controls the WHOLE engine, not only EQ sliders.
-// Grouped visually: Smart, Genre, Vibe, Space/Device.
+// Curated, minimal preset set. Every preset controls the whole engine — bands,
+// bass, and optional studio space — so one tap re-tunes the entire chain.
 const presets: Preset[] = [
-  // — Smart —
-  { id: 'auto',         name: 'Auto EQ',      icon: Wand2,      bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
-  { id: 'flat',         name: 'Flat',         icon: Music2,     bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
-
-  // — Bass / Treble sculpting —
-  { id: 'bass-boost',   name: 'Bass Boost',   icon: Zap,        bands: [4, 3, 2, 0, 0, 0, 0, 0, 0, 0], bassBoost: 35 },
-  { id: 'deep-bass',    name: 'Deep Bass',    icon: Waves,      bands: [7, 6, 4, 2, 0, 0, 0, -1, -1, -1], bassBoost: 70 },
-  { id: 'super-bass',   name: 'Super Bass',   icon: Flame,      bands: [9, 8, 6, 3, 0, 0, 0, -1, -2, -2], bassBoost: 95 },
-  { id: 'treble-boost', name: 'Treble',       icon: Disc3,      bands: [0, 0, 0, 0, 0, 0, 1, 2, 3, 3], bassBoost: 0 },
-  { id: 'crystal',      name: 'Crystal Clear',icon: Snowflake,  bands: [-1, -1, 0, 0, 1, 2, 3, 4, 4, 3], bassBoost: 0 },
-  { id: 'vocal',        name: 'Vocal',        icon: Volume2,    bands: [-2, -1, 0, 1, 3, 4, 3, 1, 0, -1], bassBoost: 0 },
-  { id: 'v-shape',      name: 'V-Shape',      icon: Radio,      bands: [5, 4, 2, 0, -2, -2, 0, 2, 4, 5], bassBoost: 25 },
-
-  // — Genre —
-  { id: 'pop',          name: 'Pop',          icon: Music2,     bands: [1, 2, 1, 0, 0, 1, 2, 3, 2, 1], bassBoost: 18 },
-  { id: 'rock',         name: 'Rock',         icon: Guitar,     bands: [5, 4, 3, 1, -1, -1, 1, 3, 4, 4], bassBoost: 20 },
-  { id: 'metal',        name: 'Metal',        icon: Flame,      bands: [4, 3, 2, 0, -2, 1, 3, 4, 4, 3], bassBoost: 22 },
-  { id: 'hiphop',       name: 'Hip-Hop',      icon: Drum,       bands: [6, 5, 2, 1, -1, -1, 1, 2, 3, 3], bassBoost: 45 },
-  { id: 'rnb',          name: 'R&B',          icon: Mic2,       bands: [3, 3, 2, 2, -1, -1, 1, 2, 3, 3], bassBoost: 28 },
-  { id: 'edm',          name: 'EDM',          icon: Radio,      bands: [6, 5, 2, 0, -2, 1, 1, 3, 5, 6], bassBoost: 42 },
-  { id: 'phonk',        name: 'Phonk',        icon: Radio,      bands: [6, 5, 3, 1, 0, -1, 0, 1, 2, 2], bassBoost: 55 },
-  { id: 'dance',        name: 'Dance',        icon: PartyPopper,bands: [5, 6, 3, 0, 0, -1, -1, 0, 4, 5], bassBoost: 38 },
-  { id: 'jazz',         name: 'Jazz',         icon: Music2,     bands: [3, 2, 1, 2, -1, -1, 0, 1, 2, 3], bassBoost: 10 },
-  { id: 'classical',    name: 'Classical',    icon: Piano,      bands: [4, 3, 2, 0, 0, 0, -1, 0, 2, 3], bassBoost: 5, studioSpace: 'hall' },
-  { id: 'acoustic',     name: 'Acoustic',     icon: Guitar,     bands: [4, 4, 3, 1, 2, 2, 3, 3, 2, 1], bassBoost: 8 },
-  { id: 'country',      name: 'Country',      icon: Guitar,     bands: [2, 3, 1, 0, 0, 2, 2, 3, 3, 2], bassBoost: 10 },
-  { id: 'reggae',       name: 'Reggae',       icon: Music2,     bands: [3, 2, 0, -2, -1, 1, 3, 4, 3, 2], bassBoost: 22 },
-  { id: 'latin',        name: 'Latin',        icon: Music2,     bands: [4, 3, 0, 0, -1, -1, -1, 0, 3, 4], bassBoost: 20 },
-  { id: 'lofi',         name: 'Lo-Fi',        icon: Disc3,      bands: [4, 3, 2, 1, 0, -1, -3, -4, -5, -6], bassBoost: 25, reverb: 18 },
-  { id: 'indie',        name: 'Indie',        icon: Guitar,     bands: [2, 2, 1, 1, 1, 1, 2, 2, 2, 1], bassBoost: 12 },
-  { id: 'kpop',         name: 'K-Pop',        icon: Crown,   bands: [3, 4, 2, 0, 0, 1, 2, 4, 4, 3], bassBoost: 28 },
-  { id: 'bollywood',    name: 'Bollywood',    icon: Flame,   bands: [3, 3, 2, 1, 1, 2, 3, 3, 2, 1], bassBoost: 22 },
-  { id: 'punjabi',      name: 'Punjabi',      icon: Drum,       bands: [6, 5, 3, 1, 0, 0, 1, 2, 3, 3], bassBoost: 50 },
-
-  // — Vibe / Mood —
-  { id: 'late-night',   name: 'Late Night',   icon: Moon,       bands: [-3, -2, -1, 0, 2, 3, 2, 1, -1, -2], bassBoost: 8, lateNight: true },
-  { id: 'chill',        name: 'Chill',        icon: Snowflake,  bands: [2, 2, 1, 1, 0, 0, 1, 2, 2, 1], bassBoost: 12, reverb: 10 },
-  { id: 'focus',        name: 'Focus',        icon: Focus,      bands: [-1, -1, 0, 1, 2, 2, 1, 0, -1, -2], bassBoost: 0 },
-  { id: 'workout',      name: 'Workout',      icon: Dumbbell,   bands: [5, 5, 3, 1, 0, 1, 2, 3, 4, 4], bassBoost: 40 },
-  { id: 'party',        name: 'Party',        icon: PartyPopper,bands: [6, 5, 2, 0, 0, 0, 2, 4, 5, 5], bassBoost: 45 },
-  { id: 'sunrise',      name: 'Sunrise',      icon: Sun,        bands: [2, 2, 1, 1, 2, 3, 3, 2, 2, 1], bassBoost: 12 },
-
-  // — Space / Immersive —
-  { id: '8d-audio',     name: '8D Audio',     icon: Globe,      bands: [2, 1, 0, -1, 0, 0, 1, 2, 1, 1], bassBoost: 10, spatialAudio: true, reverb: 12 },
-  { id: 'surround',     name: 'Surround',     icon: Headphones, bands: [2, 2, 1, 0, 0, 1, 2, 2, 2, 2], bassBoost: 15, spatialAudio: true, headphoneSurround: true, reverb: 8 },
-  { id: 'headphones',   name: 'Headphones',   icon: Headphones, bands: [1, 1, 0, -1, 0, 1, 2, 2, 1, 0], bassBoost: 18, headphoneSurround: true },
-  { id: 'concert',      name: 'Concert',      icon: Trophy,     bands: [3, 2, 1, 0, 1, 1, 2, 2, 2, 1], bassBoost: 15, studioSpace: 'hall' },
-  { id: 'stadium-live', name: 'Stadium',      icon: Trophy,     bands: [4, 3, 2, 1, 0, 1, 2, 3, 3, 2], bassBoost: 20, studioSpace: 'stadium' },
-  { id: 'cathedral',    name: 'Cathedral',    icon: Church,     bands: [2, 2, 1, 0, 0, 1, 1, 2, 2, 2], bassBoost: 8, studioSpace: 'cathedral', reverb: 25 },
-  { id: 'studio',       name: 'Studio',       icon: Mic2,       bands: [0, 0, 0, -1, 0, 2, 2, 1, 0, -1], bassBoost: 5, studioSpace: 'studio' },
-  { id: 'vinyl',        name: 'Vinyl',        icon: Disc3,      bands: [3, 2, 1, 0, 0, -1, -1, -2, -3, -4], bassBoost: 15, studioSpace: 'vinyl' },
-
-  // — Device tuning —
-  { id: 'car',          name: 'Car',          icon: Car,        bands: [4, 3, 1, 0, -1, 1, 2, 3, 3, 2], bassBoost: 30 },
-  { id: 'small-spkr',   name: 'Small Speaker',icon: Speaker,    bands: [-2, -1, 0, 2, 3, 3, 2, 1, 0, -1], bassBoost: 0 },
-  { id: 'earbuds',      name: 'Earbuds',      icon: Headphones, bands: [3, 3, 1, 0, 0, 1, 2, 3, 2, 1], bassBoost: 22 },
-  { id: 'tv',           name: 'TV / Film',    icon: Film,       bands: [1, 1, 0, 1, 2, 3, 2, 1, 1, 0], bassBoost: 10, studioSpace: 'hall' },
-  { id: 'gaming',       name: 'Gaming',       icon: Gamepad2,   bands: [3, 3, 1, 0, 1, 2, 3, 3, 3, 2], bassBoost: 25, spatialAudio: true },
-  { id: 'podcast',      name: 'Podcast',      icon: Podcast,    bands: [-4, -3, -1, 1, 3, 4, 3, 2, 0, -2], bassBoost: 0 },
+  { id: 'auto',         name: 'Auto',        icon: Wand2,      bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
+  { id: 'flat',         name: 'Flat',        icon: Music2,     bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0 },
+  { id: 'bass-boost',   name: 'Bass',        icon: Zap,        bands: [4, 3, 2, 0, 0, 0, 0, 0, 0, 0], bassBoost: 35 },
+  { id: 'super-bass',   name: 'Super Bass',  icon: Flame,      bands: [9, 8, 6, 3, 0, 0, 0, -1, -2, -2], bassBoost: 95 },
+  { id: 'treble-boost', name: 'Treble',      icon: Disc3,      bands: [0, 0, 0, 0, 0, 0, 1, 2, 3, 3], bassBoost: 0 },
+  { id: 'vocal',        name: 'Vocal',       icon: Volume2,    bands: [-2, -1, 0, 1, 3, 4, 3, 1, 0, -1], bassBoost: 0 },
+  { id: 'pop',          name: 'Pop',         icon: Music2,     bands: [1, 2, 1, 0, 0, 1, 2, 3, 2, 1], bassBoost: 18 },
+  { id: 'rock',         name: 'Rock',        icon: Guitar,     bands: [5, 4, 3, 1, -1, -1, 1, 3, 4, 4], bassBoost: 20 },
+  { id: 'hiphop',       name: 'Hip-Hop',     icon: Drum,       bands: [6, 5, 2, 1, -1, -1, 1, 2, 3, 3], bassBoost: 45 },
+  { id: 'edm',          name: 'EDM',         icon: Radio,      bands: [6, 5, 2, 0, -2, 1, 1, 3, 5, 6], bassBoost: 42 },
+  { id: 'jazz',         name: 'Jazz',        icon: Music2,     bands: [3, 2, 1, 2, -1, -1, 0, 1, 2, 3], bassBoost: 10 },
+  { id: 'classical',    name: 'Classical',   icon: Piano,      bands: [4, 3, 2, 0, 0, 0, -1, 0, 2, 3], bassBoost: 5, studioSpace: 'hall' },
+  { id: 'lofi',         name: 'Lo-Fi',       icon: Disc3,      bands: [4, 3, 2, 1, 0, -1, -3, -4, -5, -6], bassBoost: 25 },
+  { id: 'chill',        name: 'Chill',       icon: Snowflake,  bands: [2, 2, 1, 1, 0, 0, 1, 2, 2, 1], bassBoost: 12 },
+  { id: 'workout',      name: 'Workout',     icon: Dumbbell,   bands: [5, 5, 3, 1, 0, 1, 2, 3, 4, 4], bassBoost: 40 },
+  { id: 'party',        name: 'Party',       icon: PartyPopper,bands: [6, 5, 2, 0, 0, 0, 2, 4, 5, 5], bassBoost: 45 },
+  { id: 'late-night',   name: 'Late Night',  icon: Moon,       bands: [-3, -2, -1, 0, 2, 3, 2, 1, -1, -2], bassBoost: 8 },
+  { id: '8d-audio',     name: '8D Audio',    icon: Globe,      bands: [2, 1, 0, -1, 0, 0, 1, 2, 1, 1], bassBoost: 10, spatialAudio: true },
 ];
 
 // Auto-EQ heuristic: choose a preset based on song metadata keywords.
-// Runs whenever `currentSong` changes AND user is in 'auto' mode.
 function pickAutoPreset(song: { title?: string; artist?: string; album?: string } | null): string {
   if (!song) return 'flat';
   const hay = `${song.title || ''} ${song.artist || ''} ${song.album || ''}`.toLowerCase();
   const has = (...words: string[]) => words.some((w) => hay.includes(w));
-  if (has('punjabi', 'jatt', 'sidhu', 'diljit', 'karan aujla', 'ap dhillon', 'shubh')) return 'punjabi';
-  if (has('lofi', 'lo-fi', 'lo fi', 'chillhop', 'chill beats')) return 'lofi';
-  if (has('phonk', 'drift')) return 'phonk';
-  if (has('edm', 'house', 'trance', 'techno', 'dubstep', 'drum and bass', 'dnb', 'martin garrix', 'calvin harris', 'david guetta', 'marshmello', 'skrillex', 'zedd')) return 'edm';
-  if (has('rock', 'metal', 'metallica', 'linkin park', 'guns n roses', 'ac/dc', 'nirvana', 'foo fighters')) return 'rock';
-  if (has('hip hop', 'hip-hop', 'rap', 'drake', 'kendrick', 'travis scott', 'kanye', 'eminem', '21 savage', 'future')) return 'hiphop';
-  if (has('r&b', 'rnb', 'weeknd', 'sza', 'frank ocean', 'bryson tiller')) return 'rnb';
-  if (has('jazz', 'blues', 'coltrane', 'miles davis', 'ella fitzgerald', 'norah jones')) return 'jazz';
-  if (has('classical', 'symphony', 'sonata', 'concerto', 'orchestra', 'bach', 'mozart', 'beethoven', 'chopin')) return 'classical';
-  if (has('acoustic', 'unplugged', 'guitar')) return 'acoustic';
-  if (has('country', 'nashville', 'morgan wallen', 'luke combs')) return 'country';
-  if (has('reggae', 'bob marley', 'dancehall')) return 'reggae';
-  if (has('latin', 'reggaeton', 'bad bunny', 'j balvin', 'shakira', 'karol g')) return 'latin';
-  if (has('k-pop', 'kpop', 'bts', 'blackpink', 'twice', 'stray kids', 'newjeans')) return 'kpop';
-  if (has('bollywood', 'arijit', 'shreya', 'pritam', 'a.r. rahman', 'a r rahman', 'atif aslam', 'neha kakkar')) return 'bollywood';
-  if (has('party', 'dance', 'club')) return 'dance';
-  if (has('workout', 'gym', 'pump', 'beast')) return 'workout';
+  if (has('lofi', 'lo-fi', 'lo fi', 'chillhop')) return 'lofi';
+  if (has('edm', 'house', 'trance', 'techno', 'dubstep', 'dnb')) return 'edm';
+  if (has('rock', 'metal', 'punk')) return 'rock';
+  if (has('hip hop', 'hip-hop', 'rap', 'drake', 'kendrick', 'travis scott', 'kanye', 'eminem')) return 'hiphop';
+  if (has('jazz', 'blues')) return 'jazz';
+  if (has('classical', 'symphony', 'sonata', 'concerto', 'orchestra', 'bach', 'mozart', 'beethoven')) return 'classical';
+  if (has('party', 'dance', 'club')) return 'party';
+  if (has('workout', 'gym', 'pump')) return 'workout';
   if (has('chill', 'sleep', 'calm', 'relax', 'ambient')) return 'chill';
-  if (has('focus', 'study', 'concentration')) return 'focus';
-  if (has('podcast', 'interview', 'talk')) return 'podcast';
   return 'pop';
 }
 
@@ -161,15 +108,6 @@ const defaultBands: EQBand[] = [
 ];
 
 const SPECTRUM_BARS = Array.from({ length: 22 }, (_, i) => i);
-
-const PRESET_GROUPS: { label: string; ids: string[] }[] = [
-  { label: 'Smart',      ids: ['auto', 'flat'] },
-  { label: 'Bass · Treble', ids: ['bass-boost','deep-bass','super-bass','treble-boost','crystal','vocal','v-shape'] },
-  { label: 'Genre',      ids: ['pop','rock','metal','hiphop','rnb','edm','phonk','dance','jazz','classical','acoustic','country','reggae','latin','lofi','indie','kpop','bollywood','punjabi'] },
-  { label: 'Vibe',       ids: ['late-night','chill','focus','workout','party','sunrise'] },
-  { label: 'Immersive',  ids: ['8d-audio','surround','headphones','concert','stadium-live','cathedral','studio','vinyl'] },
-  { label: 'Device',     ids: ['car','small-spkr','earbuds','tv','gaming','podcast'] },
-];
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { currentSong } = usePlayer();
