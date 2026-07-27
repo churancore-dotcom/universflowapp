@@ -16,6 +16,20 @@ function toSong(t: { id: string; title?: string; artist?: string; album?: string
   } as Song;
 }
 
+// Session-stable random seed so each app open reshuffles rails, but they stay
+// stable while the user scrolls. Prevents "same songs in the same order".
+let SESSION_SEED = Math.floor(Math.random() * 1_000_000);
+function seededShuffle<T>(arr: T[], seed = SESSION_SEED): T[] {
+  const out = arr.slice();
+  let s = seed || 1;
+  for (let i = out.length - 1; i > 0; i--) {
+    s = (s * 9301 + 49297) % 233280;
+    const j = Math.floor((s / 233280) * (i + 1));
+    [out[i], out[j]] = [out[j], out[i]];
+  }
+  return out;
+}
+
 // Refresh rails every hour, not every day → real "trending / new" behaviour.
 function hourBucket() { return Math.floor(Date.now() / (60 * 60 * 1000)); }
 
@@ -45,7 +59,8 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
         const s = toSong(t);
         if (s) out.push(s);
       }
-      return out.slice(0, limit);
+      // Reshuffle per session so rails don't repeat identical order.
+      return seededShuffle(out).slice(0, limit);
     },
   });
 }
@@ -69,7 +84,7 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
         const s = toSong(t);
         if (s) out.push(s);
       }
-      return out.slice(0, limit);
+      return seededShuffle(out).slice(0, limit);
     },
   });
 }
@@ -102,8 +117,9 @@ export function useYtmCharts(country: string, enabled = true) {
       return {
         // Top Songs stays ranked (users expect the #1 to be #1).
         top: toList(charts.top),
-        trending: toList(charts.trending),
-        videos: toList(charts.videos),
+        // Trending / videos shuffle per session so the rails don't feel static.
+        trending: seededShuffle(toList(charts.trending)),
+        videos: seededShuffle(toList(charts.videos)),
         country: charts.country,
       };
     },

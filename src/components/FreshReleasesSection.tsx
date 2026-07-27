@@ -4,6 +4,8 @@ import { Play } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { rerank } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmNewReleases } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
@@ -12,18 +14,14 @@ interface Props { songs?: Song[]; enabled?: boolean }
 
 const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   const { playSong } = usePlayer();
+  const taste = useTasteProfile();
   const country = useUserCountry();
   const { data: pool = [] } = useYtmNewReleases(country, 24, enabled);
 
   const fresh = useMemo(() => {
-    const seen = new Set<string>();
-    return pool.filter((song) => {
-      const identity = `${song.artist.toLowerCase()}::${song.title.toLowerCase()}`;
-      if (seen.has(identity) || isSpamSong(song)) return false;
-      seen.add(identity);
-      return true;
-    }).slice(0, 12);
-  }, [pool]);
+    const clean = pool.filter((s) => !isSpamSong(s));
+    return rerank(clean, taste).slice(0, 12);
+  }, [pool, taste]);
 
 
   if (fresh.length === 0) return null;

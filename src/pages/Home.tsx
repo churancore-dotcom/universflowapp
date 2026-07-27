@@ -169,10 +169,7 @@ const Home = () => {
   }, [onlineSongs, updateCache, isOffline]);
 
   const loading = isLoading && songs.length === 0 && !isOffline;
-  // Discovery rails own their data queries and must not depend on the small
-  // hero seed request succeeding. That coupling made most of Home disappear
-  // whenever the hero endpoint was slow or empty.
-  const discoveryEnabled = !isOffline;
+  const homeReady = songs.length > 0 && !isOffline;
 
   const allSongs = useMemo(() => songs, [songs]);
 
@@ -311,12 +308,12 @@ const Home = () => {
 
 
 
-              {!isOffline && <FreshReleasesSection songs={allSongs} enabled={discoveryEnabled} />}
+              {!isOffline && <FreshReleasesSection songs={allSongs} enabled={homeReady} />}
               {/* Followed artists rail — restored above Trending */}
               {!isOffline && <FollowedArtistSongsSection songs={allSongs} />}
-              {!isOffline && <TrendingNowSection songs={allSongs} enabled={discoveryEnabled} />}
+              {!isOffline && <TrendingNowSection songs={allSongs} enabled={homeReady} />}
               {/* Discovery — Featured Artists */}
-              {!isOffline && <FeaturedArtistsSection songs={allSongs} />}
+              {!isOffline && <FeaturedArtistsSection />}
               {!isOffline && <MadeForYouSection />}
               {/* Viral Now Rail — live country chart, real data */}
               {!isOffline && <CountryViralSection />}

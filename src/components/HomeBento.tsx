@@ -2,7 +2,7 @@ import React, { memo, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Pause, Play, ChevronRight } from 'lucide-react';
+import { Pause, Play, ChevronRight, Music2 } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -124,16 +124,7 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
     queryFn: async (): Promise<Song[]> => {
       const local = readLocalRecent(user!.id).slice(0, 12);
       const ids = local.map((r) => r.song_id).filter(isCatalogId);
-      const stored = new Map(local.filter((r) => r.title && r.artist).map((r) => [r.song_id, songFromRow({
-        id: r.song_id,
-        title: r.title || '',
-        artist: r.artist || '',
-        album: r.album,
-        cover_url: r.cover_url,
-        audio_url: r.audio_url,
-        duration: r.duration,
-      })]));
-      if (ids.length === 0) return local.map((r) => stored.get(r.song_id)).filter(Boolean) as Song[];
+      if (ids.length === 0) return [];
       const { data: rows, error: songError } = await supabase
         .from('songs')
         .select('id,title,artist,album,cover_url,audio_url,duration,genre,mood,created_at,artist_id')
@@ -141,7 +132,7 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
         .eq('is_visible', true);
       if (songError) throw songError;
       const byId = new Map((rows || []).map((row) => [row.id, songFromRow(row as SongRowLike)]));
-      return local.map((entry) => byId.get(entry.song_id) || stored.get(entry.song_id)).filter(Boolean) as Song[];
+      return ids.map((id) => byId.get(id)).filter(Boolean) as Song[];
     },
   });
 
@@ -164,19 +155,25 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
   const pool = useMemo(() => dedupeSongs(songs), [songs]);
   const spotlight = useMemo<ArtistOfWeek | null>(() => {
     if (artistOfWeek) return artistOfWeek;
-    const liveArtist = pool.find((song) => song.artist && song.cover_url);
-    if (!liveArtist) return null;
-    return {
-      id: liveArtist.artist_id || liveArtist.artist,
-      name: liveArtist.artist,
-      image: liveArtist.artist_photo_url || liveArtist.cover_url || null,
-    };
+    const first = pool.find((s) => s.artist && s.cover_url);
+    return first ? { id: first.artist, name: first.artist, image: first.cover_url || null } : null;
   }, [artistOfWeek, pool]);
   const jumpBack = useMemo(
-    () => dedupeSongs([...recentSongs, ...queue]).filter((s) => s.cover_url).slice(0, 3),
-    [recentSongs, queue],
+    () => dedupeSongs([...recentSongs, ...queue, ...pool]).filter((s) => s.cover_url).slice(0, 3),
+    [recentSongs, queue, pool],
   );
-  const hero = currentSong || recentSongs[0];
+  const newRelease = useMemo(() => {
+    const withCover = pool.filter((s) => s.cover_url && s.created_at);
+    withCover.sort((a, b) => {
+      const ta = a.created_at ? new Date(a.created_at).getTime() : 0;
+      const tb = b.created_at ? new Date(b.created_at).getTime() : 0;
+      return tb - ta;
+    });
+    return withCover[0] || pool.find((s) => s.cover_url);
+  }, [pool]);
+
+
+  const hero = currentSong || recentSongs[0] || pool[0];
   const heroIsCurrent = !!currentSong && currentSong.id === hero?.id;
   const heroPlaying = heroIsCurrent && isPlaying;
   const heroProgressPct =
@@ -196,6 +193,8 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
     if (currentSong?.id === song.id) togglePlay();
     else playSong(song, null, pool.slice(0, 40));
   };
+
+  if (!hero && pool.length === 0) return null;
 
   return (
     <div className="space-y-3 font-body">
@@ -267,9 +266,9 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
       )}
 
       {/* ====== ROW 1: ARTIST OF THE WEEK | JUMP BACK IN ====== */}
-      <div className={`grid gap-3 ${spotlight ? 'grid-cols-2' : 'grid-cols-1'}`}>
+      <div className="grid grid-cols-2 gap-3">
         {/* Artist of the Week */}
-        {spotlight ? <motion.button
+        <motion.button
           {...fadeUp(1)}
           onClick={() => {
             if (!spotlight) return;
@@ -301,13 +300,13 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
           </div>
           <div className="absolute left-3 right-3 bottom-3 z-10">
             <p className="text-white text-[16px] font-extrabold tracking-tight leading-tight line-clamp-2 drop-shadow">
-              {spotlight.name}
+              {spotlight?.name || 'Discover artists'}
             </p>
             <p className="text-white/65 text-[10px] mt-0.5 font-medium">
               Tap to explore
             </p>
           </div>
-        </motion.button> : null}
+        </motion.button>
 
         {/* Jump Back In */}
         <motion.div
@@ -352,8 +351,8 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
         </motion.div>
       </div>
 
-      {/* ====== MOODS ====== */}
-      <div>
+      {/* ====== ROW 2: MOODS | NEW RELEASE ====== */}
+      <div className="grid grid-cols-2 gap-3">
         {/* Moods */}
         <motion.div
           {...fadeUp(3)}
@@ -391,6 +390,59 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
           </div>
         </motion.div>
 
+        {/* New Release */}
+        {newRelease ? (
+          <motion.button
+            {...fadeUp(4)}
+            onClick={() => playFromTile(newRelease)}
+             className="relative rounded-3xl overflow-hidden text-left active:scale-[0.98] transition-transform h-[178px] border border-white/[0.06] bg-card"
+          >
+            {newRelease.cover_url && (
+              <img
+                src={newRelease.cover_url}
+                alt=""
+                className="absolute inset-0 w-full h-full object-cover"
+                loading="lazy"
+              />
+            )}
+            <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />
+            <div className="absolute top-3 left-3 z-10">
+              <span className="text-primary text-[10px] font-extrabold uppercase tracking-[0.18em] drop-shadow">
+                New Release
+              </span>
+            </div>
+            <div className="absolute left-3 right-3 bottom-3 z-10 flex items-end gap-2.5">
+              {newRelease.cover_url && (
+                <div className="w-12 h-12 rounded-lg overflow-hidden shadow-lg shrink-0 ring-1 ring-white/10">
+                  <img
+                    src={newRelease.cover_url}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <p className="text-white text-[13px] font-extrabold truncate drop-shadow leading-tight">
+                  {newRelease.title}
+                </p>
+                <p className="text-white/70 text-[10px] truncate">{newRelease.artist}</p>
+              </div>
+              <span className="w-8 h-8 rounded-full bg-primary flex items-center justify-center shrink-0 shadow-lg">
+                <Play className="w-3.5 h-3.5 text-white fill-white ml-0.5" />
+              </span>
+            </div>
+          </motion.button>
+        ) : (
+          <motion.div
+            {...fadeUp(4)}
+            className="rounded-3xl p-4 border border-white/[0.06] bg-card h-[178px] flex items-center justify-center"
+          >
+            <div className="flex items-center gap-2 text-white/40 text-[11px]">
+              <Music2 className="w-3.5 h-3.5" />
+              <span>No new releases yet</span>
+            </div>
+          </motion.div>
+        )}
       </div>
 
       {/* "View all" affordance into discovery */}

@@ -7,7 +7,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { getUserArtistPrefs, followArtist, type UserArtistPref } from '@/lib/userArtistPrefs';
-import type { Song } from '@/contexts/PlayerContext';
 
 interface DisplayArtist {
   key: string;
@@ -59,7 +58,7 @@ const ArtistCard = memo(({ artist, index, onClick }: { artist: DisplayArtist; in
 ));
 ArtistCard.displayName = 'ArtistCard';
 
-const FeaturedArtistsSection = ({ songs = [] }: { songs?: Song[] }) => {
+const FeaturedArtistsSection = () => {
   const { user } = useAuth();
   const navigate = useNavigate();
 
@@ -68,27 +67,15 @@ const FeaturedArtistsSection = ({ songs = [] }: { songs?: Song[] }) => {
     staleTime: 10 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     queryFn: async (): Promise<DisplayArtist[]> => {
-      const prefs: UserArtistPref[] = user ? await getUserArtistPrefs(user.id) : [];
-      const followed = prefs.map(p => ({
+      // Only show artists the user has actually followed.
+      // We never surface internal platform/demo artist profiles here.
+      if (!user) return [];
+      const prefs: UserArtistPref[] = await getUserArtistPrefs(user.id);
+      return prefs.map(p => ({
         key: p.id,
         name: p.artist_name,
         image: p.artist_image,
       }));
-      const seen = new Set(followed.map((artist) => artist.name.trim().toLowerCase()));
-      const discovered: DisplayArtist[] = [];
-      for (const song of songs) {
-        const name = song.artist?.trim();
-        const identity = name?.toLowerCase();
-        if (!name || !identity || seen.has(identity)) continue;
-        seen.add(identity);
-        discovered.push({
-          key: song.artist_id || `live-${identity}`,
-          name,
-          image: song.artist_photo_url || song.cover_url || null,
-        });
-        if (discovered.length >= 12) break;
-      }
-      return [...followed, ...discovered].slice(0, 16);
     },
   });
 
