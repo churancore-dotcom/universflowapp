@@ -444,8 +444,33 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   const surroundXfeedLR = ctx.createGain(); surroundXfeedLR.gain.value = 0; // off until enabled
   const surroundXfeedRL = ctx.createGain(); surroundXfeedRL.gain.value = 0;
 
-  // Wire graph
-  source.connect(filters[0]);
+  // --- Stems stage (mid/side): vocal-remove & instrumental-remove ---
+  // Mid = 0.5*(L+R) carries centered vocals; Side = 0.5*(L-R) carries stereo
+  // instruments. Attenuating one isolates the other. Zero-latency, works on
+  // every song, no ML model needed.
+  const stemsSplitter = ctx.createChannelSplitter(2);
+  const stemsMerger   = ctx.createChannelMerger(2);
+  const stemsLtoLmid  = ctx.createGain(); stemsLtoLmid.gain.value = 0.5;
+  const stemsRtoLmid  = ctx.createGain(); stemsRtoLmid.gain.value = 0.5;
+  const stemsLtoRmid  = ctx.createGain(); stemsLtoRmid.gain.value = 0.5;
+  const stemsRtoRmid  = ctx.createGain(); stemsRtoRmid.gain.value = 0.5;
+  const stemsLtoLside = ctx.createGain(); stemsLtoLside.gain.value =  0.5;
+  const stemsRtoLside = ctx.createGain(); stemsRtoLside.gain.value = -0.5;
+  const stemsLtoRside = ctx.createGain(); stemsLtoRside.gain.value = -0.5;
+  const stemsRtoRside = ctx.createGain(); stemsRtoRside.gain.value =  0.5;
+
+  // source -> stems splitter -> matrix -> merger -> EQ filters
+  source.connect(stemsSplitter);
+  stemsSplitter.connect(stemsLtoLmid, 0);  stemsLtoLmid.connect(stemsMerger,  0, 0);
+  stemsSplitter.connect(stemsRtoLmid, 1);  stemsRtoLmid.connect(stemsMerger,  0, 0);
+  stemsSplitter.connect(stemsLtoRmid, 0);  stemsLtoRmid.connect(stemsMerger,  0, 1);
+  stemsSplitter.connect(stemsRtoRmid, 1);  stemsRtoRmid.connect(stemsMerger,  0, 1);
+  stemsSplitter.connect(stemsLtoLside, 0); stemsLtoLside.connect(stemsMerger, 0, 0);
+  stemsSplitter.connect(stemsRtoLside, 1); stemsRtoLside.connect(stemsMerger, 0, 0);
+  stemsSplitter.connect(stemsLtoRside, 0); stemsLtoRside.connect(stemsMerger, 0, 1);
+  stemsSplitter.connect(stemsRtoRside, 1); stemsRtoRside.connect(stemsMerger, 0, 1);
+
+  stemsMerger.connect(filters[0]);
   for (let i = 0; i < filters.length - 1; i++) filters[i].connect(filters[i + 1]);
   filters[filters.length - 1].connect(preGain);
 
