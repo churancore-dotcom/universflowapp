@@ -54,6 +54,8 @@ export function normalizeEQSettings(input: Partial<EQSettings> | null | undefine
     studioSpace: (input?.studioSpace as StudioSpaceId) || DEFAULT_EQ_SETTINGS.studioSpace,
     lateNight: !!input?.lateNight,
     headphoneSurround: !!input?.headphoneSurround,
+    vocalMix: clamp(input?.vocalMix, 0, 100, DEFAULT_EQ_SETTINGS.vocalMix),
+    instrumentalMix: clamp(input?.instrumentalMix, 0, 100, DEFAULT_EQ_SETTINGS.instrumentalMix),
     activePreset: input?.activePreset || DEFAULT_EQ_SETTINGS.activePreset,
   };
 }
