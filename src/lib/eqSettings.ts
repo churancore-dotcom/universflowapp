@@ -13,6 +13,10 @@ export interface EQSettings {
   studioSpace: StudioSpaceId;
   lateNight: boolean;
   headphoneSurround: boolean;
+  /** 0..100 — mid-channel level. 100 = normal, 0 = vocals removed (karaoke). */
+  vocalMix: number;
+  /** 0..100 — side-channel level. 100 = normal, 0 = instrumental removed (a-cappella). */
+  instrumentalMix: number;
   activePreset: string;
 }
 
@@ -25,6 +29,8 @@ export const DEFAULT_EQ_SETTINGS: EQSettings = {
   studioSpace: 'off',
   lateNight: false,
   headphoneSurround: false,
+  vocalMix: 100,
+  instrumentalMix: 100,
   activePreset: 'flat',
 };
 
