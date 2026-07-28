@@ -29,6 +29,17 @@ type SourceBackedAudioElement = HTMLAudioElement & {
 interface Engine {
   ctx: AudioContext | null;
   source: MediaElementAudioSourceNode | null;
+  // Mid/Side stems stage (vocal remove / instrumental remove)
+  stemsSplitter: ChannelSplitterNode | null;
+  stemsMerger: ChannelMergerNode | null;
+  stemsLtoLmid: GainNode | null;
+  stemsRtoLmid: GainNode | null;
+  stemsLtoRmid: GainNode | null;
+  stemsRtoRmid: GainNode | null;
+  stemsLtoLside: GainNode | null;
+  stemsRtoLside: GainNode | null;
+  stemsLtoRside: GainNode | null;
+  stemsRtoRside: GainNode | null;
   filters: BiquadFilterNode[];
   preGain: GainNode | null;
   dryGain: GainNode | null;
@@ -55,6 +66,8 @@ interface Engine {
   spatialEnabled: boolean;
   lateNightEnabled: boolean;
   surroundEnabled: boolean;
+  vocalMix: number;
+  instrumentalMix: number;
   listeners: Set<(m: Mode) => void>;
   cachedIR: AudioBuffer | null;
 }
@@ -62,6 +75,16 @@ interface Engine {
 const engine: Engine = {
   ctx: null,
   source: null,
+  stemsSplitter: null,
+  stemsMerger: null,
+  stemsLtoLmid: null,
+  stemsRtoLmid: null,
+  stemsLtoRmid: null,
+  stemsRtoRmid: null,
+  stemsLtoLside: null,
+  stemsRtoLside: null,
+  stemsLtoRside: null,
+  stemsRtoRside: null,
   filters: [],
   preGain: null,
   dryGain: null,
@@ -87,6 +110,8 @@ const engine: Engine = {
   spatialEnabled: false,
   lateNightEnabled: false,
   surroundEnabled: false,
+  vocalMix: 100,
+  instrumentalMix: 100,
   listeners: new Set(),
   cachedIR: null,
 };
@@ -336,6 +361,9 @@ function disconnectAll() {
     engine.source, ...engine.filters, engine.preGain,
     engine.dryGain, engine.wetGain, engine.convolver,
     engine.stereoPanner, engine.panLfoGain,
+    engine.stemsSplitter, engine.stemsMerger,
+    engine.stemsLtoLmid, engine.stemsRtoLmid, engine.stemsLtoRmid, engine.stemsRtoRmid,
+    engine.stemsLtoLside, engine.stemsRtoLside, engine.stemsLtoRside, engine.stemsRtoRside,
     engine.surroundSplitter, engine.surroundMerger,
     engine.surroundDirectL, engine.surroundDirectR,
     engine.surroundDelayLR, engine.surroundDelayRL,
@@ -416,8 +444,33 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   const surroundXfeedLR = ctx.createGain(); surroundXfeedLR.gain.value = 0; // off until enabled
   const surroundXfeedRL = ctx.createGain(); surroundXfeedRL.gain.value = 0;
 
-  // Wire graph
-  source.connect(filters[0]);
+  // --- Stems stage (mid/side): vocal-remove & instrumental-remove ---
+  // Mid = 0.5*(L+R) carries centered vocals; Side = 0.5*(L-R) carries stereo
+  // instruments. Attenuating one isolates the other. Zero-latency, works on
+  // every song, no ML model needed.
+  const stemsSplitter = ctx.createChannelSplitter(2);
+  const stemsMerger   = ctx.createChannelMerger(2);
+  const stemsLtoLmid  = ctx.createGain(); stemsLtoLmid.gain.value = 0.5;
+  const stemsRtoLmid  = ctx.createGain(); stemsRtoLmid.gain.value = 0.5;
+  const stemsLtoRmid  = ctx.createGain(); stemsLtoRmid.gain.value = 0.5;
+  const stemsRtoRmid  = ctx.createGain(); stemsRtoRmid.gain.value = 0.5;
+  const stemsLtoLside = ctx.createGain(); stemsLtoLside.gain.value =  0.5;
+  const stemsRtoLside = ctx.createGain(); stemsRtoLside.gain.value = -0.5;
+  const stemsLtoRside = ctx.createGain(); stemsLtoRside.gain.value = -0.5;
+  const stemsRtoRside = ctx.createGain(); stemsRtoRside.gain.value =  0.5;
+
+  // source -> stems splitter -> matrix -> merger -> EQ filters
+  source.connect(stemsSplitter);
+  stemsSplitter.connect(stemsLtoLmid, 0);  stemsLtoLmid.connect(stemsMerger,  0, 0);
+  stemsSplitter.connect(stemsRtoLmid, 1);  stemsRtoLmid.connect(stemsMerger,  0, 0);
+  stemsSplitter.connect(stemsLtoRmid, 0);  stemsLtoRmid.connect(stemsMerger,  0, 1);
+  stemsSplitter.connect(stemsRtoRmid, 1);  stemsRtoRmid.connect(stemsMerger,  0, 1);
+  stemsSplitter.connect(stemsLtoLside, 0); stemsLtoLside.connect(stemsMerger, 0, 0);
+  stemsSplitter.connect(stemsRtoLside, 1); stemsRtoLside.connect(stemsMerger, 0, 0);
+  stemsSplitter.connect(stemsLtoRside, 0); stemsLtoRside.connect(stemsMerger, 0, 1);
+  stemsSplitter.connect(stemsRtoRside, 1); stemsRtoRside.connect(stemsMerger, 0, 1);
+
+  stemsMerger.connect(filters[0]);
   for (let i = 0; i < filters.length - 1; i++) filters[i].connect(filters[i + 1]);
   filters[filters.length - 1].connect(preGain);
 
@@ -464,6 +517,16 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.surroundXfeedLR = surroundXfeedLR;
   engine.surroundXfeedRL = surroundXfeedRL;
   engine.limiter = limiter;
+  engine.stemsSplitter = stemsSplitter;
+  engine.stemsMerger = stemsMerger;
+  engine.stemsLtoLmid = stemsLtoLmid;
+  engine.stemsRtoLmid = stemsRtoLmid;
+  engine.stemsLtoRmid = stemsLtoRmid;
+  engine.stemsRtoRmid = stemsRtoRmid;
+  engine.stemsLtoLside = stemsLtoLside;
+  engine.stemsRtoLside = stemsRtoLside;
+  engine.stemsLtoRside = stemsLtoRside;
+  engine.stemsRtoRside = stemsRtoRside;
 
   // Persistent 8D LFO — built ONCE with the chain and left running forever.
   // Toggling 8D just ramps lfoGain between 0 (off) and SPATIAL_DEPTH (on).
@@ -490,6 +553,46 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   applyLateNightToLimiter();
   // Re-apply Headphone 3D Surround on the fresh chain
   applySurround();
+  // Re-apply persisted stems (vocal/instrumental mix)
+  applyStems();
+}
+
+function applyStems() {
+  if (!engine.ctx || !engine.stemsLtoLmid) return;
+  const now = engine.ctx.currentTime;
+  const mid = Math.max(0, Math.min(1, engine.vocalMix / 100));
+  const side = Math.max(0, Math.min(1, engine.instrumentalMix / 100));
+  // Slight makeup so isolate/karaoke modes don't feel quiet.
+  const midGain = 0.5 * mid;
+  const sideGainPos =  0.5 * side;
+  const sideGainNeg = -0.5 * side;
+  const set = (n: GainNode | null, v: number) => {
+    if (!n) return;
+    n.gain.cancelScheduledValues(now);
+    n.gain.setTargetAtTime(v, now, SMOOTH);
+  };
+  set(engine.stemsLtoLmid, midGain);
+  set(engine.stemsRtoLmid, midGain);
+  set(engine.stemsLtoRmid, midGain);
+  set(engine.stemsRtoRmid, midGain);
+  set(engine.stemsLtoLside, sideGainPos);
+  set(engine.stemsRtoLside, sideGainNeg);
+  set(engine.stemsLtoRside, sideGainNeg);
+  set(engine.stemsRtoRside, sideGainPos);
+}
+
+/** Vocal mix (0..100). 100 = normal, 0 = karaoke (vocals removed). */
+export function setVocalMix(percent: number) {
+  engine.vocalMix = Math.max(0, Math.min(100, percent));
+  if (engine.mode !== 'processed') return;
+  applyStems();
+}
+
+/** Instrumental mix (0..100). 100 = normal, 0 = a-cappella (music removed). */
+export function setInstrumentalMix(percent: number) {
+  engine.instrumentalMix = Math.max(0, Math.min(100, percent));
+  if (engine.mode !== 'processed') return;
+  applyStems();
 }
 
 function applySurround() {

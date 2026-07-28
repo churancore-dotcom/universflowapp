@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, resume, subscribe } from '@/lib/audioEngine';
+import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, setVocalMix, setInstrumentalMix, resume, subscribe } from '@/lib/audioEngine';
 import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
 import {
@@ -166,6 +166,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
         setSpatial(false);
         setLateNight(false);
         setHeadphoneSurround(false);
+        setVocalMix(100);
+        setInstrumentalMix(100);
         return;
       }
 
@@ -180,6 +182,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       setSpatial(s.spatialAudio);
       setLateNight(s.lateNight);
       setHeadphoneSurround(s.headphoneSurround);
+      setVocalMix(s.vocalMix);
+      setInstrumentalMix(s.instrumentalMix);
     };
 
 

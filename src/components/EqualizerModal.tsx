@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Disc3, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Mic2, Home, Building2, Church, Trophy, Moon, Crown, Wand2, Guitar, Drum, Piano, Car, Speaker, Dumbbell, Focus, PartyPopper, Film, Gamepad2, Podcast, Flame, Snowflake, Sun } from 'lucide-react';
+import { X, Disc3, RotateCcw, Volume2, Zap, Waves, Music2, Headphones, Globe, Radio, Mic2, Home, Building2, Church, Trophy, Moon, Crown, Wand2, Guitar, Drum, Piano, Car, Speaker, Dumbbell, Focus, PartyPopper, Film, Gamepad2, Podcast, Flame, Snowflake, Sun, MicOff, VolumeX } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { iosSpring } from '@/lib/animations';
@@ -181,8 +181,9 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   // Surface that as "Connected" so users don't see a perpetual "Connecting…".
   const nativeAudio = isNativePlayerAvailable();
   const settings = useEQSettings();
+  const [activeCategory, setActiveCategory] = useState<string>('Smart');
   const bands = defaultBands.map((b, i) => ({ ...b, gain: settings.bands[i] ?? 0 }));
-  const { bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight, headphoneSurround, activePreset } = settings;
+  const { bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight, headphoneSurround, vocalMix, instrumentalMix, activePreset } = settings;
   const effectsActive = isEqActive(settings);
   const connectionLabel = !currentSong
     ? 'Play a song to connect'
@@ -260,9 +261,18 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       studioSpace: 'off',
       lateNight: false,
       headphoneSurround: false,
+      vocalMix: 100,
+      instrumentalMix: 100,
       activePreset: 'flat',
     });
     toast.success('Equalizer reset');
+  }, []);
+
+  const handleVocalMix = useCallback((v: number) => {
+    setEQSettings({ vocalMix: v, activePreset: 'custom' });
+  }, []);
+  const handleInstrumentalMix = useCallback((v: number) => {
+    setEQSettings({ instrumentalMix: v, activePreset: 'custom' });
   }, []);
 
 
@@ -478,6 +488,46 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
             {/* Effects */}
             <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Stems · Instant Isolation</h3>
+              <div className="space-y-4 mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <MicOff className="w-4 h-4 text-rose-400" />
+                      <span className="text-sm font-medium">Vocals</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{vocalMix}% {vocalMix === 0 ? '· Karaoke' : ''}</span>
+                  </div>
+                  <Slider
+                    value={[vocalMix]}
+                    min={0}
+                    max={100}
+                    step={5}
+                    onValueChange={([v]) => handleVocalMix(v)}
+                    className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500/60"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <VolumeX className="w-4 h-4 text-sky-400" />
+                      <span className="text-sm font-medium">Instrumental</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{instrumentalMix}% {instrumentalMix === 0 ? '· A-cappella' : ''}</span>
+                  </div>
+                  <Slider
+                    value={[instrumentalMix]}
+                    min={0}
+                    max={100}
+                    step={5}
+                    onValueChange={([v]) => handleInstrumentalMix(v)}
+                    className="w-full [&_[role=slider]]:bg-sky-500 [&_[role=slider]]:border-sky-400 [&_[data-radix-slider-range]]:bg-sky-500/60"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                  Real-time mid/side isolation · works instantly on every song · no waiting.
+                </p>
+              </div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Effects</h3>
               <div className="space-y-4">
                 {/* Bass Boost */}

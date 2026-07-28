@@ -13,6 +13,10 @@ export interface EQSettings {
   studioSpace: StudioSpaceId;
   lateNight: boolean;
   headphoneSurround: boolean;
+  /** 0..100 — mid-channel level. 100 = normal, 0 = vocals removed (karaoke). */
+  vocalMix: number;
+  /** 0..100 — side-channel level. 100 = normal, 0 = instrumental removed (a-cappella). */
+  instrumentalMix: number;
   activePreset: string;
 }
 
@@ -25,6 +29,8 @@ export const DEFAULT_EQ_SETTINGS: EQSettings = {
   studioSpace: 'off',
   lateNight: false,
   headphoneSurround: false,
+  vocalMix: 100,
+  instrumentalMix: 100,
   activePreset: 'flat',
 };
 
@@ -48,6 +54,8 @@ export function normalizeEQSettings(input: Partial<EQSettings> | null | undefine
     studioSpace: (input?.studioSpace as StudioSpaceId) || DEFAULT_EQ_SETTINGS.studioSpace,
     lateNight: !!input?.lateNight,
     headphoneSurround: !!input?.headphoneSurround,
+    vocalMix: clamp(input?.vocalMix, 0, 100, DEFAULT_EQ_SETTINGS.vocalMix),
+    instrumentalMix: clamp(input?.instrumentalMix, 0, 100, DEFAULT_EQ_SETTINGS.instrumentalMix),
     activePreset: input?.activePreset || DEFAULT_EQ_SETTINGS.activePreset,
   };
 }
@@ -111,6 +119,8 @@ export function hasWebAudioEffects(settings = currentSettings): boolean {
   if (settings.studioSpace && settings.studioSpace !== 'off') return true;
   if (settings.lateNight) return true;
   if (settings.headphoneSurround) return true;
+  if ((settings.vocalMix ?? 100) < 100) return true;
+  if ((settings.instrumentalMix ?? 100) < 100) return true;
   return false;
 }
 
