@@ -72,7 +72,7 @@ const presets: Preset[] = [
   { id: 'chill',        name: 'Chill',       icon: Snowflake,  bands: [2, 2, 1, 1, 0, 0, 1, 2, 2, 1], bassBoost: 12 },
   { id: 'workout',      name: 'Workout',     icon: Dumbbell,   bands: [5, 5, 3, 1, 0, 1, 2, 3, 4, 4], bassBoost: 40 },
   { id: 'party',        name: 'Party',       icon: PartyPopper,bands: [6, 5, 2, 0, 0, 0, 2, 4, 5, 5], bassBoost: 45 },
-  { id: 'late-night',   name: 'Late Night',  icon: Moon,       bands: [-3, -2, -1, 0, 2, 3, 2, 1, -1, -2], bassBoost: 8 },
+  { id: 'late-night',   name: 'Late Night',  icon: Moon,       bands: [-3, -2, -1, 0, 2, 3, 2, 1, -1, -2], bassBoost: 8, lateNight: true },
   { id: '8d-audio',     name: '8D Audio',    icon: Globe,      bands: [2, 1, 0, -1, 0, 0, 1, 2, 1, 1], bassBoost: 10, spatialAudio: true },
 ];
 
