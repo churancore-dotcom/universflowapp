@@ -517,6 +517,16 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.surroundXfeedLR = surroundXfeedLR;
   engine.surroundXfeedRL = surroundXfeedRL;
   engine.limiter = limiter;
+  engine.stemsSplitter = stemsSplitter;
+  engine.stemsMerger = stemsMerger;
+  engine.stemsLtoLmid = stemsLtoLmid;
+  engine.stemsRtoLmid = stemsRtoLmid;
+  engine.stemsLtoRmid = stemsLtoRmid;
+  engine.stemsRtoRmid = stemsRtoRmid;
+  engine.stemsLtoLside = stemsLtoLside;
+  engine.stemsRtoLside = stemsRtoLside;
+  engine.stemsLtoRside = stemsLtoRside;
+  engine.stemsRtoRside = stemsRtoRside;
 
   // Persistent 8D LFO — built ONCE with the chain and left running forever.
   // Toggling 8D just ramps lfoGain between 0 (off) and SPATIAL_DEPTH (on).
@@ -543,6 +553,46 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   applyLateNightToLimiter();
   // Re-apply Headphone 3D Surround on the fresh chain
   applySurround();
+  // Re-apply persisted stems (vocal/instrumental mix)
+  applyStems();
+}
+
+function applyStems() {
+  if (!engine.ctx || !engine.stemsLtoLmid) return;
+  const now = engine.ctx.currentTime;
+  const mid = Math.max(0, Math.min(1, engine.vocalMix / 100));
+  const side = Math.max(0, Math.min(1, engine.instrumentalMix / 100));
+  // Slight makeup so isolate/karaoke modes don't feel quiet.
+  const midGain = 0.5 * mid;
+  const sideGainPos =  0.5 * side;
+  const sideGainNeg = -0.5 * side;
+  const set = (n: GainNode | null, v: number) => {
+    if (!n) return;
+    n.gain.cancelScheduledValues(now);
+    n.gain.setTargetAtTime(v, now, SMOOTH);
+  };
+  set(engine.stemsLtoLmid, midGain);
+  set(engine.stemsRtoLmid, midGain);
+  set(engine.stemsLtoRmid, midGain);
+  set(engine.stemsRtoRmid, midGain);
+  set(engine.stemsLtoLside, sideGainPos);
+  set(engine.stemsRtoLside, sideGainNeg);
+  set(engine.stemsLtoRside, sideGainNeg);
+  set(engine.stemsRtoRside, sideGainPos);
+}
+
+/** Vocal mix (0..100). 100 = normal, 0 = karaoke (vocals removed). */
+export function setVocalMix(percent: number) {
+  engine.vocalMix = Math.max(0, Math.min(100, percent));
+  if (engine.mode !== 'processed') return;
+  applyStems();
+}
+
+/** Instrumental mix (0..100). 100 = normal, 0 = a-cappella (music removed). */
+export function setInstrumentalMix(percent: number) {
+  engine.instrumentalMix = Math.max(0, Math.min(100, percent));
+  if (engine.mode !== 'processed') return;
+  applyStems();
 }
 
 function applySurround() {
