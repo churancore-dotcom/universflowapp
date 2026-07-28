@@ -104,7 +104,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       const userBass = Math.round((s.bassBoost / 100) * 1000);
       await setNativeBassBoost(Math.max(userBass, space.bass));
 
-      await setNativeLoudnessEnhancer(space.loud);
+      await setNativeLoudnessEnhancer(space.loud + (s.lateNight ? 1400 : 0));
       await setNativeReverb(s.reverb);
 
       const baseVirt = space.virt;
