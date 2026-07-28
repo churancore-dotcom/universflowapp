@@ -215,7 +215,10 @@ const Home = () => {
             isPartOf: { '@type': 'WebSite', name: 'Univers Flow', url: 'https://universflow.in' },
           }}
         />
-        
+
+        {/* Accessible page heading for SEO / screen readers */}
+        <h1 className="sr-only">Univers Flow — Free Music Streaming, Trending Songs &amp; Playlists</h1>
+
         {/* Ambient background — cinematic */}
         <div className="absolute inset-0 pointer-events-none">
           <div 
