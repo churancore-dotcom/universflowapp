@@ -181,8 +181,9 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   // Surface that as "Connected" so users don't see a perpetual "Connecting…".
   const nativeAudio = isNativePlayerAvailable();
   const settings = useEQSettings();
+  const [activeCategory, setActiveCategory] = useState<string>('Smart');
   const bands = defaultBands.map((b, i) => ({ ...b, gain: settings.bands[i] ?? 0 }));
-  const { bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight, headphoneSurround, activePreset } = settings;
+  const { bassBoost, reverb, playbackSpeed, spatialAudio, studioSpace, lateNight, headphoneSurround, vocalMix, instrumentalMix, activePreset } = settings;
   const effectsActive = isEqActive(settings);
   const connectionLabel = !currentSong
     ? 'Play a song to connect'
