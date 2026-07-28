@@ -488,6 +488,46 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
             {/* Effects */}
             <div>
+              <h3 className="text-sm font-medium text-muted-foreground mb-3">Stems · Instant Isolation</h3>
+              <div className="space-y-4 mb-6 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <MicOff className="w-4 h-4 text-rose-400" />
+                      <span className="text-sm font-medium">Vocals</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{vocalMix}% {vocalMix === 0 ? '· Karaoke' : ''}</span>
+                  </div>
+                  <Slider
+                    value={[vocalMix]}
+                    min={0}
+                    max={100}
+                    step={5}
+                    onValueChange={([v]) => handleVocalMix(v)}
+                    className="w-full [&_[role=slider]]:bg-rose-500 [&_[role=slider]]:border-rose-400 [&_[data-radix-slider-range]]:bg-rose-500/60"
+                  />
+                </div>
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <VolumeX className="w-4 h-4 text-sky-400" />
+                      <span className="text-sm font-medium">Instrumental</span>
+                    </div>
+                    <span className="text-xs text-muted-foreground">{instrumentalMix}% {instrumentalMix === 0 ? '· A-cappella' : ''}</span>
+                  </div>
+                  <Slider
+                    value={[instrumentalMix]}
+                    min={0}
+                    max={100}
+                    step={5}
+                    onValueChange={([v]) => handleInstrumentalMix(v)}
+                    className="w-full [&_[role=slider]]:bg-sky-500 [&_[role=slider]]:border-sky-400 [&_[data-radix-slider-range]]:bg-sky-500/60"
+                  />
+                </div>
+                <p className="text-[10px] text-muted-foreground/70 leading-relaxed">
+                  Real-time mid/side isolation · works instantly on every song · no waiting.
+                </p>
+              </div>
               <h3 className="text-sm font-medium text-muted-foreground mb-3">Effects</h3>
               <div className="space-y-4">
                 {/* Bass Boost */}
