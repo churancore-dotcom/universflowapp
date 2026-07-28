@@ -166,6 +166,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
         setSpatial(false);
         setLateNight(false);
         setHeadphoneSurround(false);
+        setVocalMix(100);
+        setInstrumentalMix(100);
         return;
       }
 
@@ -180,6 +182,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       setSpatial(s.spatialAudio);
       setLateNight(s.lateNight);
       setHeadphoneSurround(s.headphoneSurround);
+      setVocalMix(s.vocalMix);
+      setInstrumentalMix(s.instrumentalMix);
     };
 
 
