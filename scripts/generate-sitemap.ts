@@ -5,7 +5,7 @@
 import { writeFileSync } from "fs";
 import { resolve } from "path";
 
-const BASE_URL = "https://www.universflow.in";
+const BASE_URL = "https://universflow.in";
 const SUPABASE_URL = "https://kzaeahjeqlihmxrfhjqd.supabase.co";
 const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt6YWVhaGplcWxpaG14cmZoanFkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjgzMDAwMTcsImV4cCI6MjA4Mzg3NjAxN30._KvpWrcgc6-6g3VXWhAAAwSeZ3ZqexMwjYEigr6Ij7c";

@@ -90,7 +90,6 @@ export function useAutoEQ() {
       studioSpace: p.studioSpace ?? 'off',
       lateNight: !!p.lateNight,
       headphoneSurround: !!p.headphoneSurround,
-      stemMode: 'off',
       playbackSpeed: 1,
       activePreset: 'auto',
     });

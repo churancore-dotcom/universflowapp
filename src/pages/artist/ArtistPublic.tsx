@@ -222,35 +222,8 @@ export default function ArtistPublic() {
     );
   }
 
-  // Defensive scheme allowlist: prevent stored javascript:/data:/vbscript: URIs
-  // (written directly to social_links via API) from executing when a visitor
-  // clicks the link.
-  const safeHttpHref = (v: unknown): string | null => {
-    if (typeof v !== 'string') return null;
-    const s = v.trim();
-    if (!s) return null;
-    // Allow bare handles like "@name" or "name" by prefixing https://
-    if (/^[A-Za-z0-9._-]+$/.test(s.replace(/^@/, ''))) return null;
-    try {
-      const u = new URL(s);
-      if (u.protocol !== 'http:' && u.protocol !== 'https:') return null;
-      return u.toString();
-    } catch {
-      return null;
-    }
-  };
-  const rawIg = profile.social_links?.instagram;
-  const rawYt = profile.social_links?.youtube;
-  const ig = typeof rawIg === 'string' && /^https?:\/\//i.test(rawIg)
-    ? safeHttpHref(rawIg)
-    : typeof rawIg === 'string' && rawIg.trim()
-      ? safeHttpHref(`https://instagram.com/${rawIg.trim().replace(/^@/, '')}`)
-      : null;
-  const yt = typeof rawYt === 'string' && /^https?:\/\//i.test(rawYt)
-    ? safeHttpHref(rawYt)
-    : typeof rawYt === 'string' && rawYt.trim()
-      ? safeHttpHref(`https://youtube.com/${rawYt.trim().replace(/^@?/, '@')}`)
-      : null;
+  const ig = profile.social_links?.instagram;
+  const yt = profile.social_links?.youtube;
   const accent = (profile.accent_color && /^#[0-9a-fA-F]{6}$/.test(profile.accent_color)) ? profile.accent_color : '#FF2D55';
   const pickSong = profile.artist_pick_song_id ? songs.find((s) => s.id === profile.artist_pick_song_id) : null;
   const gallery = (profile.gallery_urls ?? []).filter(Boolean);
@@ -277,10 +250,10 @@ export default function ArtistPublic() {
   ].join(', ');
 
   const socialSameAs = [
-    ig,
-    yt,
-    safeHttpHref(profile.social_links?.spotify),
-    safeHttpHref(profile.social_links?.website),
+    ig ? `https://instagram.com/${String(ig).replace(/^@/, '')}` : null,
+    yt ? (String(yt).startsWith('http') ? String(yt) : `https://youtube.com/${String(yt).replace(/^@/, '@')}`) : null,
+    profile.social_links?.spotify || null,
+    profile.social_links?.website || null,
   ].filter(Boolean) as string[];
 
   const jsonLd = {

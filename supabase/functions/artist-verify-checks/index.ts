@@ -49,111 +49,16 @@ function parseJsonish(s: string): Record<string, unknown> | null {
   } catch { return null; }
 }
 
-// ---------------------------------------------------------------------------
-// SSRF hardening: only allow fetches to the music-platform host allowlist
-// (and known image CDNs for og:image), block private/loopback/link-local IPs,
-// and follow redirects manually so each hop is re-validated.
-// ---------------------------------------------------------------------------
-const PLATFORM_HOST_ALLOW = [
-  /(?:^|\.)open\.spotify\.com$/i,
-  /(?:^|\.)spotify\.com$/i,
-  /(?:^|\.)music\.apple\.com$/i,
-  /(?:^|\.)music\.youtube\.com$/i,
-  /(?:^|\.)youtube\.com$/i,
-  /(?:^|\.)youtu\.be$/i,
-  /(?:^|\.)soundcloud\.com$/i,
-  /(?:^|\.)deezer\.com$/i,
-  /(?:^|\.)music\.amazon\.(?:com|in|co\.uk|de)$/i,
-  /(?:^|\.)tidal\.com$/i,
-  /(?:^|\.)jiosaavn\.com$/i,
-  /(?:^|\.)saavn\.com$/i,
-  /(?:^|\.)gaana\.com$/i,
-];
-
-// og:image CDNs. Anything else is refused so an attacker can't smuggle an
-// arbitrary URL through the og:image scrape step.
-const IMAGE_HOST_ALLOW = [
-  /(?:^|\.)scdn\.co$/i,             // Spotify
-  /(?:^|\.)spotifycdn\.com$/i,
-  /(?:^|\.)mzstatic\.com$/i,        // Apple Music
-  /(?:^|\.)apple\.com$/i,
-  /(?:^|\.)ytimg\.com$/i,           // YouTube
-  /(?:^|\.)googleusercontent\.com$/i,
-  /(?:^|\.)ggpht\.com$/i,
-  /(?:^|\.)sndcdn\.com$/i,          // SoundCloud
-  /(?:^|\.)dzcdn\.net$/i,           // Deezer
-  /(?:^|\.)media-amazon\.com$/i,    // Amazon Music
-  /(?:^|\.)ssl-images-amazon\.com$/i,
-  /(?:^|\.)tidal\.com$/i,
-  /(?:^|\.)saavncdn\.com$/i,        // JioSaavn
-  /(?:^|\.)gaanacdn\.com$/i,        // Gaana
-];
-
-function isPrivateIp(ip: string): boolean {
-  const s = ip.toLowerCase();
-  // IPv6 loopback / link-local / unique-local / mapped-v4
-  if (s === "::1" || s === "::" || s.startsWith("fe80:") || s.startsWith("fc") || s.startsWith("fd")) return true;
-  const m4 = s.match(/^(?:::ffff:)?(\d+)\.(\d+)\.(\d+)\.(\d+)$/);
-  if (!m4) return false;
-  const [a, b] = [Number(m4[1]), Number(m4[2])];
-  if (a === 10) return true;
-  if (a === 127) return true;
-  if (a === 0) return true;
-  if (a === 169 && b === 254) return true;   // link-local / cloud metadata
-  if (a === 172 && b >= 16 && b <= 31) return true;
-  if (a === 192 && b === 168) return true;
-  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
-  if (a >= 224) return true; // multicast + reserved
-  return false;
-}
-
-async function hostResolvesSafely(host: string): Promise<boolean> {
-  // Literal IPs are always DNS-checked as themselves.
-  if (/^\d+\.\d+\.\d+\.\d+$/.test(host) || host.includes(":")) {
-    return !isPrivateIp(host);
-  }
-  const lookups: Promise<string[]>[] = [
-    Deno.resolveDns(host, "A").catch(() => [] as string[]),
-    Deno.resolveDns(host, "AAAA").catch(() => [] as string[]),
-  ];
-  const results = (await Promise.all(lookups)).flat();
-  if (results.length === 0) return false;
-  return results.every((ip) => !isPrivateIp(ip));
-}
-
-async function guardedFetch(
-  rawUrl: string,
-  hostAllow: RegExp[],
-  init: RequestInit = {},
-  maxRedirects = 3,
-): Promise<Response | null> {
-  let current: URL;
-  try { current = new URL(rawUrl); } catch { return null; }
-  for (let hop = 0; hop <= maxRedirects; hop++) {
-    if (current.protocol !== "http:" && current.protocol !== "https:") return null;
-    if (!hostAllow.some((r) => r.test(current.host))) return null;
-    if (!(await hostResolvesSafely(current.hostname))) return null;
-    const res = await fetch(current.toString(), { ...init, redirect: "manual" });
-    if (res.status >= 300 && res.status < 400) {
-      const loc = res.headers.get("location");
-      if (!loc) return res;
-      try { current = new URL(loc, current); } catch { return null; }
-      continue;
-    }
-    return res;
-  }
-  return null;
-}
-
 async function fetchPlatformPage(url: string): Promise<{ html: string; ogImage: string | null } | null> {
   try {
-    const r = await guardedFetch(url, PLATFORM_HOST_ALLOW, {
+    const r = await fetch(url, {
+      redirect: "follow",
       headers: {
         "User-Agent": "Mozilla/5.0 (compatible; UniversflowVerifier/1.0; +https://universflow.in)",
         "Accept": "text/html,application/xhtml+xml",
       },
     });
-    if (!r || !r.ok) return null;
+    if (!r.ok) return null;
     const html = (await r.text()).slice(0, 500_000);
     const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1] || null;
     return { html, ogImage: og };
@@ -162,10 +67,11 @@ async function fetchPlatformPage(url: string): Promise<{ html: string; ogImage: 
 
 async function fetchImageAsDataUrl(url: string): Promise<string | null> {
   try {
-    const r = await guardedFetch(url, IMAGE_HOST_ALLOW, {
+    const r = await fetch(url, {
+      redirect: "follow",
       headers: { "User-Agent": "Mozilla/5.0 (compatible; UniversflowVerifier/1.0)" },
     });
-    if (!r || !r.ok) return null;
+    if (!r.ok) return null;
     const blob = await r.blob();
     if (blob.size > 4_000_000) return null; // safety cap
     return await blobToDataUrl(blob);

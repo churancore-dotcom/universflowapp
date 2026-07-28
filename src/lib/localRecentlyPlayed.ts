@@ -1,5 +1,3 @@
-import type { Song } from '@/contexts/PlayerContext';
-
 // Per-device "Jump Back In" history. Lives in localStorage so it is NEVER
 // synced across devices, even when the same account is signed in elsewhere.
 // Keyed per user so multiple accounts on the same device stay separate.
@@ -7,13 +5,15 @@ import type { Song } from '@/contexts/PlayerContext';
 const MAX_ENTRIES = 24;
 
 export type LocalRecentEntry = {
-  song_id: string;
+  song_id: string; // catalog UUID
   played_at: number; // epoch ms
-  song?: Pick<Song, 'id' | 'title' | 'artist' | 'album' | 'cover_url' | 'audio_url' | 'duration'>;
 };
 
 const keyFor = (userId: string | null | undefined) =>
   `universflow.recentlyPlayed.v1.${userId || "anon"}`;
+
+const isUuid = (s: string) =>
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 export function readLocalRecent(userId: string | null | undefined): LocalRecentEntry[] {
   try {
@@ -29,23 +29,11 @@ export function readLocalRecent(userId: string | null | undefined): LocalRecentE
   }
 }
 
-export function pushLocalRecent(userId: string | null | undefined, song: Song) {
-  if (!song.id || !song.title || !song.artist) return;
+export function pushLocalRecent(userId: string | null | undefined, songId: string) {
+  if (!songId || !isUuid(songId)) return;
   try {
-    const list = readLocalRecent(userId).filter((e) => e.song_id !== song.id);
-    list.unshift({
-      song_id: song.id,
-      played_at: Date.now(),
-      song: {
-        id: song.id,
-        title: song.title,
-        artist: song.artist,
-        album: song.album,
-        cover_url: song.cover_url,
-        audio_url: song.audio_url,
-        duration: song.duration,
-      },
-    });
+    const list = readLocalRecent(userId).filter((e) => e.song_id !== songId);
+    list.unshift({ song_id: songId, played_at: Date.now() });
     localStorage.setItem(keyFor(userId), JSON.stringify(list.slice(0, MAX_ENTRIES)));
     window.dispatchEvent(new CustomEvent("universflow:recently-played-changed"));
   } catch {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, setStemMode, resume, subscribe } from '@/lib/audioEngine';
+import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, resume, subscribe } from '@/lib/audioEngine';
 import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
 import {
@@ -76,38 +76,41 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (native8DTimer != null) { window.clearInterval(native8DTimer); native8DTimer = null; }
     };
 
-    // Serialize native EQ pushes: rapid uf-eq-changed bursts (from
-    // reapplyNativeEqSoon or slider drags) fire overlapping async calls that
-    // race inside the plugin and leave the AudioEffect chain in a mixed state
-    // ("EQ dead on some songs"). One-in-flight + latest-wins fixes that.
-    let nativePushInFlight: Promise<void> | null = null;
-    let pendingNativeSettings: ReturnType<typeof getEQSettings> | null = null;
-
-    const applyNativeNow = async (s: ReturnType<typeof getEQSettings>) => {
+    const pushNative = (s: ReturnType<typeof getEQSettings>) => {
+      if (!isNativePlayerAvailable()) return;
       if (!getRuntimePremium() || !hasWebAudioEffects(s)) {
         stop8D();
-        await setNativeEQEnabled(false);
-        await setNativeBassBoost(0);
-        await setNativeVirtualizer(0);
-        await setNativeLoudnessEnhancer(0);
-        await setNativeReverb(0);
+        setNativeEQEnabled(false);
+        setNativeBassBoost(0);
+        setNativeVirtualizer(0);
+        setNativeLoudnessEnhancer(0);
+        setNativeReverb(0);
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
 
-      // Enable BEFORE writing bands so the first push after "flat → preset"
-      // actually reaches the AudioEffect chain (some OEM builds ignore
-      // setBandLevel while enabled=false).
-      await setNativeEQEnabled(true);
-      await pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, space.eqMb);
+      // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
+      // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
+      pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, space.eqMb);
 
+      // Bass boost: user slider OR space profile — whichever is stronger.
       const userBass = Math.round((s.bassBoost / 100) * 1000);
-      await setNativeBassBoost(Math.max(userBass, space.bass));
+      setNativeBassBoost(Math.max(userBass, space.bass));
 
-      await setNativeLoudnessEnhancer(space.loud + (s.lateNight ? 1400 : 0));
-      await setNativeReverb(s.reverb);
+      // Late Night: real +14 dB loudness compression makeup, not the old +6 dB
+      // that was inaudible on phone speakers. Combine with space loudness.
+      const lateNightMb = s.lateNight ? 1400 : 0;
+      setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud));
 
-      const baseVirt = space.virt;
+      // Android ExoPlayer cannot hear the WebAudio convolver. Attach a native
+      // EnvironmentalReverb as an aux effect so the Reverb control is real.
+      setNativeReverb(s.reverb);
+
+      // Virtualizer: headphone surround / space width baseline.
+      const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);
+
+      // 8D: oscillating virtualizer strength gives perceptible stereo movement
+      // on APK (the WebAudio pan LFO can't drive ExoPlayer's audio session).
       if (s.spatialAudio) {
         if (native8DTimer == null) {
           native8DPhase = 0;
@@ -116,30 +119,16 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
             const cur = getEQSettings();
             if (!cur.spatialAudio) { stop8D(); return; }
             const sp = NATIVE_SPACES[cur.studioSpace] || NATIVE_SPACES.off;
+            const bv = Math.max(cur.headphoneSurround ? 1000 : 0, sp.virt);
             const osc = 600 + Math.round(400 * Math.sin(native8DPhase));
-            setNativeVirtualizer(Math.max(osc, sp.virt));
+            setNativeVirtualizer(Math.max(osc, bv));
           }, 220);
         }
-        await setNativeVirtualizer(Math.max(800, baseVirt));
+        setNativeVirtualizer(Math.max(800, baseVirt));
       } else {
         stop8D();
-        await setNativeVirtualizer(baseVirt);
+        setNativeVirtualizer(baseVirt);
       }
-    };
-
-    const pushNative = (s: ReturnType<typeof getEQSettings>) => {
-      if (!isNativePlayerAvailable()) return;
-      pendingNativeSettings = s;
-      if (nativePushInFlight) return;
-      const drain = async () => {
-        while (pendingNativeSettings) {
-          const next = pendingNativeSettings;
-          pendingNativeSettings = null;
-          try { await applyNativeNow(next); } catch {}
-        }
-        nativePushInFlight = null;
-      };
-      nativePushInFlight = drain();
     };
 
 
@@ -177,7 +166,6 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
         setSpatial(false);
         setLateNight(false);
         setHeadphoneSurround(false);
-        setStemMode('off');
         return;
       }
 
@@ -192,7 +180,6 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       setSpatial(s.spatialAudio);
       setLateNight(s.lateNight);
       setHeadphoneSurround(s.headphoneSurround);
-      setStemMode(s.stemMode);
     };
 
 

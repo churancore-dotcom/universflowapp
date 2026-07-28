@@ -95,6 +95,7 @@ const fetchHomeSongs = async (heroQuery: string): Promise<FlaggedSong[]> => {
         cover_url: upgradeThumb(t.cover_url),
         audio_url: t.audio_url || (t.videoId ? `yt-video:${t.videoId}` : 'resolving'),
         duration: t.duration,
+        created_at: new Date().toISOString(),
         ...flags,
       });
     }
@@ -139,9 +140,8 @@ const Home = () => {
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
     queryFn: () => fetchHomeSongs(countryQueries.hero),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
+    placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
-    refetchInterval: 10 * 60 * 1000,
-    refetchOnWindowFocus: true,
     gcTime: 30 * 60 * 1000,
     enabled: !isOffline,
   });
@@ -189,12 +189,7 @@ const Home = () => {
       triggerHaptic('impactMedium');
       await queryClient.invalidateQueries({ queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'] });
       await queryClient.refetchQueries({ queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'] });
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['ytm-charts-v2'] }),
-        queryClient.invalidateQueries({ queryKey: ['ytm-new-releases-v2'] }),
-        queryClient.invalidateQueries({ queryKey: ['ytm-made-for-you-v3'] }),
-        queryClient.invalidateQueries({ queryKey: ['home-bento'] }),
-      ]);
+
     },
   });
 
@@ -215,10 +210,7 @@ const Home = () => {
             isPartOf: { '@type': 'WebSite', name: 'Univers Flow', url: 'https://universflow.in' },
           }}
         />
-
-        {/* Accessible page heading for SEO / screen readers */}
-        <h1 className="sr-only">Univers Flow — Free Music Streaming, Trending Songs &amp; Playlists</h1>
-
+        
         {/* Ambient background — cinematic */}
         <div className="absolute inset-0 pointer-events-none">
           <div 

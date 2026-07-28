@@ -513,35 +513,30 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response(null, { headers: corsHeaders });
 
   try {
-    const authHeader = req.headers.get('authorization') || '';
+    const authHeader = req.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const supabaseClient = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      { global: { headers: { Authorization: authHeader } } }
+    );
+    const token = authHeader.replace('Bearer ', '');
+    const { data: userData, error: authError } = await supabaseClient.auth.getUser(token);
+    if (authError || !userData?.user) {
+      return new Response(JSON.stringify({ success: false, error: 'Invalid authentication' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
     const adminClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
-
-    // Optional auth: if a valid user JWT is provided, rate-limit per-user.
-    // Otherwise fall back to IP-based rate limiting so anon / expired-session
-    // clients can still search (this endpoint powers the public feed).
-    let rateLimitId = '';
-    if (authHeader.startsWith('Bearer ')) {
-      const token = authHeader.replace('Bearer ', '');
-      try {
-        const supabaseClient = createClient(
-          Deno.env.get('SUPABASE_URL') ?? '',
-          Deno.env.get('SUPABASE_ANON_KEY') ?? '',
-          { global: { headers: { Authorization: authHeader } } }
-        );
-        const { data: userData } = await supabaseClient.auth.getUser(token);
-        if (userData?.user?.id) rateLimitId = userData.user.id;
-      } catch (_) { /* ignore — treat as anon */ }
-    }
-    if (!rateLimitId) {
-      const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('cf-connecting-ip') || 'anon';
-      rateLimitId = `ip:${ip}`;
-    }
-
     const { data: allowed } = await adminClient.rpc('check_and_increment_rate_limit', {
-      _user_id: rateLimitId,
+      _user_id: userData.user.id,
       _endpoint: 'yt-music-search',
       _max_per_minute: 120,
     });
@@ -550,7 +545,6 @@ serve(async (req) => {
         status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
 
     const { query, limit: requestedLimit, mode, country } = await req.json();
     const limit = Math.max(1, Math.min(200, typeof requestedLimit === 'number' ? requestedLimit : 50));

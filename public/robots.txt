@@ -1,5 +1,5 @@
 # Universflow crawler policy
-# Public site: https://www.universflow.in
+# Public site: https://universflow.in
 
 # Search engines
 User-agent: Googlebot
@@ -123,4 +123,4 @@ Disallow: /admin/*
 Disallow: /upload
 Disallow: /upload/
 
-Sitemap: https://www.universflow.in/sitemap.xml
+Sitemap: https://universflow.in/sitemap.xml

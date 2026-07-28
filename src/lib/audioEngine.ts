@@ -49,14 +49,6 @@ interface Engine {
   surroundXfeedLR: GainNode | null;
   surroundXfeedRL: GainNode | null;
   limiter: DynamicsCompressorNode | null;
-  // Stem isolator (mid/side matrix + post-shaping filter)
-  stemSplitter: ChannelSplitterNode | null;
-  stemMerger: ChannelMergerNode | null;
-  stemLL: GainNode | null;
-  stemLR: GainNode | null;
-  stemRL: GainNode | null;
-  stemRR: GainNode | null;
-  stemFilter: BiquadFilterNode | null;
   el: HTMLAudioElement | null;
   signature: string | null;
   mode: Mode;
@@ -89,13 +81,6 @@ const engine: Engine = {
   surroundXfeedLR: null,
   surroundXfeedRL: null,
   limiter: null,
-  stemSplitter: null,
-  stemMerger: null,
-  stemLL: null,
-  stemLR: null,
-  stemRL: null,
-  stemRR: null,
-  stemFilter: null,
   el: null,
   signature: null,
   mode: 'idle',
@@ -200,27 +185,6 @@ function signature(el: HTMLAudioElement): string | null {
 
 /** Studio Space presets — each defines an acoustic environment. */
 export type StudioSpaceId = 'off' | 'vinyl' | 'studio' | 'bedroom' | 'hall' | 'cathedral' | 'stadium';
-
-/**
- * Stem Isolator — real-time DSP that pulls apart the mix using mid/side
- * matrix decoding. Vocals, kick and bass typically sit in the center
- * (identical in L+R). Guitars, hats, reverb tails and ambience sit in the
- * sides (differ between L+R). We rebuild the output by mixing mid + side
- * with per-mode gains, then band-shape the result so residual bleed is
- * pushed into inaudible ranges.
- *
- *   M = (L+R)/2    S = (L-R)/2
- *   L' = a·L + b·R    where a = (m+s)/2   b = (m-s)/2
- *   R' = b·L + a·R
- *
- * Modes:
- *   off          m=1  s=1     identity (pass-through, allpass shape)
- *   karaoke      m=0  s=1     kills center vocals & kick, keeps sides
- *   acapella     m=1  s=0     mono center, bandpassed to vocal range
- *   bass-only    m=1  s=1     lowpass 220Hz — beat-only listen-through
- *   instrumental m=0.35 s=1.15  soft vocal ducking, keeps bass drums
- */
-export type StemModeId = 'off' | 'karaoke' | 'acapella' | 'bass-only' | 'instrumental';
 
 interface SpaceProfile {
   duration: number;   // IR length in seconds
@@ -377,9 +341,6 @@ function disconnectAll() {
     engine.surroundDelayLR, engine.surroundDelayRL,
     engine.surroundLpLR, engine.surroundLpRL,
     engine.surroundXfeedLR, engine.surroundXfeedRL,
-    engine.stemSplitter, engine.stemMerger,
-    engine.stemLL, engine.stemLR, engine.stemRL, engine.stemRR,
-    engine.stemFilter,
     engine.limiter,
   ];
   for (const n of nodes) {
@@ -455,21 +416,6 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   const surroundXfeedLR = ctx.createGain(); surroundXfeedLR.gain.value = 0; // off until enabled
   const surroundXfeedRL = ctx.createGain(); surroundXfeedRL.gain.value = 0;
 
-  // --- Stem Isolator (mid/side matrix + post shape) ---
-  // Insert BEFORE the final limiter so all colouring downstream (limiter
-  // makeup for Late Night, etc.) still applies. Bit-perfect pass-through
-  // when off (a=1, b=0, allpass filter).
-  const stemSplitter = ctx.createChannelSplitter(2);
-  const stemMerger = ctx.createChannelMerger(2);
-  const stemLL = ctx.createGain(); stemLL.gain.value = 1; // L -> L (a)
-  const stemLR = ctx.createGain(); stemLR.gain.value = 0; // L -> R (b)
-  const stemRL = ctx.createGain(); stemRL.gain.value = 0; // R -> L (b)
-  const stemRR = ctx.createGain(); stemRR.gain.value = 1; // R -> R (a)
-  const stemFilter = ctx.createBiquadFilter();
-  stemFilter.type = 'allpass';
-  stemFilter.frequency.value = 1000;
-  stemFilter.Q.value = 0.707;
-
   // Wire graph
   source.connect(filters[0]);
   for (let i = 0; i < filters.length - 1; i++) filters[i].connect(filters[i + 1]);
@@ -482,7 +428,7 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   dryGain.connect(stereoPanner);
   wetGain.connect(stereoPanner);
 
-  // stereoPanner -> [splitter L/R] -> direct + crossfeed -> [merger] -> stem -> limiter
+  // stereoPanner -> [splitter L/R] -> direct + crossfeed -> [merger] -> limiter
   stereoPanner.connect(surroundSplitter);
   surroundSplitter.connect(surroundDirectL, 0); surroundDirectL.connect(surroundMerger, 0, 0);
   surroundSplitter.connect(surroundDirectR, 1); surroundDirectR.connect(surroundMerger, 0, 1);
@@ -497,14 +443,7 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   surroundLpRL.connect(surroundXfeedRL);
   surroundXfeedRL.connect(surroundMerger, 0, 0);
 
-  // stem stage: splitter -> 4 cross gains -> merger -> post-shape filter
-  surroundMerger.connect(stemSplitter);
-  stemSplitter.connect(stemLL, 0); stemLL.connect(stemMerger, 0, 0);
-  stemSplitter.connect(stemLR, 0); stemLR.connect(stemMerger, 0, 1);
-  stemSplitter.connect(stemRL, 1); stemRL.connect(stemMerger, 0, 0);
-  stemSplitter.connect(stemRR, 1); stemRR.connect(stemMerger, 0, 1);
-  stemMerger.connect(stemFilter);
-  stemFilter.connect(limiter);
+  surroundMerger.connect(limiter);
   limiter.connect(ctx.destination);
 
   engine.source = source;
@@ -524,13 +463,6 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.surroundLpRL = surroundLpRL;
   engine.surroundXfeedLR = surroundXfeedLR;
   engine.surroundXfeedRL = surroundXfeedRL;
-  engine.stemSplitter = stemSplitter;
-  engine.stemMerger = stemMerger;
-  engine.stemLL = stemLL;
-  engine.stemLR = stemLR;
-  engine.stemRL = stemRL;
-  engine.stemRR = stemRR;
-  engine.stemFilter = stemFilter;
   engine.limiter = limiter;
 
   // Persistent 8D LFO — built ONCE with the chain and left running forever.
@@ -558,82 +490,6 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   applyLateNightToLimiter();
   // Re-apply Headphone 3D Surround on the fresh chain
   applySurround();
-  // Re-apply persisted Stem Isolator mode
-  applyStemMode();
-}
-
-// ── Stem Isolator ──────────────────────────────────────────────────────────
-let currentStemMode: StemModeId = 'off';
-
-interface StemProfile {
-  m: number; // mid mix
-  s: number; // side mix (sign flip on R produces side subtraction)
-  filterType: BiquadFilterType;
-  freq: number;
-  q: number;
-  gain?: number; // makeup for lost energy (approx)
-}
-
-const STEM_PROFILES: Record<Exclude<StemModeId, 'off'>, StemProfile> = {
-  // Karaoke — kill center (vocals+kick+bass most of the time). Post highpass
-  // pushes residual mono bass out of the way. Small makeup gain.
-  'karaoke':      { m: 0, s: 1, filterType: 'highpass', freq: 140, q: 0.6, gain: 1.35 },
-  // Acapella — mono center bandpassed to human voice range (300-4kHz).
-  'acapella':     { m: 1, s: 0, filterType: 'bandpass', freq: 1200, q: 0.5, gain: 1.4 },
-  // Bass-only — full mix, lowpassed hard. Great for feeling the beat.
-  'bass-only':    { m: 1, s: 1, filterType: 'lowpass', freq: 220, q: 0.8, gain: 1.8 },
-  // Instrumental — soft vocal ducking (partial center removal).
-  'instrumental': { m: 0.35, s: 1.15, filterType: 'peaking', freq: 2200, q: 0.9, gain: 1.1 },
-};
-
-function applyStemMode() {
-  if (engine.mode !== 'processed' || !engine.ctx) return;
-  const { stemLL, stemLR, stemRL, stemRR, stemFilter } = engine;
-  if (!stemLL || !stemLR || !stemRL || !stemRR || !stemFilter) return;
-  const now = engine.ctx.currentTime;
-
-  let m = 1, s = 1, makeup = 1;
-  let filterType: BiquadFilterType = 'allpass';
-  let freq = 1000;
-  let q = 0.707;
-
-  if (currentStemMode !== 'off') {
-    const p = STEM_PROFILES[currentStemMode];
-    m = p.m; s = p.s; makeup = p.gain ?? 1;
-    filterType = p.filterType; freq = p.freq; q = p.q;
-  }
-
-  // Matrix — a = (m+s)/2, b = (m-s)/2, then makeup applied to all four legs
-  const a = ((m + s) / 2) * makeup;
-  const b = ((m - s) / 2) * makeup;
-
-  stemLL.gain.cancelScheduledValues(now); stemLL.gain.setTargetAtTime(a, now, SMOOTH);
-  stemRR.gain.cancelScheduledValues(now); stemRR.gain.setTargetAtTime(a, now, SMOOTH);
-  stemLR.gain.cancelScheduledValues(now); stemLR.gain.setTargetAtTime(b, now, SMOOTH);
-  stemRL.gain.cancelScheduledValues(now); stemRL.gain.setTargetAtTime(b, now, SMOOTH);
-
-  // BiquadFilter.type is not an AudioParam — swap directly (no zipper because
-  // signal already passed through the smoothed gain ramps above).
-  stemFilter.type = filterType;
-  stemFilter.frequency.cancelScheduledValues(now);
-  stemFilter.frequency.setTargetAtTime(freq, now, SMOOTH);
-  stemFilter.Q.cancelScheduledValues(now);
-  stemFilter.Q.setTargetAtTime(q, now, SMOOTH);
-  if (filterType === 'peaking') {
-    stemFilter.gain.setTargetAtTime(-6, now, SMOOTH); // dip vocal band for instrumental
-  } else {
-    stemFilter.gain.setTargetAtTime(0, now, SMOOTH);
-  }
-}
-
-export function setStemMode(mode: StemModeId) {
-  currentStemMode = mode;
-  if (engine.mode !== 'processed') return;
-  applyStemMode();
-}
-
-export function getStemMode(): StemModeId {
-  return currentStemMode;
 }
 
 function applySurround() {
@@ -727,13 +583,6 @@ function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext
   engine.surroundLpRL = null;
   engine.surroundXfeedLR = null;
   engine.surroundXfeedRL = null;
-  engine.stemSplitter = null;
-  engine.stemMerger = null;
-  engine.stemLL = null;
-  engine.stemLR = null;
-  engine.stemRL = null;
-  engine.stemRR = null;
-  engine.stemFilter = null;
   engine.limiter = null;
   if (engine.panLfo) {
     try { engine.panLfo.stop(); } catch { /* ignore */ }
