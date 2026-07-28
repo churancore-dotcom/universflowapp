@@ -123,4 +123,4 @@ Disallow: /admin/*
 Disallow: /upload
 Disallow: /upload/
 
-Sitemap: https://universflow.in/sitemap.xml
+Sitemap: https://www.universflow.in/sitemap.xml
