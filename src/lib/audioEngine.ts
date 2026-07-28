@@ -29,6 +29,17 @@ type SourceBackedAudioElement = HTMLAudioElement & {
 interface Engine {
   ctx: AudioContext | null;
   source: MediaElementAudioSourceNode | null;
+  // Mid/Side stems stage (vocal remove / instrumental remove)
+  stemsSplitter: ChannelSplitterNode | null;
+  stemsMerger: ChannelMergerNode | null;
+  stemsLtoLmid: GainNode | null;
+  stemsRtoLmid: GainNode | null;
+  stemsLtoRmid: GainNode | null;
+  stemsRtoRmid: GainNode | null;
+  stemsLtoLside: GainNode | null;
+  stemsRtoLside: GainNode | null;
+  stemsLtoRside: GainNode | null;
+  stemsRtoRside: GainNode | null;
   filters: BiquadFilterNode[];
   preGain: GainNode | null;
   dryGain: GainNode | null;
@@ -55,6 +66,8 @@ interface Engine {
   spatialEnabled: boolean;
   lateNightEnabled: boolean;
   surroundEnabled: boolean;
+  vocalMix: number;
+  instrumentalMix: number;
   listeners: Set<(m: Mode) => void>;
   cachedIR: AudioBuffer | null;
 }
