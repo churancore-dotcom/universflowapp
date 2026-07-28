@@ -297,7 +297,7 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
             }}
             whileTap={{ scale: 0.97 }}
           >
-            {showAll ? 'Show Less' : 'Show All'}
+            {showAll ? 'Show fewer songs' : 'Show all songs'}
           </motion.button>
         )}
       </div>
