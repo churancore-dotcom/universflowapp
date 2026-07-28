@@ -261,9 +261,18 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
       studioSpace: 'off',
       lateNight: false,
       headphoneSurround: false,
+      vocalMix: 100,
+      instrumentalMix: 100,
       activePreset: 'flat',
     });
     toast.success('Equalizer reset');
+  }, []);
+
+  const handleVocalMix = useCallback((v: number) => {
+    setEQSettings({ vocalMix: v, activePreset: 'custom' });
+  }, []);
+  const handleInstrumentalMix = useCallback((v: number) => {
+    setEQSettings({ instrumentalMix: v, activePreset: 'custom' });
   }, []);
 
 
