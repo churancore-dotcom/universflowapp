@@ -15,10 +15,14 @@ const MadeForYouSection = memo(() => {
   const { user } = useAuth();
   const { playSong, currentSong } = usePlayer();
 
-  const recentIds = useMemo(() => {
-    if (!user?.id) return [] as string[];
-    return readLocalRecent(user.id).slice(0, 5).map((r) => r.song_id).filter(Boolean);
+  const recentEntries = useMemo(() => {
+    if (!user?.id) return [] as ReturnType<typeof readLocalRecent>;
+    return readLocalRecent(user.id).slice(0, 5);
   }, [user?.id]);
+  const recentIds = useMemo(
+    () => recentEntries.map((r) => r.song_id).filter(Boolean),
+    [recentEntries],
+  );
 
   // Rotate seed pool every hour so "For You" doesn't show identical songs.
   const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
@@ -31,6 +35,12 @@ const MadeForYouSection = memo(() => {
     refetchInterval: 20 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
       let seedQueries: string[] = [];
+      // Snapshot artists from local recents cover YT/audius tracks that never
+      // land in stream_songs. Prefer them, then top up from stream_songs.
+      const snapshotSeeds = recentEntries
+        .map((e) => (e.song?.artist || e.song?.title || '').trim())
+        .filter(Boolean);
+      let seeds: string[] = [...snapshotSeeds];
       if (recentIds.length) {
         const { data: rows } = await (supabase as unknown as {
           from: (t: string) => { select: (c: string) => { in: (col: string, vals: string[]) => { limit: (n: number) => Promise<{ data: Array<{ artist: string | null; title: string | null }> | null }> } } };
@@ -39,9 +49,13 @@ const MadeForYouSection = memo(() => {
           .select('artist, title')
           .in('id', recentIds)
           .limit(5);
-        const seeds = (rows ?? [])
-          .map((r) => (r.artist || r.title || '').trim())
-          .filter(Boolean);
+        seeds.push(
+          ...(rows ?? [])
+            .map((r) => (r.artist || r.title || '').trim())
+            .filter(Boolean),
+        );
+      }
+      if (seeds.length) {
         const uniq = [...new Set(seeds)].slice(0, 3);
         seedQueries = uniq.map((s) => `${s} official music mix`);
       }

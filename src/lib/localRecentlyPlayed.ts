@@ -1,19 +1,32 @@
 // Per-device "Jump Back In" history. Lives in localStorage so it is NEVER
 // synced across devices, even when the same account is signed in elsewhere.
 // Keyed per user so multiple accounts on the same device stay separate.
+//
+// Stores a lightweight snapshot alongside the id so YouTube-sourced tracks
+// (ids like `yt-…` / `ytm-…`) — which don't exist in the catalog `songs`
+// table — can still be rehydrated for the Home "Jump Back In" tile and the
+// "For You" seed pool.
 
 const MAX_ENTRIES = 24;
 
+export type LocalRecentSnapshot = {
+  id: string;
+  title?: string | null;
+  artist?: string | null;
+  album?: string | null;
+  cover_url?: string | null;
+  audio_url?: string | null;
+  duration?: number | null;
+};
+
 export type LocalRecentEntry = {
-  song_id: string; // catalog UUID
+  song_id: string; // catalog UUID or external id (yt-…, ytm-…, audius-…)
   played_at: number; // epoch ms
+  song?: LocalRecentSnapshot;
 };
 
 const keyFor = (userId: string | null | undefined) =>
   `universflow.recentlyPlayed.v1.${userId || "anon"}`;
-
-const isUuid = (s: string) =>
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s);
 
 export function readLocalRecent(userId: string | null | undefined): LocalRecentEntry[] {
   try {
@@ -29,11 +42,17 @@ export function readLocalRecent(userId: string | null | undefined): LocalRecentE
   }
 }
 
-export function pushLocalRecent(userId: string | null | undefined, songId: string) {
-  if (!songId || !isUuid(songId)) return;
+export function pushLocalRecent(
+  userId: string | null | undefined,
+  songId: string,
+  snapshot?: LocalRecentSnapshot,
+) {
+  if (!songId) return;
   try {
     const list = readLocalRecent(userId).filter((e) => e.song_id !== songId);
-    list.unshift({ song_id: songId, played_at: Date.now() });
+    const entry: LocalRecentEntry = { song_id: songId, played_at: Date.now() };
+    if (snapshot) entry.song = { ...snapshot, id: songId };
+    list.unshift(entry);
     localStorage.setItem(keyFor(userId), JSON.stringify(list.slice(0, MAX_ENTRIES)));
     window.dispatchEvent(new CustomEvent("universflow:recently-played-changed"));
   } catch {
