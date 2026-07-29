@@ -109,7 +109,7 @@ const ManageSubscriptions = () => {
         username: profileMap.get(sub.user_id)?.username || null,
       })) || [];
 
-      setSubscriptions(enrichedSubs);
+      setSubscriptions(enrichedSubs as any);
 
       // Calculate stats
       const active = enrichedSubs.filter(s => s.status === 'active').length;
