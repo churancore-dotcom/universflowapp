@@ -427,7 +427,7 @@ export default function ArtistApply() {
         p_artist_photo_path: photoUrl,
         p_phone_hash: phoneHash,
         p_ownership_code: ownershipCode,
-        p_social_verified_url: instagram.trim() || youtube.trim() || null,
+        p_social_verified_url: instagram.trim() || youtube.trim() || undefined,
       });
 
       if (error) {
