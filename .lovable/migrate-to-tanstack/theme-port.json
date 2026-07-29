@@ -1,0 +1,26 @@
+{
+  "customizations": [
+    { "token": "--primary (rose 350 100% 60%)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--accent (pink 330 100% 65%)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "sidebar-* HSL tokens", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--glow-primary/accent/purple/cyan/green/orange", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--glass-bg/border/blur", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--surface-elevated/overlay", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "--success/warning/info", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".glass / .glass-strong / .glass-ultra", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".uf-rose-gradient / .uf-bento-card / .uf-display-title / .uf-rose-text / .uf-peach-text", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".gradient-text / .gradient-text-gold / .gradient-text-ocean", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".glow-primary / .glow-accent / .glow-purple / .glow-cyan / .glow-multi / .glow-sm", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".btn-premium / .btn-glass / .btn-glow", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".ios-card / .card-hover / .player-bar", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".progress-glow / .waveform-bar / .gradient-border", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".skeleton-shimmer / .custom-scrollbar", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".ios-input / .ios-list-item / .ios-tab-bar / .haptic-press", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".text-balance / .hide-scrollbar / .safe-area-pb / .safe-area-pt", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "animate-audio-wave / animate-equalizer keyframes + classes", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "shimmer / uf-shimmer / pulse-glow / float-gentle / float / spin-slow / scale-pulse / ios-bounce / auroraShift keyframes", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "lockfx-ios-* classes and keyframes (sheen/grain/orb/orb-2/beam/aurora/halo)", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": "html.light Pearl theme overrides", "source": "src/index.css", "reappliedIn": "src/styles.css" },
+    { "token": ".gpu-accelerated / .scroll-smooth-x helpers", "source": "src/index.css", "reappliedIn": "src/styles.css" }
+  ]
+}
