@@ -222,8 +222,28 @@ export default function ArtistPublic() {
     );
   }
 
-  const ig = profile.social_links?.instagram;
-  const yt = profile.social_links?.youtube;
+  const normalizeSocial = (raw: unknown, platform: 'instagram' | 'youtube'): string | null => {
+    if (!raw || typeof raw !== 'string') return null;
+    let v = raw.trim();
+    if (!v) return null;
+    // Full URL — keep as-is when it has a real scheme + host.
+    if (/^https?:\/\//i.test(v)) {
+      try {
+        const u = new URL(v);
+        if (u.hostname && u.hostname.includes('.')) return u.toString();
+      } catch { /* fallthrough to handle rebuild */ }
+    }
+    // Strip accidental scheme-on-handle like "https://@lisa".
+    v = v.replace(/^https?:\/\/+/i, '').replace(/^www\./i, '');
+    // Bare handle → canonical profile URL.
+    const handle = v.replace(/^@+/, '').split(/[/?#]/)[0];
+    if (!handle) return null;
+    return platform === 'instagram'
+      ? `https://instagram.com/${handle}`
+      : `https://youtube.com/@${handle}`;
+  };
+  const ig = normalizeSocial(profile.social_links?.instagram, 'instagram');
+  const yt = normalizeSocial(profile.social_links?.youtube, 'youtube');
   const accent = (profile.accent_color && /^#[0-9a-fA-F]{6}$/.test(profile.accent_color)) ? profile.accent_color : '#FF2D55';
   const pickSong = profile.artist_pick_song_id ? songs.find((s) => s.id === profile.artist_pick_song_id) : null;
   const gallery = (profile.gallery_urls ?? []).filter(Boolean);
@@ -250,8 +270,8 @@ export default function ArtistPublic() {
   ].join(', ');
 
   const socialSameAs = [
-    ig ? `https://instagram.com/${String(ig).replace(/^@/, '')}` : null,
-    yt ? (String(yt).startsWith('http') ? String(yt) : `https://youtube.com/${String(yt).replace(/^@/, '@')}`) : null,
+    ig,
+    yt,
     profile.social_links?.spotify || null,
     profile.social_links?.website || null,
   ].filter(Boolean) as string[];
