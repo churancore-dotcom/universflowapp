@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from '@/lib/router-compat';
 import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
@@ -807,7 +807,7 @@ const Search = () => {
                     items={displayedIndexedResults}
                     estimateSize={68}
                     gap={4}
-                    scrollParentRef={scrollRef}
+                    scrollParentRef={scrollRef as any}
                     getKey={(track) => track.id}
                     renderItem={(track) => {
                       const isActive = currentSong?.id === track.id;

@@ -1,6 +1,6 @@
 import { useState, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useNavigate, useLocation, Outlet } from 'react-router-dom';
+import { useNavigate, useLocation, Outlet } from '@/lib/router-compat';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   LayoutDashboard,

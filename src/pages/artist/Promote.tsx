@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from '@/lib/router-compat';
 import {
   Link as LinkIcon, QrCode, Image as ImageIcon, Megaphone, Copy, Check,
   Download, Share2, Music2, Loader2, ExternalLink, Flame, AlertCircle,

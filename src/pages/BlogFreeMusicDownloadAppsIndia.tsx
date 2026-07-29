@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { Download, CheckCircle2, XCircle, Music2, WifiOff, Headphones, IndianRupee, ChevronRight, Shield } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 

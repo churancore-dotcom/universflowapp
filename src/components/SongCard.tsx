@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Play, Pause, ListPlus } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import LikeButton from './LikeButton';
 
 import AddToPlaylistModal from './AddToPlaylistModal';

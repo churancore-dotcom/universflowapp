@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from '@/lib/router-compat';
 import { Users } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { fmt } from './_shared';

@@ -40,7 +40,7 @@ export default function AdminPayouts() {
     if (filter === 'pending') q = q.in('status', ['pending', 'processing']);
     if (filter === 'paid') q = q.eq('status', 'paid');
     const { data, error } = await q;
-    if (error) { toast.error(error.message); setLoading(false); return; }
+    if (error) { toast.error(error?.message ?? 'Error'); setLoading(false); return; }
     const list = (data ?? []) as Row[];
     const ids = Array.from(new Set(list.map((r) => r.artist_user_id)));
     if (ids.length) {
@@ -61,7 +61,7 @@ export default function AdminPayouts() {
     setBusy(row.id);
     const { error } = await supabase.rpc('admin_mark_payout_paid', { _payout_id: row.id, _admin_note: note || null });
     setBusy(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(error?.message ?? 'Error'); return; }
     toast.success('Payout marked as paid');
     load();
   };
@@ -75,7 +75,7 @@ export default function AdminPayouts() {
       .update({ status: 'rejected', admin_note: note })
       .eq('id', row.id);
     setBusy(null);
-    if (error) { toast.error(error.message); return; }
+    if (error) { toast.error(error?.message ?? 'Error'); return; }
     toast.success('Payout rejected');
     load();
   };

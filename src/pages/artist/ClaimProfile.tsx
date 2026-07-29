@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Search as SearchIcon, ShieldCheck, Loader2, CheckCircle2, Upload } from 'lucide-react';
 import { toast } from 'sonner';

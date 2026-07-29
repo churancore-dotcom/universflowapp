@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { toast } from 'sonner';
 import MiniPlayer from '@/components/MiniPlayer';
 import FullscreenPlayer from '@/components/FullscreenPlayer';
@@ -265,7 +265,7 @@ const OfflinePlayerShell = memo(function OfflinePlayerShell() {
                   songs={filtered}
                   currentId={currentSong?.id}
                   isPlaying={isPlaying}
-                  onPlay={handlePlaySong}
+                  onPlay={handlePlaySong as any}
                   onToggle={togglePlay}
                 />
               )}
@@ -303,7 +303,7 @@ const OfflinePlayerShell = memo(function OfflinePlayerShell() {
                   songs={recent}
                   currentId={currentSong?.id}
                   isPlaying={isPlaying}
-                  onPlay={handlePlaySong}
+                  onPlay={handlePlaySong as any}
                   onToggle={togglePlay}
                 />
               )}

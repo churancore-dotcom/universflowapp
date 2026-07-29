@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useParams, Link, useNavigate } from 'react-router-dom';
+import { useParams, Link, useNavigate } from '@/lib/router-compat';
 import {
   ArrowLeft, Play, Users, Bookmark, Share2, SkipForward, Loader2, Globe2, MapPin, Music2,
 } from 'lucide-react';

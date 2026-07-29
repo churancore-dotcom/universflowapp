@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { useOutletContext, Link } from 'react-router-dom';
+import { useOutletContext, Link } from '@/lib/router-compat';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Music2, Trash2, Plus, Pencil, Cloud, HardDrive, Loader2, ExternalLink, Share2 } from 'lucide-react';
 import { toast } from 'sonner';

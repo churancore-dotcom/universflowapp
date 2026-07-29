@@ -169,7 +169,7 @@ export function useUserEQSettingsSync(userId?: string | null) {
     const channel = supabase
       .channel(`user-eq-settings-${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_eq_settings', filter: `user_id=eq.${userId}` }, (payload) => {
-        const settings = normalizeEQSettings((payload.new as { settings?: unknown })?.settings);
+        const settings = normalizeEQSettings((payload.new as { settings?: unknown })?.settings as Partial<EQSettings> | null | undefined);
         lastRemoteJSON = JSON.stringify(settings);
         setEQSettings(settings);
       })

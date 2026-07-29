@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams } from '@/lib/router-compat';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import {
   ArrowLeft, BadgeCheck, Heart, Music2, Play, UserPlus, UserCheck,

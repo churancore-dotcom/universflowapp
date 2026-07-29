@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useOutletContext } from 'react-router-dom';
+import { useOutletContext } from '@/lib/router-compat';
 import { UserPlus, Trophy, Music2, ShieldCheck, AlertCircle, Play, Globe2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { ArtistSong, fmt } from './_shared';

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useOutletContext, useNavigate } from 'react-router-dom';
+import { useOutletContext, useNavigate } from '@/lib/router-compat';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Image as ImageIcon, Loader2, Upload as UploadIcon, Link2, CheckCircle2,
@@ -583,7 +583,7 @@ function SourceStep({
       : `${linkState.source === 'drive' ? 'Google Drive' : 'Dropbox'} link looks good — we'll stream it directly.`
     : null;
 
-  const TABS: { key: SourceTab; label: string; icon: JSX.Element }[] = [
+  const TABS: { key: SourceTab; label: string; icon: React.ReactNode }[] = [
     { key: 'upload', label: 'Direct Upload', icon: <UploadIcon className="w-4 h-4" /> },
     { key: 'drive', label: 'Google Drive', icon: <HardDrive className="w-4 h-4" /> },
     { key: 'dropbox', label: 'Dropbox', icon: <Cloud className="w-4 h-4" /> },

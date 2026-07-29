@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@/lib/router-compat';
 import { motion } from 'framer-motion';
 import { ArrowLeft, Play, Shuffle, Music, User } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';

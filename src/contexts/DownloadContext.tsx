@@ -191,7 +191,7 @@ const openDB = (): Promise<IDBDatabase> => {
           db.createObjectStore(STORE_NAME, { keyPath: 'id' });
         }
       };
-    } catch (error) {
+    } catch (error: any) {
       reject(error);
     }
   });
@@ -214,7 +214,7 @@ const saveToDB = async (song: DownloadedSong, audioBlob: Blob, coverBlob?: Blob 
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Failed to save to IndexedDB:', error);
     throw error;
   }
@@ -238,7 +238,7 @@ const getFromDB = async (id: string): Promise<{ song: DownloadedSong; audioBlob:
         }
       };
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Failed to get from IndexedDB:', error);
     return null;
   }
@@ -255,7 +255,7 @@ const deleteFromDB = async (id: string): Promise<void> => {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Failed to delete from IndexedDB:', error);
   }
 };
@@ -277,7 +277,7 @@ const getAllFromDB = async (): Promise<{ song: DownloadedSong; audioBlob: Blob; 
         resolve(results);
       };
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Failed to get all from IndexedDB:', error);
     return [];
   }
@@ -294,7 +294,7 @@ const clearDB = async (): Promise<void> => {
       request.onerror = () => reject(request.error);
       request.onsuccess = () => resolve();
     });
-  } catch (error) {
+  } catch (error: any) {
     console.warn('Failed to clear IndexedDB:', error);
   }
 };
@@ -341,7 +341,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         
         setDownloads(songs);
         setBlobUrls(urls);
-      } catch (error) {
+      } catch (error: any) {
         console.warn('Failed to load downloads:', error);
       }
     };
@@ -517,7 +517,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
       }, 2000);
 
-    } catch (error) {
+    } catch (error: any) {
       const wasCancelled = error?.name === 'AbortError' || cancelledIdsRef.current.has(song.id);
       if (wasCancelled) {
         toast.info('Download cancelled');
@@ -572,7 +572,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         delete newUrls[songId];
         return newUrls;
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to remove song:', error);
     }
   }, [blobUrls]);
@@ -603,7 +603,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
       setDownloads([]);
       setBlobUrls({});
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to clear downloads:', error);
     }
   }, [blobUrls]);

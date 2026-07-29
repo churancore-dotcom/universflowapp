@@ -73,7 +73,7 @@ const ManageSongs = () => {
       .order('created_at', { ascending: false });
 
     if (!error && data) {
-      setSongs(data);
+      setSongs(data as any);
       
       // Calculate totals
       const size = data.reduce((acc, s) => acc + (s.file_size || 0), 0);

@@ -218,7 +218,7 @@ const UploadMusic = () => {
         thumbnail: data.thumbnail,
         duration: data.duration,
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error extracting audio:', error);
       throw error;
     }
@@ -265,7 +265,7 @@ const UploadMusic = () => {
         
         try {
           extractionResult = await extractAudioFromPlatform(audioUrl);
-        } catch (error) {
+        } catch (error: any) {
           console.log('Extraction failed, falling back to AI metadata:', error.message);
           extractionFailed = true;
         }
@@ -353,7 +353,7 @@ const UploadMusic = () => {
           toast.success('URL accepted - will be used as provided');
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       setExtractionStage('idle');
       toast.error(error.message || 'Failed to validate/extract audio');
       setValidationErrors(prev => [...prev.filter(e => e.type !== 'url'), { type: 'url', message: error.message }]);
@@ -580,7 +580,7 @@ const UploadMusic = () => {
         setIsUploading(false);
       }, 1000);
 
-    } catch (error) {
+    } catch (error: any) {
       toast.error(getUploadError(error));
       setIsUploading(false);
       setUploadProgress(0);

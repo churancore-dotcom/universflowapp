@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Headphones, Search, Library, User } from 'lucide-react';
-import { useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from '@/lib/router-compat';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 

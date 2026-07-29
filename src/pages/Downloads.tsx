@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Download, Trash2, X, Loader2, HardDrive, CloudOff, Play, Music,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import BottomNav from '@/components/BottomNav';
 import PageTransition from '@/components/PageTransition';
 import { iosSpring, iosBounce } from '@/lib/animations';

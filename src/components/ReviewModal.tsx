@@ -68,7 +68,7 @@ const ReviewModal = ({ isOpen, onClose, onSubmitted }: Props) => {
       setDone(true);
       onSubmitted?.();
       setTimeout(() => { onClose(); setDone(false); setRating(0); setComment(''); }, 1800);
-    } catch (e) {
+    } catch (e: any) {
       const msg = e?.code === '23505' ? 'You have already reviewed — thank you!' : (e?.message || 'Could not save your review');
       toast.error(msg);
       if (e?.code === '23505') {

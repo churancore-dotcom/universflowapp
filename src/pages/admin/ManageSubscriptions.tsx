@@ -109,7 +109,7 @@ const ManageSubscriptions = () => {
         username: profileMap.get(sub.user_id)?.username || null,
       })) || [];
 
-      setSubscriptions(enrichedSubs);
+      setSubscriptions(enrichedSubs as any);
 
       // Calculate stats
       const active = enrichedSubs.filter(s => s.status === 'active').length;
@@ -126,7 +126,7 @@ const ManageSubscriptions = () => {
         premiumMonthly,
         premiumYearly,
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching subscriptions:', error);
       toast.error('Failed to load subscriptions');
     } finally {
@@ -144,7 +144,7 @@ const ManageSubscriptions = () => {
       if (error) throw error;
       toast.success(`Subscription ${status}`);
       fetchSubscriptions();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error updating subscription:', error);
       toast.error('Failed to update subscription');
     }
@@ -173,7 +173,7 @@ const ManageSubscriptions = () => {
       if (error) throw error;
       toast.success('Premium granted successfully');
       fetchSubscriptions();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error granting premium:', error);
       toast.error('Failed to grant premium');
     }
@@ -226,7 +226,7 @@ const ManageSubscriptions = () => {
       if (error) throw error;
       toast.success(`Expiry set: ${expiresAt.toLocaleString()}`);
       fetchSubscriptions();
-    } catch (e) {
+    } catch (e: any) {
       toast.error(e?.message || 'Failed to set expiry');
     }
   };
@@ -244,7 +244,7 @@ const ManageSubscriptions = () => {
       if (error) throw error;
       toast.success('Subscription record deleted');
       fetchSubscriptions();
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting subscription:', error);
       toast.error('Failed to delete subscription');
     }
