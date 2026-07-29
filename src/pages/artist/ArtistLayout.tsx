@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, memo } from 'react';
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useLocation, useNavigate } from '@/lib/router-compat';
 import {
   LayoutDashboard, Upload, Music2, BarChart3, Users, UserCog, LogOut,
   Menu, X, ExternalLink, CheckCircle2, Bell, Activity as ActivityIcon, Megaphone, IndianRupee, Shield,

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from '@/lib/router-compat';
 import { 
   Users, Search, MoreVertical, Mail, Calendar,
   Music, Heart, Clock, Crown, Ban, PlayCircle, UserCheck, Trash2

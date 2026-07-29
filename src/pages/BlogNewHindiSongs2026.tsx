@@ -1,4 +1,4 @@
-import { Link } from "react-router-dom";
+import { Link } from "@/lib/router-compat";
 import { Play, Music2, Flame, Headphones, Download, ChevronRight } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 

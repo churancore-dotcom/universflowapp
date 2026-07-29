@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Music2, Heart, Download, Users, Plus, Trash2, Loader2,
@@ -463,7 +463,7 @@ function AddSongDialog({ open, onClose, userId }: { open: boolean; onClose: () =
       if (error) throw error;
       toast.success('Song published ✓');
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       setError(e?.message || 'Could not save song.');
     } finally {
       setSaving(false);
@@ -567,7 +567,7 @@ function EditProfileDialog({ open, onClose, profile, onSaved }: {
       onSaved(data as Profile);
       toast.success('Profile updated');
       onClose();
-    } catch (e) {
+    } catch (e: any) {
       toast.error(e?.message || 'Could not save.');
     } finally {
       setSaving(false);

@@ -1,6 +1,6 @@
 import { ReactNode } from 'react';
 import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import SEOHead from '@/components/SEOHead';
 import { FadeTransition } from '@/components/PageTransition';
 

@@ -46,7 +46,7 @@ const AddToPlaylistModal = memo(function AddToPlaylistModal({
 
       if (error) throw error;
       if (data) {
-        setPlaylists(data);
+        setPlaylists(data as any);
       }
     } catch (error) {
       console.error('Error fetching playlists:', error);
@@ -103,7 +103,7 @@ const AddToPlaylistModal = memo(function AddToPlaylistModal({
             .from('playlists')
             .update({ cover_url: song.cover_url })
             .eq('id', playlistId)
-            .eq('user_id', user?.id);
+            .eq('user_id', user?.id ?? '');
           setPlaylists((prev) => prev.map((playlist) => (
             playlist.id === playlistId ? { ...playlist, cover_url: song.cover_url } : playlist
           )));

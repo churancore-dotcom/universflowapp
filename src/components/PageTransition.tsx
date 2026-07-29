@@ -1,6 +1,6 @@
 import { motion, Transition } from 'framer-motion';
 import { ReactNode, forwardRef, useRef, useMemo } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation } from '@/lib/router-compat';
 import { NavDirectionContext, useNavDirection } from '@/contexts/NavDirectionContext';
 
 interface PageTransitionProps {

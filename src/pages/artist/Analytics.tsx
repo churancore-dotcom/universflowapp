@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useOutletContext, Link } from 'react-router-dom';
+import { useOutletContext, Link } from '@/lib/router-compat';
 import {
   Music2, Heart, Download, Eye, Play, Globe2, Loader2, TrendingUp, TrendingDown,
   Users, Bookmark, Share2, ChevronRight, MapPin,

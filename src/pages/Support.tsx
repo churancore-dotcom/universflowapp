@@ -1,6 +1,6 @@
 import { motion } from 'framer-motion';
 import { ChevronLeft, Heart, Crown, Star, MessageSquare, ChevronRight } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { useState } from 'react';
 import BottomNav from '@/components/BottomNav';
 import PageTransition from '@/components/PageTransition';

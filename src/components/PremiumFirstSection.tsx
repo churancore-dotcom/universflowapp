@@ -1,6 +1,6 @@
 import React, { memo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { motion } from 'framer-motion';
 import { Crown, Disc3, Lock } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';

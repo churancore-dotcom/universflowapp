@@ -1,7 +1,7 @@
 import { useState, useEffect, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Crown, X, Volume2, VolumeX, Music, Disc3, Zap } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { usePremium } from '@/hooks/usePremium';
 import { iosSpring } from '@/lib/animations';
 

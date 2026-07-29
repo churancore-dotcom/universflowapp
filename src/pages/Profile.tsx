@@ -3,7 +3,7 @@ import {
   Settings, LogOut, Shield, Heart, ListMusic, Crown, ChevronRight,
   Edit2, Check, X, Star, Headphones, Download, Music2, Play,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
@@ -199,7 +199,7 @@ const Profile = () => {
       setProfileData(prev => ({ ...prev, username: newUsername.trim(), username_changed: true }));
       setIsEditingUsername(false);
       toast.success('Username set!');
-    } catch (error) { toast.error(error.message || 'Failed to update username'); }
+    } catch (error: any) { toast.error(error.message || 'Failed to update username'); }
     finally { setIsSaving(false); }
   };
 

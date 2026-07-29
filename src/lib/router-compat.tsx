@@ -1,5 +1,5 @@
 /**
- * Router-compat shim — bridges react-router-dom v6 call sites to
+ * Router-compat shim — bridges @/lib/router-compat v6 call sites to
  * @tanstack/react-router without hand-rewriting every component.
  * Extended for this project with Outlet context + NavLink active states.
  */
@@ -88,7 +88,7 @@ export function useParams<T extends Record<string, string | undefined> = Record<
 }
 
 
-// ---------- useSearchParams (react-router-dom compat) ----------
+// ---------- useSearchParams (@/lib/router-compat compat) ----------
 
 export function useSearchParams(): [URLSearchParams, (init: URLSearchParams | Record<string, string> | ((prev: URLSearchParams) => URLSearchParams), opts?: { replace?: boolean }) => void] {
   const loc = tsLocation();
@@ -176,7 +176,7 @@ export function useOutletContext<T = unknown>(): T {
   return useContext(OutletContext) as T;
 }
 
-// ---------- NavLink (react-router-dom active-state compat) ----------
+// ---------- NavLink (@/lib/router-compat active-state compat) ----------
 
 type NavLinkRenderProps = { isActive: boolean; isPending: boolean };
 

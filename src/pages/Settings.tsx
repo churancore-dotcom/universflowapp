@@ -6,7 +6,7 @@ import {
   Languages, Waves, Zap, Repeat, PlayCircle, HelpCircle,
 } from 'lucide-react';
 
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import BottomNav from '@/components/BottomNav';
 import PageTransition from '@/components/PageTransition';
 import { Slider } from '@/components/ui/slider';

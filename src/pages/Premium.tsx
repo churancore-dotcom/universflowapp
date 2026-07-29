@@ -5,7 +5,7 @@ import {
   Zap, Copy, Loader2, ShieldCheck, Sliders, Music2, Infinity as InfinityIcon, Clock,
   Moon, Orbit, Building2, Headphones,
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import BottomNav from '@/components/BottomNav';
 import PageTransition from '@/components/PageTransition';
 import { iosSpring, iosBounce } from '@/lib/animations';

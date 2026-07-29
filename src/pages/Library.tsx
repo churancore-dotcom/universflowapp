@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from '@/lib/router-compat';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Music, Heart, ListMusic, Download, CloudOff, Trash2, User, Plus } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -312,7 +312,7 @@ const Library = () => {
                     items={likedSongs}
                     estimateSize={64}
                     gap={2}
-                    scrollParentRef={scrollRef}
+                    scrollParentRef={scrollRef as any}
                     getKey={(song, i) => `${song.id}-${i}`}
                     renderItem={(song, i) => <SongRow song={song} index={i} />}
                   />
@@ -341,7 +341,7 @@ const Library = () => {
                   </div>
                 ) : (
                   <div className="grid grid-cols-3 gap-3">
-                    {artists.map((artist, i) => (
+                    {artists.map((artist: LibraryArtist, i: number) => (
                       <motion.div
                         key={artist.name}
                         className="relative flex flex-col items-center p-3 rounded-2xl"
@@ -492,7 +492,7 @@ const Library = () => {
                   </div>
                 ) : (
                   <div className="space-y-0.5">
-                    {playlists.map((playlist, i) => (
+                    {playlists.map((playlist: LibraryPlaylist, i: number) => (
                       <motion.div
                         key={playlist.id}
                         className="w-full flex items-center gap-2.5 p-2.5 rounded-xl active:scale-[0.98] transition-transform"

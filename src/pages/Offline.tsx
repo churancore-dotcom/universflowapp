@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { Play, Music, HardDrive, ArrowLeft, Shuffle } from 'lucide-react';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import BottomNav from '@/components/BottomNav';
 import RoseHero from '@/components/RoseHero';
 import { triggerHaptic } from '@/hooks/useHaptics';

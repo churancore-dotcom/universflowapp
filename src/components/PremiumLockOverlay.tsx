@@ -1,7 +1,7 @@
 import { memo } from 'react';
 import { motion } from 'framer-motion';
 import { Crown, Lock, X, Disc3 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate } from '@/lib/router-compat';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import { useHaptics } from '@/hooks/useHaptics';
 

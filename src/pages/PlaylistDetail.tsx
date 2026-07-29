@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate } from '@/lib/router-compat';
 import { 
   ChevronLeft, Play, Pause, Shuffle, Music, 
   Plus, Trash2, Edit2, Lock, Globe, Loader2, ListPlus
@@ -72,7 +72,7 @@ const PlaylistDetail = () => {
 
     if (playlistRes.data) {
       const [playlistWithCover] = await hydratePlaylistCoverUrls([playlistRes.data]);
-      setPlaylist(playlistWithCover);
+      setPlaylist(playlistWithCover as any);
     }
 
     setSongs(songsData as PlaylistSong[]);
