@@ -42,9 +42,9 @@ export default function LabelAccess() {
       const { data, error } = await supabase.rpc('submit_label_access_request', {
         _label_name: label.trim(),
         _roster: cleanRoster.map(name => ({ name })) as any,
-        _proof_url: proof.trim() || null,
-        _website: website.trim() || null,
-        _contact_email: contact.trim() || null,
+        _proof_url: proof.trim() || '',
+        _website: website.trim() || '',
+        _contact_email: contact.trim() || '',
       });
       if (error) throw error;
       const res = data as any;

@@ -355,7 +355,7 @@ export default function ArtistStatus() {
 
         {/* Submitted meta + logout */}
         <p className="mt-4 text-[11px] text-center text-muted-foreground/60 tabular-nums">
-          Submitted {fmtShort(app.created_at)} · ref {app.id.slice(0, 8)}
+          Submitted {fmtShort(app.created_at)} · ref {(app.id ?? '').slice(0, 8)}
         </p>
 
         <button
