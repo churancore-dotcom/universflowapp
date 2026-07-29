@@ -123,16 +123,38 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
     staleTime: 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
       const local = readLocalRecent(user!.id).slice(0, 12);
-      const ids = local.map((r) => r.song_id).filter(isCatalogId);
-      if (ids.length === 0) return [];
-      const { data: rows, error: songError } = await supabase
-        .from('songs')
-        .select('id,title,artist,album,cover_url,audio_url,duration,genre,mood,created_at,artist_id')
-        .in('id', ids)
-        .eq('is_visible', true);
-      if (songError) throw songError;
-      const byId = new Map((rows || []).map((row) => [row.id, songFromRow(row as SongRowLike)]));
-      return ids.map((id) => byId.get(id)).filter(Boolean) as Song[];
+      if (local.length === 0) return [];
+      const catalogIds = local.map((r) => r.song_id).filter(isCatalogId);
+      let byId = new Map<string, Song>();
+      if (catalogIds.length > 0) {
+        const { data: rows, error: songError } = await supabase
+          .from('songs')
+          .select('id,title,artist,album,cover_url,audio_url,duration,genre,mood,created_at,artist_id')
+          .in('id', catalogIds)
+          .eq('is_visible', true);
+        if (songError) throw songError;
+        byId = new Map((rows || []).map((row) => [row.id, songFromRow(row as SongRowLike)]));
+      }
+      // Rehydrate from local snapshots for non-catalog (YT/audius) ids so
+      // Jump Back In reflects what the user actually played.
+      const out: Song[] = [];
+      for (const entry of local) {
+        const catalog = byId.get(entry.song_id);
+        if (catalog) { out.push(catalog); continue; }
+        const snap = entry.song;
+        if (snap && snap.title && snap.artist) {
+          out.push({
+            id: entry.song_id,
+            title: snap.title,
+            artist: snap.artist,
+            album: snap.album || undefined,
+            cover_url: snap.cover_url || undefined,
+            audio_url: snap.audio_url || 'resolving',
+            duration: snap.duration || undefined,
+          } as Song);
+        }
+      }
+      return out;
     },
   });
 
