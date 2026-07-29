@@ -15,10 +15,14 @@ const MadeForYouSection = memo(() => {
   const { user } = useAuth();
   const { playSong, currentSong } = usePlayer();
 
-  const recentIds = useMemo(() => {
-    if (!user?.id) return [] as string[];
-    return readLocalRecent(user.id).slice(0, 5).map((r) => r.song_id).filter(Boolean);
+  const recentEntries = useMemo(() => {
+    if (!user?.id) return [] as ReturnType<typeof readLocalRecent>;
+    return readLocalRecent(user.id).slice(0, 5);
   }, [user?.id]);
+  const recentIds = useMemo(
+    () => recentEntries.map((r) => r.song_id).filter(Boolean),
+    [recentEntries],
+  );
 
   // Rotate seed pool every hour so "For You" doesn't show identical songs.
   const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
