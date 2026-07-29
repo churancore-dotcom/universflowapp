@@ -59,7 +59,7 @@ export default function AdminPayouts() {
     const note = window.prompt(`Confirm ₹${row.amount_inr} to ${row.upi_id ?? 'this artist'}?\n\nOptional note:`) ?? undefined;
     if (note === null) return;
     setBusy(row.id);
-    const { error } = await supabase.rpc('admin_mark_payout_paid', { _payout_id: row.id, _admin_note: note || null });
+    const { error } = await supabase.rpc('admin_mark_payout_paid', { _payout_id: row.id, _admin_note: note || undefined });
     setBusy(null);
     if (error) { toast.error(error?.message ?? 'Error'); return; }
     toast.success('Payout marked as paid');

@@ -286,7 +286,7 @@ const PushNotifications = () => {
 
   const totalReach = items
     .filter(n => n.is_active)
-    .reduce((sum, n) => sum + (reach[n.target_audience] ?? 0), 0);
+    .reduce((sum, n) => sum + ((reach as Record<string, number>)[n.target_audience] ?? 0), 0);
 
   const stats = [
     { label: 'In-App Banners', value: items.length.toLocaleString(), icon: Send },
@@ -609,7 +609,7 @@ const PushNotifications = () => {
                   <Users className="w-3.5 h-3.5" /> {audienceLabels[n.target_audience as Audience] ?? n.target_audience}
                 </span>
                 <span className="flex items-center gap-1.5 text-muted-foreground">
-                  <Send className="w-3.5 h-3.5" /> Reach ~{(reach[n.target_audience as Audience] ?? 0).toLocaleString()}
+                  <Send className="w-3.5 h-3.5" /> Reach ~{((reach as Record<string, number>)[n.target_audience] ?? 0).toLocaleString()}
                 </span>
                 <span className="flex items-center gap-1.5 text-muted-foreground">
                   <Clock className="w-3.5 h-3.5" /> {new Date(n.created_at).toLocaleString()}
@@ -618,7 +618,7 @@ const PushNotifications = () => {
               <div className="grid grid-cols-3 gap-2 mt-2 pt-3 border-t border-border/40">
                 {(['delivered','opened','clicked'] as const).map(k => {
                   const v = kpi[n.id]?.[k] ?? 0;
-                  const denom = k === 'delivered' ? Math.max(reach[n.target_audience as Audience] ?? 0, 1) : Math.max(kpi[n.id]?.delivered ?? 0, 1);
+                  const denom = k === 'delivered' ? Math.max((reach as Record<string, number>)[n.target_audience] ?? 0, 1) : Math.max(kpi[n.id]?.delivered ?? 0, 1);
                   const pct = Math.min(100, Math.round((v / denom) * 100));
                   const colors = { delivered: 'hsl(195 100% 55%)', opened: 'hsl(145 80% 50%)', clicked: 'hsl(var(--primary))' } as const;
                   return (
