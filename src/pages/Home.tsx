@@ -73,13 +73,25 @@ const upgradeThumb = (url?: string) => {
   return url.replace(/\/default\.jpg/i, '/hqdefault.jpg').replace(/\/mqdefault\.jpg/i, '/hqdefault.jpg');
 };
 
-// Pull one fast real YouTube Music pool for the hero/bento. Query is
-// country-aware so a US user never sees a Bollywood hero on first launch.
-const fetchHomeSongs = async (heroQuery: string): Promise<FlaggedSong[]> => {
-  const trending = await searchYouTubeMusicTracks(heroQuery, 24);
+// Session-stable rotation so the home hero isn't the identical song on every
+// app open, while staying stable while the user scrolls.
+const HOME_SEED = Math.floor(Math.random() * 100000);
+function rotate<T>(arr: T[], seed = HOME_SEED): T[] {
+  if (arr.length < 2) return arr;
+  const k = seed % arr.length;
+  return [...arr.slice(k), ...arr.slice(0, k)];
+}
+
+// Pull one fast real pool for the hero/bento: real YouTube Music charts for the
+// user's country first (never keyword-search filler), search only as backup.
+const fetchHomeSongs = async (heroQuery: string, country: string): Promise<FlaggedSong[]> => {
+  const [charts, searched] = await Promise.all([
+    getYouTubeMusicCharts(country || 'US', 40).catch(() => ({ top: [], trending: [], videos: [], country: 'US' })),
+    searchYouTubeMusicTracks(heroQuery, 24).catch(() => []),
+  ]);
 
   const byId = new Map<string, FlaggedSong>();
-  const ingest = (list: typeof trending, flags: Partial<FlaggedSong>) => {
+  const ingest = (list: { id: string; title?: string; artist?: string; album?: string; cover_url?: string; audio_url?: string; videoId?: string; duration?: number }[], flags: Partial<FlaggedSong>) => {
     for (const t of list) {
       if (!t.id || !t.title || !t.artist) continue;
       const existing = byId.get(t.id);
@@ -101,10 +113,14 @@ const fetchHomeSongs = async (heroQuery: string): Promise<FlaggedSong[]> => {
     }
   };
 
-  ingest(trending, { show_in_trending: true });
+  ingest(rotate(charts.top), { show_in_trending: true });
+  ingest(rotate(charts.trending), { show_in_trending: true });
+  ingest(rotate(charts.videos), {});
+  if (byId.size < 12) ingest(searched, { show_in_trending: true });
 
   return [...byId.values()];
 };
+
 
 const Home = () => {
   const { currentSong, playSong } = usePlayer();
