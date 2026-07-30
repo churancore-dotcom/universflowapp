@@ -61,7 +61,7 @@ const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete
             height={160}
             loading="eager"
             decoding="async"
-            {...({ fetchpriority: 'high' } as React.ImgHTMLAttributes<HTMLImageElement>)}
+            {...({ fetchPriority: 'high' } as React.ImgHTMLAttributes<HTMLImageElement>)}
             className="h-full w-full object-cover"
             draggable={false}
           />

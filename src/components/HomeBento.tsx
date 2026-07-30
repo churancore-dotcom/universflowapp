@@ -257,7 +257,7 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
                   width={88}
                   height={88}
                   decoding="async"
-                  {...({ fetchpriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)}
+                  {...({ fetchPriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)}
                 />
               </div>
             )}
@@ -309,7 +309,7 @@ const HomeBento: React.FC<Props> = ({ songs }) => {
               height={230}
               decoding="async"
               referrerPolicy="no-referrer"
-              {...({ fetchpriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)}
+              {...({ fetchPriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)}
             />
           ) : (
             <div className="absolute inset-0 bg-gradient-to-br from-primary/25 to-accent/20" />

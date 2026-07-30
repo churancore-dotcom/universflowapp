@@ -80,7 +80,7 @@ const GetApp = () => {
                 height={88}
                 loading="eager"
                 decoding="async"
-                {...({ fetchpriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)}
+                {...({ fetchPriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)}
               />
             </div>
 
@@ -141,7 +141,7 @@ const GetApp = () => {
                   className="w-full h-full object-cover"
                   width={260}
                   height={563}
-                  {...((i === 0 ? { fetchpriority: "high" } : {}) as React.ImgHTMLAttributes<HTMLImageElement>)}
+                  {...((i === 0 ? { fetchPriority: "high" } : {}) as React.ImgHTMLAttributes<HTMLImageElement>)}
                 />
               </div>
             ))}
