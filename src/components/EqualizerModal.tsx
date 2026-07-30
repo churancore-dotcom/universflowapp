@@ -1,4 +1,4 @@
-import { memo, useCallback, useEffect, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState, type ComponentType } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   BadgeCheck,
@@ -61,7 +61,7 @@ interface EQBand {
 interface Preset {
   id: string;
   name: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   bands: number[];
   bassBoost: number;
   reverb?: number;
@@ -74,7 +74,7 @@ interface Preset {
 interface StudioSpace {
   id: StudioSpaceId;
   name: string;
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   desc: string;
 }
 
@@ -125,7 +125,7 @@ const STUDIO_SPACES: StudioSpace[] = [
   { id: 'stadium', name: 'Stadium', icon: Trophy, desc: 'Live scale' },
 ];
 
-const VIEWS: Array<{ id: EqView; label: string; icon: React.ComponentType<{ className?: string }> }> = [
+const VIEWS: Array<{ id: EqView; label: string; icon: ComponentType<{ className?: string }> }> = [
   { id: 'smart', label: 'Smart', icon: Wand2 },
   { id: 'stems', label: 'Stems', icon: MicOff },
   { id: 'manual', label: '10-Band', icon: SlidersHorizontal },
@@ -295,7 +295,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   </div>
                   <h2 className="font-display text-[34px] leading-none text-foreground">Equalizer</h2>
                   <p className="mt-1 flex items-center gap-2 truncate text-xs text-muted-foreground">
-                    <span className={cn('h-2 w-2 rounded-full', isConnected ? 'bg-primary' : effectsActive ? 'bg-warning' : 'bg-muted-foreground')} />
+                    <span className={cn('h-2 w-2 rounded-full', isConnected ? 'bg-primary' : effectsActive ? 'bg-primary/60' : 'bg-muted-foreground')} />
                     {connectionLabel}
                   </p>
                 </div>
@@ -571,7 +571,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 };
 
 interface ControlSliderProps {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   label: string;
   value: number;
   min: number;
@@ -596,7 +596,7 @@ const ControlSlider = memo(({ icon: Icon, label, value, min, max, step, display,
 ControlSlider.displayName = 'ControlSlider';
 
 interface ToggleRowProps {
-  icon: React.ComponentType<{ className?: string }>;
+  icon: ComponentType<{ className?: string }>;
   label: string;
   desc: string;
   checked: boolean;
