@@ -449,16 +449,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [shuffle, setShuffle] = useState(false);
   const [repeat, setRepeat] = useState<'off' | 'all' | 'one'>('off');
   const [isExpanded, setExpanded] = useState(false);
-  const [crossfade, setCrossfade] = useState(() => getRuntimePremium() && localStorage.getItem('uf_crossfade') === 'true');
+  // SSR-safe reads: these initializers also run on the server, where
+  // localStorage does not exist. Client picks up stored values on hydration.
+  const readStored = (key: string): string | null => {
+    if (typeof window === 'undefined') return null;
+    try { return localStorage.getItem(key); } catch { return null; }
+  };
+  const [crossfade, setCrossfade] = useState(() => getRuntimePremium() && readStored('uf_crossfade') === 'true');
   const [crossfadeDuration, setCrossfadeDurationState] = useState(() => {
-    const v = Number(localStorage.getItem('uf_crossfade_duration'));
+    const v = Number(readStored('uf_crossfade_duration'));
     return Number.isFinite(v) && v >= 1 && v <= 12 ? v : 3;
   });
   const [crossfadeCurve, setCrossfadeCurveState] = useState<'linear' | 'equal-power' | 'smooth' | 'exponential'>(() => {
-    const v = localStorage.getItem('uf_crossfade_curve');
+    const v = readStored('uf_crossfade_curve');
     return (v === 'linear' || v === 'equal-power' || v === 'smooth' || v === 'exponential') ? v : 'equal-power';
   });
-  const [gaplessPro, setGaplessPro] = useState(() => getRuntimePremium() && localStorage.getItem('uf_gapless_pro') === 'true');
+  const [gaplessPro, setGaplessPro] = useState(() => getRuntimePremium() && readStored('uf_gapless_pro') === 'true');
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [showPrerollAd, setShowPrerollAd] = useState(false);
   const [adType, setAdType] = useState<'start' | 'end'>('start');

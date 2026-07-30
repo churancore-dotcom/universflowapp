@@ -1,0 +1,32 @@
+{
+  "functions": [
+    { "name": "admin-delete-user", "classification": "unknown", "signal": "privileged admin action also reachable from native shell by URL", "outcome": "left" },
+    { "name": "ai-metadata", "classification": "unknown", "signal": "invoked by URL from native Android shell", "outcome": "left" },
+    { "name": "artist-notify-followers", "classification": "unknown", "signal": "also triggered from database/notification flows", "outcome": "left" },
+    { "name": "artist-verify-checks", "classification": "unknown", "signal": "verification pipeline callback", "outcome": "left" },
+    { "name": "bootstrap-system-push", "classification": "cron target", "signal": "scheduled push bootstrap", "outcome": "left" },
+    { "name": "chart-aggregator", "classification": "cron target", "signal": "no internal call sites; scheduled chart aggregation", "outcome": "left" },
+    { "name": "confirm-verification-link", "classification": "webhook receiver", "signal": "URL embedded in outgoing verification emails", "outcome": "left" },
+    { "name": "daily-mix-builder", "classification": "cron target", "signal": "no internal call sites; daily scheduled job", "outcome": "left" },
+    { "name": "extract-audio", "classification": "unknown", "signal": "called from native Android shell by URL", "outcome": "left" },
+    { "name": "geo-detect", "classification": "unknown", "signal": "edge-geolocation headers depend on Supabase edge runtime", "outcome": "left" },
+    { "name": "lyrics", "classification": "unknown", "signal": "called from native Android shell by URL", "outcome": "left" },
+    { "name": "mcp", "classification": "MCP server", "signal": "JSON-RPC MCP endpoint with fixed public URL", "outcome": "left" },
+    { "name": "mood-daily-push", "classification": "cron target", "signal": "pg_cron scheduled daily push", "outcome": "left" },
+    { "name": "music-indexer", "classification": "unknown", "signal": "primary stream resolver called by URL from ExoPlayer/native resolver", "outcome": "left" },
+    { "name": "purge-artist-kyc", "classification": "cron target", "signal": "scheduled zero-retention KYC purge", "outcome": "left" },
+    { "name": "recognize-song", "classification": "unknown", "signal": "no internal call sites; external/native caller", "outcome": "left" },
+    { "name": "send-push", "classification": "unknown", "signal": "invoked from database triggers and native shell", "outcome": "left" },
+    { "name": "send-reset-email", "classification": "unknown", "signal": "auth email delivery hook", "outcome": "left" },
+    { "name": "send-system-push", "classification": "cron target", "signal": "scheduled/system-triggered push", "outcome": "left" },
+    { "name": "send-verification-link", "classification": "unknown", "signal": "auth email delivery hook", "outcome": "left" },
+    { "name": "send-welcome-email", "classification": "unknown", "signal": "triggered by database signup hook", "outcome": "left" },
+    { "name": "stream-proxy", "classification": "custom response", "signal": "streams audio bytes; fixed URL used by ExoPlayer in the APK", "outcome": "left" },
+    { "name": "telegram-notify", "classification": "webhook receiver", "signal": "Telegram integration with fixed URL", "outcome": "left" },
+    { "name": "verify-registered-user", "classification": "unknown", "signal": "no internal call sites; external caller", "outcome": "left" },
+    { "name": "yt-innertube-search", "classification": "unknown", "signal": "called by URL from native InnerTube plugin", "outcome": "left" },
+    { "name": "yt-music-search", "classification": "unknown", "signal": "called by URL from native shell", "outcome": "left" },
+    { "name": "ytm-radio", "classification": "unknown", "signal": "called by URL from native shell", "outcome": "left" },
+    { "name": "ytm-suggest", "classification": "unknown", "signal": "called by URL from native shell", "outcome": "left" }
+  ]
+}
