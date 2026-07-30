@@ -1,6 +1,7 @@
 package com.universeflow.app
 
 import android.app.PendingIntent
+import android.content.Context
 import android.content.Intent
 import android.media.audiofx.BassBoost
 import android.media.audiofx.Equalizer
@@ -13,7 +14,12 @@ import androidx.media3.common.AudioAttributes
 import androidx.media3.common.AuxEffectInfo
 import androidx.media3.common.C
 import androidx.media3.common.Player
+import androidx.media3.common.audio.AudioProcessor
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultRenderersFactory
+import androidx.media3.exoplayer.audio.AudioSink
+import androidx.media3.exoplayer.audio.DefaultAudioSink
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.session.CacheBitmapLoader
 import androidx.media3.session.DefaultMediaNotificationProvider
@@ -31,6 +37,7 @@ import androidx.media3.datasource.DataSourceBitmapLoader
  * Audio effects (Equalizer / BassBoost / Virtualizer / LoudnessEnhancer) are
  * bound to the player's audio session id and exposed through ExoPlayerPlugin.
  */
+@OptIn(UnstableApi::class)
 class ExoPlayerService : MediaSessionService() {
 
     companion object {
@@ -65,6 +72,10 @@ class ExoPlayerService : MediaSessionService() {
     @Volatile var savedVirtualizerStrength: Short = 0
     @Volatile var savedLoudnessGainMb: Int = 0
     @Volatile var savedReverbAmount: Int = 0
+    @Volatile var savedVocalMix: Int = 100
+    @Volatile var savedInstrumentalMix: Int = 100
+
+    private val stemAudioProcessor = StemAudioProcessor()
 
     private var boundSessionId: Int = C.AUDIO_SESSION_ID_UNSET
 
@@ -95,10 +106,25 @@ class ExoPlayerService : MediaSessionService() {
         // disk cache so replays are instant and expired URLs auto-refresh.
         val mediaSourceFactory = NativeMediaSourceFactory.build(this)
 
+        val renderersFactory = object : DefaultRenderersFactory(this@ExoPlayerService) {
+            override fun buildAudioSink(
+                context: Context,
+                enableFloatOutput: Boolean,
+                enableAudioTrackPlaybackParams: Boolean,
+            ): AudioSink? {
+                return DefaultAudioSink.Builder(context)
+                    .setAudioProcessors(arrayOf<AudioProcessor>(stemAudioProcessor))
+                    .setEnableFloatOutput(enableFloatOutput)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .build()
+            }
+        }
+
         // Prewarm the InnerTube connection so first-tap latency is minimal.
         NativeYouTubeResolver.warm()
 
         val builder = ExoPlayer.Builder(this)
+            .setRenderersFactory(renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
             .setAudioAttributes(audioAttrs, /* handleAudioFocus */ true)
             .setHandleAudioBecomingNoisy(true)
@@ -250,6 +276,13 @@ class ExoPlayerService : MediaSessionService() {
         persistEffectState()
     }
 
+    fun applyStemMix(vocalMix: Int, instrumentalMix: Int) {
+        savedVocalMix = vocalMix.coerceIn(0, 100)
+        savedInstrumentalMix = instrumentalMix.coerceIn(0, 100)
+        stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix)
+        persistEffectState()
+    }
+
     private fun applyReverbParameters(effect: EnvironmentalReverb, amount: Int) {
         val wet = amount.coerceIn(0, 100)
         effect.enabled = wet > 0
@@ -272,6 +305,8 @@ class ExoPlayerService : MediaSessionService() {
                 .putInt("virtualizer", savedVirtualizerStrength.toInt())
                 .putInt("loudness", savedLoudnessGainMb)
                 .putInt("reverb", savedReverbAmount)
+                .putInt("vocalMix", savedVocalMix)
+                .putInt("instrumentalMix", savedInstrumentalMix)
                 .apply()
         } catch (_: Throwable) {}
     }
@@ -284,6 +319,9 @@ class ExoPlayerService : MediaSessionService() {
             savedVirtualizerStrength = prefs.getInt("virtualizer", 0).coerceIn(0, 1000).toShort()
             savedLoudnessGainMb = prefs.getInt("loudness", 0).coerceIn(0, 2000)
             savedReverbAmount = prefs.getInt("reverb", 0).coerceIn(0, 100)
+            savedVocalMix = prefs.getInt("vocalMix", 100).coerceIn(0, 100)
+            savedInstrumentalMix = prefs.getInt("instrumentalMix", 100).coerceIn(0, 100)
+            stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix)
             prefs.getString("bands", null)?.split(',')?.forEach { entry ->
                 val pair = entry.split(':')
                 if (pair.size == 2) {

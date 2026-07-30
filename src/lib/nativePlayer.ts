@@ -70,11 +70,13 @@ interface ExoPlayerPluginShape {
   getAudioSessionId: () => Promise<{ sessionId: number }>;
   setEQEnabled: (opts: { enabled: boolean }) => Promise<void>;
   setEQBand: (opts: { band: number; levelMillibels: number }) => Promise<void>;
+  setEQBands: (opts: { bands: Array<{ band: number; levelMillibels: number }> }) => Promise<void>;
   getEQBands: () => Promise<NativeEQBandsInfo>;
   setBassBoost: (opts: { strength: number }) => Promise<void>;
   setVirtualizer: (opts: { strength: number }) => Promise<void>;
   setLoudnessEnhancer: (opts: { gainMb: number }) => Promise<void>;
   setReverb: (opts: { amount: number }) => Promise<void>;
+  setStemMix: (opts: { vocalMix: number; instrumentalMix: number }) => Promise<void>;
   setPlaybackSpeed: (opts: { speed: number }) => Promise<void>;
   addListener: (
     event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
@@ -160,6 +162,15 @@ export async function setNativeEQBand(band: number, levelMillibels: number): Pro
   try { await ExoPlayerPlugin.setEQBand({ band, levelMillibels: Math.round(levelMillibels) }); } catch {}
 }
 
+export async function setNativeEQBands(bands: Array<{ band: number; levelMillibels: number }>): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try {
+    await ExoPlayerPlugin.setEQBands({
+      bands: bands.map(({ band, levelMillibels }) => ({ band, levelMillibels: Math.round(levelMillibels) })),
+    });
+  } catch {}
+}
+
 export async function setNativeBassBoost(strength: number): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   try { await ExoPlayerPlugin.setBassBoost({ strength: Math.max(0, Math.min(1000, Math.round(strength))) }); } catch {}
@@ -178,6 +189,16 @@ export async function setNativeLoudnessEnhancer(gainMb: number): Promise<void> {
 export async function setNativeReverb(amount: number): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   try { await ExoPlayerPlugin.setReverb({ amount: Math.max(0, Math.min(100, Math.round(amount))) }); } catch {}
+}
+
+export async function setNativeStemMix(vocalMix: number, instrumentalMix: number): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try {
+    await ExoPlayerPlugin.setStemMix({
+      vocalMix: Math.max(0, Math.min(100, Math.round(vocalMix))),
+      instrumentalMix: Math.max(0, Math.min(100, Math.round(instrumentalMix))),
+    });
+  } catch {}
 }
 
 export async function setNativePlaybackSpeed(speed: number): Promise<void> {
@@ -216,6 +237,7 @@ export async function pushNativeEQFromWebBands(
   const minLevel = usable ? usable.minLevel : -1500;
   const maxLevel = usable ? usable.maxLevel : 1500;
   await setNativeEQEnabled(true);
+  const updates: Array<{ band: number; levelMillibels: number }> = [];
   for (let bi = 0; bi < nativeBands.length; bi++) {
     const native = nativeBands[bi];
     const target = native.centerFrequencyHz;
@@ -228,7 +250,8 @@ export async function pushNativeEQFromWebBands(
     const dB = webBands[best] ?? 0;
     const offset = nativeOffsetsMb?.[bi] ?? 0;
     const mb = Math.max(minLevel, Math.min(maxLevel, Math.round(dB * 100) + offset));
-    await setNativeEQBand(native.index, mb);
+    updates.push({ band: native.index, levelMillibels: mb });
   }
+  await setNativeEQBands(updates);
 }
 
