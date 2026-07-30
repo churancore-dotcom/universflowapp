@@ -179,60 +179,97 @@ function classifyShelf(title: string): 'top' | 'trending' | 'videos' | 'artists'
   return 'other';
 }
 
-async function getYouTubeMusicCharts(gl: string): Promise<Record<'top' | 'trending' | 'videos', SearchResult[]>> {
-  const country = chartsCountryOrGlobal(gl);
-  const json = await ytMusicBrowse('FEmusic_charts', country, {
-    formData: { selectedValues: [country] },
-  });
-  const out: Record<'top' | 'trending' | 'videos', SearchResult[]> = { top: [], trending: [], videos: [] };
-  if (!json) return out;
-
-  const seenPerBucket: Record<string, Set<string>> = { top: new Set(), trending: new Set(), videos: new Set() };
-  const addTrack = (bucket: 'top' | 'trending' | 'videos', item: any) => {
-    // Two shapes: musicResponsiveListItemRenderer (list) OR musicTwoRowItemRenderer (grid).
-    let track: SearchResult | null = null;
-    if (item?.thumbnailRenderer || item?.navigationEndpoint?.watchEndpoint) {
-      // Two-row style (charts videos shelf uses this).
-      const parsed = extractNewReleaseVideoCard(item);
-      if (parsed) track = parsed;
-    } else {
-      const parsed = extractFromItem(item);
-      if (parsed?.videoId && parsed.title) {
-        if (!looksHardSpam(parsed.title, parsed.artist, parsed.title)) {
-          track = {
-            id: `ytm-${parsed.videoId}`,
-            videoId: parsed.videoId,
-            title: parsed.title,
-            artist: parsed.artist,
-            audio_url: `yt-video:${parsed.videoId}`,
-            cover_url: parsed.cover,
-            duration: parsed.duration || undefined,
-          };
-        }
-      }
-    }
-    if (!track) return;
-    if (seenPerBucket[bucket].has(track.videoId)) return;
-    seenPerBucket[bucket].add(track.videoId);
-    out[bucket].push(track);
-  };
-
-  for (const shelf of walkShelves(json)) {
-    const kind = classifyShelf(extractShelfHeaderTitle(shelf));
-    if (kind === 'artists' || kind === 'other') continue;
-    const bucket = kind === 'videos' ? 'videos' : kind; // 'top' | 'trending' | 'videos'
-    // musicShelfRenderer uses .contents; musicCarouselShelfRenderer uses .contents too.
-    for (const item of shelf.contents || []) {
-      const inner = item?.musicResponsiveListItemRenderer || item?.musicTwoRowItemRenderer || item;
-      addTrack(bucket, inner);
-    }
+// Chart cards on FEmusic_charts are playlist tiles (VL<playlistId>), not song
+// shelves — YT changed this. We read the tiles, then browse each chart playlist
+// to get the real ranked tracks.
+function extractChartPlaylistCards(json: any): { title: string; playlistId: string }[] {
+  const out: { title: string; playlistId: string }[] = [];
+  const seen = new Set<string>();
+  for (const item of walkTwoRowItems(json)) {
+    const title = decodeEntities(runsText(item?.title)).trim();
+    const nav = item?.navigationEndpoint?.browseEndpoint?.browseId
+      || item?.navigationEndpoint?.watchPlaylistEndpoint?.playlistId
+      || '';
+    if (!title || !nav) continue;
+    const playlistId = String(nav);
+    if (!/^VL|^PL|^OLAK/.test(playlistId)) continue;
+    if (seen.has(playlistId)) continue;
+    seen.add(playlistId);
+    out.push({ title, playlistId });
   }
-
-  // Do NOT auto-promote the top-songs shelf into "trending" — that made the
-  // Viral rail render the same tracks as Trending Now. Leave it empty so the
-  // client can fall back to the Videos shelf (which is a different bucket).
   return out;
 }
+
+async function fetchChartPlaylistTracks(playlistId: string, gl: string, limit: number): Promise<SearchResult[]> {
+  const browseId = playlistId.startsWith('VL') ? playlistId : `VL${playlistId}`;
+  const json = await ytMusicBrowse(browseId, gl);
+  if (!json) return [];
+  const out: SearchResult[] = [];
+  const seen = new Set<string>();
+  for (const item of walkItems(json)) {
+    const parsed = extractFromItem(item);
+    if (!parsed?.videoId || !parsed.title) continue;
+    if (seen.has(parsed.videoId)) continue;
+    if (looksHardSpam(parsed.title, parsed.artist, parsed.title)) continue;
+    seen.add(parsed.videoId);
+    out.push({
+      id: `ytm-${parsed.videoId}`,
+      videoId: parsed.videoId,
+      title: parsed.title,
+      artist: parsed.artist,
+      audio_url: `yt-video:${parsed.videoId}`,
+      cover_url: parsed.cover,
+      duration: parsed.duration || undefined,
+    });
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
+async function getYouTubeMusicCharts(gl: string): Promise<Record<'top' | 'trending' | 'videos', SearchResult[]>> {
+  const country = chartsCountryOrGlobal(gl);
+  const out: Record<'top' | 'trending' | 'videos', SearchResult[]> = { top: [], trending: [], videos: [] };
+
+  let json = await ytMusicBrowse('FEmusic_charts', country, {
+    formData: { selectedValues: [country] },
+  });
+  let cards = json ? extractChartPlaylistCards(json) : [];
+  // Region has no chart tiles → fall back to the Global chart so the rails
+  // are never empty (that's what produced "no real trending songs").
+  if (!cards.length && country !== 'ZZ') {
+    json = await ytMusicBrowse('FEmusic_charts', 'ZZ', { formData: { selectedValues: ['ZZ'] } });
+    cards = json ? extractChartPlaylistCards(json) : [];
+  }
+  if (!cards.length) return out;
+
+  const pick = (re: RegExp, exclude: string[] = []) =>
+    cards.find((c) => re.test(c.title) && !exclude.includes(c.playlistId));
+
+  const trendingCard = pick(/trending|rising|movers/i);
+  const used = trendingCard ? [trendingCard.playlistId] : [];
+  const topCard = pick(/top\s*100|top\s*songs|daily top|top weekly/i, used) || cards.find((c) => !used.includes(c.playlistId));
+  if (topCard) used.push(topCard.playlistId);
+  const videosCard = pick(/video/i, used) || cards.find((c) => !used.includes(c.playlistId));
+
+  const [trending, top, videos] = await Promise.all([
+    trendingCard ? fetchChartPlaylistTracks(trendingCard.playlistId, country, 40) : Promise.resolve([]),
+    topCard ? fetchChartPlaylistTracks(topCard.playlistId, country, 40) : Promise.resolve([]),
+    videosCard ? fetchChartPlaylistTracks(videosCard.playlistId, country, 40) : Promise.resolve([]),
+  ]);
+
+  out.trending = trending;
+  out.top = top.length ? top : trending;
+  out.videos = videos;
+
+  // Keep buckets distinct so Trending Now and Viral Now never mirror each other.
+  if (out.top.length && out.trending.length) {
+    const topIds = new Set(out.top.slice(0, 10).map((t) => t.videoId));
+    const distinct = out.trending.filter((t) => !topIds.has(t.videoId));
+    if (distinct.length >= 5) out.trending = distinct;
+  }
+  return out;
+}
+
 
 function runsText(runs: any): string {
   if (!runs) return '';

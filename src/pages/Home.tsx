@@ -6,7 +6,7 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { searchYouTubeMusicTracks } from '@/lib/musicIndexer';
+import { searchYouTubeMusicTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import MadeForYouSection from '@/components/MadeForYouSection';
 
 import AllSongsSection from '@/components/AllSongsSection';
@@ -73,13 +73,25 @@ const upgradeThumb = (url?: string) => {
   return url.replace(/\/default\.jpg/i, '/hqdefault.jpg').replace(/\/mqdefault\.jpg/i, '/hqdefault.jpg');
 };
 
-// Pull one fast real YouTube Music pool for the hero/bento. Query is
-// country-aware so a US user never sees a Bollywood hero on first launch.
-const fetchHomeSongs = async (heroQuery: string): Promise<FlaggedSong[]> => {
-  const trending = await searchYouTubeMusicTracks(heroQuery, 24);
+// Session-stable rotation so the home hero isn't the identical song on every
+// app open, while staying stable while the user scrolls.
+const HOME_SEED = Math.floor(Math.random() * 100000);
+function rotate<T>(arr: T[], seed = HOME_SEED): T[] {
+  if (arr.length < 2) return arr;
+  const k = seed % arr.length;
+  return [...arr.slice(k), ...arr.slice(0, k)];
+}
+
+// Pull one fast real pool for the hero/bento: real YouTube Music charts for the
+// user's country first (never keyword-search filler), search only as backup.
+const fetchHomeSongs = async (heroQuery: string, country: string): Promise<FlaggedSong[]> => {
+  const [charts, searched] = await Promise.all([
+    getYouTubeMusicCharts(country || 'US', 40).catch(() => ({ top: [], trending: [], videos: [], country: 'US' })),
+    searchYouTubeMusicTracks(heroQuery, 24).catch(() => []),
+  ]);
 
   const byId = new Map<string, FlaggedSong>();
-  const ingest = (list: typeof trending, flags: Partial<FlaggedSong>) => {
+  const ingest = (list: { id: string; title?: string; artist?: string; album?: string; cover_url?: string; audio_url?: string; videoId?: string; duration?: number }[], flags: Partial<FlaggedSong>) => {
     for (const t of list) {
       if (!t.id || !t.title || !t.artist) continue;
       const existing = byId.get(t.id);
@@ -101,10 +113,14 @@ const fetchHomeSongs = async (heroQuery: string): Promise<FlaggedSong[]> => {
     }
   };
 
-  ingest(trending, { show_in_trending: true });
+  ingest(rotate(charts.top), { show_in_trending: true });
+  ingest(rotate(charts.trending), { show_in_trending: true });
+  ingest(rotate(charts.videos), {});
+  if (byId.size < 12) ingest(searched, { show_in_trending: true });
 
   return [...byId.values()];
 };
+
 
 const Home = () => {
   const { currentSong, playSong } = usePlayer();
@@ -138,7 +154,7 @@ const Home = () => {
 
   const { data: onlineSongs = (cachedSongs || []), isLoading } = useQuery({
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
-    queryFn: () => fetchHomeSongs(countryQueries.hero),
+    queryFn: () => fetchHomeSongs(countryQueries.hero, country || 'US'),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
