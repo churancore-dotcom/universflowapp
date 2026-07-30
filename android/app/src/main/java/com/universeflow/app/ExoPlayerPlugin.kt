@@ -18,6 +18,7 @@ import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
+import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
@@ -757,6 +758,15 @@ class ExoPlayerPlugin : Plugin() {
             val svc = service()
             svc?.ensureEffectsBound()
             svc?.applyReverb(amount)
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun setPlaybackSpeed(call: PluginCall) {
+        val speed = (call.getDouble("speed") ?: 1.0).coerceIn(0.5, 2.0).toFloat()
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
+            try { service()?.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}
             call.resolve()
         }
     }
