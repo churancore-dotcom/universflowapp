@@ -40,6 +40,8 @@ interface Engine {
   stemsRtoLside: GainNode | null;
   stemsLtoRside: GainNode | null;
   stemsRtoRside: GainNode | null;
+  stemsDirectGain: GainNode | null;
+  stemsMatrixGain: GainNode | null;
   filters: BiquadFilterNode[];
   preGain: GainNode | null;
   dryGain: GainNode | null;
@@ -85,6 +87,8 @@ const engine: Engine = {
   stemsRtoLside: null,
   stemsLtoRside: null,
   stemsRtoRside: null,
+  stemsDirectGain: null,
+  stemsMatrixGain: null,
   filters: [],
   preGain: null,
   dryGain: null,
@@ -362,6 +366,7 @@ function disconnectAll() {
     engine.dryGain, engine.wetGain, engine.convolver,
     engine.stereoPanner, engine.panLfoGain,
     engine.stemsSplitter, engine.stemsMerger,
+    engine.stemsDirectGain, engine.stemsMatrixGain,
     engine.stemsLtoLmid, engine.stemsRtoLmid, engine.stemsLtoRmid, engine.stemsRtoRmid,
     engine.stemsLtoLside, engine.stemsRtoLside, engine.stemsLtoRside, engine.stemsRtoRside,
     engine.surroundSplitter, engine.surroundMerger,
@@ -450,6 +455,8 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   // every song, no ML model needed.
   const stemsSplitter = ctx.createChannelSplitter(2);
   const stemsMerger   = ctx.createChannelMerger(2);
+  const stemsDirectGain = ctx.createGain(); stemsDirectGain.gain.value = 1;
+  const stemsMatrixGain = ctx.createGain(); stemsMatrixGain.gain.value = 0;
   const stemsLtoLmid  = ctx.createGain(); stemsLtoLmid.gain.value = 0.5;
   const stemsRtoLmid  = ctx.createGain(); stemsRtoLmid.gain.value = 0.5;
   const stemsLtoRmid  = ctx.createGain(); stemsLtoRmid.gain.value = 0.5;
@@ -459,7 +466,13 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   const stemsLtoRside = ctx.createGain(); stemsLtoRside.gain.value = -0.5;
   const stemsRtoRside = ctx.createGain(); stemsRtoRside.gain.value =  0.5;
 
-  // source -> stems splitter -> matrix -> merger -> EQ filters
+  // Neutral playback uses a direct path so mono songs stay centered and the
+  // normal path is bit-transparent. Isolation crossfades into the mid/side
+  // matrix only when a stem slider moves below 100%.
+  source.connect(stemsDirectGain);
+  stemsDirectGain.connect(filters[0]);
+
+  // source -> stems splitter -> matrix -> merger -> makeup -> EQ filters
   source.connect(stemsSplitter);
   stemsSplitter.connect(stemsLtoLmid, 0);  stemsLtoLmid.connect(stemsMerger,  0, 0);
   stemsSplitter.connect(stemsRtoLmid, 1);  stemsRtoLmid.connect(stemsMerger,  0, 0);
@@ -470,7 +483,8 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   stemsSplitter.connect(stemsLtoRside, 0); stemsLtoRside.connect(stemsMerger, 0, 1);
   stemsSplitter.connect(stemsRtoRside, 1); stemsRtoRside.connect(stemsMerger, 0, 1);
 
-  stemsMerger.connect(filters[0]);
+  stemsMerger.connect(stemsMatrixGain);
+  stemsMatrixGain.connect(filters[0]);
   for (let i = 0; i < filters.length - 1; i++) filters[i].connect(filters[i + 1]);
   filters[filters.length - 1].connect(preGain);
 
@@ -527,6 +541,8 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.stemsRtoLside = stemsRtoLside;
   engine.stemsLtoRside = stemsLtoRside;
   engine.stemsRtoRside = stemsRtoRside;
+  engine.stemsDirectGain = stemsDirectGain;
+  engine.stemsMatrixGain = stemsMatrixGain;
 
   // Persistent 8D LFO — built ONCE with the chain and left running forever.
   // Toggling 8D just ramps lfoGain between 0 (off) and SPATIAL_DEPTH (on).
@@ -562,15 +578,22 @@ function applyStems() {
   const now = engine.ctx.currentTime;
   const mid = Math.max(0, Math.min(1, engine.vocalMix / 100));
   const side = Math.max(0, Math.min(1, engine.instrumentalMix / 100));
-  // Slight makeup so isolate/karaoke modes don't feel quiet.
+  const neutral = mid >= 0.995 && side >= 0.995;
+  const power = Math.sqrt((mid * mid + side * side) / 2);
+  const makeup = power > 0.04 ? Math.min(1.75, Math.max(1, 0.95 / power)) : 1;
+  // Crossfade direct → matrix, then add controlled makeup so karaoke/a-cappella
+  // modes do not sound dead while the limiter still protects against clipping.
+  const setGain = (n: GainNode | null, v: number, smooth = SMOOTH) => {
+    if (!n) return;
+    n.gain.cancelScheduledValues(now);
+    n.gain.setTargetAtTime(v, now, smooth);
+  };
+  setGain(engine.stemsDirectGain, neutral ? 1 : 0, SNAP);
+  setGain(engine.stemsMatrixGain, neutral ? 0 : makeup, SNAP);
   const midGain = 0.5 * mid;
   const sideGainPos =  0.5 * side;
   const sideGainNeg = -0.5 * side;
-  const set = (n: GainNode | null, v: number) => {
-    if (!n) return;
-    n.gain.cancelScheduledValues(now);
-    n.gain.setTargetAtTime(v, now, SMOOTH);
-  };
+  const set = (n: GainNode | null, v: number) => setGain(n, v);
   set(engine.stemsLtoLmid, midGain);
   set(engine.stemsRtoLmid, midGain);
   set(engine.stemsLtoRmid, midGain);
@@ -686,6 +709,18 @@ function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext
   engine.surroundLpRL = null;
   engine.surroundXfeedLR = null;
   engine.surroundXfeedRL = null;
+  engine.stemsSplitter = null;
+  engine.stemsMerger = null;
+  engine.stemsLtoLmid = null;
+  engine.stemsRtoLmid = null;
+  engine.stemsLtoRmid = null;
+  engine.stemsRtoRmid = null;
+  engine.stemsLtoLside = null;
+  engine.stemsRtoLside = null;
+  engine.stemsLtoRside = null;
+  engine.stemsRtoRside = null;
+  engine.stemsDirectGain = null;
+  engine.stemsMatrixGain = null;
   engine.limiter = null;
   if (engine.panLfo) {
     try { engine.panLfo.stop(); } catch { /* ignore */ }

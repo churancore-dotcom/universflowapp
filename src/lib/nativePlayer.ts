@@ -75,6 +75,7 @@ interface ExoPlayerPluginShape {
   setVirtualizer: (opts: { strength: number }) => Promise<void>;
   setLoudnessEnhancer: (opts: { gainMb: number }) => Promise<void>;
   setReverb: (opts: { amount: number }) => Promise<void>;
+  setPlaybackSpeed: (opts: { speed: number }) => Promise<void>;
   addListener: (
     event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
     cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition) => void,
@@ -177,6 +178,12 @@ export async function setNativeLoudnessEnhancer(gainMb: number): Promise<void> {
 export async function setNativeReverb(amount: number): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   try { await ExoPlayerPlugin.setReverb({ amount: Math.max(0, Math.min(100, Math.round(amount))) }); } catch {}
+}
+
+export async function setNativePlaybackSpeed(speed: number): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  const clamped = Math.max(0.5, Math.min(2, Number.isFinite(speed) ? speed : 1));
+  try { await ExoPlayerPlugin.setPlaybackSpeed({ speed: clamped }); } catch {}
 }
 
 /**

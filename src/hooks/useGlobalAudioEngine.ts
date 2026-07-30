@@ -8,6 +8,7 @@ import {
   setNativeBassBoost,
   setNativeEQEnabled,
   setNativeLoudnessEnhancer,
+  setNativePlaybackSpeed,
   setNativeReverb,
   setNativeVirtualizer,
 } from '@/lib/nativePlayer';
@@ -88,10 +89,23 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
+      const vocalCut = 1 - Math.max(0, Math.min(100, s.vocalMix ?? 100)) / 100;
+      const instrumentalCut = 1 - Math.max(0, Math.min(100, s.instrumentalMix ?? 100)) / 100;
+      const stemEqMb = [
+        Math.round(instrumentalCut * -850 + vocalCut * 220),
+        Math.round(instrumentalCut * -700 + vocalCut * 180),
+        Math.round(instrumentalCut * 520 + vocalCut * -360),
+        Math.round(instrumentalCut * 650 + vocalCut * -620),
+        Math.round(instrumentalCut * -260 + vocalCut * 260),
+      ];
+      const nativeOffsets = space.eqMb.map((offset, index) => offset + (stemEqMb[index] ?? 0));
 
       // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
       // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
-      pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, space.eqMb);
+      // APK cannot run the WebAudio mid/side matrix through ExoPlayer, so stem
+      // sliders also add a native tonal fallback: karaoke pulls vocal bands,
+      // a-cappella pulls lows/highs and lifts the mid body. It stays instant.
+      pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, nativeOffsets);
 
       // Bass boost: user slider OR space profile — whichever is stronger.
       const userBass = Math.round((s.bassBoost / 100) * 1000);
@@ -100,7 +114,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // Late Night: real +14 dB loudness compression makeup, not the old +6 dB
       // that was inaudible on phone speakers. Combine with space loudness.
       const lateNightMb = s.lateNight ? 1400 : 0;
-      setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud));
+      const stemMakeupMb = Math.round(Math.max(vocalCut, instrumentalCut) * 450);
+      setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud, stemMakeupMb));
 
       // Android ExoPlayer cannot hear the WebAudio convolver. Attach a native
       // EnvironmentalReverb as an aux effect so the Reverb control is real.
@@ -141,6 +156,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // Always push the native AudioEffect chain on Android — that path is
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.
       pushNative(s);
+      setNativePlaybackSpeed(s.playbackSpeed);
 
       const needsWebAudio = getRuntimePremium() && hasWebAudioEffects(s);
 
