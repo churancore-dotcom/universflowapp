@@ -8,6 +8,7 @@ import {
   setNativeBassBoost,
   setNativeEQEnabled,
   setNativeLoudnessEnhancer,
+  setNativePlaybackSpeed,
   setNativeReverb,
   setNativeVirtualizer,
 } from '@/lib/nativePlayer';
@@ -141,6 +142,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // Always push the native AudioEffect chain on Android — that path is
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.
       pushNative(s);
+      setNativePlaybackSpeed(s.playbackSpeed);
 
       const needsWebAudio = getRuntimePremium() && hasWebAudioEffects(s);
 
