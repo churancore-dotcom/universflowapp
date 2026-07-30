@@ -105,9 +105,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
 
       // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
       // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
-      // APK cannot run the WebAudio mid/side matrix through ExoPlayer, so stem
-      // sliders also add a native tonal fallback: karaoke pulls vocal bands,
-      // a-cappella pulls lows/highs and lifts the mid body. It stays instant.
+      // APK now runs real Mid/Side stems inside ExoPlayer. Keep a tonal support
+      // curve too so phone speakers make the vocal/beat cut obvious instantly.
       pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, nativeOffsets);
 
       // Bass boost: user slider OR space profile — whichever is stronger.

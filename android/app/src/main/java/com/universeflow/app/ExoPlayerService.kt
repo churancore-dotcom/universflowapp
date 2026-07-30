@@ -106,7 +106,7 @@ class ExoPlayerService : MediaSessionService() {
         // disk cache so replays are instant and expired URLs auto-refresh.
         val mediaSourceFactory = NativeMediaSourceFactory.build(this)
 
-        val renderersFactory = object : DefaultRenderersFactory(this) {
+        val renderersFactory = object : DefaultRenderersFactory(this@ExoPlayerService) {
             override fun buildAudioSink(
                 context: Context,
                 enableFloatOutput: Boolean,
