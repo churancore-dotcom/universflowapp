@@ -10,6 +10,7 @@ import {
   setNativeLoudnessEnhancer,
   setNativePlaybackSpeed,
   setNativeReverb,
+  setNativeStemMix,
   setNativeVirtualizer,
 } from '@/lib/nativePlayer';
 // nativeMirror removed — on Android, ExoPlayer always owns audio when available.
@@ -86,17 +87,19 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
         setNativeVirtualizer(0);
         setNativeLoudnessEnhancer(0);
         setNativeReverb(0);
+        setNativeStemMix(100, 100);
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
       const vocalCut = 1 - Math.max(0, Math.min(100, s.vocalMix ?? 100)) / 100;
       const instrumentalCut = 1 - Math.max(0, Math.min(100, s.instrumentalMix ?? 100)) / 100;
+      setNativeStemMix(s.vocalMix ?? 100, s.instrumentalMix ?? 100);
       const stemEqMb = [
-        Math.round(instrumentalCut * -850 + vocalCut * 220),
-        Math.round(instrumentalCut * -700 + vocalCut * 180),
-        Math.round(instrumentalCut * 520 + vocalCut * -360),
-        Math.round(instrumentalCut * 650 + vocalCut * -620),
-        Math.round(instrumentalCut * -260 + vocalCut * 260),
+        Math.round(instrumentalCut * -1200 + vocalCut * 300),
+        Math.round(instrumentalCut * -1050 + vocalCut * 250),
+        Math.round(instrumentalCut * 700 + vocalCut * -900),
+        Math.round(instrumentalCut * 850 + vocalCut * -1200),
+        Math.round(instrumentalCut * -500 + vocalCut * 300),
       ];
       const nativeOffsets = space.eqMb.map((offset, index) => offset + (stemEqMb[index] ?? 0));
 

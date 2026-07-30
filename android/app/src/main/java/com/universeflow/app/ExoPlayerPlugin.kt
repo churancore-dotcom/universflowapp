@@ -644,6 +644,29 @@ class ExoPlayerPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun setEQBands(call: PluginCall) {
+        val arr = call.getArray("bands") ?: run { call.reject("missing bands"); return }
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
+            val svc = service()
+            svc?.ensureEffectsBound()
+            val eq = svc?.equalizer
+            val minMax = try { eq?.bandLevelRange } catch (_: Throwable) { null }
+            val min = minMax?.getOrNull(0)?.toInt() ?: -1500
+            val max = minMax?.getOrNull(1)?.toInt() ?: 1500
+            for (i in 0 until arr.length()) {
+                val obj = arr.optJSONObject(i) ?: continue
+                val band = obj.optInt("band", -1)
+                if (band < 0) continue
+                val clamped = obj.optInt("levelMillibels", 0).coerceIn(min, max).toShort()
+                try { eq?.setBandLevel(band.toShort(), clamped) } catch (_: Throwable) {}
+                svc?.savedEqBands?.put(band.toShort(), clamped)
+            }
+            svc?.persistEffectState()
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
     fun getEQBands(call: PluginCall) {
         runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
@@ -758,6 +781,16 @@ class ExoPlayerPlugin : Plugin() {
             val svc = service()
             svc?.ensureEffectsBound()
             svc?.applyReverb(amount)
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun setStemMix(call: PluginCall) {
+        val vocalMix = (call.getInt("vocalMix") ?: 100).coerceIn(0, 100)
+        val instrumentalMix = (call.getInt("instrumentalMix") ?: 100).coerceIn(0, 100)
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
+            service()?.applyStemMix(vocalMix, instrumentalMix)
             call.resolve()
         }
     }
