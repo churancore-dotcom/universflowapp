@@ -24,7 +24,6 @@ import {
   SlidersHorizontal,
   Speaker,
   Trophy,
-  Volume2,
   VolumeX,
   Wand2,
   Waves,
@@ -508,7 +507,15 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 </div>
                 <div className="grid grid-cols-2 gap-2">
                   <Button className="h-12 rounded-2xl" variant="secondary" onClick={() => setEQSettings({ bands: BAND_DEFS.map(() => 0), bassBoost: 0, activePreset: 'custom' })}>Flatten bands</Button>
-                  <Button className="h-12 rounded-2xl" onClick={() => applyPreset(PRESETS.find((preset) => preset.id === 'auto') || PRESETS[0])}>Auto tune</Button>
+                  <Button
+                    className="h-12 rounded-2xl"
+                    onClick={() => {
+                      const autoPreset = PRESETS.find((preset) => preset.id === 'auto');
+                      if (autoPreset) applyPreset(autoPreset);
+                    }}
+                  >
+                    Auto tune
+                  </Button>
                 </div>
               </div>
             )}
