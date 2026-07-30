@@ -244,7 +244,7 @@ const Home = () => {
                   border: '1.5px solid hsl(var(--primary) / 0.3)',
                 }}
               >
-                <img src="/app-logo.webp" alt="Universflow app logo" width={40} height={40} loading="eager" {...({ fetchpriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)} decoding="async" className="w-full h-full rounded-full object-cover" />
+                <img src="/app-logo.webp" alt="Universflow app logo" width={40} height={40} loading="eager" {...({ fetchPriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)} decoding="async" className="w-full h-full rounded-full object-cover" />
               </div>
               <div>
                 <p className="text-[19px] leading-none text-foreground font-extrabold tracking-tight">
