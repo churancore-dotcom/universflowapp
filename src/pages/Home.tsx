@@ -6,7 +6,7 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { searchYouTubeMusicTracks } from '@/lib/musicIndexer';
+import { searchYouTubeMusicTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import MadeForYouSection from '@/components/MadeForYouSection';
 
 import AllSongsSection from '@/components/AllSongsSection';
@@ -154,7 +154,7 @@ const Home = () => {
 
   const { data: onlineSongs = (cachedSongs || []), isLoading } = useQuery({
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
-    queryFn: () => fetchHomeSongs(countryQueries.hero),
+    queryFn: () => fetchHomeSongs(countryQueries.hero, country || 'US'),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
