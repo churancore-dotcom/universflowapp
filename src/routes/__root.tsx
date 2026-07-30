@@ -169,7 +169,8 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      <body>
+      {/* themeBoot sets body background before hydration to avoid a flash */}
+      <body suppressHydrationWarning>
         {children}
         <Scripts />
       </body>
