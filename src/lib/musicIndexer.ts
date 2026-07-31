@@ -551,14 +551,15 @@ export async function resolveIndexedTrack(
   if (existing) return existing;
 
   const pending = (async () => {
+    const startedAt = Date.now();
     // INSTANT PLAY: race every source in parallel. Whichever returns a usable
     // stream URL first wins — no more waiting for the DB cache to miss before
     // pinging Saavn, or waiting for Saavn to miss before hitting the edge.
     const dbP: Promise<ResolveTrackResponse | null> = opts.forceRefresh
       ? Promise.resolve(null)
-      : tryDbCachedStream(artist, title).catch(() => null);
+      : trackResolver('db-cache', cacheKey, tryDbCachedStream(artist, title)).catch(() => null);
 
-    const saavnP: Promise<ResolveTrackResponse | null> = findSongStreamUrl(title, artist, opts)
+    const saavnP: Promise<ResolveTrackResponse | null> = trackResolver('jiosaavn', cacheKey, findSongStreamUrl(title, artist, opts)
       .then((s) => s?.streamUrl ? ({
         success: true,
         streamUrl: s.streamUrl,
@@ -566,12 +567,12 @@ export async function resolveIndexedTrack(
         artist: s.artist || artist,
         cover_url: s.image,
         duration: Number(s.duration) || undefined,
-      } as ResolveTrackResponse) : null)
+      } as ResolveTrackResponse) : null))
       .catch(() => null);
 
-    const edgeP: Promise<ResolveTrackResponse | null> = resolveViaEdgeFunction(
+    const edgeP: Promise<ResolveTrackResponse | null> = trackResolver('music-indexer', cacheKey, resolveViaEdgeFunction(
       artist, title, cacheKey, opts.forceRefresh === true,
-    ).catch(() => null);
+    )).catch(() => null);
 
     const racers = [dbP, saavnP, edgeP];
     const first = await new Promise<ResolveTrackResponse | null>((resolve) => {
@@ -598,10 +599,26 @@ export async function resolveIndexedTrack(
         duration: first.duration,
         videoId: first.videoId,
       });
+      recordPerfEvent({
+        event_type: 'resolve_complete',
+        severity: 'info',
+        source: 'catalog',
+        track_id: cacheKey,
+        latency_ms: Date.now() - startedAt,
+      });
       return first;
     }
 
+    recordPerfEvent({
+      event_type: 'resolve_failed',
+      severity: 'error',
+      source: 'catalog',
+      track_id: cacheKey,
+      latency_ms: Date.now() - startedAt,
+      message: 'All sources failed',
+    });
     throw new Error('Could not find a playable stream for this track');
+
   })().finally(() => {
     inFlightResolutions.delete(cacheKey);
   });
