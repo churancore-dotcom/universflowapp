@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { recordPerfEvent } from '@/lib/perfMonitor';
 
 export interface LyricLine {
   time: number; // seconds
@@ -109,6 +110,7 @@ export async function fetchLyrics(artist: string, title: string, duration?: numb
   const existing = inFlight.get(key);
   if (existing) return existing;
 
+  const startedAt = Date.now();
   const p = (async () => {
     try {
       const { data, error } = await supabase.functions.invoke('lyrics', {
@@ -125,15 +127,31 @@ export async function fetchLyrics(artist: string, title: string, duration?: numb
         hasLyrics: synced.length > 0 || timedPlain.length > 0 || !!plain,
         isSynced: synced.length > 0 || timedPlain.length > 0,
       };
+      recordPerfEvent({
+        event_type: result.hasLyrics ? 'lyrics_hit' : 'lyrics_miss',
+        severity: 'info',
+        source: result.source || 'none',
+        track_id: songId || `${artist} - ${title}`.slice(0, 120),
+        latency_ms: Date.now() - startedAt,
+        details: { synced: result.isSynced },
+      });
       const c = readCache();
       c[key] = { data: result, expiresAt: Date.now() + TTL_MS };
       writeCache(c);
       return result;
     } catch {
+      recordPerfEvent({
+        event_type: 'lyrics_miss',
+        severity: 'warn',
+        source: 'error',
+        track_id: songId || `${artist} - ${title}`.slice(0, 120),
+        latency_ms: Date.now() - startedAt,
+      });
       return EMPTY;
     } finally {
       inFlight.delete(key);
     }
+
   })();
 
   inFlight.set(key, p);

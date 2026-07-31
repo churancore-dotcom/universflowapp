@@ -1,6 +1,45 @@
 import { supabase } from '@/integrations/supabase/client';
 import { findSongStreamUrl } from '@/lib/jiosaavn';
 import { getCachedStream as getYtmCached, setCachedStream as setYtmCached, invalidateStream as invalidateYtmCached } from '@/lib/ytmStreamCache';
+import { recordPerfEvent } from '@/lib/perfMonitor';
+
+/**
+ * Resolver health telemetry. Every stream-resolution racer reports its own
+ * outcome + latency so the admin Performance panel can show which source is
+ * actually carrying playback and which one is failing, instead of guessing.
+ */
+function trackResolver<T extends { success?: boolean; streamUrl?: string } | null>(
+  source: string,
+  trackId: string,
+  promise: Promise<T>,
+): Promise<T> {
+  const started = Date.now();
+  return promise.then(
+    (result) => {
+      const ok = !!result?.streamUrl;
+      recordPerfEvent({
+        event_type: ok ? 'resolve_hit' : 'resolve_miss',
+        severity: 'info',
+        source,
+        track_id: trackId,
+        latency_ms: Date.now() - started,
+      });
+      return result;
+    },
+    (err) => {
+      recordPerfEvent({
+        event_type: 'resolve_error',
+        severity: 'warn',
+        source,
+        track_id: trackId,
+        latency_ms: Date.now() - started,
+        message: String((err as Error)?.message || err).slice(0, 180),
+      });
+      throw err;
+    },
+  );
+}
+
 
 export interface IndexedTrack {
   id: string;
@@ -512,14 +551,15 @@ export async function resolveIndexedTrack(
   if (existing) return existing;
 
   const pending = (async () => {
+    const startedAt = Date.now();
     // INSTANT PLAY: race every source in parallel. Whichever returns a usable
     // stream URL first wins — no more waiting for the DB cache to miss before
     // pinging Saavn, or waiting for Saavn to miss before hitting the edge.
     const dbP: Promise<ResolveTrackResponse | null> = opts.forceRefresh
       ? Promise.resolve(null)
-      : tryDbCachedStream(artist, title).catch(() => null);
+      : trackResolver('db-cache', cacheKey, tryDbCachedStream(artist, title)).catch(() => null);
 
-    const saavnP: Promise<ResolveTrackResponse | null> = findSongStreamUrl(title, artist, opts)
+    const saavnP: Promise<ResolveTrackResponse | null> = trackResolver('jiosaavn', cacheKey, findSongStreamUrl(title, artist, opts)
       .then((s) => s?.streamUrl ? ({
         success: true,
         streamUrl: s.streamUrl,
@@ -527,12 +567,12 @@ export async function resolveIndexedTrack(
         artist: s.artist || artist,
         cover_url: s.image,
         duration: Number(s.duration) || undefined,
-      } as ResolveTrackResponse) : null)
+      } as ResolveTrackResponse) : null))
       .catch(() => null);
 
-    const edgeP: Promise<ResolveTrackResponse | null> = resolveViaEdgeFunction(
+    const edgeP: Promise<ResolveTrackResponse | null> = trackResolver('music-indexer', cacheKey, resolveViaEdgeFunction(
       artist, title, cacheKey, opts.forceRefresh === true,
-    ).catch(() => null);
+    )).catch(() => null);
 
     const racers = [dbP, saavnP, edgeP];
     const first = await new Promise<ResolveTrackResponse | null>((resolve) => {
@@ -559,10 +599,26 @@ export async function resolveIndexedTrack(
         duration: first.duration,
         videoId: first.videoId,
       });
+      recordPerfEvent({
+        event_type: 'resolve_complete',
+        severity: 'info',
+        source: 'catalog',
+        track_id: cacheKey,
+        latency_ms: Date.now() - startedAt,
+      });
       return first;
     }
 
+    recordPerfEvent({
+      event_type: 'resolve_failed',
+      severity: 'error',
+      source: 'catalog',
+      track_id: cacheKey,
+      latency_ms: Date.now() - startedAt,
+      message: 'All sources failed',
+    });
     throw new Error('Could not find a playable stream for this track');
+
   })().finally(() => {
     inFlightResolutions.delete(cacheKey);
   });
@@ -599,10 +655,11 @@ export async function resolveYouTubeVideoStream(
     invalidateYtmCached(id);
   }
 
+  const ytStartedAt = Date.now();
   // INSTANT PLAY: race JioSaavn (fast CDN, CORS-clean) in parallel with the
   // YouTube resolver stack. First real audio URL wins.
   const saavnRacer: Promise<ResolveTrackResponse | null> = (opts.title || opts.artist) && !opts.forceRefresh
-    ? findSongStreamUrl(opts.title || '', opts.artist || '')
+    ? trackResolver('jiosaavn', id, findSongStreamUrl(opts.title || '', opts.artist || '')
         .then((s) => s?.streamUrl ? ({
           success: true,
           streamUrl: s.streamUrl,
@@ -611,45 +668,41 @@ export async function resolveYouTubeVideoStream(
           artist: s.artist || opts.artist,
           cover_url: s.image,
           duration: Number(s.duration) || undefined,
-        } as ResolveTrackResponse) : null)
+        } as ResolveTrackResponse) : null))
         .catch(() => null)
     : Promise.resolve(null);
 
   const resolvers: Promise<ResolveTrackResponse | null>[] = [
     saavnRacer,
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('extract-audio', {
-          body: { videoId: id, forceRefresh: opts.forceRefresh === true },
-        });
-        if (error) throw error;
-        if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
-          return {
-            success: true,
-            streamUrl: data.audioUrl,
-            videoId: id,
-            title: data.title,
-            artist: data.artist,
-            cover_url: data.thumbnail,
-            duration: data.duration,
-          };
-        }
-      } catch { /* try other resolver */ }
-      return null;
-    })(),
-    (async () => {
-      try {
-        const data = await requestIndexer<ResolveTrackResponse>({
-          action: 'resolve-video',
+    trackResolver('extract-audio', id, (async () => {
+      const { data, error } = await supabase.functions.invoke('extract-audio', {
+        body: { videoId: id, forceRefresh: opts.forceRefresh === true },
+      });
+      if (error) throw error;
+      if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
+        return {
+          success: true,
+          streamUrl: data.audioUrl,
           videoId: id,
-          forceRefresh: opts.forceRefresh === true,
-        });
-        if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
-          return { ...data, videoId: id };
-        }
-      } catch { /* try other resolver */ }
+          title: data.title,
+          artist: data.artist,
+          cover_url: data.thumbnail,
+          duration: data.duration,
+        } as ResolveTrackResponse;
+      }
       return null;
-    })(),
+    })()).catch(() => null),
+    trackResolver('innertube', id, (async () => {
+      const data = await requestIndexer<ResolveTrackResponse>({
+        action: 'resolve-video',
+        videoId: id,
+        forceRefresh: opts.forceRefresh === true,
+      });
+      if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
+        return { ...data, videoId: id };
+      }
+      return null;
+    })()).catch(() => null),
   ];
 
   const winner = await withTimeout(new Promise<ResolveTrackResponse | null>((resolve) => {
@@ -679,8 +732,25 @@ export async function resolveYouTubeVideoStream(
       cover_url: winner.cover_url,
       duration: winner.duration,
     });
+    recordPerfEvent({
+      event_type: 'resolve_complete',
+      severity: 'info',
+      source: 'youtube',
+      track_id: id,
+      latency_ms: Date.now() - ytStartedAt,
+    });
     return winner;
   }
+
+  recordPerfEvent({
+    event_type: 'resolve_failed',
+    severity: 'error',
+    source: 'youtube',
+    track_id: id,
+    latency_ms: Date.now() - ytStartedAt,
+    message: 'All YouTube resolvers failed',
+  });
+
 
   // LAST RESORT — if YouTube resolvers all failed AND we have title/artist,
   // retry JioSaavn with a looser (non-confident) match. Better to play a close

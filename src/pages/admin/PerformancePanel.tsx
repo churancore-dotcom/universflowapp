@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import ResolverHealth from '@/components/admin/ResolverHealth';
 import { supabase } from '@/integrations/supabase/client';
 import { Activity, AlertTriangle, Gauge, RefreshCw, Trash2, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
@@ -113,6 +114,8 @@ export default function PerformancePanel() {
           </button>
         </div>
       </div>
+
+      <ResolverHealth />
 
       {/* Metric tiles */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-3">

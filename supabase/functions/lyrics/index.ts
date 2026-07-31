@@ -304,6 +304,45 @@ async function fetchParallelProviders(artist: string, title: string, duration?: 
   return bestPlain;
 }
 
+/** Aggressive title normalisation for the fallback pass. */
+function bareTitle(title: string): string {
+  return clean(title)
+    .replace(/\([^)]*\)/g, '')
+    .replace(/\[[^\]]*\]/g, '')
+    .replace(/\s*[-–—]\s*.*$/, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+/**
+ * Coverage pass: the strict (artist, title) query misses whenever the catalog
+ * title carries video/mix suffixes or a multi-artist credit string. Retry with
+ * progressively looser variants so "no lyrics found" becomes rare.
+ */
+async function fetchWithFallbacks(
+  artist: string,
+  title: string,
+  duration?: number,
+): Promise<{ provider: ProviderLyrics | null; attempt: number }> {
+  const primaryArtist = splitArtists(artist)[0] || artist;
+  const stripped = bareTitle(title);
+
+  const variants: Array<{ artist: string; title: string; duration?: number }> = [
+    { artist, title, duration },
+  ];
+  if (primaryArtist && primaryArtist !== artist) variants.push({ artist: primaryArtist, title });
+  if (stripped && stripped !== clean(title)) variants.push({ artist: primaryArtist, title: stripped });
+  if (stripped || title) variants.push({ artist: '', title: stripped || clean(title) });
+
+  for (let i = 0; i < variants.length; i++) {
+    const v = variants[i];
+    const provider = await fetchParallelProviders(v.artist, v.title, v.duration);
+    if (provider?.synced || provider?.plain) return { provider, attempt: i + 1 };
+  }
+  return { provider: null, attempt: variants.length };
+}
+
+
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
 
@@ -337,7 +376,13 @@ Deno.serve(async (req) => {
     }
 
     const artistLyrics = await fetchArtistUploadLyrics(songId);
-    const provider = artistLyrics || await fetchParallelProviders(artist, title, duration);
+    let attempt = 0;
+    let provider: ProviderLyrics | null = artistLyrics;
+    if (!provider) {
+      const res = await fetchWithFallbacks(artist, title, duration);
+      provider = res.provider;
+      attempt = res.attempt;
+    }
 
     const payload: LyricsResponse = {
       success: true,
@@ -349,8 +394,15 @@ Deno.serve(async (req) => {
     cacheSet(cacheKey, payload);
 
     return new Response(JSON.stringify(payload), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' },
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=86400',
+        'X-Lyrics-Source': provider?.source || 'none',
+        'X-Lyrics-Attempt': String(attempt),
+      },
     });
+
   } catch (e) {
     console.error('lyrics error', e);
     return new Response(JSON.stringify({ success: false, error: 'An unexpected error occurred' } satisfies LyricsResponse), {

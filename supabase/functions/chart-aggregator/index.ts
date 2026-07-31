@@ -29,6 +29,8 @@ type Row = {
   cover_url?: string | null;
   source: string;
   external_id?: string | null;
+  metadata?: Record<string, unknown>;
+
 };
 
 // STRICT spam filter — mirrors yt-music-search so Trending Now stays clean.
@@ -61,10 +63,10 @@ const fetchJson = async (url: string, timeoutMs = 8000): Promise<any | null> => 
   }
 };
 
-// --- iTunes / Apple Music Most-Played (TRENDING) ---
+// --- Apple Music Most-Played (TRENDING) ---
 async function fetchAppleMostPlayed(cc: string): Promise<Row[]> {
   const country = itunesCountry(cc);
-  const url = `https://rss.applemarketingtools.com/api/v2/${country}/music/most-played/50/songs.json`;
+  const url = `https://rss.marketingtools.apple.com/api/v2/${country}/music/most-played/50/songs.json`;
   const data = await fetchJson(url);
   const results = data?.feed?.results ?? [];
   return results.map((it: any, i: number) => ({
@@ -79,23 +81,53 @@ async function fetchAppleMostPlayed(cc: string): Promise<Row[]> {
   }));
 }
 
-// --- iTunes RSS New Releases (LATEST) ---
-async function fetchItunesNewReleases(cc: string): Promise<Row[]> {
+// --- New Releases (LATEST) ---
+// The legacy `itunes.apple.com/*/rss/newreleases` feed was retired by Apple and
+// now returns HTTP 400, which is why "New Releases" was permanently empty.
+// Replacement: take the country's most-played albums feed, batch-look-up their
+// real releaseDate via the iTunes Lookup API (one request), keep only genuinely
+// recent records and order newest-first.
+async function fetchAppleNewReleases(cc: string): Promise<Row[]> {
   const country = itunesCountry(cc);
-  const url = `https://itunes.apple.com/${country}/rss/newreleases/limit=50/json`;
-  const data = await fetchJson(url);
-  const entries = data?.feed?.entry ?? [];
-  return entries.map((it: any, i: number) => ({
+  const feed = await fetchJson(
+    `https://rss.marketingtools.apple.com/api/v2/${country}/music/most-played/50/albums.json`,
+  );
+  const ids: string[] = (feed?.feed?.results ?? [])
+    .map((r: any) => String(r?.id || ""))
+    .filter(Boolean)
+    .slice(0, 50);
+  if (!ids.length) return [];
+
+  const lookup = await fetchJson(
+    `https://itunes.apple.com/lookup?id=${ids.join(",")}&country=${country}&entity=album`,
+  );
+  const cutoff = Date.now() - 120 * 24 * 60 * 60 * 1000;
+  const albums = (lookup?.results ?? [])
+    .filter((r: any) => r?.collectionName && r?.artistName && r?.releaseDate)
+    .map((r: any) => ({
+      title: String(r.collectionName),
+      artist: String(r.artistName),
+      cover_url: (r.artworkUrl100 || r.artworkUrl60 || "").replace(/\d+x\d+bb/, "500x500bb") || null,
+      external_id: String(r.collectionId ?? ""),
+      released: Date.parse(r.releaseDate),
+    }))
+    .filter((r: any) => Number.isFinite(r.released) && r.released >= cutoff)
+    .sort((a: any, b: any) => b.released - a.released)
+    .slice(0, 50);
+
+  return albums.map((r: any, i: number) => ({
     chart_type: "latest" as const,
     country_code: cc,
     rank: i + 1,
-    title: it["im:name"]?.label ?? "",
-    artist: it["im:artist"]?.label ?? "",
-    cover_url: it["im:image"]?.slice(-1)?.[0]?.label?.replace(/\d+x\d+/, "500x500") ?? null,
-    source: "itunes",
-    external_id: it.id?.attributes?.["im:id"] ?? null,
-  })).filter((r: Row) => r.title && r.artist);
+    title: r.title,
+    artist: r.artist,
+    cover_url: r.cover_url,
+    source: "apple",
+    external_id: r.external_id || null,
+    metadata: { released_at: new Date(r.released).toISOString() },
+  })) as Row[];
 }
+
 
 // --- Last.fm (VIRAL/trending globally + per country) ---
 async function fetchLastFm(cc: string): Promise<Row[]> {
@@ -244,15 +276,16 @@ Deno.serve(async (req) => {
   const summary: Record<string, number> = {};
 
   for (const cc of targets) {
-    const [apple, itunes, lastfm, yt, deezer] = await Promise.all([
+    const [apple, newReleases, lastfm, yt, deezer] = await Promise.all([
       fetchAppleMostPlayed(cc),
-      fetchItunesNewReleases(cc),
+      fetchAppleNewReleases(cc),
       fetchLastFm(cc),
       fetchYouTubeTrending(cc),
       fetchDeezerChart(cc),
     ]);
 
-    const rawRows: Row[] = [...apple, ...itunes, ...lastfm, ...yt, ...deezer];
+    const rawRows: Row[] = [...apple, ...newReleases, ...lastfm, ...yt, ...deezer];
+
     const rows = rawRows.filter((r) => !isSpamRow(r));
     if (rows.length === 0) {
       summary[cc] = 0;
