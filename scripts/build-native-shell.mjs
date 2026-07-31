@@ -82,4 +82,4 @@ ${cssFiles.map((f) => `    <link rel="stylesheet" href="/assets/${f}" />`).join(
 `;
 
 writeFileSync(join(CLIENT_DIR, "index.html"), html, "utf8");
-console.log(`[native-shell] wrote dist/client/index.html (entry: ${entry}, css: ${css.join(", ") || "none"})`);
+console.log(`[native-shell] wrote dist/client/index.html (entry: ${entry}, css: ${cssFiles.join(", ") || "none"})`);
