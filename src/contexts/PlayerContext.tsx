@@ -472,6 +472,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [pendingSong, setPendingSong] = useState<{ song: Song; offlineUrl?: string | null; songsQueue?: Song[] } | null>(null);
   const [playbackSettingsVersion, setPlaybackSettingsVersion] = useState(0);
 
+  // Warm the ad campaign cache once so an ad break never delays playback.
+  useEffect(() => {
+    primeAdEngine();
+  }, []);
+
+
+
   useEffect(() => {
     playerProgressStore.setPlaying(isPlaying);
   }, [isPlaying]);
