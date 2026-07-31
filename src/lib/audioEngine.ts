@@ -573,14 +573,19 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.limiter = limiter;
   engine.stemsSplitter = stemsSplitter;
   engine.stemsMerger = stemsMerger;
-  engine.stemsLtoLmid = stemsLtoLmid;
-  engine.stemsRtoLmid = stemsRtoLmid;
-  engine.stemsLtoRmid = stemsLtoRmid;
-  engine.stemsRtoRmid = stemsRtoRmid;
-  engine.stemsLtoLside = stemsLtoLside;
-  engine.stemsRtoLside = stemsRtoLside;
-  engine.stemsLtoRside = stemsLtoRside;
-  engine.stemsRtoRside = stemsRtoRside;
+  engine.stemsMidL = stemsMidL;
+  engine.stemsMidR = stemsMidR;
+  engine.stemsMidSum = stemsMidSum;
+  engine.stemsMidLowFilter = stemsMidLowFilter;
+  engine.stemsMidBandHigh = stemsMidBandHigh;
+  engine.stemsMidBandLow = stemsMidBandLow;
+  engine.stemsMidLowGain = stemsMidLowGain;
+  engine.stemsMidBandGain = stemsMidBandGain;
+  engine.stemsSideL = stemsSideL;
+  engine.stemsSideR = stemsSideR;
+  engine.stemsSideSum = stemsSideSum;
+  engine.stemsSidePos = stemsSidePos;
+  engine.stemsSideNeg = stemsSideNeg;
   engine.stemsDirectGain = stemsDirectGain;
   engine.stemsMatrixGain = stemsMatrixGain;
 
