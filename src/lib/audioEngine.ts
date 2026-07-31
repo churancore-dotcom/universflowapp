@@ -29,17 +29,22 @@ type SourceBackedAudioElement = HTMLAudioElement & {
 interface Engine {
   ctx: AudioContext | null;
   source: MediaElementAudioSourceNode | null;
-  // Mid/Side stems stage (vocal remove / instrumental remove)
+  // Frequency-aware Mid/Side stems stage (vocal remove / instrument remove)
   stemsSplitter: ChannelSplitterNode | null;
   stemsMerger: ChannelMergerNode | null;
-  stemsLtoLmid: GainNode | null;
-  stemsRtoLmid: GainNode | null;
-  stemsLtoRmid: GainNode | null;
-  stemsRtoRmid: GainNode | null;
-  stemsLtoLside: GainNode | null;
-  stemsRtoLside: GainNode | null;
-  stemsLtoRside: GainNode | null;
-  stemsRtoRside: GainNode | null;
+  stemsMidL: GainNode | null;
+  stemsMidR: GainNode | null;
+  stemsMidSum: GainNode | null;
+  stemsMidLowFilter: BiquadFilterNode | null;
+  stemsMidBandHigh: BiquadFilterNode | null;
+  stemsMidBandLow: BiquadFilterNode | null;
+  stemsMidLowGain: GainNode | null;
+  stemsMidBandGain: GainNode | null;
+  stemsSideL: GainNode | null;
+  stemsSideR: GainNode | null;
+  stemsSideSum: GainNode | null;
+  stemsSidePos: GainNode | null;
+  stemsSideNeg: GainNode | null;
   stemsDirectGain: GainNode | null;
   stemsMatrixGain: GainNode | null;
   filters: BiquadFilterNode[];
