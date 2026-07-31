@@ -29,17 +29,22 @@ type SourceBackedAudioElement = HTMLAudioElement & {
 interface Engine {
   ctx: AudioContext | null;
   source: MediaElementAudioSourceNode | null;
-  // Mid/Side stems stage (vocal remove / instrumental remove)
+  // Frequency-aware Mid/Side stems stage (vocal remove / instrument remove)
   stemsSplitter: ChannelSplitterNode | null;
   stemsMerger: ChannelMergerNode | null;
-  stemsLtoLmid: GainNode | null;
-  stemsRtoLmid: GainNode | null;
-  stemsLtoRmid: GainNode | null;
-  stemsRtoRmid: GainNode | null;
-  stemsLtoLside: GainNode | null;
-  stemsRtoLside: GainNode | null;
-  stemsLtoRside: GainNode | null;
-  stemsRtoRside: GainNode | null;
+  stemsMidL: GainNode | null;
+  stemsMidR: GainNode | null;
+  stemsMidSum: GainNode | null;
+  stemsMidLowFilter: BiquadFilterNode | null;
+  stemsMidBandHigh: BiquadFilterNode | null;
+  stemsMidBandLow: BiquadFilterNode | null;
+  stemsMidLowGain: GainNode | null;
+  stemsMidBandGain: GainNode | null;
+  stemsSideL: GainNode | null;
+  stemsSideR: GainNode | null;
+  stemsSideSum: GainNode | null;
+  stemsSidePos: GainNode | null;
+  stemsSideNeg: GainNode | null;
   stemsDirectGain: GainNode | null;
   stemsMatrixGain: GainNode | null;
   filters: BiquadFilterNode[];
@@ -79,14 +84,19 @@ const engine: Engine = {
   source: null,
   stemsSplitter: null,
   stemsMerger: null,
-  stemsLtoLmid: null,
-  stemsRtoLmid: null,
-  stemsLtoRmid: null,
-  stemsRtoRmid: null,
-  stemsLtoLside: null,
-  stemsRtoLside: null,
-  stemsLtoRside: null,
-  stemsRtoRside: null,
+  stemsMidL: null,
+  stemsMidR: null,
+  stemsMidSum: null,
+  stemsMidLowFilter: null,
+  stemsMidBandHigh: null,
+  stemsMidBandLow: null,
+  stemsMidLowGain: null,
+  stemsMidBandGain: null,
+  stemsSideL: null,
+  stemsSideR: null,
+  stemsSideSum: null,
+  stemsSidePos: null,
+  stemsSideNeg: null,
   stemsDirectGain: null,
   stemsMatrixGain: null,
   filters: [],
@@ -367,8 +377,11 @@ function disconnectAll() {
     engine.stereoPanner, engine.panLfoGain,
     engine.stemsSplitter, engine.stemsMerger,
     engine.stemsDirectGain, engine.stemsMatrixGain,
-    engine.stemsLtoLmid, engine.stemsRtoLmid, engine.stemsLtoRmid, engine.stemsRtoRmid,
-    engine.stemsLtoLside, engine.stemsRtoLside, engine.stemsLtoRside, engine.stemsRtoRside,
+    engine.stemsMidL, engine.stemsMidR, engine.stemsMidSum,
+    engine.stemsMidLowFilter, engine.stemsMidBandHigh, engine.stemsMidBandLow,
+    engine.stemsMidLowGain, engine.stemsMidBandGain,
+    engine.stemsSideL, engine.stemsSideR, engine.stemsSideSum,
+    engine.stemsSidePos, engine.stemsSideNeg,
     engine.surroundSplitter, engine.surroundMerger,
     engine.surroundDirectL, engine.surroundDirectR,
     engine.surroundDelayLR, engine.surroundDelayRL,
@@ -449,22 +462,37 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   const surroundXfeedLR = ctx.createGain(); surroundXfeedLR.gain.value = 0; // off until enabled
   const surroundXfeedRL = ctx.createGain(); surroundXfeedRL.gain.value = 0;
 
-  // --- Stems stage (mid/side): vocal-remove & instrumental-remove ---
-  // Mid = 0.5*(L+R) carries centered vocals; Side = 0.5*(L-R) carries stereo
-  // instruments. Attenuating one isolates the other. Zero-latency, works on
-  // every song, no ML model needed.
+  // --- Stems stage: frequency-aware Mid/Side isolation ---
+  // Mid = 0.5*(L+R) holds centered content (lead vocal AND kick/bass).
+  // Side = 0.5*(L-R) holds the stereo instrument bed.
+  // A flat mid/side cut kills the bass along with the vocal, which is why
+  // karaoke used to sound hollow. So the mid is split in two:
+  //   midLow  (< 180 Hz)  -> kick + bass, follows the INSTRUMENT slider
+  //   midBand (180Hz-9kHz)-> lead vocal,  follows the VOCAL slider
+  // Karaoke keeps the groove; a-cappella strips the low end and the stereo
+  // bed, leaving the voice. Zero latency, works on every stereo song.
   const stemsSplitter = ctx.createChannelSplitter(2);
   const stemsMerger   = ctx.createChannelMerger(2);
   const stemsDirectGain = ctx.createGain(); stemsDirectGain.gain.value = 1;
   const stemsMatrixGain = ctx.createGain(); stemsMatrixGain.gain.value = 0;
-  const stemsLtoLmid  = ctx.createGain(); stemsLtoLmid.gain.value = 0.5;
-  const stemsRtoLmid  = ctx.createGain(); stemsRtoLmid.gain.value = 0.5;
-  const stemsLtoRmid  = ctx.createGain(); stemsLtoRmid.gain.value = 0.5;
-  const stemsRtoRmid  = ctx.createGain(); stemsRtoRmid.gain.value = 0.5;
-  const stemsLtoLside = ctx.createGain(); stemsLtoLside.gain.value =  0.5;
-  const stemsRtoLside = ctx.createGain(); stemsRtoLside.gain.value = -0.5;
-  const stemsLtoRside = ctx.createGain(); stemsLtoRside.gain.value = -0.5;
-  const stemsRtoRside = ctx.createGain(); stemsRtoRside.gain.value =  0.5;
+
+  const stemsMidL = ctx.createGain(); stemsMidL.gain.value = 0.5;
+  const stemsMidR = ctx.createGain(); stemsMidR.gain.value = 0.5;
+  const stemsMidSum = ctx.createGain(); stemsMidSum.gain.value = 1;
+  const stemsMidLowFilter = ctx.createBiquadFilter();
+  stemsMidLowFilter.type = 'lowpass'; stemsMidLowFilter.frequency.value = 180; stemsMidLowFilter.Q.value = 0.7;
+  const stemsMidBandHigh = ctx.createBiquadFilter();
+  stemsMidBandHigh.type = 'highpass'; stemsMidBandHigh.frequency.value = 180; stemsMidBandHigh.Q.value = 0.7;
+  const stemsMidBandLow = ctx.createBiquadFilter();
+  stemsMidBandLow.type = 'lowpass'; stemsMidBandLow.frequency.value = 9000; stemsMidBandLow.Q.value = 0.7;
+  const stemsMidLowGain = ctx.createGain(); stemsMidLowGain.gain.value = 1;
+  const stemsMidBandGain = ctx.createGain(); stemsMidBandGain.gain.value = 1;
+
+  const stemsSideL = ctx.createGain(); stemsSideL.gain.value = 0.5;
+  const stemsSideR = ctx.createGain(); stemsSideR.gain.value = -0.5;
+  const stemsSideSum = ctx.createGain(); stemsSideSum.gain.value = 1;
+  const stemsSidePos = ctx.createGain(); stemsSidePos.gain.value = 1;
+  const stemsSideNeg = ctx.createGain(); stemsSideNeg.gain.value = -1;
 
   // Neutral playback uses a direct path so mono songs stay centered and the
   // normal path is bit-transparent. Isolation crossfades into the mid/side
@@ -472,16 +500,28 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   source.connect(stemsDirectGain);
   stemsDirectGain.connect(filters[0]);
 
-  // source -> stems splitter -> matrix -> merger -> makeup -> EQ filters
+  // source -> splitter -> mid/side extraction -> band split -> merger
   source.connect(stemsSplitter);
-  stemsSplitter.connect(stemsLtoLmid, 0);  stemsLtoLmid.connect(stemsMerger,  0, 0);
-  stemsSplitter.connect(stemsRtoLmid, 1);  stemsRtoLmid.connect(stemsMerger,  0, 0);
-  stemsSplitter.connect(stemsLtoRmid, 0);  stemsLtoRmid.connect(stemsMerger,  0, 1);
-  stemsSplitter.connect(stemsRtoRmid, 1);  stemsRtoRmid.connect(stemsMerger,  0, 1);
-  stemsSplitter.connect(stemsLtoLside, 0); stemsLtoLside.connect(stemsMerger, 0, 0);
-  stemsSplitter.connect(stemsRtoLside, 1); stemsRtoLside.connect(stemsMerger, 0, 0);
-  stemsSplitter.connect(stemsLtoRside, 0); stemsLtoRside.connect(stemsMerger, 0, 1);
-  stemsSplitter.connect(stemsRtoRside, 1); stemsRtoRside.connect(stemsMerger, 0, 1);
+  stemsSplitter.connect(stemsMidL, 0); stemsMidL.connect(stemsMidSum);
+  stemsSplitter.connect(stemsMidR, 1); stemsMidR.connect(stemsMidSum);
+  stemsSplitter.connect(stemsSideL, 0); stemsSideL.connect(stemsSideSum);
+  stemsSplitter.connect(stemsSideR, 1); stemsSideR.connect(stemsSideSum);
+
+  stemsMidSum.connect(stemsMidLowFilter);
+  stemsMidLowFilter.connect(stemsMidLowGain);
+  stemsMidSum.connect(stemsMidBandHigh);
+  stemsMidBandHigh.connect(stemsMidBandLow);
+  stemsMidBandLow.connect(stemsMidBandGain);
+
+  // Mid content is identical in both output channels.
+  stemsMidLowGain.connect(stemsMerger, 0, 0);
+  stemsMidLowGain.connect(stemsMerger, 0, 1);
+  stemsMidBandGain.connect(stemsMerger, 0, 0);
+  stemsMidBandGain.connect(stemsMerger, 0, 1);
+
+  // Side content is added to L and subtracted from R to rebuild stereo.
+  stemsSideSum.connect(stemsSidePos); stemsSidePos.connect(stemsMerger, 0, 0);
+  stemsSideSum.connect(stemsSideNeg); stemsSideNeg.connect(stemsMerger, 0, 1);
 
   stemsMerger.connect(stemsMatrixGain);
   stemsMatrixGain.connect(filters[0]);
@@ -533,14 +573,19 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.limiter = limiter;
   engine.stemsSplitter = stemsSplitter;
   engine.stemsMerger = stemsMerger;
-  engine.stemsLtoLmid = stemsLtoLmid;
-  engine.stemsRtoLmid = stemsRtoLmid;
-  engine.stemsLtoRmid = stemsLtoRmid;
-  engine.stemsRtoRmid = stemsRtoRmid;
-  engine.stemsLtoLside = stemsLtoLside;
-  engine.stemsRtoLside = stemsRtoLside;
-  engine.stemsLtoRside = stemsLtoRside;
-  engine.stemsRtoRside = stemsRtoRside;
+  engine.stemsMidL = stemsMidL;
+  engine.stemsMidR = stemsMidR;
+  engine.stemsMidSum = stemsMidSum;
+  engine.stemsMidLowFilter = stemsMidLowFilter;
+  engine.stemsMidBandHigh = stemsMidBandHigh;
+  engine.stemsMidBandLow = stemsMidBandLow;
+  engine.stemsMidLowGain = stemsMidLowGain;
+  engine.stemsMidBandGain = stemsMidBandGain;
+  engine.stemsSideL = stemsSideL;
+  engine.stemsSideR = stemsSideR;
+  engine.stemsSideSum = stemsSideSum;
+  engine.stemsSidePos = stemsSidePos;
+  engine.stemsSideNeg = stemsSideNeg;
   engine.stemsDirectGain = stemsDirectGain;
   engine.stemsMatrixGain = stemsMatrixGain;
 
@@ -574,34 +619,33 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
 }
 
 function applyStems() {
-  if (!engine.ctx || !engine.stemsLtoLmid) return;
+  if (!engine.ctx || !engine.stemsMidSum) return;
   const now = engine.ctx.currentTime;
-  const mid = Math.max(0, Math.min(1, engine.vocalMix / 100));
-  const side = Math.max(0, Math.min(1, engine.instrumentalMix / 100));
-  const neutral = mid >= 0.995 && side >= 0.995;
-  const power = Math.sqrt((mid * mid + side * side) / 2);
-  const makeup = power > 0.04 ? Math.min(1.75, Math.max(1, 0.95 / power)) : 1;
-  // Crossfade direct → matrix, then add controlled makeup so karaoke/a-cappella
-  // modes do not sound dead while the limiter still protects against clipping.
+  const vocal = Math.max(0, Math.min(1, engine.vocalMix / 100));
+  const instrument = Math.max(0, Math.min(1, engine.instrumentalMix / 100));
+  const neutral = vocal >= 0.995 && instrument >= 0.995;
+  const power = Math.sqrt((vocal * vocal + instrument * instrument) / 2);
+  const makeup = power > 0.04 ? Math.min(1.9, Math.max(1, 1 / power)) : 1;
+
   const setGain = (n: GainNode | null, v: number, smooth = SMOOTH) => {
     if (!n) return;
     n.gain.cancelScheduledValues(now);
     n.gain.setTargetAtTime(v, now, smooth);
   };
+
+  // Crossfade direct → matrix so neutral playback stays bit-transparent.
   setGain(engine.stemsDirectGain, neutral ? 1 : 0, SNAP);
   setGain(engine.stemsMatrixGain, neutral ? 0 : makeup, SNAP);
-  const midGain = 0.5 * mid;
-  const sideGainPos =  0.5 * side;
-  const sideGainNeg = -0.5 * side;
-  const set = (n: GainNode | null, v: number) => setGain(n, v);
-  set(engine.stemsLtoLmid, midGain);
-  set(engine.stemsRtoLmid, midGain);
-  set(engine.stemsLtoRmid, midGain);
-  set(engine.stemsRtoRmid, midGain);
-  set(engine.stemsLtoLside, sideGainPos);
-  set(engine.stemsRtoLside, sideGainNeg);
-  set(engine.stemsLtoRside, sideGainNeg);
-  set(engine.stemsRtoRside, sideGainPos);
+
+  // Centered low end (kick/bass) belongs to the instrument bed, so karaoke
+  // keeps the groove instead of sounding thin. Full a-cappella still strips
+  // it, leaving the isolated voice band.
+  setGain(engine.stemsMidLowGain, instrument);
+  // Centered vocal band follows the vocal slider.
+  setGain(engine.stemsMidBandGain, vocal);
+  // Stereo instrument bed follows the instrument slider.
+  setGain(engine.stemsSidePos, instrument);
+  setGain(engine.stemsSideNeg, -instrument);
 }
 
 /** Vocal mix (0..100). 100 = normal, 0 = karaoke (vocals removed). */
@@ -711,14 +755,19 @@ function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext
   engine.surroundXfeedRL = null;
   engine.stemsSplitter = null;
   engine.stemsMerger = null;
-  engine.stemsLtoLmid = null;
-  engine.stemsRtoLmid = null;
-  engine.stemsLtoRmid = null;
-  engine.stemsRtoRmid = null;
-  engine.stemsLtoLside = null;
-  engine.stemsRtoLside = null;
-  engine.stemsLtoRside = null;
-  engine.stemsRtoRside = null;
+  engine.stemsMidL = null;
+  engine.stemsMidR = null;
+  engine.stemsMidSum = null;
+  engine.stemsMidLowFilter = null;
+  engine.stemsMidBandHigh = null;
+  engine.stemsMidBandLow = null;
+  engine.stemsMidLowGain = null;
+  engine.stemsMidBandGain = null;
+  engine.stemsSideL = null;
+  engine.stemsSideR = null;
+  engine.stemsSideSum = null;
+  engine.stemsSidePos = null;
+  engine.stemsSideNeg = null;
   engine.stemsDirectGain = null;
   engine.stemsMatrixGain = null;
   engine.limiter = null;

@@ -21,6 +21,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
     @Volatile private var vocalMix = 1f
     @Volatile private var instrumentalMix = 1f
 
+    // One-pole low-pass state used to split the mid channel into
+    // low (kick/bass -> instrument bed) and band (lead vocal) content.
+    private var lowState = 0f
+    private var lowCoeff = 0.05f
+
     fun setStemMix(vocalPercent: Int, instrumentalPercent: Int) {
         vocalMix = vocalPercent.coerceIn(0, 100) / 100f
         instrumentalMix = instrumentalPercent.coerceIn(0, 100) / 100f
@@ -33,7 +38,16 @@ class StemAudioProcessor : BaseAudioProcessor() {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount < 2) {
             return AudioFormat.NOT_SET
         }
+        // 180 Hz one-pole cutoff for the current sample rate.
+        val rc = 1f / (2f * Math.PI.toFloat() * 180f)
+        val dt = 1f / inputAudioFormat.sampleRate.toFloat()
+        lowCoeff = dt / (rc + dt)
+        lowState = 0f
         return inputAudioFormat
+    }
+
+    override fun onFlush() {
+        lowState = 0f
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -41,11 +55,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val limit = inputBuffer.limit()
         val bytesPerFrame = inputAudioFormat.bytesPerFrame
         val output = replaceOutputBuffer(limit - position)
-        val midAmount = vocalMix.coerceIn(0f, 1f)
-        val sideAmount = instrumentalMix.coerceIn(0f, 1f)
-        val neutral = midAmount >= 0.995f && sideAmount >= 0.995f
-        val power = sqrt(((midAmount * midAmount + sideAmount * sideAmount) / 2f).toDouble()).toFloat()
-        val makeup = if (power > 0.04f) min(1.75f, max(1f, 0.95f / power)) else 1f
+        val vocal = vocalMix.coerceIn(0f, 1f)
+        val instrument = instrumentalMix.coerceIn(0f, 1f)
+        val neutral = vocal >= 0.995f && instrument >= 0.995f
+        val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
+        val makeup = if (power > 0.04f) min(1.9f, max(1f, 1f / power)) else 1f
 
         var cursor = position
         while (cursor + bytesPerFrame <= limit) {
@@ -53,15 +67,22 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val right = inputBuffer.getShort(cursor + 2).toInt()
 
             if (neutral) {
+                lowState += lowCoeff * ((left + right) * 0.5f - lowState)
                 output.putShort(left.toShort())
                 output.putShort(right.toShort())
             } else {
                 val mid = (left + right) * 0.5f
                 val side = (left - right) * 0.5f
-                val outLeft = (mid * midAmount + side * sideAmount) * makeup
-                val outRight = (mid * midAmount - side * sideAmount) * makeup
-                output.putShort(clip16(outLeft))
-                output.putShort(clip16(outRight))
+                // Split mid: low end is part of the instrument bed, the rest is
+                // the lead vocal band. Keeps karaoke punchy, makes a-cappella
+                // actually strip the beat instead of just narrowing the stereo.
+                lowState += lowCoeff * (mid - lowState)
+                val midLow = lowState
+                val midBand = mid - lowState
+                val centre = midLow * instrument + midBand * vocal
+                val stereo = side * instrument
+                output.putShort(clip16((centre + stereo) * makeup))
+                output.putShort(clip16((centre - stereo) * makeup))
             }
 
             // Preserve extra channels, if any, instead of dropping them.
