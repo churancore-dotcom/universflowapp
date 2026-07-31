@@ -1902,6 +1902,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       if (nextIdx !== null && activeQueue.length > 0) {
+        // Ad break — ONLY on auto-advance (never on a user tap, so tap-to-play
+        // latency is untouched). Premium users are excluded inside the engine.
+        if (noteSongCompleted()) {
+          const nextTrack = activeQueue[nextIdx];
+          if (nextTrack) {
+            try { audio.pause(); } catch { /* noop */ }
+            wasPlayingRef.current = false;
+            setIsPlaying(false);
+            setPendingSong({ song: nextTrack, offlineUrl: null, songsQueue: activeQueue });
+            setAdType('end');
+            setShowPrerollAd(true);
+            return;
+          }
+        }
         playSongAtIndex(nextIdx, activeQueue);
       } else if (activeRepeat === 'off' && activeQueue.length > 0) {
         // End of queue — fire YouTube-style endless mix: pull more songs
