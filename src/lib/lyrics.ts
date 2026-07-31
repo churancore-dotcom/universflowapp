@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { recordPerfEvent } from '@/lib/perfMonitor';
 
 export interface LyricLine {
   time: number; // seconds
@@ -109,6 +110,7 @@ export async function fetchLyrics(artist: string, title: string, duration?: numb
   const existing = inFlight.get(key);
   if (existing) return existing;
 
+  const startedAt = Date.now();
   const p = (async () => {
     try {
       const { data, error } = await supabase.functions.invoke('lyrics', {
