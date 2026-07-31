@@ -619,34 +619,33 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
 }
 
 function applyStems() {
-  if (!engine.ctx || !engine.stemsLtoLmid) return;
+  if (!engine.ctx || !engine.stemsMidSum) return;
   const now = engine.ctx.currentTime;
-  const mid = Math.max(0, Math.min(1, engine.vocalMix / 100));
-  const side = Math.max(0, Math.min(1, engine.instrumentalMix / 100));
-  const neutral = mid >= 0.995 && side >= 0.995;
-  const power = Math.sqrt((mid * mid + side * side) / 2);
-  const makeup = power > 0.04 ? Math.min(1.75, Math.max(1, 0.95 / power)) : 1;
-  // Crossfade direct → matrix, then add controlled makeup so karaoke/a-cappella
-  // modes do not sound dead while the limiter still protects against clipping.
+  const vocal = Math.max(0, Math.min(1, engine.vocalMix / 100));
+  const instrument = Math.max(0, Math.min(1, engine.instrumentalMix / 100));
+  const neutral = vocal >= 0.995 && instrument >= 0.995;
+  const power = Math.sqrt((vocal * vocal + instrument * instrument) / 2);
+  const makeup = power > 0.04 ? Math.min(1.9, Math.max(1, 1 / power)) : 1;
+
   const setGain = (n: GainNode | null, v: number, smooth = SMOOTH) => {
     if (!n) return;
     n.gain.cancelScheduledValues(now);
     n.gain.setTargetAtTime(v, now, smooth);
   };
+
+  // Crossfade direct → matrix so neutral playback stays bit-transparent.
   setGain(engine.stemsDirectGain, neutral ? 1 : 0, SNAP);
   setGain(engine.stemsMatrixGain, neutral ? 0 : makeup, SNAP);
-  const midGain = 0.5 * mid;
-  const sideGainPos =  0.5 * side;
-  const sideGainNeg = -0.5 * side;
-  const set = (n: GainNode | null, v: number) => setGain(n, v);
-  set(engine.stemsLtoLmid, midGain);
-  set(engine.stemsRtoLmid, midGain);
-  set(engine.stemsLtoRmid, midGain);
-  set(engine.stemsRtoRmid, midGain);
-  set(engine.stemsLtoLside, sideGainPos);
-  set(engine.stemsRtoLside, sideGainNeg);
-  set(engine.stemsLtoRside, sideGainNeg);
-  set(engine.stemsRtoRside, sideGainPos);
+
+  // Centered low end (kick/bass) belongs to the instrument bed, so karaoke
+  // keeps the groove instead of sounding thin. Full a-cappella still strips
+  // it, leaving the isolated voice band.
+  setGain(engine.stemsMidLowGain, instrument);
+  // Centered vocal band follows the vocal slider.
+  setGain(engine.stemsMidBandGain, vocal);
+  // Stereo instrument bed follows the instrument slider.
+  setGain(engine.stemsSidePos, instrument);
+  setGain(engine.stemsSideNeg, -instrument);
 }
 
 /** Vocal mix (0..100). 100 = normal, 0 = karaoke (vocals removed). */
