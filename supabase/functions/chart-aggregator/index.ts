@@ -276,15 +276,16 @@ Deno.serve(async (req) => {
   const summary: Record<string, number> = {};
 
   for (const cc of targets) {
-    const [apple, itunes, lastfm, yt, deezer] = await Promise.all([
+    const [apple, newReleases, lastfm, yt, deezer] = await Promise.all([
       fetchAppleMostPlayed(cc),
-      fetchItunesNewReleases(cc),
+      fetchAppleNewReleases(cc),
       fetchLastFm(cc),
       fetchYouTubeTrending(cc),
       fetchDeezerChart(cc),
     ]);
 
-    const rawRows: Row[] = [...apple, ...itunes, ...lastfm, ...yt, ...deezer];
+    const rawRows: Row[] = [...apple, ...newReleases, ...lastfm, ...yt, ...deezer];
+
     const rows = rawRows.filter((r) => !isSpamRow(r));
     if (rows.length === 0) {
       summary[cc] = 0;
