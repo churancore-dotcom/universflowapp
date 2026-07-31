@@ -29,6 +29,8 @@ type Row = {
   cover_url?: string | null;
   source: string;
   external_id?: string | null;
+  metadata?: Record<string, unknown>;
+
 };
 
 // STRICT spam filter — mirrors yt-music-search so Trending Now stays clean.
