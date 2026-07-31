@@ -7,7 +7,7 @@
  * screen. This script synthesises that entry from the built client bundle so
  * the APK boots fully client-side, with no server required.
  */
-import { readdirSync, writeFileSync, existsSync, cpSync } from "node:fs";
+import { readdirSync, readFileSync, writeFileSync, existsSync, cpSync } from "node:fs";
 import { join } from "node:path";
 
 // Different versions of the TanStack/Nitro build emit the browser bundle to
@@ -70,7 +70,7 @@ const html = `<!DOCTYPE html>
     <title>Univers Flow</title>
     <link rel="icon" href="/favicon.ico" />
     <link rel="manifest" href="/manifest.json" />
-${css.map((f) => `    <link rel="stylesheet" href="/assets/${f}" />`).join("\n")}
+${cssFiles.map((f) => `    <link rel="stylesheet" href="/assets/${f}" />`).join("\n")}
     <style>
       html, body { margin: 0; background: #000; color: #fff; }
     </style>
