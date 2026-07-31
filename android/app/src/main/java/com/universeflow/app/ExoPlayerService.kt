@@ -1,5 +1,8 @@
 package com.universeflow.app
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -44,6 +47,8 @@ class ExoPlayerService : MediaSessionService() {
         private const val WAKELOCK_TAG = "UniverseFlow::ExoWakeLock"
         private const val WIFILOCK_TAG = "UniverseFlow::ExoWifiLock"
         private const val WAKELOCK_TIMEOUT_MS = 4L * 60L * 60L * 1000L
+        const val NOTIFICATION_CHANNEL_ID = "uf_playback"
+        const val NOTIFICATION_ID = 8801
         private const val HTTP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; UniverseFlow) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36"
     }
 
