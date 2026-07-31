@@ -41,7 +41,11 @@ jobs:
           fi
           echo "VITE_SUPABASE_URL length=${#VITE_SUPABASE_URL}"
           echo "VITE_SUPABASE_PUBLISHABLE_KEY length=${#VITE_SUPABASE_PUBLISHABLE_KEY}"
-          npm run build
+          npm run build:native
+          if [ ! -f dist/client/index.html ]; then
+            echo "::error::dist/client/index.html missing — APK would be a black screen. Aborting."
+            exit 1
+          fi
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}

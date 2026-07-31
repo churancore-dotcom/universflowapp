@@ -17,7 +17,7 @@ import type { CapacitorConfig } from '@capacitor/cli';
 const config: CapacitorConfig = {
   appId: 'com.universeflow.app',
   appName: 'Univers Flow',
-  webDir: 'dist',
+  webDir: 'dist/client',
   // No server.url → assets are served from the APK's local file:// bundle
   // through Capacitor's https://localhost scheme.
   server: {

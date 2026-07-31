@@ -1,5 +1,8 @@
 package com.universeflow.app
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
@@ -44,6 +47,8 @@ class ExoPlayerService : MediaSessionService() {
         private const val WAKELOCK_TAG = "UniverseFlow::ExoWakeLock"
         private const val WIFILOCK_TAG = "UniverseFlow::ExoWifiLock"
         private const val WAKELOCK_TIMEOUT_MS = 4L * 60L * 60L * 1000L
+        const val NOTIFICATION_CHANNEL_ID = "uf_playback"
+        const val NOTIFICATION_ID = 8801
         private const val HTTP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; UniverseFlow) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36"
     }
 
@@ -156,6 +161,7 @@ class ExoPlayerService : MediaSessionService() {
         })
 
         val sessionActivity = packageManager.getLaunchIntentForPackage(packageName)?.let {
+            it.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
             PendingIntent.getActivity(
                 this,
                 0,
@@ -165,6 +171,7 @@ class ExoPlayerService : MediaSessionService() {
         }
 
         val sessionBuilder = MediaSession.Builder(this, exo)
+            .setId("universflow")
         sessionActivity?.let { sessionBuilder.setSessionActivity(it) }
 
         // Rich Spotify-style artwork on the lock screen / shade notification:
@@ -182,16 +189,41 @@ class ExoPlayerService : MediaSessionService() {
         this.player = exo
         this.mediaSession = sessionBuilder.build()
 
+        // Create the playback notification channel up front. Media3 creates one
+        // lazily, but doing it here guarantees the lock-screen / shade player
+        // exists the instant playback starts (and gives it a real name).
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val manager = getSystemService(NotificationManager::class.java)
+                val channel = NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    "Playback",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    description = "Now playing controls"
+                    setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+                manager?.createNotificationChannel(channel)
+            }
+        } catch (t: Throwable) {
+            android.util.Log.w("ExoPlayerService", "channel create failed: ${t.message}")
+        }
+
         // Explicitly install the default media notification provider so the
         // lock screen / status bar player ALWAYS appears as soon as playback
         // starts (some devices skip the auto-install path).
         try {
             val provider = DefaultMediaNotificationProvider.Builder(this)
-                .setChannelId("uf_playback")
+                .setChannelId(NOTIFICATION_CHANNEL_ID)
                 .setChannelName(androidx.media3.session.R.string.default_notification_channel_name)
-                .setNotificationId(8801)
+                .setNotificationId(NOTIFICATION_ID)
                 .build()
-            provider.setSmallIcon(R.mipmap.ic_launcher)
+            // A monochrome silhouette — using the launcher mipmap here renders
+            // as a grey blob in the status bar on most devices.
+            provider.setSmallIcon(R.drawable.ic_stat_music)
             setMediaNotificationProvider(provider)
         } catch (t: Throwable) {
             android.util.Log.w("ExoPlayerService", "notification provider install failed: ${t.message}")
@@ -200,6 +232,14 @@ class ExoPlayerService : MediaSessionService() {
         ensureEffectsBound()
 
         ServiceRegistry.exoService = this
+    }
+
+    /**
+     * Keep the media notification alive while paused so the user can resume
+     * from the lock screen / shade instead of the player vanishing on pause.
+     */
+    override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
+        super.onUpdateNotification(session, true)
     }
 
     /** (Re)bind AudioEffects to the current player's session id. */
