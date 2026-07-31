@@ -26,7 +26,6 @@ import {
   SlidersHorizontal,
   Speaker,
   Trophy,
-  VolumeX,
   Wand2,
   Waves,
   X,
