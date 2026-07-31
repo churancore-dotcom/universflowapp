@@ -34,6 +34,7 @@ import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as ASlugRouteImport } from './routes/a.$slug'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
+import { Route as AdminAdsRouteImport } from './routes/admin/ads'
 import { Route as AdminAnalyticsRouteImport } from './routes/admin/analytics'
 import { Route as AdminAnnouncementsRouteImport } from './routes/admin/announcements'
 import { Route as AdminAppUpdatesRouteImport } from './routes/admin/app-updates'
@@ -222,6 +223,11 @@ const ASlugRoute = ASlugRouteImport.update({
 const AdminIndexRoute = AdminIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminAdsRoute = AdminAdsRouteImport.update({
+  id: '/ads',
+  path: '/ads',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminAnalyticsRoute = AdminAnalyticsRouteImport.update({
@@ -579,6 +585,7 @@ export interface FileRoutesByFullPath {
   '/welcome': typeof WelcomeRoute
   '/artist/studio': typeof ArtistStudioRouteRouteWithChildren
   '/a/$slug': typeof ASlugRoute
+  '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
   '/admin/app-updates': typeof AdminAppUpdatesRoute
@@ -668,6 +675,7 @@ export interface FileRoutesByTo {
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
   '/a/$slug': typeof ASlugRoute
+  '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
   '/admin/app-updates': typeof AdminAppUpdatesRoute
@@ -760,6 +768,7 @@ export interface FileRoutesById {
   '/welcome': typeof WelcomeRoute
   '/artist/studio': typeof ArtistStudioRouteRouteWithChildren
   '/a/$slug': typeof ASlugRoute
+  '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
   '/admin/announcements': typeof AdminAnnouncementsRoute
   '/admin/app-updates': typeof AdminAppUpdatesRoute
@@ -853,6 +862,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/artist/studio'
     | '/a/$slug'
+    | '/admin/ads'
     | '/admin/analytics'
     | '/admin/announcements'
     | '/admin/app-updates'
@@ -942,6 +952,7 @@ export interface FileRouteTypes {
     | '/verify'
     | '/welcome'
     | '/a/$slug'
+    | '/admin/ads'
     | '/admin/analytics'
     | '/admin/announcements'
     | '/admin/app-updates'
@@ -1033,6 +1044,7 @@ export interface FileRouteTypes {
     | '/welcome'
     | '/artist/studio'
     | '/a/$slug'
+    | '/admin/ads'
     | '/admin/analytics'
     | '/admin/announcements'
     | '/admin/app-updates'
@@ -1321,6 +1333,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/admin/'
       preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/ads': {
+      id: '/admin/ads'
+      path: '/ads'
+      fullPath: '/admin/ads'
+      preLoaderRoute: typeof AdminAdsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/analytics': {
@@ -1775,6 +1794,7 @@ declare module '@tanstack/react-router' {
 }
 
 interface AdminRouteRouteChildren {
+  AdminAdsRoute: typeof AdminAdsRoute
   AdminAnalyticsRoute: typeof AdminAnalyticsRoute
   AdminAnnouncementsRoute: typeof AdminAnnouncementsRoute
   AdminAppUpdatesRoute: typeof AdminAppUpdatesRoute
@@ -1811,6 +1831,7 @@ interface AdminRouteRouteChildren {
 }
 
 const AdminRouteRouteChildren: AdminRouteRouteChildren = {
+  AdminAdsRoute: AdminAdsRoute,
   AdminAnalyticsRoute: AdminAnalyticsRoute,
   AdminAnnouncementsRoute: AdminAnnouncementsRoute,
   AdminAppUpdatesRoute: AdminAppUpdatesRoute,
