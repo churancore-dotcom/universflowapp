@@ -1,6 +1,45 @@
 import { supabase } from '@/integrations/supabase/client';
 import { findSongStreamUrl } from '@/lib/jiosaavn';
 import { getCachedStream as getYtmCached, setCachedStream as setYtmCached, invalidateStream as invalidateYtmCached } from '@/lib/ytmStreamCache';
+import { recordPerfEvent } from '@/lib/perfMonitor';
+
+/**
+ * Resolver health telemetry. Every stream-resolution racer reports its own
+ * outcome + latency so the admin Performance panel can show which source is
+ * actually carrying playback and which one is failing, instead of guessing.
+ */
+function trackResolver<T extends { success?: boolean; streamUrl?: string } | null>(
+  source: string,
+  trackId: string,
+  promise: Promise<T>,
+): Promise<T> {
+  const started = Date.now();
+  return promise.then(
+    (result) => {
+      const ok = !!result?.streamUrl;
+      recordPerfEvent({
+        event_type: ok ? 'resolve_hit' : 'resolve_miss',
+        severity: 'info',
+        source,
+        track_id: trackId,
+        latency_ms: Date.now() - started,
+      });
+      return result;
+    },
+    (err) => {
+      recordPerfEvent({
+        event_type: 'resolve_error',
+        severity: 'warn',
+        source,
+        track_id: trackId,
+        latency_ms: Date.now() - started,
+        message: String((err as Error)?.message || err).slice(0, 180),
+      });
+      throw err;
+    },
+  );
+}
+
 
 export interface IndexedTrack {
   id: string;
