@@ -4,7 +4,7 @@ const config: CapacitorConfig = {
   // Native Android package — must match android/app/src/main/java/com/universeflow/app
   appId: 'com.universeflow.app',
   appName: 'Univers Flow',
-  webDir: 'dist',
+  webDir: 'dist/client',
   server: {
     // Production-safe default: APKs must load the bundled dist assets, not a
     // remote Lovable/dev server. Shipping server.url caused downloaded APKs to
