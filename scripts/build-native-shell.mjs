@@ -7,16 +7,36 @@
  * screen. This script synthesises that entry from the built client bundle so
  * the APK boots fully client-side, with no server required.
  */
-import { readdirSync, writeFileSync, existsSync } from "node:fs";
+import { readdirSync, writeFileSync, existsSync, cpSync } from "node:fs";
 import { join } from "node:path";
 
-const CLIENT_DIR = join(process.cwd(), "dist", "client");
-const ASSETS_DIR = join(CLIENT_DIR, "assets");
+// Different versions of the TanStack/Nitro build emit the browser bundle to
+// different folders (dist/client, .output/public, .output/client). Capacitor's
+// webDir is static (dist/client), so detect whichever the build produced and
+// mirror it into dist/client before writing the HTML entry.
+const CANDIDATES = [
+  join("dist", "client"),
+  join(".output", "public"),
+  join(".output", "client"),
+];
 
-if (!existsSync(ASSETS_DIR)) {
-  console.error("[native-shell] dist/client/assets missing — run `vite build` first.");
+const source = CANDIDATES.map((p) => join(process.cwd(), p)).find((p) =>
+  existsSync(join(p, "assets")),
+);
+
+if (!source) {
+  console.error(
+    `[native-shell] No client bundle found (looked in ${CANDIDATES.join(", ")}) — run \`vite build\` first.`,
+  );
   process.exit(1);
 }
+
+const CLIENT_DIR = join(process.cwd(), "dist", "client");
+if (source !== CLIENT_DIR) {
+  console.log(`[native-shell] mirroring ${source} -> dist/client`);
+  cpSync(source, CLIENT_DIR, { recursive: true });
+}
+const ASSETS_DIR = join(CLIENT_DIR, "assets");
 
 const files = readdirSync(ASSETS_DIR);
 
