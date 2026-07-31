@@ -93,20 +93,15 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
       const vocalCut = 1 - Math.max(0, Math.min(100, s.vocalMix ?? 100)) / 100;
       const instrumentalCut = 1 - Math.max(0, Math.min(100, s.instrumentalMix ?? 100)) / 100;
+      // Real Mid/Side isolation runs inside ExoPlayer's PCM pipeline now.
+      // The old tonal EQ "simulation" stacked on top of it and made isolated
+      // vocals sound hollow/phasey, so the stem curve is gone — the processor
+      // is the single source of truth.
       setNativeStemMix(s.vocalMix ?? 100, s.instrumentalMix ?? 100);
-      const stemEqMb = [
-        Math.round(instrumentalCut * -1200 + vocalCut * 300),
-        Math.round(instrumentalCut * -1050 + vocalCut * 250),
-        Math.round(instrumentalCut * 700 + vocalCut * -900),
-        Math.round(instrumentalCut * 850 + vocalCut * -1200),
-        Math.round(instrumentalCut * -500 + vocalCut * 300),
-      ];
-      const nativeOffsets = space.eqMb.map((offset, index) => offset + (stemEqMb[index] ?? 0));
+      const nativeOffsets = space.eqMb;
 
       // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
       // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
-      // APK now runs real Mid/Side stems inside ExoPlayer. Keep a tonal support
-      // curve too so phone speakers make the vocal/beat cut obvious instantly.
       pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, nativeOffsets);
 
       // Bass boost: user slider OR space profile — whichever is stronger.
