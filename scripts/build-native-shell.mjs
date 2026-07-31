@@ -38,6 +38,25 @@ if (source !== CLIENT_DIR) {
 }
 const ASSETS_DIR = join(CLIENT_DIR, "assets");
 
+// Preferred path: `NATIVE_BUILD=1 vite build` turns on TanStack Start SPA mode,
+// which PRERENDERS a real hydratable shell to dist/client/index.html. Keep it —
+// the hand-written fallback below cannot hydrate the Start client entry and
+// renders a black screen.
+const prerendered = join(CLIENT_DIR, "index.html");
+if (existsSync(prerendered)) {
+  const html = readFileSync(prerendered, "utf8");
+  if (/<script[^>]+type="module"/.test(html)) {
+    console.log("[native-shell] using prerendered SPA shell dist/client/index.html");
+    process.exit(0);
+  }
+  console.warn("[native-shell] prerendered index.html has no module script — regenerating");
+}
+
+console.warn(
+  "[native-shell] WARNING: no prerendered SPA shell found. Build with NATIVE_BUILD=1 so TanStack Start emits one; the synthesised fallback may not hydrate.",
+);
+
+
 const files = readdirSync(ASSETS_DIR);
 
 // The client entry is the bundle that boots the router (contains the vite
