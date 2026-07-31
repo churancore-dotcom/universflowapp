@@ -114,7 +114,10 @@ class ExoPlayerService : MediaSessionService() {
             ): AudioSink? {
                 return DefaultAudioSink.Builder(context)
                     .setAudioProcessors(arrayOf<AudioProcessor>(stemAudioProcessor))
-                    .setEnableFloatOutput(enableFloatOutput)
+                    // Float output bypasses PCM-16 processors, which silently
+                    // disabled vocal/beat isolation on some devices. Force the
+                    // 16-bit path so the stem processor always runs.
+                    .setEnableFloatOutput(false)
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                     .build()
             }
