@@ -14,6 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_campaigns: {
+        Row: {
+          advertiser: string | null
+          click_count: number
+          created_at: string
+          created_by: string | null
+          cta_label: string
+          cta_url: string
+          duration_seconds: number
+          ends_at: string | null
+          headline: string
+          id: string
+          image_url: string | null
+          impression_count: number
+          is_active: boolean
+          kind: string
+          name: string
+          priority: number
+          skip_after_seconds: number
+          skip_count: number
+          skippable: boolean
+          songs_interval: number
+          starts_at: string | null
+          subtext: string | null
+          updated_at: string
+        }
+        Insert: {
+          advertiser?: string | null
+          click_count?: number
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string
+          cta_url?: string
+          duration_seconds?: number
+          ends_at?: string | null
+          headline?: string
+          id?: string
+          image_url?: string | null
+          impression_count?: number
+          is_active?: boolean
+          kind?: string
+          name: string
+          priority?: number
+          skip_after_seconds?: number
+          skip_count?: number
+          skippable?: boolean
+          songs_interval?: number
+          starts_at?: string | null
+          subtext?: string | null
+          updated_at?: string
+        }
+        Update: {
+          advertiser?: string | null
+          click_count?: number
+          created_at?: string
+          created_by?: string | null
+          cta_label?: string
+          cta_url?: string
+          duration_seconds?: number
+          ends_at?: string | null
+          headline?: string
+          id?: string
+          image_url?: string | null
+          impression_count?: number
+          is_active?: boolean
+          kind?: string
+          name?: string
+          priority?: number
+          skip_after_seconds?: number
+          skip_count?: number
+          skippable?: boolean
+          songs_interval?: number
+          starts_at?: string | null
+          subtext?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ad_events: {
+        Row: {
+          action: string
+          campaign_id: string
+          created_at: string
+          id: string
+          user_id: string | null
+        }
+        Insert: {
+          action: string
+          campaign_id: string
+          created_at?: string
+          id?: string
+          user_id?: string | null
+        }
+        Update: {
+          action?: string
+          campaign_id?: string
+          created_at?: string
+          id?: string
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "ad_campaigns"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       albums: {
         Row: {
           artist: string
@@ -2536,6 +2646,10 @@ export type Database = {
       }
       process_premium_expiry_notifications: { Args: never; Returns: Json }
       publish_due_scheduled_songs: { Args: never; Returns: number }
+      record_ad_event: {
+        Args: { _action: string; _campaign_id: string }
+        Returns: undefined
+      }
       register_device_token: {
         Args: { _device_info?: Json; _platform?: string; _token: string }
         Returns: string
