@@ -655,10 +655,11 @@ export async function resolveYouTubeVideoStream(
     invalidateYtmCached(id);
   }
 
+  const ytStartedAt = Date.now();
   // INSTANT PLAY: race JioSaavn (fast CDN, CORS-clean) in parallel with the
   // YouTube resolver stack. First real audio URL wins.
   const saavnRacer: Promise<ResolveTrackResponse | null> = (opts.title || opts.artist) && !opts.forceRefresh
-    ? findSongStreamUrl(opts.title || '', opts.artist || '')
+    ? trackResolver('jiosaavn', id, findSongStreamUrl(opts.title || '', opts.artist || '')
         .then((s) => s?.streamUrl ? ({
           success: true,
           streamUrl: s.streamUrl,
@@ -667,45 +668,41 @@ export async function resolveYouTubeVideoStream(
           artist: s.artist || opts.artist,
           cover_url: s.image,
           duration: Number(s.duration) || undefined,
-        } as ResolveTrackResponse) : null)
+        } as ResolveTrackResponse) : null))
         .catch(() => null)
     : Promise.resolve(null);
 
   const resolvers: Promise<ResolveTrackResponse | null>[] = [
     saavnRacer,
-    (async () => {
-      try {
-        const { data, error } = await supabase.functions.invoke('extract-audio', {
-          body: { videoId: id, forceRefresh: opts.forceRefresh === true },
-        });
-        if (error) throw error;
-        if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
-          return {
-            success: true,
-            streamUrl: data.audioUrl,
-            videoId: id,
-            title: data.title,
-            artist: data.artist,
-            cover_url: data.thumbnail,
-            duration: data.duration,
-          };
-        }
-      } catch { /* try other resolver */ }
-      return null;
-    })(),
-    (async () => {
-      try {
-        const data = await requestIndexer<ResolveTrackResponse>({
-          action: 'resolve-video',
+    trackResolver('extract-audio', id, (async () => {
+      const { data, error } = await supabase.functions.invoke('extract-audio', {
+        body: { videoId: id, forceRefresh: opts.forceRefresh === true },
+      });
+      if (error) throw error;
+      if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
+        return {
+          success: true,
+          streamUrl: data.audioUrl,
           videoId: id,
-          forceRefresh: opts.forceRefresh === true,
-        });
-        if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
-          return { ...data, videoId: id };
-        }
-      } catch { /* try other resolver */ }
+          title: data.title,
+          artist: data.artist,
+          cover_url: data.thumbnail,
+          duration: data.duration,
+        } as ResolveTrackResponse;
+      }
       return null;
-    })(),
+    })()).catch(() => null),
+    trackResolver('innertube', id, (async () => {
+      const data = await requestIndexer<ResolveTrackResponse>({
+        action: 'resolve-video',
+        videoId: id,
+        forceRefresh: opts.forceRefresh === true,
+      });
+      if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
+        return { ...data, videoId: id };
+      }
+      return null;
+    })()).catch(() => null),
   ];
 
   const winner = await withTimeout(new Promise<ResolveTrackResponse | null>((resolve) => {
@@ -735,8 +732,25 @@ export async function resolveYouTubeVideoStream(
       cover_url: winner.cover_url,
       duration: winner.duration,
     });
+    recordPerfEvent({
+      event_type: 'resolve_complete',
+      severity: 'info',
+      source: 'youtube',
+      track_id: id,
+      latency_ms: Date.now() - ytStartedAt,
+    });
     return winner;
   }
+
+  recordPerfEvent({
+    event_type: 'resolve_failed',
+    severity: 'error',
+    source: 'youtube',
+    track_id: id,
+    latency_ms: Date.now() - ytStartedAt,
+    message: 'All YouTube resolvers failed',
+  });
+
 
   // LAST RESORT — if YouTube resolvers all failed AND we have title/artist,
   // retry JioSaavn with a looser (non-confident) match. Better to play a close
