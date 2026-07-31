@@ -376,7 +376,13 @@ Deno.serve(async (req) => {
     }
 
     const artistLyrics = await fetchArtistUploadLyrics(songId);
-    const provider = artistLyrics || await fetchParallelProviders(artist, title, duration);
+    let attempt = 0;
+    let provider: ProviderLyrics | null = artistLyrics;
+    if (!provider) {
+      const res = await fetchWithFallbacks(artist, title, duration);
+      provider = res.provider;
+      attempt = res.attempt;
+    }
 
     const payload: LyricsResponse = {
       success: true,
@@ -388,8 +394,15 @@ Deno.serve(async (req) => {
     cacheSet(cacheKey, payload);
 
     return new Response(JSON.stringify(payload), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json', 'Cache-Control': 'public, max-age=86400' },
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json',
+        'Cache-Control': 'public, max-age=86400',
+        'X-Lyrics-Source': provider?.source || 'none',
+        'X-Lyrics-Attempt': String(attempt),
+      },
     });
+
   } catch (e) {
     console.error('lyrics error', e);
     return new Response(JSON.stringify({ success: false, error: 'An unexpected error occurred' } satisfies LyricsResponse), {
