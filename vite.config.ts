@@ -8,6 +8,10 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 const isNativeBuild = process.env.NATIVE_BUILD === "1";
 
 export default defineConfig({
+  // Nitro's cloudflare output renames the server entry, which breaks the
+  // prerender preview server used to emit the SPA shell. The APK never runs a
+  // server, so skip nitro for native builds.
+  ...(isNativeBuild ? { nitro: false as const } : {}),
   tanstackStart: {
     server: { entry: "server" },
     ...(isNativeBuild
