@@ -25,6 +25,7 @@ import {
   Gauge,
   IndianRupee,
   Headphones,
+  Megaphone,
 } from 'lucide-react';
 
 const navItems = [
@@ -39,6 +40,7 @@ const navItems = [
   { icon: ListMusic, label: 'Playlists', path: '/admin/playlists' },
   { icon: Users, label: 'Users', path: '/admin/users' },
   { icon: Crown, label: 'Subscriptions', path: '/admin/subscriptions' },
+  { icon: Megaphone, label: 'Ads Manager', path: '/admin/ads' },
   
   { icon: Crown, label: 'Payment Requests', path: '/admin/payments' },
   { icon: IndianRupee, label: 'Artist Payouts', path: '/admin/payouts' },

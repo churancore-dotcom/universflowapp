@@ -9,6 +9,7 @@ import { resume as resumeAudioEngine } from '@/lib/audioEngine';
 import { EQ_SETTINGS_KEY, getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { getRuntimePremium } from '@/lib/premiumState';
+import { noteSongCompleted, primeAdEngine } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
 import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
@@ -470,6 +471,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [adType, setAdType] = useState<'start' | 'end'>('start');
   const [pendingSong, setPendingSong] = useState<{ song: Song; offlineUrl?: string | null; songsQueue?: Song[] } | null>(null);
   const [playbackSettingsVersion, setPlaybackSettingsVersion] = useState(0);
+
+  // Warm the ad campaign cache once so an ad break never delays playback.
+  useEffect(() => {
+    primeAdEngine();
+  }, []);
+
+
 
   useEffect(() => {
     playerProgressStore.setPlaying(isPlaying);
@@ -1902,6 +1910,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
       
       if (nextIdx !== null && activeQueue.length > 0) {
+        // Ad break — ONLY on auto-advance (never on a user tap, so tap-to-play
+        // latency is untouched). Premium users are excluded inside the engine.
+        if (noteSongCompleted()) {
+          const nextTrack = activeQueue[nextIdx];
+          if (nextTrack) {
+            try { audio.pause(); } catch { /* noop */ }
+            wasPlayingRef.current = false;
+            setIsPlaying(false);
+            setPendingSong({ song: nextTrack, offlineUrl: null, songsQueue: activeQueue });
+            setAdType('end');
+            setShowPrerollAd(true);
+            return;
+          }
+        }
         playSongAtIndex(nextIdx, activeQueue);
       } else if (activeRepeat === 'off' && activeQueue.length > 0) {
         // End of queue — fire YouTube-style endless mix: pull more songs

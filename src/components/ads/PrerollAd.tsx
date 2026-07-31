@@ -1,264 +1,241 @@
-import { useState, useEffect, memo, useCallback } from 'react';
+import { useState, useEffect, memo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, X, Volume2, VolumeX, Music, Disc3, Zap } from 'lucide-react';
+import { Crown, SkipForward, ArrowUpRight, Zap, Download, Waves, Sparkle } from 'lucide-react';
 import { useNavigate } from '@/lib/router-compat';
 import { usePremium } from '@/hooks/usePremium';
 import { iosSpring } from '@/lib/animations';
+import { loadAdCampaign, getAdCampaignSync, recordAdEvent, type AdCampaign } from '@/lib/adEngine';
 
 interface PrerollAdProps {
   isOpen: boolean;
   onComplete: () => void;
   onSkip?: () => void;
-  adDuration?: number;
   adType?: 'start' | 'end';
 }
 
-const PrerollAd = memo(function PrerollAd({ 
-  isOpen, 
-  onComplete, 
-  onSkip,
-  adDuration = 5,
-  adType = 'start'
-}: PrerollAdProps) {
+const PERKS = [
+  { icon: Zap, label: 'Zero ads' },
+  { icon: Download, label: 'Offline' },
+  { icon: Waves, label: 'Studio EQ' },
+  { icon: Sparkle, label: 'Lossless' },
+];
+
+const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: PrerollAdProps) {
   const { isPremium, isLoading } = usePremium();
   const navigate = useNavigate();
-  const [countdown, setCountdown] = useState(adDuration);
-  const [isMuted, setIsMuted] = useState(false);
-  const [progress, setProgress] = useState(0);
+  const [campaign, setCampaign] = useState<AdCampaign | null>(getAdCampaignSync());
+  const [elapsed, setElapsed] = useState(0);
+  const viewLoggedFor = useRef<string | null>(null);
 
+  const duration = campaign?.duration_seconds ?? 8;
+  const remaining = Math.max(0, duration - elapsed);
+  const progress = Math.min(100, (elapsed / Math.max(1, duration)) * 100);
+  const canSkip =
+    !!campaign?.skippable && elapsed >= Math.max(0, campaign.skip_after_seconds ?? 0);
+
+  // Keep the campaign fresh whenever the break opens.
+  useEffect(() => {
+    if (!isOpen || isPremium) return;
+    let alive = true;
+    void loadAdCampaign().then((c) => {
+      if (alive) setCampaign(c);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [isOpen, isPremium]);
+
+  // Countdown + auto-dismiss.
   useEffect(() => {
     if (!isOpen) {
-      setCountdown(adDuration);
-      setProgress(0);
+      setElapsed(0);
       return;
     }
-
-    // If premium, skip ad immediately
     if (isPremium && !isLoading) {
       onComplete();
       return;
     }
+    const timer = window.setInterval(() => setElapsed((v) => v + 1), 1000);
+    return () => window.clearInterval(timer);
+  }, [isOpen, isPremium, isLoading, onComplete]);
 
-    const interval = setInterval(() => {
-      setCountdown((prev) => {
-        if (prev <= 1) {
-          clearInterval(interval);
-          onComplete();
-          return 0;
-        }
-        return prev - 1;
-      });
-      setProgress((prev) => Math.min(prev + (100 / adDuration), 100));
-    }, 1000);
+  useEffect(() => {
+    if (!isOpen || !campaign || viewLoggedFor.current === campaign.id) return;
+    viewLoggedFor.current = campaign.id;
+    recordAdEvent(campaign.id, 'view');
+  }, [isOpen, campaign]);
 
-    return () => clearInterval(interval);
-  }, [isOpen, adDuration, onComplete, isPremium, isLoading]);
+  useEffect(() => {
+    if (!isOpen) {
+      viewLoggedFor.current = null;
+      return;
+    }
+    if (elapsed >= duration) {
+      if (campaign) recordAdEvent(campaign.id, 'complete');
+      onComplete();
+    }
+  }, [elapsed, duration, isOpen, campaign, onComplete]);
 
-  const handleUpgrade = useCallback(() => {
-    onSkip?.();
-    navigate('/profile');
-  }, [navigate, onSkip]);
+  const handleSkip = useCallback(() => {
+    if (campaign) recordAdEvent(campaign.id, 'skip');
+    (onSkip ?? onComplete)();
+  }, [campaign, onSkip, onComplete]);
 
-  // Don't show for premium users or while loading
-  if (isPremium || isLoading) {
-    return null;
-  }
+  const handleCta = useCallback(() => {
+    const url = campaign?.cta_url || '/premium';
+    if (campaign) recordAdEvent(campaign.id, 'click');
+    (onSkip ?? onComplete)();
+    if (/^https?:\/\//i.test(url)) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    } else {
+      navigate(url.startsWith('/') ? url : `/${url}`);
+    }
+  }, [campaign, navigate, onSkip, onComplete]);
 
-  const isEndAd = adType === 'end';
+  if (isPremium || isLoading) return null;
+
+  const isBrand = campaign?.kind === 'brand';
+  const headline = campaign?.headline ?? 'Music without limits';
+  const subtext =
+    campaign?.subtext ??
+    'Go Premium for ad-free listening, offline downloads and Studio Sound EQ.';
+  const ctaLabel = campaign?.cta_label ?? 'Get Premium';
 
   return (
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[100] flex items-center justify-center"
+          className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          transition={{ duration: 0.3 }}
+          transition={{ duration: 0.25 }}
         >
-          {/* Backdrop */}
-          <motion.div 
-            className="absolute inset-0 bg-black/95"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+          <div className="absolute inset-0 bg-background/90 backdrop-blur-2xl" />
+
+          {/* Ambient glow */}
+          <motion.div
+            className="pointer-events-none absolute -top-24 left-1/2 h-72 w-72 -translate-x-1/2 rounded-full opacity-40 blur-3xl"
+            style={{ background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)' }}
+            animate={{ scale: [1, 1.15, 1] }}
+            transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
           />
 
-          {/* Animated Background */}
-          <div className="absolute inset-0 overflow-hidden">
-            <motion.div
-              className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full opacity-20"
-              style={{ background: 'radial-gradient(circle, hsl(var(--primary)) 0%, transparent 70%)' }}
-              animate={{ scale: [1, 1.2, 1], x: [0, 30, 0], y: [0, -20, 0] }}
-              transition={{ duration: 8, repeat: Infinity, ease: 'easeInOut' }}
-            />
-            <motion.div
-              className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full opacity-15"
-              style={{ background: 'radial-gradient(circle, hsl(var(--accent)) 0%, transparent 70%)' }}
-              animate={{ scale: [1.2, 1, 1.2], x: [0, -20, 0], y: [0, 30, 0] }}
-              transition={{ duration: 6, repeat: Infinity, ease: 'easeInOut' }}
-            />
-          </div>
-
-          {/* Content */}
           <motion.div
-            className="relative z-10 w-full max-w-sm mx-4"
-            initial={{ scale: 0.9, opacity: 0, y: 20 }}
-            animate={{ scale: 1, opacity: 1, y: 0 }}
-            exit={{ scale: 0.9, opacity: 0, y: 20 }}
+            className="relative z-10 w-full max-w-[26rem] px-4 pb-6 sm:pb-0"
+            initial={{ y: 40, opacity: 0, scale: 0.97 }}
+            animate={{ y: 0, opacity: 1, scale: 1 }}
+            exit={{ y: 30, opacity: 0, scale: 0.98 }}
             transition={iosSpring}
           >
-            {/* Ad Label & Controls */}
-            <div className="flex items-center justify-between mb-4">
+            {/* Top bar: label + skip */}
+            <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <motion.div
-                  className="w-2 h-2 rounded-full bg-primary"
-                  animate={{ scale: [1, 1.3, 1], opacity: [1, 0.7, 1] }}
-                  transition={{ duration: 1, repeat: Infinity }}
-                />
-                <span className="text-xs text-muted-foreground font-medium tracking-wider uppercase">
-                  {isEndAd ? 'Song Complete' : 'Loading Music'} • {countdown}s
+                <span className="rounded-full border border-border/60 bg-card/70 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+                  {isBrand ? `Ad · ${campaign?.advertiser ?? 'Sponsored'}` : 'Univers Flow'}
+                </span>
+                <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
+                  {remaining}s
                 </span>
               </div>
-              <motion.button
-                onClick={() => setIsMuted(!isMuted)}
-                className="w-8 h-8 rounded-full flex items-center justify-center bg-white/10 backdrop-blur-sm"
-                whileTap={{ scale: 0.9 }}
-              >
-                {isMuted ? (
-                  <VolumeX className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <Volume2 className="w-4 h-4 text-muted-foreground" />
-                )}
-              </motion.button>
+
+              {canSkip ? (
+                <motion.button
+                  onClick={handleSkip}
+                  className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-3 py-1.5 text-[11px] font-semibold text-foreground"
+                  initial={{ opacity: 0, x: 8 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  whileTap={{ scale: 0.94 }}
+                >
+                  Skip ad
+                  <SkipForward className="h-3.5 w-3.5" />
+                </motion.button>
+              ) : (
+                <span className="text-[11px] text-muted-foreground/70">
+                  {campaign?.skippable
+                    ? `Skip in ${Math.max(0, (campaign.skip_after_seconds ?? 0) - elapsed)}s`
+                    : 'Ad'}
+                </span>
+              )}
             </div>
 
-            {/* Progress Bar */}
-            <div className="h-1.5 rounded-full bg-white/10 mb-6 overflow-hidden backdrop-blur-sm">
+            {/* Progress */}
+            <div className="mb-4 h-[3px] overflow-hidden rounded-full bg-muted/40">
               <motion.div
-                className="h-full rounded-full bg-gradient-to-r from-primary via-accent to-primary"
-                initial={{ width: 0 }}
+                className="h-full rounded-full bg-gradient-to-r from-primary to-accent"
                 animate={{ width: `${progress}%` }}
-                transition={{ duration: 0.3 }}
+                transition={{ duration: 0.9, ease: 'linear' }}
               />
             </div>
 
-            {/* Ad Card */}
-            <motion.div
-              className="rounded-3xl p-6 text-center backdrop-blur-xl"
-              style={{
-                background: 'linear-gradient(135deg, rgba(232, 76, 111, 0.15), rgba(139, 92, 246, 0.1))',
-                border: '1px solid rgba(232, 76, 111, 0.25)',
-              }}
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ ...iosSpring, delay: 0.1 }}
-            >
-              {/* Premium Icon with Animation */}
-              <motion.div
-                className="w-24 h-24 rounded-2xl mx-auto mb-5 flex items-center justify-center relative"
-                style={{
-                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
-                  boxShadow: '0 15px 50px -10px hsl(var(--primary) / 0.5)',
-                }}
-                initial={{ scale: 0, rotate: -20 }}
-                animate={{ scale: 1, rotate: 0 }}
-                transition={{ ...iosSpring, delay: 0.2 }}
-              >
-                <Crown className="w-12 h-12 text-white" />
-                <motion.div
-                  className="absolute -top-1 -right-1"
-                  animate={{ rotate: [0, 15, -15, 0] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                >
-                  <Disc3 className="w-5 h-5 text-accent" />
-                </motion.div>
-              </motion.div>
-
-              {/* Message */}
-              <motion.h2
-                className="text-2xl font-bold mb-2 bg-gradient-to-r from-white to-white/80 bg-clip-text text-transparent"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.25 }}
-              >
-                {isEndAd ? 'Enjoyed That Song?' : 'Unlimited Music Awaits'}
-              </motion.h2>
-              <motion.p
-                className="text-sm text-muted-foreground mb-6 leading-relaxed"
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-              >
-                {isEndAd 
-                  ? 'Go Premium for ad-free listening, offline downloads, and exclusive content.'
-                  : 'Skip all ads forever with Premium. Enjoy uninterrupted music, offline mode, and lossless audio.'}
-              </motion.p>
-
-              {/* Benefits */}
-              <motion.div
-                className="grid grid-cols-2 gap-2 mb-6"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ delay: 0.35 }}
-              >
-                {[
-                  { icon: Zap, label: 'Ad-free' },
-                  { icon: Music, label: 'Offline' },
-                  { icon: Disc3, label: 'Lossless' },
-                  { icon: Crown, label: 'Exclusive' },
-                ].map(({ icon: Icon, label }) => (
+            {/* Card */}
+            <div className="overflow-hidden rounded-[28px] border border-border/60 bg-card/80 shadow-2xl backdrop-blur-xl">
+              {campaign?.image_url ? (
+                <div className="relative aspect-[16/10] w-full overflow-hidden">
+                  <motion.img
+                    src={campaign.image_url}
+                    alt={isBrand ? `${campaign.advertiser ?? 'Sponsor'} advertisement` : headline}
+                    className="h-full w-full object-cover"
+                    initial={{ scale: 1.06 }}
+                    animate={{ scale: 1 }}
+                    transition={{ duration: duration, ease: 'linear' }}
+                    loading="eager"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
+                </div>
+              ) : (
+                <div className="relative flex aspect-[16/10] w-full items-center justify-center overflow-hidden bg-gradient-to-br from-primary/25 via-accent/15 to-transparent">
                   <motion.div
-                    key={label}
-                    className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                    style={{
-                      background: 'rgba(232, 76, 111, 0.1)',
-                      border: '1px solid rgba(232, 76, 111, 0.2)',
-                    }}
-                    whileHover={{ scale: 1.02 }}
+                    className="flex h-24 w-24 items-center justify-center rounded-3xl bg-gradient-to-br from-primary to-accent shadow-xl"
+                    animate={{ y: [0, -8, 0] }}
+                    transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
                   >
-                    <Icon className="w-4 h-4 text-primary" />
-                    <span className="text-xs font-medium text-foreground">{label}</span>
+                    <Crown className="h-11 w-11 text-primary-foreground" />
                   </motion.div>
-                ))}
-              </motion.div>
+                </div>
+              )}
 
-              {/* CTA Button */}
-              <motion.button
-                className="w-full py-4 rounded-xl font-bold text-white text-lg relative overflow-hidden"
-                style={{
-                  background: 'linear-gradient(135deg, hsl(var(--primary)), hsl(var(--accent)))',
-                }}
-                onClick={handleUpgrade}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-              >
-                <motion.div
-                  className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent"
-                  animate={{ x: ['-100%', '100%'] }}
-                  transition={{ duration: 2, repeat: Infinity, repeatDelay: 1 }}
-                />
-                <span className="relative z-10">🎵 Get Premium Now</span>
-              </motion.button>
-            </motion.div>
+              <div className="p-5 pt-4">
+                <h2 className="text-[22px] font-bold leading-tight tracking-tight text-foreground">
+                  {headline}
+                </h2>
+                <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{subtext}</p>
 
-            {/* Skip hint */}
-            <motion.div
-              className="text-center mt-4 space-y-1"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-            >
-              <p className="text-xs text-muted-foreground">
-                Ad closes in {countdown} seconds
-              </p>
-              <p className="text-[10px] text-muted-foreground/60">
-                Universflow
-              </p>
-            </motion.div>
+                {!isBrand && (
+                  <div className="mt-4 grid grid-cols-2 gap-2">
+                    {PERKS.map(({ icon: Icon, label }) => (
+                      <div
+                        key={label}
+                        className="flex items-center gap-2 rounded-2xl border border-border/50 bg-background/40 px-3 py-2"
+                      >
+                        <Icon className="h-3.5 w-3.5 text-primary" />
+                        <span className="text-xs font-medium text-foreground">{label}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <motion.button
+                  onClick={handleCta}
+                  className="relative mt-5 flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-accent py-3.5 text-[15px] font-bold text-primary-foreground"
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <motion.span
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                    animate={{ x: ['-120%', '120%'] }}
+                    transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 0.8 }}
+                  />
+                  <span className="relative z-10">{ctaLabel}</span>
+                  <ArrowUpRight className="relative z-10 h-4 w-4" />
+                </motion.button>
+
+                <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
+                  {isBrand
+                    ? 'Premium removes all ads — including this one.'
+                    : 'Your music resumes automatically.'}
+                </p>
+              </div>
+            </div>
           </motion.div>
         </motion.div>
       )}
