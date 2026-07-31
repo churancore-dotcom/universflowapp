@@ -462,22 +462,37 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   const surroundXfeedLR = ctx.createGain(); surroundXfeedLR.gain.value = 0; // off until enabled
   const surroundXfeedRL = ctx.createGain(); surroundXfeedRL.gain.value = 0;
 
-  // --- Stems stage (mid/side): vocal-remove & instrumental-remove ---
-  // Mid = 0.5*(L+R) carries centered vocals; Side = 0.5*(L-R) carries stereo
-  // instruments. Attenuating one isolates the other. Zero-latency, works on
-  // every song, no ML model needed.
+  // --- Stems stage: frequency-aware Mid/Side isolation ---
+  // Mid = 0.5*(L+R) holds centered content (lead vocal AND kick/bass).
+  // Side = 0.5*(L-R) holds the stereo instrument bed.
+  // A flat mid/side cut kills the bass along with the vocal, which is why
+  // karaoke used to sound hollow. So the mid is split in two:
+  //   midLow  (< 180 Hz)  -> kick + bass, follows the INSTRUMENT slider
+  //   midBand (180Hz-9kHz)-> lead vocal,  follows the VOCAL slider
+  // Karaoke keeps the groove; a-cappella strips the low end and the stereo
+  // bed, leaving the voice. Zero latency, works on every stereo song.
   const stemsSplitter = ctx.createChannelSplitter(2);
   const stemsMerger   = ctx.createChannelMerger(2);
   const stemsDirectGain = ctx.createGain(); stemsDirectGain.gain.value = 1;
   const stemsMatrixGain = ctx.createGain(); stemsMatrixGain.gain.value = 0;
-  const stemsLtoLmid  = ctx.createGain(); stemsLtoLmid.gain.value = 0.5;
-  const stemsRtoLmid  = ctx.createGain(); stemsRtoLmid.gain.value = 0.5;
-  const stemsLtoRmid  = ctx.createGain(); stemsLtoRmid.gain.value = 0.5;
-  const stemsRtoRmid  = ctx.createGain(); stemsRtoRmid.gain.value = 0.5;
-  const stemsLtoLside = ctx.createGain(); stemsLtoLside.gain.value =  0.5;
-  const stemsRtoLside = ctx.createGain(); stemsRtoLside.gain.value = -0.5;
-  const stemsLtoRside = ctx.createGain(); stemsLtoRside.gain.value = -0.5;
-  const stemsRtoRside = ctx.createGain(); stemsRtoRside.gain.value =  0.5;
+
+  const stemsMidL = ctx.createGain(); stemsMidL.gain.value = 0.5;
+  const stemsMidR = ctx.createGain(); stemsMidR.gain.value = 0.5;
+  const stemsMidSum = ctx.createGain(); stemsMidSum.gain.value = 1;
+  const stemsMidLowFilter = ctx.createBiquadFilter();
+  stemsMidLowFilter.type = 'lowpass'; stemsMidLowFilter.frequency.value = 180; stemsMidLowFilter.Q.value = 0.7;
+  const stemsMidBandHigh = ctx.createBiquadFilter();
+  stemsMidBandHigh.type = 'highpass'; stemsMidBandHigh.frequency.value = 180; stemsMidBandHigh.Q.value = 0.7;
+  const stemsMidBandLow = ctx.createBiquadFilter();
+  stemsMidBandLow.type = 'lowpass'; stemsMidBandLow.frequency.value = 9000; stemsMidBandLow.Q.value = 0.7;
+  const stemsMidLowGain = ctx.createGain(); stemsMidLowGain.gain.value = 1;
+  const stemsMidBandGain = ctx.createGain(); stemsMidBandGain.gain.value = 1;
+
+  const stemsSideL = ctx.createGain(); stemsSideL.gain.value = 0.5;
+  const stemsSideR = ctx.createGain(); stemsSideR.gain.value = -0.5;
+  const stemsSideSum = ctx.createGain(); stemsSideSum.gain.value = 1;
+  const stemsSidePos = ctx.createGain(); stemsSidePos.gain.value = 1;
+  const stemsSideNeg = ctx.createGain(); stemsSideNeg.gain.value = -1;
 
   // Neutral playback uses a direct path so mono songs stay centered and the
   // normal path is bit-transparent. Isolation crossfades into the mid/side
@@ -485,16 +500,28 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   source.connect(stemsDirectGain);
   stemsDirectGain.connect(filters[0]);
 
-  // source -> stems splitter -> matrix -> merger -> makeup -> EQ filters
+  // source -> splitter -> mid/side extraction -> band split -> merger
   source.connect(stemsSplitter);
-  stemsSplitter.connect(stemsLtoLmid, 0);  stemsLtoLmid.connect(stemsMerger,  0, 0);
-  stemsSplitter.connect(stemsRtoLmid, 1);  stemsRtoLmid.connect(stemsMerger,  0, 0);
-  stemsSplitter.connect(stemsLtoRmid, 0);  stemsLtoRmid.connect(stemsMerger,  0, 1);
-  stemsSplitter.connect(stemsRtoRmid, 1);  stemsRtoRmid.connect(stemsMerger,  0, 1);
-  stemsSplitter.connect(stemsLtoLside, 0); stemsLtoLside.connect(stemsMerger, 0, 0);
-  stemsSplitter.connect(stemsRtoLside, 1); stemsRtoLside.connect(stemsMerger, 0, 0);
-  stemsSplitter.connect(stemsLtoRside, 0); stemsLtoRside.connect(stemsMerger, 0, 1);
-  stemsSplitter.connect(stemsRtoRside, 1); stemsRtoRside.connect(stemsMerger, 0, 1);
+  stemsSplitter.connect(stemsMidL, 0); stemsMidL.connect(stemsMidSum);
+  stemsSplitter.connect(stemsMidR, 1); stemsMidR.connect(stemsMidSum);
+  stemsSplitter.connect(stemsSideL, 0); stemsSideL.connect(stemsSideSum);
+  stemsSplitter.connect(stemsSideR, 1); stemsSideR.connect(stemsSideSum);
+
+  stemsMidSum.connect(stemsMidLowFilter);
+  stemsMidLowFilter.connect(stemsMidLowGain);
+  stemsMidSum.connect(stemsMidBandHigh);
+  stemsMidBandHigh.connect(stemsMidBandLow);
+  stemsMidBandLow.connect(stemsMidBandGain);
+
+  // Mid content is identical in both output channels.
+  stemsMidLowGain.connect(stemsMerger, 0, 0);
+  stemsMidLowGain.connect(stemsMerger, 0, 1);
+  stemsMidBandGain.connect(stemsMerger, 0, 0);
+  stemsMidBandGain.connect(stemsMerger, 0, 1);
+
+  // Side content is added to L and subtracted from R to rebuild stereo.
+  stemsSideSum.connect(stemsSidePos); stemsSidePos.connect(stemsMerger, 0, 0);
+  stemsSideSum.connect(stemsSideNeg); stemsSideNeg.connect(stemsMerger, 0, 1);
 
   stemsMerger.connect(stemsMatrixGain);
   stemsMatrixGain.connect(filters[0]);
