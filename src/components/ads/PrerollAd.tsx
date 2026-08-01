@@ -101,7 +101,10 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
   }, [campaign, onSkip, onComplete]);
 
   const handleCta = useCallback(() => {
-    const url = campaign?.cta_url || '/premium';
+    const requestedUrl = campaign?.cta_url || '/premium';
+    const url = requestedUrl.startsWith('/') || /^https?:\/\//i.test(requestedUrl)
+      ? requestedUrl
+      : '/premium';
     if (campaign) recordAdEvent(campaign.id, 'click');
     (onSkip ?? onComplete)();
     if (/^https?:\/\//i.test(url)) {

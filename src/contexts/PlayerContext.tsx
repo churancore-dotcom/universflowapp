@@ -2022,16 +2022,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           startCrossfade(GAPLESS_PRO_OVERLAP_SECONDS);
         }
       }
-      // ── Auto-advance safety net for the web HTMLAudio path.
-      //    If we're within 0.25s of the end and not crossfading, force the
-      //    ended pipeline so playlists keep flowing when 'ended' is swallowed.
+      // Last-resort web safety net. Keep this below an audio render frame so
+      // normal songs with cold endings are not audibly cut short. The native
+      // `ended` event remains the primary transition signal.
       if (
         !isNativePlayerAvailable() &&
         !isCrossfading.current &&
         audio.duration > 1 &&
         isFinite(audio.duration) &&
         audio.currentTime > 0 &&
-        audio.duration - audio.currentTime <= 0.25
+        audio.duration - audio.currentTime <= 0.02
       ) {
         handleEnded();
       }
@@ -2557,7 +2557,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setCurrentSong(nextSong);
         currentSongRef.current = nextSong;
         setCurrentIndex(nextIdx);
-        setProgress(0);
+        const incomingProgress = audioRef.current?.currentTime || 0;
+        setProgress(incomingProgress);
+        playerProgressStore.setProgress(incomingProgress);
         setDuration(audioRef.current?.duration || 0);
 
 
@@ -2907,6 +2909,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // hardware buttons drive the transport.
   const togglePlay = useCallback(() => {
     if (!currentSong) return;
+    // The previous track has ended while an ad is visible. Resuming it here
+    // creates a false playing state and audio behind the overlay.
+    if (showPrerollAd) return;
 
     if (isNativePlayerAvailable()) {
       if (isPlaying) {
@@ -3070,6 +3075,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const nextSong = useCallback(async () => {
     if (queue.length === 0) return;
+    // A staged ad owns the between-track transition. Ignore hardware/media
+    // transport commands until it completes instead of starting a hidden song
+    // underneath the full-screen ad.
+    if (showPrerollAd) return;
 
     // Cancel crossfade
     if (crossfadeIntervalRef.current) {
@@ -3090,10 +3099,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Loop back to start even if repeat is off when manually pressing next
       playSongAtIndex(0, queue);
     }
-  }, [queue, currentIndex, shuffle, repeat, getNextIndex, playSongAtIndex]);
+  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, getNextIndex, playSongAtIndex]);
 
   const prevSong = useCallback(() => {
     if (queue.length === 0) return;
+    if (showPrerollAd) return;
 
     // Cancel crossfade
     if (crossfadeIntervalRef.current) {
@@ -3116,7 +3126,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const prevIdx = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
       playSongAtIndex(prevIdx, queue);
     }
-  }, [queue, currentIndex, playSongAtIndex]);
+  }, [queue, currentIndex, showPrerollAd, playSongAtIndex]);
 
   const seek = useCallback((time: number) => {
     if (isNativePlayerAvailable()) {

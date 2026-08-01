@@ -68,8 +68,9 @@ export const loadAdCampaign = async (force = false): Promise<AdCampaign | null> 
       cached = live[0] ?? null;
       cachedAt = Date.now();
     } catch {
-      // Network/RLS failure must never break playback — just no ads.
-      cached = cached ?? null;
+      // Never keep serving a campaign whose active/schedule state can no longer
+      // be verified. A network/RLS failure means no ad, never stale ads.
+      cached = null;
       cachedAt = Date.now();
     } finally {
       inflight = null;
@@ -85,6 +86,7 @@ export const loadAdCampaign = async (force = false): Promise<AdCampaign | null> 
  * an already-visible ad.
  */
 export const getScheduledAdCampaign = (): AdCampaign | null => {
+  if (Date.now() - cachedAt >= CACHE_TTL) return null;
   const campaign = cached;
   return campaign && isLive(campaign) ? campaign : null;
 };
@@ -152,6 +154,6 @@ export type AdAction = 'view' | 'skip' | 'click' | 'complete';
 export const recordAdEvent = (campaignId: string, action: AdAction): void => {
   supabase.rpc('record_ad_event', { _campaign_id: campaignId, _action: action }).then(
     () => {},
-    () => {},
+    (error) => { if (import.meta.env.DEV) console.warn('[ads] event was not recorded', error); },
   );
 };
