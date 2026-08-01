@@ -43,6 +43,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
     let retryTimers: number[] = [];
     let nativeApplyRevision = 0;
     let nativeApplyChain: Promise<void> = Promise.resolve();
+    let nativeApplyTimer: number | null = null;
+    let pendingNativeSnapshot: ReturnType<typeof getEQSettings> | null = null;
     // Once we've attached WebAudio for this element, we can't detach — the
     // MediaElementSource permanently routes audio through the graph. We just
     // keep re-pushing settings on every src/play change.
@@ -153,10 +155,20 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
 
     const pushNative = (s: ReturnType<typeof getEQSettings>) => {
       if (!isNativePlayerAvailable()) return;
-      const revision = ++nativeApplyRevision;
-      nativeApplyChain = nativeApplyChain
-        .catch(() => undefined)
-        .then(() => applyNativeSnapshot(s, revision));
+      pendingNativeSnapshot = s;
+      // Coalesce continuous slider events so Android hears the newest state
+      // instead of draining a backlog of obsolete Capacitor bridge calls.
+      if (nativeApplyTimer != null) return;
+      nativeApplyTimer = window.setTimeout(() => {
+        nativeApplyTimer = null;
+        const snapshot = pendingNativeSnapshot;
+        pendingNativeSnapshot = null;
+        if (!snapshot) return;
+        const revision = ++nativeApplyRevision;
+        nativeApplyChain = nativeApplyChain
+          .catch(() => undefined)
+          .then(() => applyNativeSnapshot(snapshot, revision));
+      }, 32);
     };
 
 
@@ -288,6 +300,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
     return () => {
       if (reapplyTimer != null) clearTimeout(reapplyTimer);
       if (reapplyFrame != null) cancelAnimationFrame(reapplyFrame);
+      if (nativeApplyTimer != null) clearTimeout(nativeApplyTimer);
+      pendingNativeSnapshot = null;
       clearRetries();
       stop8D();
 
