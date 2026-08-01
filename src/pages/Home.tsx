@@ -28,6 +28,7 @@ import QueueDrawer from '@/components/QueueDrawer';
 import BottomNav from '@/components/BottomNav';
 import LockScreenPlayer from '@/components/LockScreenPlayer';
 import EqualizerModal from '@/components/EqualizerModal';
+import PremiumLockOverlay from '@/components/PremiumLockOverlay';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
 import { Music, Lock, ListMusic, Sliders } from 'lucide-react';
@@ -128,6 +129,7 @@ const Home = () => {
   const { isOffline, user } = useAuth();
   const { downloads } = useDownloads();
   const { isPremium } = usePremium();
+  const [showEqPremium, setShowEqPremium] = useState(false);
   const queryClient = useQueryClient();
   const country = useUserCountry();
   const countryQueries = useMemo(() => getCountryQueries(country), [country]);
@@ -275,7 +277,7 @@ const Home = () => {
             <div className="flex items-center gap-1.5">
               {[
                 { icon: ListMusic, action: () => setShowQueue(true), label: 'Open queue' },
-                ...(isPremium ? [{ icon: Sliders, action: () => setShowEqualizer(true), label: 'Open equalizer' }] : []),
+                { icon: Sliders, action: () => isPremium ? setShowEqualizer(true) : setShowEqPremium(true), label: isPremium ? 'Open equalizer' : 'Equalizer, Premium feature' },
                 { icon: Lock, action: () => setShowLockScreen(true), label: 'Open lock screen player' },
               ].map(({ icon: Icon, action, label }, i) => (
                 <motion.button
@@ -348,6 +350,13 @@ const Home = () => {
         {showSleepTimer && <SleepTimerModal isOpen={showSleepTimer} onClose={() => setShowSleepTimer(false)} />}
         {showQueue && <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />}
         {showEqualizer && isPremium && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
+        {showEqPremium && (
+          <PremiumLockOverlay
+            title="Studio Equalizer"
+            description="Unlock live 10-band EQ, vocal and instrumental controls, bass, spatial sound, and studio spaces on every track."
+            onClose={() => setShowEqPremium(false)}
+          />
+        )}
         <OfflineIndicator />
       </div>
     </TabTransition>

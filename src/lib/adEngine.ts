@@ -79,6 +79,16 @@ export const loadAdCampaign = async (force = false): Promise<AdCampaign | null> 
   return inflight;
 };
 
+/**
+ * Returns the campaign snapshot selected for an ad break. Keeping one snapshot
+ * prevents an admin refresh from changing duration/skip rules halfway through
+ * an already-visible ad.
+ */
+export const getScheduledAdCampaign = (): AdCampaign | null => {
+  const campaign = cached;
+  return campaign && isLive(campaign) ? campaign : null;
+};
+
 /** Cached campaign for synchronous decisions (may be null before priming). */
 export const getAdCampaignSync = (): AdCampaign | null => cached;
 
@@ -120,7 +130,7 @@ export const noteSongCompleted = (): boolean => {
     writeCounter(0);
     return false;
   }
-  const campaign = cached;
+  const campaign = getScheduledAdCampaign();
   // Keep the cache warm for the next break even if we can't show one now.
   primeAdEngine();
   const next = readCounter() + 1;

@@ -17,6 +17,7 @@ import { toast } from 'sonner';
 import SupportChatModal from '@/components/SupportChatModal';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
 import EqualizerModal from '@/components/EqualizerModal';
+import PremiumLockOverlay from '@/components/PremiumLockOverlay';
 import { SettingsUpdateButton } from '@/components/SettingsUpdateButton';
 import ChangePasswordModal from '@/components/ChangePasswordModal';
 import DeleteAccountModal from '@/components/DeleteAccountModal';
@@ -531,8 +532,7 @@ const Settings = () => {
               chevron
               onClick={() => {
                 if (!isPremium) {
-                  toast.error('Equalizer is a Premium feature');
-                  navigate('/premium');
+                  setShowEqPremium(true);
                   return;
                 }
                 setShowEq(true);
@@ -701,6 +701,13 @@ const Settings = () => {
         <BottomNav />
         <SupportChatModal isOpen={showSupport} onClose={() => setShowSupport(false)} />
         {isPremium && <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />}
+        {showEqPremium && (
+          <PremiumLockOverlay
+            title="Studio Equalizer"
+            description="Premium unlocks instant presets, 10-band tuning, stems controls, bass, reverb, and spatial audio."
+            onClose={() => setShowEqPremium(false)}
+          />
+        )}
         <ChangePasswordModal isOpen={showPassword} onClose={() => setShowPassword(false)} />
         <DeleteAccountModal isOpen={showDelete} onClose={() => setShowDelete(false)} />
       </div>

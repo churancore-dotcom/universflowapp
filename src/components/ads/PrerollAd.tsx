@@ -4,7 +4,7 @@ import { Crown, SkipForward, ArrowUpRight, Zap, Download, Waves, Sparkle } from 
 import { useNavigate } from '@/lib/router-compat';
 import { usePremium } from '@/hooks/usePremium';
 import { iosSpring } from '@/lib/animations';
-import { loadAdCampaign, getAdCampaignSync, recordAdEvent, type AdCampaign } from '@/lib/adEngine';
+import { loadAdCampaign, getScheduledAdCampaign, recordAdEvent, type AdCampaign } from '@/lib/adEngine';
 
 interface PrerollAdProps {
   isOpen: boolean;
@@ -23,7 +23,7 @@ const PERKS = [
 const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: PrerollAdProps) {
   const { isPremium, isLoading } = usePremium();
   const navigate = useNavigate();
-  const [campaign, setCampaign] = useState<AdCampaign | null>(getAdCampaignSync());
+  const [campaign, setCampaign] = useState<AdCampaign | null>(getScheduledAdCampaign());
   const [elapsed, setElapsed] = useState(0);
   const [entitlementTimedOut, setEntitlementTimedOut] = useState(false);
   const viewLoggedFor = useRef<string | null>(null);
@@ -44,11 +44,18 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
     return () => window.clearTimeout(fallback);
   }, [isOpen, isLoading]);
 
-  // Keep the campaign fresh whenever the break opens.
+  // Use the exact campaign snapshot that scheduled this break. Refresh only
+  // when no campaign was primed; changing campaigns mid-ad changes duration
+  // and skip rules while the listener is watching.
   useEffect(() => {
     if (!isOpen || isPremium) return;
+    const scheduled = getScheduledAdCampaign();
+    if (scheduled) {
+      setCampaign(scheduled);
+      return;
+    }
     let alive = true;
-    void loadAdCampaign(true).then((c) => {
+    void loadAdCampaign().then((c) => {
       if (alive) setCampaign(c);
     });
     return () => {
