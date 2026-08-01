@@ -1864,8 +1864,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Handle song end and crossfade
   useEffect(() => {
-    const audio = audioRef.current;
+    // IMPORTANT: read from state first. A crossfade swaps audioRef with the
+    // standby element, so binding only to audioRef.current at mount time left
+    // every listener (timeupdate / ended / play / pause / error) attached to the
+    // element that had just been emptied — the new song then played with a dead
+    // progress bar and a play button that snapped back to "paused".
+    const audio = audioElement || audioRef.current;
     if (!audio) return;
+
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration || 0);
@@ -2214,7 +2220,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('error', handleAudioError);
       window.removeEventListener('uf-native-playback-failed', handleNativePlaybackFailed as EventListener);
     };
-  }, [queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, resolveNativePlaybackUrl, extendQueueWithMix, markNativePlayIntent, playbackSettingsVersion]);
+  }, [audioElement, queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, resolveNativePlaybackUrl, extendQueueWithMix, markNativePlayIntent, playbackSettingsVersion]);
 
   // ── Android: subscribe to ExoPlayer events and drive React state directly.
   useEffect(() => {
@@ -2537,11 +2543,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nextAudioRef.current = temp;
         setAudioElement(audioRef.current);
 
+        // The incoming element is now the primary player, so this is a brand new
+        // play request: reset the per-request guards. Without this the next
+        // `ended` was de-duped away and the following transition could never
+        // crossfade, which stalled the queue mid-session.
+        playRequestSeqRef.current += 1;
+        endedFiredForSeqRef.current = -1;
+        crossfadeAttemptedForSeqRef.current = -1;
+        wasPlayingRef.current = true;
+        setIsPlaying(true);
+
         // Update state
         setCurrentSong(nextSong);
+        currentSongRef.current = nextSong;
         setCurrentIndex(nextIdx);
         setProgress(0);
         setDuration(audioRef.current?.duration || 0);
+
 
           isCrossfading.current = false;
         }
