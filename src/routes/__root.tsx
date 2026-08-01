@@ -28,6 +28,7 @@ import { usePremium } from "@/hooks/usePremium";
 import { useUserEQSettingsSync } from "@/lib/eqSettings";
 import { useAutoEQ } from "@/hooks/useAutoEQ";
 import NotFound from "@/pages/NotFound";
+import PrerollAd from "@/components/ads/PrerollAd";
 
 // Lazy load non-critical components
 const ArtistPicker = lazy(() => import("@/components/ArtistPicker"));
@@ -38,7 +39,6 @@ const AnnouncementBanner = lazy(() => import("@/components/AnnouncementBanner"))
 const OfflineGate = lazy(() => import("@/components/OfflineGate"));
 const Toaster = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 const DownloadQueuePanel = lazy(() => import("@/components/DownloadQueuePanel"));
-const PrerollAd = lazy(() => import("@/components/ads/PrerollAd"));
 const PWAInstallBanner = lazy(() => import("@/components/PWAInstallBanner"));
 const StructuredData = lazy(() => import("@/components/StructuredData"));
 
@@ -205,14 +205,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 const PrerollAdWrapper = () => {
   const { showPrerollAd, onPrerollAdComplete, adType } = usePlayer();
   return (
-    <Suspense fallback={null}>
-      <PrerollAd
-        isOpen={showPrerollAd}
-        onComplete={onPrerollAdComplete}
-        onSkip={onPrerollAdComplete}
-        adType={adType}
-      />
-    </Suspense>
+    <PrerollAd
+      isOpen={showPrerollAd}
+      onComplete={onPrerollAdComplete}
+      onSkip={onPrerollAdComplete}
+      adType={adType}
+    />
   );
 };
 

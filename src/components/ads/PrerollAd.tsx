@@ -48,7 +48,7 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
   useEffect(() => {
     if (!isOpen || isPremium) return;
     let alive = true;
-    void loadAdCampaign().then((c) => {
+    void loadAdCampaign(true).then((c) => {
       if (alive) setCampaign(c);
     });
     return () => {
