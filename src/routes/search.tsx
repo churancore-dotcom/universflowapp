@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Search from "@/pages/Search";
-import { ListenerRoute } from "@/lib/route-guards";
+import { lazy, Suspense } from "react";
+import { ListenerRoute, LazyFallback } from "@/lib/route-guards";
+
+const SearchPage = lazy(() => import("@/pages/Search"));
 
 export const Route = createFileRoute("/search")({
   component: () => (
     <ListenerRoute>
-      <Search />
+      <Suspense fallback={<LazyFallback />}>
+        <SearchPage />
+      </Suspense>
     </ListenerRoute>
   ),
 });

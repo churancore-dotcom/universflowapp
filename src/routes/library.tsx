@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Library from "@/pages/Library";
-import { ListenerRoute } from "@/lib/route-guards";
+import { lazy, Suspense } from "react";
+import { ListenerRoute, LazyFallback } from "@/lib/route-guards";
+
+const LibraryPage = lazy(() => import("@/pages/Library"));
 
 export const Route = createFileRoute("/library")({
   component: () => (
     <ListenerRoute>
-      <Library />
+      <Suspense fallback={<LazyFallback />}>
+        <LibraryPage />
+      </Suspense>
     </ListenerRoute>
   ),
 });

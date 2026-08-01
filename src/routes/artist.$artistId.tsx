@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import ArtistDetail from "@/pages/ArtistDetail";
-import { ProtectedRoute } from "@/lib/route-guards";
+import { lazy, Suspense } from "react";
+import { ProtectedRoute, LazyFallback } from "@/lib/route-guards";
+
+const ArtistDetailPage = lazy(() => import("@/pages/ArtistDetail"));
 
 export const Route = createFileRoute("/artist/$artistId")({
   component: () => (
     <ProtectedRoute>
-      <ArtistDetail />
+      <Suspense fallback={<LazyFallback />}>
+        <ArtistDetailPage />
+      </Suspense>
     </ProtectedRoute>
   ),
 });
