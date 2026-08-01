@@ -72,7 +72,28 @@ export default function AdsManager() {
     const skipAfter = row.skippable
       ? Math.max(0, Math.min(duration, Math.round(row.skip_after_seconds || 0)))
       : 0;
-    const normalized = { ...row, duration_seconds: duration, songs_interval: interval, skip_after_seconds: skipAfter };
+    if (!row.name.trim() || !row.headline.trim() || !row.cta_label.trim()) {
+      toast.error('Name, headline, and button label are required');
+      return;
+    }
+    if (!row.cta_url.trim() || (!row.cta_url.startsWith('/') && !/^https?:\/\//i.test(row.cta_url))) {
+      toast.error('Button link must start with / or http:// or https://');
+      return;
+    }
+    if (row.starts_at && row.ends_at && new Date(row.ends_at) <= new Date(row.starts_at)) {
+      toast.error('End time must be after start time');
+      return;
+    }
+    const normalized = {
+      ...row,
+      name: row.name.trim(),
+      headline: row.headline.trim(),
+      cta_label: row.cta_label.trim(),
+      cta_url: row.cta_url.trim(),
+      duration_seconds: duration,
+      songs_interval: interval,
+      skip_after_seconds: skipAfter,
+    };
     patch(row.id, normalized);
     setSavingId(row.id);
     const { id, impression_count, skip_count, click_count, ...update } = normalized;
@@ -135,7 +156,12 @@ export default function AdsManager() {
     }
     const { data } = supabase.storage.from('covers').getPublicUrl(path);
     patch(row.id, { image_url: data.publicUrl });
-    await supabase.from('ad_campaigns').update({ image_url: data.publicUrl }).eq('id', row.id);
+    const { error: updateError } = await supabase.from('ad_campaigns').update({ image_url: data.publicUrl }).eq('id', row.id);
+    if (updateError) {
+      setUploadingId(null);
+      toast.error(updateError.message);
+      return;
+    }
     invalidateAdCampaign();
     setUploadingId(null);
     toast.success('Image updated');

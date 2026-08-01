@@ -13,6 +13,7 @@ import SocialShareModal from './SocialShareModal';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import EqualizerModal from './EqualizerModal';
+import PremiumLockOverlay from './PremiumLockOverlay';
 import QueueDrawer from './QueueDrawer';
 import FollowArtistButton from './FollowArtistButton';
 import type { Song } from '@/contexts/PlayerContext';
@@ -89,6 +90,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
   const [showEqualizer, setShowEqualizer] = useState(false);
+  const [showEqPremium, setShowEqPremium] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
   const [showLyrics, setShowLyrics] = useState(false);
   const [direction, setDirection] = useState(0);
@@ -104,8 +106,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const handleOpenEqualizer = useCallback(() => {
     triggerHaptic('selection');
     if (!isPremium) {
-      toast.error('Equalizer is a Premium feature');
-      navigate('/premium');
+      setShowEqPremium(true);
       return;
     }
     setShowEqualizer(true);
@@ -536,6 +537,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
       {showPlaylistModal && <AddToPlaylistModal isOpen={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} song={currentSong} onCreateNew={() => { setShowPlaylistModal(false); setShowCreatePlaylist(true); }} />}
       {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} initialSong={currentSong} onCreated={() => setShowCreatePlaylist(false)} />}
       {showEqualizer && isPremium && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
+      {showEqPremium && (
+        <PremiumLockOverlay
+          title="Studio Equalizer"
+          description="Unlock live EQ and vocal or instrumental control on every song, including background playback on Android."
+          onClose={() => setShowEqPremium(false)}
+        />
+      )}
       <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />
     </>
   );

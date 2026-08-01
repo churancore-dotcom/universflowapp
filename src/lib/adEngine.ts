@@ -68,8 +68,9 @@ export const loadAdCampaign = async (force = false): Promise<AdCampaign | null> 
       cached = live[0] ?? null;
       cachedAt = Date.now();
     } catch {
-      // Network/RLS failure must never break playback — just no ads.
-      cached = cached ?? null;
+      // Never keep serving a campaign whose active/schedule state can no longer
+      // be verified. A network/RLS failure means no ad, never stale ads.
+      cached = null;
       cachedAt = Date.now();
     } finally {
       inflight = null;
@@ -77,6 +78,17 @@ export const loadAdCampaign = async (force = false): Promise<AdCampaign | null> 
     return cached;
   })();
   return inflight;
+};
+
+/**
+ * Returns the campaign snapshot selected for an ad break. Keeping one snapshot
+ * prevents an admin refresh from changing duration/skip rules halfway through
+ * an already-visible ad.
+ */
+export const getScheduledAdCampaign = (): AdCampaign | null => {
+  if (Date.now() - cachedAt >= CACHE_TTL) return null;
+  const campaign = cached;
+  return campaign && isLive(campaign) ? campaign : null;
 };
 
 /** Cached campaign for synchronous decisions (may be null before priming). */
@@ -120,7 +132,7 @@ export const noteSongCompleted = (): boolean => {
     writeCounter(0);
     return false;
   }
-  const campaign = cached;
+  const campaign = getScheduledAdCampaign();
   // Keep the cache warm for the next break even if we can't show one now.
   primeAdEngine();
   const next = readCounter() + 1;
@@ -142,6 +154,6 @@ export type AdAction = 'view' | 'skip' | 'click' | 'complete';
 export const recordAdEvent = (campaignId: string, action: AdAction): void => {
   supabase.rpc('record_ad_event', { _campaign_id: campaignId, _action: action }).then(
     () => {},
-    () => {},
+    (error) => { if (import.meta.env.DEV) console.warn('[ads] event was not recorded', error); },
   );
 };

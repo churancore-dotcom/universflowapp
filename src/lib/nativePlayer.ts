@@ -232,7 +232,13 @@ export async function applyNativeAudioEffects(opts: {
   playbackSpeed: number;
 }): Promise<void> {
   if (!isNativePlayerAvailable()) return;
-  const info = await getNativeEQBands();
+  // Never block an audible EQ change on device-capability discovery. The
+  // native getEQBands call may wait for the playback service (up to 5s on a
+  // cold start), which previously made the first slider/preset change look
+  // dead. Apply the standard Android 5-band map immediately and warm the real
+  // band description in the background for subsequent changes.
+  const info = cachedNativeEQ?.available ? cachedNativeEQ : null;
+  if (!info) void getNativeEQBands();
   const usable = info?.available && info.numberOfBands > 0 ? info : null;
   const nativeBands = usable ? usable.bands : FALLBACK_NATIVE_BANDS;
   const minLevel = usable ? usable.minLevel : -1500;
