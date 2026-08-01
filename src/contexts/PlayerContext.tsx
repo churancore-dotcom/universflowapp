@@ -2543,11 +2543,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nextAudioRef.current = temp;
         setAudioElement(audioRef.current);
 
+        // The incoming element is now the primary player, so this is a brand new
+        // play request: reset the per-request guards. Without this the next
+        // `ended` was de-duped away and the following transition could never
+        // crossfade, which stalled the queue mid-session.
+        playRequestSeqRef.current += 1;
+        endedFiredForSeqRef.current = -1;
+        crossfadeAttemptedForSeqRef.current = -1;
+        wasPlayingRef.current = true;
+        setIsPlaying(true);
+
         // Update state
         setCurrentSong(nextSong);
+        currentSongRef.current = nextSong;
         setCurrentIndex(nextIdx);
         setProgress(0);
         setDuration(audioRef.current?.duration || 0);
+
 
           isCrossfading.current = false;
         }
