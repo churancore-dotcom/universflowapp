@@ -244,13 +244,13 @@ class ExoPlayerService : MediaSessionService() {
 
     /** (Re)bind AudioEffects to the current player's session id. */
     @Synchronized
-    fun ensureEffectsBound() {
+    fun ensureEffectsBound(forceReapply: Boolean = false) {
         val sid = player?.audioSessionId ?: return
         if (sid == C.AUDIO_SESSION_ID_UNSET || sid == 0) return
         // Optional AudioEffect implementations vary by manufacturer. Do not
         // repeatedly tear down the working EQ just because (for example) a
         // device does not implement Virtualizer or LoudnessEnhancer.
-        if (sid == boundSessionId) return
+        if (sid == boundSessionId && !forceReapply) return
 
         releaseEffects()
         try {

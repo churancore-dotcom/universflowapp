@@ -4,6 +4,7 @@ import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
 import {
   isNativePlayerAvailable,
+  applyNativeAudioEffects,
   pushNativeEQFromWebBands,
   setNativeBassBoost,
   setNativeEQEnabled,
@@ -99,14 +100,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // The old tonal EQ "simulation" stacked on top of it and made isolated
       // vocals sound hollow/phasey, so the stem curve is gone — the processor
       // is the single source of truth.
-      await setNativeStemMix(s.vocalMix ?? 100, s.instrumentalMix ?? 100);
-      if (revision !== nativeApplyRevision) return;
       const nativeOffsets = space.eqMb;
-
-      // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
-      // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
-      await pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, nativeOffsets);
-      if (revision !== nativeApplyRevision) return;
 
       // Bass boost: user slider OR space profile — whichever is stronger.
       const userBass = Math.round((s.bassBoost / 100) * 1000);
@@ -114,16 +108,26 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // that was inaudible on phone speakers. Combine with space loudness.
       const lateNightMb = s.lateNight ? 1400 : 0;
       const stemMakeupMb = Math.round(Math.max(vocalCut, instrumentalCut) * 450);
-      await Promise.all([
-        setNativeBassBoost(Math.max(userBass, space.bass)),
-        setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud, stemMakeupMb)),
-        setNativeReverb(s.reverb),
-        setNativePlaybackSpeed(s.playbackSpeed),
-      ]);
-      if (revision !== nativeApplyRevision) return;
-
       // Virtualizer: headphone surround / space width baseline.
       const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);
+
+      // One native bridge call applies one coherent snapshot. The previous
+      // sequence of 6–8 calls could be overtaken by a newer slider event and
+      // leave a mixture of old/new values on the audio session.
+      await applyNativeAudioEffects({
+        enabled: true,
+        webBands: s.bands,
+        webFrequenciesHz: WEB_BAND_FREQS_HZ,
+        nativeOffsetsMb: nativeOffsets,
+        bassStrength: Math.max(userBass, space.bass),
+        virtualizerStrength: s.spatialAudio ? Math.max(800, baseVirt) : baseVirt,
+        loudnessGainMb: Math.max(lateNightMb, space.loud, stemMakeupMb),
+        reverbAmount: s.reverb,
+        vocalMix: s.vocalMix ?? 100,
+        instrumentalMix: s.instrumentalMix ?? 100,
+        playbackSpeed: s.playbackSpeed,
+      });
+      if (revision !== nativeApplyRevision) return;
 
       // 8D: oscillating virtualizer strength gives perceptible stereo movement
       // on APK (the WebAudio pan LFO can't drive ExoPlayer's audio session).
