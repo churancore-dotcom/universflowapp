@@ -5,12 +5,6 @@ import { getRuntimePremium } from '@/lib/premiumState';
 import {
   isNativePlayerAvailable,
   applyNativeAudioEffects,
-  setNativeBassBoost,
-  setNativeEQEnabled,
-  setNativeLoudnessEnhancer,
-  setNativePlaybackSpeed,
-  setNativeReverb,
-  setNativeStemMix,
   setNativeVirtualizer,
 } from '@/lib/nativePlayer';
 // nativeMirror removed — on Android, ExoPlayer always owns audio when available.
