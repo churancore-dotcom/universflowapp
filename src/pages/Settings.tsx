@@ -159,6 +159,7 @@ const Settings = () => {
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
   const [showEq, setShowEq] = useState(false);
+  const [showEqPremium, setShowEqPremium] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [isPrivate, setIsPrivate] = useState(false);
