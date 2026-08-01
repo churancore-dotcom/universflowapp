@@ -5,7 +5,6 @@ import { getRuntimePremium } from '@/lib/premiumState';
 import {
   isNativePlayerAvailable,
   applyNativeAudioEffects,
-  pushNativeEQFromWebBands,
   setNativeBassBoost,
   setNativeEQEnabled,
   setNativeLoudnessEnhancer,
@@ -86,11 +85,18 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (!isNativePlayerAvailable()) return;
       if (!getRuntimePremium() || !hasWebAudioEffects(s)) {
         stop8D();
-        await Promise.all([
-          setNativeEQEnabled(false), setNativeBassBoost(0), setNativeVirtualizer(0),
-          setNativeLoudnessEnhancer(0), setNativeReverb(0), setNativeStemMix(100, 100),
-          setNativePlaybackSpeed(s.playbackSpeed),
-        ]);
+        await applyNativeAudioEffects({
+          enabled: false,
+          webBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          webFrequenciesHz: WEB_BAND_FREQS_HZ,
+          bassStrength: 0,
+          virtualizerStrength: 0,
+          loudnessGainMb: 0,
+          reverbAmount: 0,
+          vocalMix: 100,
+          instrumentalMix: 100,
+          playbackSpeed: s.playbackSpeed,
+        });
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;

@@ -436,7 +436,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                         type="button"
                         onClick={() => applyStemMode(mode)}
                         className={cn(
-                          'flex h-[104px] flex-col items-center justify-center gap-2 rounded-3xl border px-2 text-center transition active:scale-95',
+                          'flex h-[88px] flex-col items-center justify-center gap-1.5 rounded-md border px-2 text-center transition active:scale-95',
                           selected
                             ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border/60 bg-secondary/50 text-foreground',
@@ -473,7 +473,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   onChange={(value) => setEQSettings({ instrumentalMix: value, activePreset: 'custom' })}
                 />
 
-                <p className="rounded-2xl bg-secondary/40 px-4 py-3 text-[11px] leading-relaxed text-muted-foreground">
+                <p className="border-l-2 border-primary bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
                   Isolation is instant and works on every stereo track. Studio-produced songs separate the
                   cleanest; heavily mono or live recordings keep more bleed.
                 </p>
@@ -483,7 +483,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
             {view === 'manual' && (
               <div className="space-y-4">
                 <SectionLabel title="10-band EQ" value="±12 dB" />
-                <div className="rounded-3xl border border-border/60 bg-secondary/40 p-4">
+                <div className="rounded-md border border-border/60 bg-secondary/40 p-4">
                   <div className="mb-2 grid grid-cols-10 gap-1 text-center text-[9px] font-semibold text-primary">
                     {bands.map((band) => (
                       <span key={band.frequency}>{band.gain > 0 ? '+' : ''}{band.gain}</span>
@@ -512,14 +512,14 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    className="h-12 rounded-2xl border border-border/60 bg-secondary/50 text-sm font-semibold text-foreground transition active:scale-95"
+                    className="h-11 rounded-md border border-border/60 bg-secondary/50 text-sm font-semibold text-foreground transition active:scale-95"
                     onClick={() => setEQSettings({ bands: BAND_DEFS.map(() => 0), bassBoost: 0, activePreset: 'custom' })}
                   >
                     Flatten
                   </button>
                   <button
                     type="button"
-                    className="h-12 rounded-2xl bg-primary text-sm font-semibold text-primary-foreground transition active:scale-95"
+                    className="h-11 rounded-md bg-primary text-sm font-semibold text-primary-foreground transition active:scale-95"
                     onClick={() => {
                       const autoPreset = PRESETS.find((preset) => preset.id === 'auto');
                       if (autoPreset) applyPreset(autoPreset);
@@ -544,7 +544,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                         type="button"
                         onClick={() => setEQSettings({ studioSpace: space.id, activePreset: 'custom' })}
                         className={cn(
-                          'flex h-[68px] items-center gap-3 rounded-2xl border px-3 text-left transition active:scale-95',
+                          'flex h-[60px] items-center gap-3 rounded-md border px-3 text-left transition active:scale-95',
                           selected
                             ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border/60 bg-secondary/50 text-foreground',
@@ -613,7 +613,7 @@ interface ControlSliderProps {
 }
 
 const ControlSlider = memo(({ icon: Icon, label, value, min, max, step, display, onChange }: ControlSliderProps) => (
-  <div className="rounded-3xl border border-border/60 bg-secondary/40 p-4">
+  <div className="rounded-md border border-border/60 bg-secondary/40 p-4">
     <div className="mb-3 flex items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-primary" />
@@ -643,9 +643,9 @@ interface ToggleRowProps {
 }
 
 const ToggleRow = memo(({ icon: Icon, label, desc, checked, onCheckedChange }: ToggleRowProps) => (
-  <div className="flex items-center justify-between gap-4 rounded-3xl border border-border/60 bg-secondary/40 p-4">
+  <div className="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-secondary/40 p-4">
     <div className="flex min-w-0 items-center gap-3">
-      <div className={cn('grid h-11 w-11 shrink-0 place-items-center rounded-2xl', checked ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+      <div className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-md', checked ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
