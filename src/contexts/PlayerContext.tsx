@@ -2447,6 +2447,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Crossfade implementation
   const startCrossfade = useCallback((transitionSeconds = crossfadeDuration) => {
     if (isNativePlayerAvailable()) return;
+    // The global WebAudio graph is permanently bound to the primary element.
+    // Crossfading through the standby element would make the incoming song play
+    // outside the EQ/stems chain until the swap completes. Keep one continuous,
+    // processed element whenever an effect is active so every sample uses the
+    // same graph and a track transition can never silently reset the sound.
+    if (hasWebAudioEffects(getEQSettings())) return;
     if (!audioRef.current || !nextAudioRef.current || isCrossfading.current) return;
     if (crossfadeAttemptedForSeqRef.current === playRequestSeqRef.current) return;
     crossfadeAttemptedForSeqRef.current = playRequestSeqRef.current;

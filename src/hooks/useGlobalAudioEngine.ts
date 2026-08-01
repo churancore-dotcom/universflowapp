@@ -18,7 +18,7 @@ import {
 // Web EQ band center frequencies — must mirror BAND_DEFS in audioEngine.ts.
 const WEB_BAND_FREQS_HZ = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
-const RETRY_DELAYS_MS = [0, 50, 140, 320, 700];
+const RETRY_DELAYS_MS = [0, 40, 120, 280, 600];
 
 
 /**
@@ -226,11 +226,14 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
     //   - reapplyTimer: small delay (30ms) — used for media-readiness bursts
     //     (loadstart + loadedmetadata + canplay fire in quick succession).
     const reapplyNow = () => {
-      if (reapplyFrame != null) return;
-      reapplyFrame = window.requestAnimationFrame(() => {
+      // Apply synchronously. AudioParam smoothing already prevents clicks, and
+      // waiting for requestAnimationFrame made controls feel delayed while the
+      // modal or WebView was under load/background throttling.
+      if (reapplyFrame != null) {
+        window.cancelAnimationFrame(reapplyFrame);
         reapplyFrame = null;
-        doReapply();
-      });
+      }
+      doReapply();
     };
     const reapply = (delay = 30) => {
       if (delay === 0) { reapplyNow(); return; }
@@ -258,8 +261,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (document.visibilityState !== 'hidden' && isAttached) resume();
     };
 
-    // User toggled EQ in modal — apply on the very next frame. The graph is
-    // already attached, so this is just AudioParam.setTargetAtTime() calls.
+    // User toggled EQ in modal — apply in the same event turn. The graph is
+    // already attached, so this is only a set of AudioParam updates.
     const onEqChanged = () => {
       reapplyNow();
       scheduleRecoveryBurst();
