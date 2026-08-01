@@ -2,11 +2,12 @@ import { useState, useEffect, useRef, memo, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Headphones, Search, Library, User } from 'lucide-react';
 import { useLocation, useNavigate } from '@/lib/router-compat';
+import { useRouter } from '@tanstack/react-router';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 
 const navItems = [
-  { icon: Headphones, label: 'Listen', path: '/home' },
+  { icon: Headphones, label: 'Listen', path: '/' },
   { icon: Search, label: 'Search', path: '/search' },
   { icon: Library, label: 'Library', path: '/library' },
   { icon: User, label: 'Profile', path: '/profile' },
@@ -15,6 +16,7 @@ const navItems = [
 const BottomNav = memo(function BottomNav() {
   const location = useLocation();
   const navigate = useNavigate();
+  const router = useRouter();
   const { currentSong } = usePlayer();
   const [isVisible, setIsVisible] = useState(true);
   const lastScrollY = useRef(0);
@@ -44,10 +46,24 @@ const BottomNav = memo(function BottomNav() {
     };
   }, []);
 
+  useEffect(() => {
+    const warmRoutes = () => navItems.forEach((item) => { void router.preloadRoute({ to: item.path }); });
+    const idleWindow = window as Window & {
+      requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      cancelIdleCallback?: (id: number) => void;
+    };
+    if (idleWindow.requestIdleCallback) {
+      const id = idleWindow.requestIdleCallback(warmRoutes, { timeout: 1800 });
+      return () => idleWindow.cancelIdleCallback?.(id);
+    }
+    const id = window.setTimeout(warmRoutes, 400);
+    return () => window.clearTimeout(id);
+  }, [router]);
+
   const activeIndex = navItems.findIndex((item) => {
     const path = location.pathname;
     const isHome = path === '/' || path === '/index' || path === '/home';
-    return item.path === '/home' ? isHome : path === item.path || path.startsWith(item.path + '/');
+    return item.path === '/' ? isHome : path === item.path || path.startsWith(item.path + '/');
   });
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent, idx: number) => {
@@ -105,7 +121,7 @@ const BottomNav = memo(function BottomNav() {
           {navItems.map((item, idx) => {
             const path = location.pathname;
             const isHomeRoute = path === '/' || path === '/index' || path === '/home';
-            const isActive = item.path === '/home' ? isHomeRoute : path === item.path || path.startsWith(item.path + '/');
+            const isActive = item.path === '/' ? isHomeRoute : path === item.path || path.startsWith(item.path + '/');
             const Icon = item.icon;
 
             return (
@@ -123,6 +139,8 @@ const BottomNav = memo(function BottomNav() {
                   navigate(item.path);
                 }}
                 onKeyDown={(e) => handleKeyDown(e, idx)}
+                onPointerEnter={() => { void router.preloadRoute({ to: item.path }); }}
+                onFocus={() => { void router.preloadRoute({ to: item.path }); }}
                 whileTap={{ scale: 0.9 }}
                 className="relative flex items-center justify-center h-11 min-w-11 rounded-full shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-black/60"
                 animate={{

@@ -12,7 +12,6 @@ import { AnimatePresence } from "framer-motion";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
-import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { PlayerProvider, usePlayer } from "@/contexts/PlayerContext";
@@ -21,13 +20,6 @@ import { NavDirectionProvider } from "@/components/PageTransition";
 import { SentryErrorBoundary } from "@/components/SentryErrorBoundary";
 import SplashScreen from "@/components/SplashScreen";
 import MobileShell from "@/components/MobileShell";
-import ArtistPicker from "@/components/ArtistPicker";
-import RateUsPopup from "@/components/RateUsPopup";
-import ReviewModal from "@/components/ReviewModal";
-import GlobalPlayerLayer from "@/components/GlobalPlayerLayer";
-import AnnouncementBanner from "@/components/AnnouncementBanner";
-import OfflineGate from "@/components/OfflineGate";
-import NotFound from "@/pages/NotFound";
 import { supabase } from "@/integrations/supabase/client";
 import { getArtistDestination, hasArtistSignupIntent } from "@/lib/artistRouting";
 import { usePushRegistration } from "@/hooks/usePushRegistration";
@@ -35,15 +27,21 @@ import { usePlaybackSync } from "@/hooks/usePlaybackSync";
 import { usePremium } from "@/hooks/usePremium";
 import { useUserEQSettingsSync } from "@/lib/eqSettings";
 import { useAutoEQ } from "@/hooks/useAutoEQ";
+import NotFound from "@/pages/NotFound";
+import PrerollAd from "@/components/ads/PrerollAd";
 
+// Lazy load non-critical components
+const ArtistPicker = lazy(() => import("@/components/ArtistPicker"));
+const RateUsPopup = lazy(() => import("@/components/RateUsPopup"));
+const ReviewModal = lazy(() => import("@/components/ReviewModal"));
+const GlobalPlayerLayer = lazy(() => import("@/components/GlobalPlayerLayer"));
+const AnnouncementBanner = lazy(() => import("@/components/AnnouncementBanner"));
+const OfflineGate = lazy(() => import("@/components/OfflineGate"));
+const Toaster = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 const DownloadQueuePanel = lazy(() => import("@/components/DownloadQueuePanel"));
-const PrerollAd = lazy(() => import("@/components/ads/PrerollAd"));
 const PWAInstallBanner = lazy(() => import("@/components/PWAInstallBanner"));
 const StructuredData = lazy(() => import("@/components/StructuredData"));
 
-// ported from main.tsx — browser-only init (theme boot, Median/Capacitor
-// detection, Sentry, language + haptics prefs, build info). Dynamic imports
-// behind a window guard keep SSR/prerender from evaluating browser globals.
 if (typeof window !== "undefined") {
   void import("@/lib/themeBoot");
   void import("@/lib/median");
@@ -169,7 +167,6 @@ function RootShell({ children }: { children: React.ReactNode }) {
       <head>
         <HeadContent />
       </head>
-      {/* themeBoot sets body background before hydration to avoid a flash */}
       <body suppressHydrationWarning>
         {children}
         <Scripts />
@@ -208,14 +205,12 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 const PrerollAdWrapper = () => {
   const { showPrerollAd, onPrerollAdComplete, adType } = usePlayer();
   return (
-    <Suspense fallback={null}>
-      <PrerollAd
-        isOpen={showPrerollAd}
-        onComplete={onPrerollAdComplete}
-        onSkip={onPrerollAdComplete}
-        adType={adType}
-      />
-    </Suspense>
+    <PrerollAd
+      isOpen={showPrerollAd}
+      onComplete={onPrerollAdComplete}
+      onSkip={onPrerollAdComplete}
+      adType={adType}
+    />
   );
 };
 
@@ -225,9 +220,6 @@ const PostAuthGate = () => {
   const [showReview, setShowReview] = useState(false);
   const [artistFlow, setArtistFlow] = useState(false);
 
-  // Open artist picker ONLY immediately after signup (not on every login),
-  // and ONLY once the user's email is verified — otherwise unverified accounts
-  // were getting the picker over the /check-email screen.
   useEffect(() => {
     if (!user) return;
     if (emailVerified !== true) return;
@@ -252,7 +244,6 @@ const PostAuthGate = () => {
         return;
       }
 
-      // Double-check DB to avoid showing twice across devices
       supabase.from('user_artist_preferences').select('id').eq('user_id', user.id).limit(1)
         .then(({ data }) => {
           if (data && data.length > 0) {
@@ -274,13 +265,13 @@ const PostAuthGate = () => {
   if (!user) return null;
   if (artistFlow) return null;
   return (
-    <>
+    <Suspense fallback={null}>
       <AnimatePresence>
         {showPicker && <ArtistPicker key="picker" onComplete={handlePickerComplete} />}
       </AnimatePresence>
       {!showPicker && <RateUsPopup onOpenReview={() => setShowReview(true)} />}
       <ReviewModal isOpen={showReview} onClose={() => setShowReview(false)} />
-    </>
+    </Suspense>
   );
 };
 
@@ -301,14 +292,18 @@ const AppContent = () => {
       <Suspense fallback={null}>
         <StructuredData />
       </Suspense>
-      <Toaster />
+      <Suspense fallback={null}>
+        <Toaster />
+      </Suspense>
       <AnimatePresence mode="popLayout" initial={false}>
         {showSplash ? (
           <SplashScreen key="splash" onComplete={handleSplashComplete} />
         ) : (
           <div key="routes" style={{ display: 'contents' }}>
             <NavDirectionProvider>
-              <OfflineGate />
+              <Suspense fallback={null}>
+                <OfflineGate />
+              </Suspense>
               <Suspense fallback={<LazyFallback />}>
                 <main id="main-content" style={{ display: 'contents' }}>
                   <Outlet />
@@ -321,11 +316,15 @@ const AppContent = () => {
 
       <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+10px)] z-[60] pointer-events-none">
         <div className="mx-auto max-w-md pointer-events-auto">
-          <AnnouncementBanner />
+          <Suspense fallback={null}>
+            <AnnouncementBanner />
+          </Suspense>
         </div>
       </div>
       <PrerollAdWrapper />
-      <GlobalPlayerLayer />
+      <Suspense fallback={null}>
+        <GlobalPlayerLayer />
+      </Suspense>
 
       <PostAuthGate />
       <Suspense fallback={null}>

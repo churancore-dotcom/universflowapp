@@ -51,7 +51,10 @@ const isLive = (c: AdCampaign): boolean => {
 /** Fetches (and caches) the highest-priority live campaign. */
 export const loadAdCampaign = async (force = false): Promise<AdCampaign | null> => {
   if (!force && cached && Date.now() - cachedAt < CACHE_TTL) return cached;
-  if (inflight) return inflight;
+  if (inflight) {
+    if (!force) return inflight;
+    await inflight;
+  }
   inflight = (async () => {
     try {
       const { data, error } = await supabase

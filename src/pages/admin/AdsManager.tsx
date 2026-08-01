@@ -67,8 +67,15 @@ export default function AdsManager() {
     setRows((prev) => prev.map((r) => (r.id === id ? { ...r, ...changes } : r)));
 
   const save = async (row: Campaign) => {
+    const duration = Math.max(3, Math.min(60, Math.round(row.duration_seconds || 8)));
+    const interval = Math.max(1, Math.min(50, Math.round(row.songs_interval || 3)));
+    const skipAfter = row.skippable
+      ? Math.max(0, Math.min(duration, Math.round(row.skip_after_seconds || 0)))
+      : 0;
+    const normalized = { ...row, duration_seconds: duration, songs_interval: interval, skip_after_seconds: skipAfter };
+    patch(row.id, normalized);
     setSavingId(row.id);
-    const { id, impression_count, skip_count, click_count, ...update } = row;
+    const { id, impression_count, skip_count, click_count, ...update } = normalized;
     const { error } = await supabase.from('ad_campaigns').update(update).eq('id', id);
     setSavingId(null);
     if (error) {

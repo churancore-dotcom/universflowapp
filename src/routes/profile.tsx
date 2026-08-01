@@ -1,11 +1,15 @@
 import { createFileRoute } from "@tanstack/react-router";
-import Profile from "@/pages/Profile";
-import { ListenerRoute } from "@/lib/route-guards";
+import { lazy, Suspense } from "react";
+import { ProtectedRoute, LazyFallback } from "@/lib/route-guards";
+
+const ProfilePage = lazy(() => import("@/pages/Profile"));
 
 export const Route = createFileRoute("/profile")({
   component: () => (
-    <ListenerRoute>
-      <Profile />
-    </ListenerRoute>
+    <ProtectedRoute>
+      <Suspense fallback={<LazyFallback />}>
+        <ProfilePage />
+      </Suspense>
+    </ProtectedRoute>
   ),
 });

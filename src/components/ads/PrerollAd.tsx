@@ -25,6 +25,7 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
   const navigate = useNavigate();
   const [campaign, setCampaign] = useState<AdCampaign | null>(getAdCampaignSync());
   const [elapsed, setElapsed] = useState(0);
+  const [entitlementTimedOut, setEntitlementTimedOut] = useState(false);
   const viewLoggedFor = useRef<string | null>(null);
 
   const duration = campaign?.duration_seconds ?? 8;
@@ -32,12 +33,22 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
   const progress = Math.min(100, (elapsed / Math.max(1, duration)) * 100);
   const canSkip =
     !!campaign?.skippable && elapsed >= Math.max(0, campaign.skip_after_seconds ?? 0);
+  const entitlementPending = isLoading && !entitlementTimedOut;
+
+  useEffect(() => {
+    if (!isOpen || !isLoading) {
+      setEntitlementTimedOut(false);
+      return;
+    }
+    const fallback = window.setTimeout(() => setEntitlementTimedOut(true), 1500);
+    return () => window.clearTimeout(fallback);
+  }, [isOpen, isLoading]);
 
   // Keep the campaign fresh whenever the break opens.
   useEffect(() => {
     if (!isOpen || isPremium) return;
     let alive = true;
-    void loadAdCampaign().then((c) => {
+    void loadAdCampaign(true).then((c) => {
       if (alive) setCampaign(c);
     });
     return () => {
@@ -55,9 +66,10 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
       onComplete();
       return;
     }
+    if (entitlementPending) return;
     const timer = window.setInterval(() => setElapsed((v) => v + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [isOpen, isPremium, isLoading, onComplete]);
+  }, [isOpen, isPremium, isLoading, entitlementPending, onComplete]);
 
   useEffect(() => {
     if (!isOpen || !campaign || viewLoggedFor.current === campaign.id) return;
@@ -92,7 +104,7 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
     }
   }, [campaign, navigate, onSkip, onComplete]);
 
-  if (isPremium || isLoading) return null;
+  if (isPremium || entitlementPending) return null;
 
   const isBrand = campaign?.kind === 'brand';
   const headline = campaign?.headline ?? 'Music without limits';

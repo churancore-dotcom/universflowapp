@@ -47,6 +47,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
     let reapplyTimer: number | null = null;
     let reapplyFrame: number | null = null;
     let retryTimers: number[] = [];
+    let nativeApplyRevision = 0;
+    let nativeApplyChain: Promise<void> = Promise.resolve();
     // Once we've attached WebAudio for this element, we can't detach — the
     // MediaElementSource permanently routes audio through the graph. We just
     // keep re-pushing settings on every src/play change.
@@ -78,16 +80,16 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (native8DTimer != null) { window.clearInterval(native8DTimer); native8DTimer = null; }
     };
 
-    const pushNative = (s: ReturnType<typeof getEQSettings>) => {
+    const applyNativeSnapshot = async (s: ReturnType<typeof getEQSettings>, revision: number) => {
+      if (revision !== nativeApplyRevision) return;
       if (!isNativePlayerAvailable()) return;
       if (!getRuntimePremium() || !hasWebAudioEffects(s)) {
         stop8D();
-        setNativeEQEnabled(false);
-        setNativeBassBoost(0);
-        setNativeVirtualizer(0);
-        setNativeLoudnessEnhancer(0);
-        setNativeReverb(0);
-        setNativeStemMix(100, 100);
+        await Promise.all([
+          setNativeEQEnabled(false), setNativeBassBoost(0), setNativeVirtualizer(0),
+          setNativeLoudnessEnhancer(0), setNativeReverb(0), setNativeStemMix(100, 100),
+          setNativePlaybackSpeed(s.playbackSpeed),
+        ]);
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
@@ -97,26 +99,28 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // The old tonal EQ "simulation" stacked on top of it and made isolated
       // vocals sound hollow/phasey, so the stem curve is gone — the processor
       // is the single source of truth.
-      setNativeStemMix(s.vocalMix ?? 100, s.instrumentalMix ?? 100);
+      await setNativeStemMix(s.vocalMix ?? 100, s.instrumentalMix ?? 100);
+      if (revision !== nativeApplyRevision) return;
       const nativeOffsets = space.eqMb;
 
       // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
       // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
-      pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, nativeOffsets);
+      await pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, nativeOffsets);
+      if (revision !== nativeApplyRevision) return;
 
       // Bass boost: user slider OR space profile — whichever is stronger.
       const userBass = Math.round((s.bassBoost / 100) * 1000);
-      setNativeBassBoost(Math.max(userBass, space.bass));
-
       // Late Night: real +14 dB loudness compression makeup, not the old +6 dB
       // that was inaudible on phone speakers. Combine with space loudness.
       const lateNightMb = s.lateNight ? 1400 : 0;
       const stemMakeupMb = Math.round(Math.max(vocalCut, instrumentalCut) * 450);
-      setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud, stemMakeupMb));
-
-      // Android ExoPlayer cannot hear the WebAudio convolver. Attach a native
-      // EnvironmentalReverb as an aux effect so the Reverb control is real.
-      setNativeReverb(s.reverb);
+      await Promise.all([
+        setNativeBassBoost(Math.max(userBass, space.bass)),
+        setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud, stemMakeupMb)),
+        setNativeReverb(s.reverb),
+        setNativePlaybackSpeed(s.playbackSpeed),
+      ]);
+      if (revision !== nativeApplyRevision) return;
 
       // Virtualizer: headphone surround / space width baseline.
       const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);
@@ -143,6 +147,14 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       }
     };
 
+    const pushNative = (s: ReturnType<typeof getEQSettings>) => {
+      if (!isNativePlayerAvailable()) return;
+      const revision = ++nativeApplyRevision;
+      nativeApplyChain = nativeApplyChain
+        .catch(() => undefined)
+        .then(() => applyNativeSnapshot(s, revision));
+    };
+
 
     const doReapply = () => {
       const s = getEQSettings();
@@ -153,7 +165,6 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // Always push the native AudioEffect chain on Android — that path is
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.
       pushNative(s);
-      setNativePlaybackSpeed(s.playbackSpeed);
 
       const needsWebAudio = getRuntimePremium() && hasWebAudioEffects(s);
 
