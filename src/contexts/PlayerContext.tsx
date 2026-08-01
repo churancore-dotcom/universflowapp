@@ -469,7 +469,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
   const [showPrerollAd, setShowPrerollAd] = useState(false);
   const [adType, setAdType] = useState<'start' | 'end'>('start');
-  const [pendingSong, setPendingSong] = useState<{ song: Song; offlineUrl?: string | null; songsQueue?: Song[] } | null>(null);
+  const [pendingSong, setPendingSong] = useState<{ song: Song; offlineUrl?: string | null; songsQueue?: Song[]; requestSeq: number } | null>(null);
   const [playbackSettingsVersion, setPlaybackSettingsVersion] = useState(0);
 
   // Warm the ad campaign cache once so an ad break never delays playback.
@@ -1918,7 +1918,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             try { audio.pause(); } catch { /* noop */ }
             wasPlayingRef.current = false;
             setIsPlaying(false);
-            setPendingSong({ song: nextTrack, offlineUrl: null, songsQueue: activeQueue });
+            setPendingSong({ song: nextTrack, offlineUrl: null, songsQueue: activeQueue, requestSeq: playRequestSeqRef.current });
             setAdType('end');
             setShowPrerollAd(true);
             return;
@@ -2846,6 +2846,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium
     // checks must never block the audio pipeline.
+    setShowPrerollAd(false);
+    setPendingSong(null);
     playActualSong(song, offlineUrl, songsQueue);
   }, [playActualSong]);
 
@@ -2867,10 +2869,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const onPrerollAdComplete = useCallback(() => {
     setShowPrerollAd(false);
-    if (pendingSong) {
+    if (pendingSong && pendingSong.requestSeq === playRequestSeqRef.current) {
       playActualSong(pendingSong.song, pendingSong.offlineUrl, pendingSong.songsQueue);
-      setPendingSong(null);
     }
+    setPendingSong(null);
   }, [pendingSong, playActualSong]);
 
   // NOTE: isPlaying is the single source of truth shared by MiniPlayer +
