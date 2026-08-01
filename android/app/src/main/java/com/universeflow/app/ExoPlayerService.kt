@@ -250,7 +250,10 @@ class ExoPlayerService : MediaSessionService() {
         // Optional AudioEffect implementations vary by manufacturer. Do not
         // repeatedly tear down the working EQ just because (for example) a
         // device does not implement Virtualizer or LoudnessEnhancer.
-        if (sid == boundSessionId && !forceReapply) return
+        if (sid == boundSessionId) {
+            if (forceReapply) applySavedEffectsToBoundSession()
+            return
+        }
 
         releaseEffects()
         try {
@@ -302,6 +305,30 @@ class ExoPlayerService : MediaSessionService() {
             }
         } catch (_: Throwable) { environmentalReverb = null }
         boundSessionId = sid
+    }
+
+    private fun applySavedEffectsToBoundSession() {
+        try {
+            equalizer?.let { effect ->
+                effect.enabled = eqEnabled
+                val range = effect.bandLevelRange
+                for ((band, level) in savedEqBands) {
+                    try { effect.setBandLevel(band, level.toInt().coerceIn(range[0].toInt(), range[1].toInt()).toShort()) } catch (_: Throwable) {}
+                }
+            }
+            bassBoost?.let { effect ->
+                effect.enabled = savedBassBoostStrength > 0
+                if (effect.enabled && effect.strengthSupported) effect.setStrength(savedBassBoostStrength)
+            }
+            virtualizer?.let { effect ->
+                effect.enabled = savedVirtualizerStrength > 0
+                if (effect.enabled && effect.strengthSupported) effect.setStrength(savedVirtualizerStrength)
+            }
+            loudnessEnhancer?.let { effect ->
+                effect.enabled = savedLoudnessGainMb > 0
+                if (effect.enabled) effect.setTargetGain(savedLoudnessGainMb)
+            }
+        } catch (_: Throwable) {}
     }
 
     fun applyReverb(amount: Int) {

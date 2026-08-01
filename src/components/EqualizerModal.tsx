@@ -3,7 +3,6 @@ import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   AudioLines,
-  BadgeCheck,
   Building2,
   Car,
   Church,
@@ -130,8 +129,6 @@ const VIEWS: Array<{ id: EqView; label: string; icon: ComponentType<{ className?
   { id: 'manual', label: 'Bands', icon: SlidersHorizontal },
   { id: 'space', label: 'Space', icon: Waves },
 ];
-
-const SPECTRUM_BARS = Array.from({ length: 22 }, (_, i) => i);
 
 const NEUTRAL_PATCH: Partial<EQSettings> = {
   bands: BAND_DEFS.map(() => 0),
@@ -287,41 +284,26 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
           role="dialog"
           aria-modal="true"
           aria-label="Univers Flow Equalizer"
-          className="relative mx-auto mb-0 flex max-h-[94dvh] w-full max-w-[520px] flex-col overflow-hidden rounded-t-[32px] border border-b-0 border-border/60 bg-card shadow-2xl sm:mb-4 sm:rounded-[32px] sm:border-b"
+          className="relative mx-auto flex h-[100dvh] w-full max-w-[520px] flex-col overflow-hidden border-x border-border bg-background sm:my-3 sm:h-[calc(100dvh-1.5rem)] sm:rounded-lg sm:border"
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}
           transition={iosSpring}
         >
           {/* ---------- Header ---------- */}
-          <header className="relative overflow-hidden px-5 pb-5 pt-4">
-            {currentSong?.cover_url && (
-              <img
-                src={currentSong.cover_url}
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full scale-125 object-cover opacity-30 blur-3xl saturate-200"
-              />
-            )}
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent to-card" aria-hidden="true" />
-
-            <div className="relative z-10">
-              <div className="mx-auto mb-4 h-1 w-10 rounded-full bg-foreground/25" />
-
+          <header className="border-b border-border px-4 pb-3 pt-[max(12px,env(safe-area-inset-top))]">
+            <div>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <p className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">
-                    <BadgeCheck className="h-3.5 w-3.5" />
-                    Studio Sound
-                  </p>
-                  <h2 className="mt-1 font-display text-[32px] leading-none text-foreground">Equalizer</h2>
+                  <h2 className="text-xl font-semibold text-foreground">Equalizer</h2>
+                  <p className="mt-1 truncate text-xs text-muted-foreground">{currentSong?.title || 'No track playing'}</p>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
                     onClick={reset}
                     aria-label="Reset sound"
-                    className="grid h-10 w-10 place-items-center rounded-full bg-foreground/10 text-foreground transition active:scale-90"
+                    className="grid h-9 w-9 place-items-center rounded-md border border-border bg-secondary text-foreground transition active:scale-95"
                   >
                     <RotateCcw className="h-4 w-4" />
                   </button>
@@ -329,54 +311,23 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     type="button"
                     onClick={onClose}
                     aria-label="Close equalizer"
-                    className="grid h-10 w-10 place-items-center rounded-full bg-primary text-primary-foreground transition active:scale-90"
+                    className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground transition active:scale-95"
                   >
                     <X className="h-5 w-5" />
                   </button>
                 </div>
               </div>
 
-              {/* now playing + live spectrum */}
-              <div className="mt-4 flex items-center gap-3 rounded-3xl border border-border/50 bg-background/40 p-3">
-                <div className="h-14 w-14 shrink-0 overflow-hidden rounded-2xl bg-muted">
-                  {currentSong?.cover_url ? (
-                    <img src={currentSong.cover_url} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="grid h-full w-full place-items-center text-muted-foreground">
-                      <Waves className="h-6 w-6" />
-                    </div>
-                  )}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-foreground">
-                    {currentSong?.title || 'Nothing playing'}
-                  </p>
-                  <p className="mt-0.5 flex items-center gap-1.5 truncate text-[11px] text-muted-foreground">
-                    <span className={cn('h-1.5 w-1.5 shrink-0 rounded-full', isConnected ? 'bg-primary' : effectsActive ? 'bg-primary/50' : 'bg-muted-foreground')} />
-                    {connectionLabel}
-                  </p>
-                </div>
-                <div className="flex h-10 items-end gap-[3px]">
-                  {SPECTRUM_BARS.slice(0, 12).map((item) => {
-                    const band = bands[Math.min(bands.length - 1, Math.floor((item / 12) * bands.length))];
-                    const height = 10 + Math.max(0, band.gain + 12) * 1.1 + (settings.bassBoost / 100) * 8;
-                    return (
-                      <motion.span
-                        key={item}
-                        className="w-[3px] rounded-full bg-primary"
-                        animate={isConnected ? { height: [height * 0.55, height, height * 0.7] } : { height: height * 0.45 }}
-                        transition={isConnected ? { duration: 0.8 + (item % 4) * 0.14, repeat: Infinity, ease: 'easeInOut' } : undefined}
-                      />
-                    );
-                  })}
-                </div>
+              <div className="mt-3 flex h-9 items-center justify-between border-t border-border pt-3 text-xs">
+                <span className="text-muted-foreground">Audio engine</span>
+                <span className={cn('font-medium', isConnected ? 'text-primary' : 'text-muted-foreground')}>{connectionLabel}</span>
               </div>
             </div>
           </header>
 
           {/* ---------- Tabs ---------- */}
-          <div className="px-5">
-            <div className="grid grid-cols-4 gap-1 rounded-2xl bg-secondary/70 p-1">
+          <div className="border-b border-border px-4 py-2">
+            <div className="grid grid-cols-4 gap-1 bg-secondary p-1">
               {VIEWS.map((item) => {
                 const Icon = item.icon;
                 const selected = view === item.id;
@@ -386,14 +337,14 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     type="button"
                     onClick={() => setView(item.id)}
                     className={cn(
-                      'relative flex h-10 items-center justify-center gap-1.5 rounded-xl text-[11px] font-semibold transition',
+                      'relative flex h-9 items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition',
                       selected ? 'text-primary-foreground' : 'text-muted-foreground active:scale-95',
                     )}
                   >
                     {selected && (
                       <motion.span
                         layoutId="eq-tab"
-                        className="absolute inset-0 rounded-xl bg-primary"
+                        className="absolute inset-0 rounded-md bg-primary"
                         transition={{ type: 'spring', stiffness: 480, damping: 38 }}
                       />
                     )}
@@ -408,12 +359,12 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
           </div>
 
           {/* ---------- Body ---------- */}
-          <div className="hide-scrollbar flex-1 overflow-y-auto px-5 pb-8 pt-4">
+          <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-4">
             {view === 'smart' && (
               <div className="space-y-4">
                 <SectionLabel title="Sound profile" value={activePreset?.name || 'Custom'} />
                 <div className="grid grid-cols-3 gap-2">
-                  {PRESETS.map((preset) => {
+                  {PRESETS.slice(0, 9).map((preset) => {
                     const Icon = preset.icon;
                     const selected = settings.activePreset === preset.id;
                     return (
@@ -422,13 +373,13 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                         type="button"
                         onClick={() => applyPreset(preset)}
                         className={cn(
-                          'flex h-[72px] flex-col items-center justify-center gap-1.5 rounded-2xl border text-[11px] font-semibold transition active:scale-95',
+                          'flex h-12 items-center justify-center gap-2 rounded-md border px-2 text-[11px] font-semibold transition active:scale-95',
                           selected
                             ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border/60 bg-secondary/50 text-foreground',
                         )}
                       >
-                        <Icon className="h-5 w-5" />
+                        <Icon className="h-4 w-4" />
                         <span className="max-w-full truncate px-1">{preset.name}</span>
                       </button>
                     );
