@@ -808,7 +808,16 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
   }
   if (engine.el === el && engine.signature === sig && sig !== null) {
     if (ctx.state === 'suspended') ctx.resume().catch(() => { });
-    if (engine.mode === 'processed') return true;
+    if (engine.mode === 'processed') {
+      // A source URL may change while the same HTMLAudioElement survives. The
+      // graph remains valid; re-assert every persisted parameter immediately so
+      // the first render quantum of the new song cannot fall back to flat.
+      applySpatial();
+      applyLateNightToLimiter();
+      applySurround();
+      applyStems();
+      return true;
+    }
     if ((engine.mode === 'direct' || engine.mode === 'idle') && isCorsSafe(el)) {
       const existingSource = getCachedSource(el);
       if (existingSource) {

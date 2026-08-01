@@ -77,6 +77,17 @@ interface ExoPlayerPluginShape {
   setLoudnessEnhancer: (opts: { gainMb: number }) => Promise<void>;
   setReverb: (opts: { amount: number }) => Promise<void>;
   setStemMix: (opts: { vocalMix: number; instrumentalMix: number }) => Promise<void>;
+  applyAudioEffects: (opts: {
+    enabled: boolean;
+    bands: Array<{ band: number; levelMillibels: number }>;
+    bassStrength: number;
+    virtualizerStrength: number;
+    loudnessGainMb: number;
+    reverbAmount: number;
+    vocalMix: number;
+    instrumentalMix: number;
+    playbackSpeed: number;
+  }) => Promise<void>;
   setPlaybackSpeed: (opts: { speed: number }) => Promise<void>;
   addListener: (
     event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
@@ -205,6 +216,50 @@ export async function setNativePlaybackSpeed(speed: number): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   const clamped = Math.max(0.5, Math.min(2, Number.isFinite(speed) ? speed : 1));
   try { await ExoPlayerPlugin.setPlaybackSpeed({ speed: clamped }); } catch {}
+}
+
+export async function applyNativeAudioEffects(opts: {
+  enabled: boolean;
+  webBands: number[];
+  webFrequenciesHz: number[];
+  nativeOffsetsMb?: number[];
+  bassStrength: number;
+  virtualizerStrength: number;
+  loudnessGainMb: number;
+  reverbAmount: number;
+  vocalMix: number;
+  instrumentalMix: number;
+  playbackSpeed: number;
+}): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  const info = await getNativeEQBands();
+  const usable = info?.available && info.numberOfBands > 0 ? info : null;
+  const nativeBands = usable ? usable.bands : FALLBACK_NATIVE_BANDS;
+  const minLevel = usable ? usable.minLevel : -1500;
+  const maxLevel = usable ? usable.maxLevel : 1500;
+  const bands = nativeBands.map((native, bi) => {
+    let best = 0;
+    let bestDist = Infinity;
+    for (let i = 0; i < opts.webFrequenciesHz.length; i++) {
+      const distance = Math.abs(Math.log2(Math.max(1, opts.webFrequenciesHz[i] / Math.max(1, native.centerFrequencyHz))));
+      if (distance < bestDist) { bestDist = distance; best = i; }
+    }
+    const level = Math.round((opts.webBands[best] ?? 0) * 100) + (opts.nativeOffsetsMb?.[bi] ?? 0);
+    return { band: native.index, levelMillibels: Math.max(minLevel, Math.min(maxLevel, level)) };
+  });
+  try {
+    await ExoPlayerPlugin.applyAudioEffects({
+      enabled: opts.enabled,
+      bands,
+      bassStrength: Math.max(0, Math.min(1000, Math.round(opts.bassStrength))),
+      virtualizerStrength: Math.max(0, Math.min(1000, Math.round(opts.virtualizerStrength))),
+      loudnessGainMb: Math.max(0, Math.min(2000, Math.round(opts.loudnessGainMb))),
+      reverbAmount: Math.max(0, Math.min(100, Math.round(opts.reverbAmount))),
+      vocalMix: Math.max(0, Math.min(100, Math.round(opts.vocalMix))),
+      instrumentalMix: Math.max(0, Math.min(100, Math.round(opts.instrumentalMix))),
+      playbackSpeed: Math.max(0.5, Math.min(2, opts.playbackSpeed)),
+    });
+  } catch {}
 }
 
 /**

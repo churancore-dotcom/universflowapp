@@ -4,13 +4,7 @@ import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
 import {
   isNativePlayerAvailable,
-  pushNativeEQFromWebBands,
-  setNativeBassBoost,
-  setNativeEQEnabled,
-  setNativeLoudnessEnhancer,
-  setNativePlaybackSpeed,
-  setNativeReverb,
-  setNativeStemMix,
+  applyNativeAudioEffects,
   setNativeVirtualizer,
 } from '@/lib/nativePlayer';
 // nativeMirror removed — on Android, ExoPlayer always owns audio when available.
@@ -18,7 +12,7 @@ import {
 // Web EQ band center frequencies — must mirror BAND_DEFS in audioEngine.ts.
 const WEB_BAND_FREQS_HZ = [32, 64, 125, 250, 500, 1000, 2000, 4000, 8000, 16000];
 
-const RETRY_DELAYS_MS = [0, 50, 140, 320, 700];
+const RETRY_DELAYS_MS = [0, 40, 120, 280, 600];
 
 
 /**
@@ -85,11 +79,18 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (!isNativePlayerAvailable()) return;
       if (!getRuntimePremium() || !hasWebAudioEffects(s)) {
         stop8D();
-        await Promise.all([
-          setNativeEQEnabled(false), setNativeBassBoost(0), setNativeVirtualizer(0),
-          setNativeLoudnessEnhancer(0), setNativeReverb(0), setNativeStemMix(100, 100),
-          setNativePlaybackSpeed(s.playbackSpeed),
-        ]);
+        await applyNativeAudioEffects({
+          enabled: false,
+          webBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+          webFrequenciesHz: WEB_BAND_FREQS_HZ,
+          bassStrength: 0,
+          virtualizerStrength: 0,
+          loudnessGainMb: 0,
+          reverbAmount: 0,
+          vocalMix: 100,
+          instrumentalMix: 100,
+          playbackSpeed: s.playbackSpeed,
+        });
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
@@ -99,14 +100,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // The old tonal EQ "simulation" stacked on top of it and made isolated
       // vocals sound hollow/phasey, so the stem curve is gone — the processor
       // is the single source of truth.
-      await setNativeStemMix(s.vocalMix ?? 100, s.instrumentalMix ?? 100);
-      if (revision !== nativeApplyRevision) return;
       const nativeOffsets = space.eqMb;
-
-      // 10-band EQ → native 5 bands, WITH per-space coloration offsets baked in
-      // so Cathedral/Hall/Vinyl etc. actually change how the song sounds on APK.
-      await pushNativeEQFromWebBands(s.bands, WEB_BAND_FREQS_HZ, nativeOffsets);
-      if (revision !== nativeApplyRevision) return;
 
       // Bass boost: user slider OR space profile — whichever is stronger.
       const userBass = Math.round((s.bassBoost / 100) * 1000);
@@ -114,16 +108,26 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       // that was inaudible on phone speakers. Combine with space loudness.
       const lateNightMb = s.lateNight ? 1400 : 0;
       const stemMakeupMb = Math.round(Math.max(vocalCut, instrumentalCut) * 450);
-      await Promise.all([
-        setNativeBassBoost(Math.max(userBass, space.bass)),
-        setNativeLoudnessEnhancer(Math.max(lateNightMb, space.loud, stemMakeupMb)),
-        setNativeReverb(s.reverb),
-        setNativePlaybackSpeed(s.playbackSpeed),
-      ]);
-      if (revision !== nativeApplyRevision) return;
-
       // Virtualizer: headphone surround / space width baseline.
       const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);
+
+      // One native bridge call applies one coherent snapshot. The previous
+      // sequence of 6–8 calls could be overtaken by a newer slider event and
+      // leave a mixture of old/new values on the audio session.
+      await applyNativeAudioEffects({
+        enabled: true,
+        webBands: s.bands,
+        webFrequenciesHz: WEB_BAND_FREQS_HZ,
+        nativeOffsetsMb: nativeOffsets,
+        bassStrength: Math.max(userBass, space.bass),
+        virtualizerStrength: s.spatialAudio ? Math.max(800, baseVirt) : baseVirt,
+        loudnessGainMb: Math.max(lateNightMb, space.loud, stemMakeupMb),
+        reverbAmount: s.reverb,
+        vocalMix: s.vocalMix ?? 100,
+        instrumentalMix: s.instrumentalMix ?? 100,
+        playbackSpeed: s.playbackSpeed,
+      });
+      if (revision !== nativeApplyRevision) return;
 
       // 8D: oscillating virtualizer strength gives perceptible stereo movement
       // on APK (the WebAudio pan LFO can't drive ExoPlayer's audio session).
@@ -226,11 +230,14 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
     //   - reapplyTimer: small delay (30ms) — used for media-readiness bursts
     //     (loadstart + loadedmetadata + canplay fire in quick succession).
     const reapplyNow = () => {
-      if (reapplyFrame != null) return;
-      reapplyFrame = window.requestAnimationFrame(() => {
+      // Apply synchronously. AudioParam smoothing already prevents clicks, and
+      // waiting for requestAnimationFrame made controls feel delayed while the
+      // modal or WebView was under load/background throttling.
+      if (reapplyFrame != null) {
+        window.cancelAnimationFrame(reapplyFrame);
         reapplyFrame = null;
-        doReapply();
-      });
+      }
+      doReapply();
     };
     const reapply = (delay = 30) => {
       if (delay === 0) { reapplyNow(); return; }
@@ -258,8 +265,8 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       if (document.visibilityState !== 'hidden' && isAttached) resume();
     };
 
-    // User toggled EQ in modal — apply on the very next frame. The graph is
-    // already attached, so this is just AudioParam.setTargetAtTime() calls.
+    // User toggled EQ in modal — apply in the same event turn. The graph is
+    // already attached, so this is only a set of AudioParam updates.
     const onEqChanged = () => {
       reapplyNow();
       scheduleRecoveryBurst();

@@ -804,6 +804,40 @@ class ExoPlayerPlugin : Plugin() {
         }
     }
 
+    @PluginMethod
+    fun applyAudioEffects(call: PluginCall) {
+        val enabled = call.getBoolean("enabled") ?: true
+        val bands = call.getArray("bands")
+        val bass = (call.getInt("bassStrength") ?: 0).coerceIn(0, 1000)
+        val virtualizer = (call.getInt("virtualizerStrength") ?: 0).coerceIn(0, 1000)
+        val loudness = (call.getInt("loudnessGainMb") ?: 0).coerceIn(0, 2000)
+        val reverb = (call.getInt("reverbAmount") ?: 0).coerceIn(0, 100)
+        val vocal = (call.getInt("vocalMix") ?: 100).coerceIn(0, 100)
+        val instrumental = (call.getInt("instrumentalMix") ?: 100).coerceIn(0, 100)
+        val speed = (call.getDouble("playbackSpeed") ?: 1.0).coerceIn(0.5, 2.0).toFloat()
+        runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
+            val svc = service()
+            if (svc == null) { call.reject("Audio service unavailable"); return@runWhenReady }
+            svc.eqEnabled = enabled
+            if (bands != null) {
+                for (i in 0 until bands.length()) {
+                    val item = bands.optJSONObject(i) ?: continue
+                    val band = item.optInt("band", -1)
+                    if (band >= 0) svc.savedEqBands[band.toShort()] = item.optInt("levelMillibels", 0).toShort()
+                }
+            }
+            svc.savedBassBoostStrength = bass.toShort()
+            svc.savedVirtualizerStrength = virtualizer.toShort()
+            svc.savedLoudnessGainMb = loudness
+            svc.applyStemMix(vocal, instrumental)
+            svc.ensureEffectsBound(forceReapply = true)
+            try { svc.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}
+            svc.applyReverb(reverb)
+            svc.persistEffectState()
+            call.resolve()
+        }
+    }
+
     override fun handleOnDestroy() {
         stopProgress()
         try {

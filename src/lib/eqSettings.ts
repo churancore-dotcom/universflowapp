@@ -43,7 +43,7 @@ function clamp(value: unknown, min: number, max: number, fallback: number) {
 }
 
 export function normalizeEQSettings(input: Partial<EQSettings> | null | undefined): EQSettings {
-  const rawBands = Array.isArray(input?.bands) ? input!.bands : DEFAULT_EQ_SETTINGS.bands;
+  const rawBands = Array.isArray(input?.bands) ? input.bands : DEFAULT_EQ_SETTINGS.bands;
   const bands = DEFAULT_EQ_SETTINGS.bands.map((fallback, i) => clamp(rawBands[i], -12, 12, fallback));
   return {
     bands,
