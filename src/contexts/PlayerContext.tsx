@@ -2978,7 +2978,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       markIntentionalPause();
       el.pause();
     }
-  }, [currentSong, isPlaying, markIntentionalPause, markNativePlayIntent, clearNativeStartupTimer, playSongAtIndex]);
+  }, [currentSong, isPlaying, showPrerollAd, markIntentionalPause, markNativePlayIntent, clearNativeStartupTimer, playSongAtIndex]);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
