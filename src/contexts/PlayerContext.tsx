@@ -1864,8 +1864,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Handle song end and crossfade
   useEffect(() => {
-    const audio = audioRef.current;
+    // IMPORTANT: read from state first. A crossfade swaps audioRef with the
+    // standby element, so binding only to audioRef.current at mount time left
+    // every listener (timeupdate / ended / play / pause / error) attached to the
+    // element that had just been emptied — the new song then played with a dead
+    // progress bar and a play button that snapped back to "paused".
+    const audio = audioElement || audioRef.current;
     if (!audio) return;
+
 
     const handleLoadedMetadata = () => {
       setDuration(audio.duration || 0);
