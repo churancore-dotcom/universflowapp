@@ -18,11 +18,13 @@ interface Props {
 }
 
 const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
+  const [mounted, setMounted] = useState(false);
   const [email, setEmail] = useState(defaultEmail);
   const [sending, setSending] = useState(false);
   const [cooldownMs, setCooldownMs] = useState(0);
 
   useEffect(() => { if (isOpen) setEmail(defaultEmail); }, [isOpen, defaultEmail]);
+  useEffect(() => setMounted(true), []);
 
   // Live countdown while locked.
   useEffect(() => {
@@ -70,6 +72,10 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
   };
 
   const locked = cooldownMs > 0;
+
+  // This route is server-rendered. `document.body` only exists after the
+  // client mounts, so never create the portal during SSR.
+  if (!mounted) return null;
 
   return createPortal(
     <AnimatePresence>

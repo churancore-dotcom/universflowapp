@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, Lock } from 'lucide-react';
@@ -8,9 +8,12 @@ import { toast } from 'sonner';
 interface Props { isOpen: boolean; onClose: () => void; }
 
 const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
+  const [mounted, setMounted] = useState(false);
   const [pw, setPw] = useState('');
   const [pw2, setPw2] = useState('');
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const submit = async () => {
     if (pw.length < 8) { toast.error('Password must be at least 8 characters'); return; }
@@ -23,6 +26,8 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
     setPw(''); setPw2('');
     onClose();
   };
+
+  if (!mounted) return null;
 
   return createPortal(
     <AnimatePresence>
