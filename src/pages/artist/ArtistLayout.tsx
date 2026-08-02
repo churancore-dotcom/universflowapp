@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { getAccess, peekAccess } from '@/lib/accessCache';
+
 import { useArtistLive } from './_shared';
 import ArtistLoading from './ArtistLoading';
 
@@ -109,18 +111,26 @@ export default function ArtistLayout() {
   const navigate = useNavigate();
   const location = useLocation();
   const [open, setOpen] = useState(false);
-  const [authorized, setAuthorized] = useState(false);
+  const [authorized, setAuthorized] = useState(() => peekAccess<boolean>(user?.id, 'artist-access') ?? false);
   const { profile, songs, followers, loading } = useArtistLive(user?.id ?? null);
 
   useEffect(() => {
     if (isLoading) return;
     if (!user) { navigate('/artist/auth', { replace: true }); return; }
-    (async () => {
-      const { data: hasArtist } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'artist' });
+    let cancelled = false;
+    // Cached per user so re-entering the studio doesn't re-run has_role and
+    // flash the loading screen on every navigation.
+    getAccess<boolean>(user.id, 'artist-access', async () => {
+      const { data } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'artist' });
+      return !!data;
+    }).then((hasArtist) => {
+      if (cancelled) return;
       if (!hasArtist) { navigate('/artist/status', { replace: true }); return; }
       setAuthorized(true);
-    })();
+    }).catch(() => {});
+    return () => { cancelled = true; };
   }, [user, isLoading, navigate]);
+
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
