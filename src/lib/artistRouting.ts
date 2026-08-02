@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getAccess } from '@/lib/accessCache';
 
 export type ArtistDestination = '/artist/studio' | '/artist/status' | '/artist/onboarding' | null;
 
