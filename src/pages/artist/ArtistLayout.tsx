@@ -6,6 +6,8 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
+import { getAccess, peekAccess } from '@/lib/accessCache';
+
 import { useArtistLive } from './_shared';
 import ArtistLoading from './ArtistLoading';
 
