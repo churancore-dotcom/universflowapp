@@ -34,7 +34,11 @@ const RETRY_DELAYS_MS = [0, 40, 120, 280, 600];
  * background glitchiness that the WebAudio graph caused on Android WebView
  * (the AudioContext suspends when the WebView backgrounds).
  */
-export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
+export function useGlobalAudioEngine(
+  audioElement: HTMLAudioElement | null,
+  options?: { skipNative?: boolean },
+) {
+  const skipNative = options?.skipNative ?? false;
   useEffect(() => {
     if (!audioElement) return;
 
@@ -154,6 +158,9 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
     };
 
     const pushNative = (s: ReturnType<typeof getEQSettings>) => {
+      // The secondary (crossfade) element must not duplicate native AudioEffect
+      // writes — ExoPlayer owns a single global effect chain.
+      if (skipNative) return;
       if (!isNativePlayerAvailable()) return;
       pendingNativeSnapshot = s;
       // Coalesce continuous slider events so Android hears the newest state
@@ -317,7 +324,7 @@ export function useGlobalAudioEngine(audioElement: HTMLAudioElement | null) {
       window.removeEventListener('uf-premium-changed', onEqChanged);
       window.removeEventListener('uf-eq-force-reattach', onEqChanged);
     };
-  }, [audioElement]);
+  }, [audioElement, skipNative]);
 }
 
 export function useEngineState() {

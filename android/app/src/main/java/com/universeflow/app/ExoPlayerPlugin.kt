@@ -263,6 +263,9 @@ class ExoPlayerPlugin : Plugin() {
         }, timeoutMs)
     }
 
+    private var errorRetryCount = 0
+    private val MAX_ERROR_RETRIES = 2
+
     private fun ensureListener(call: PluginCall?) {
         val svc = service() ?: return
         val player = svc.player ?: return
@@ -275,14 +278,41 @@ class ExoPlayerPlugin : Plugin() {
                 }
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) isStartingUp = false
+                if (isPlaying) { isStartingUp = false; errorRetryCount = 0 }
                 emitPlaybackState(player)
                 if (isPlaying) startProgress() else stopProgress()
             }
             override fun onPlayerError(error: PlaybackException) {
                 Log.e("ExoPlayerPlugin", "onPlayerError: ${error.message}")
-                isStartingUp = false
                 stopProgress()
+
+                // Transient network/source hiccups are the #1 cause of "song
+                // won't play" on mobile data. Retry in place before surfacing
+                // the failure to JS so the web layer doesn't tear the queue down.
+                val transient = error.errorCode in intArrayOf(
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_FAILED,
+                    PlaybackException.ERROR_CODE_IO_NETWORK_CONNECTION_TIMEOUT,
+                    PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS,
+                    PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
+                    PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW,
+                )
+                if (transient && errorRetryCount < MAX_ERROR_RETRIES) {
+                    errorRetryCount += 1
+                    val delayMs = 350L * errorRetryCount
+                    main.postDelayed({
+                        val p = service()?.player ?: return@postDelayed
+                        try {
+                            p.prepare()
+                            p.playWhenReady = true
+                        } catch (e: Exception) {
+                            Log.e("ExoPlayerPlugin", "retry prepare failed: ${e.message}")
+                        }
+                    }, delayMs)
+                    return
+                }
+
+                isStartingUp = false
+                errorRetryCount = 0
                 notifyListeners(
                     "playbackError",
                     JSObject().put("message", error.message ?: "playback error"),
