@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Navigate } from '@/lib/router-compat';
 import { useAuth } from '@/contexts/AuthContext';
 import { getArtistDestination, hasArtistSignupIntent, type ArtistDestination } from '@/lib/artistRouting';
+import { getAccess, peekAccess } from '@/lib/accessCache';
 import { isMedianApp } from '@/lib/median';
 import NotFound from '@/pages/NotFound';
 
