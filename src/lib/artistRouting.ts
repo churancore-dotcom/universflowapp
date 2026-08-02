@@ -23,6 +23,13 @@ export function hasArtistSignupIntent(user?: User | null): boolean {
 
 export async function getArtistDestination(user?: User | null): Promise<ArtistDestination> {
   if (!user) return null;
+  // Cached per user: this ran on every guarded navigation and cost up to three
+  // round trips before the page was allowed to render.
+  return getAccess<ArtistDestination>(user.id, 'artist-destination', () => resolveArtistDestination(user));
+}
+
+async function resolveArtistDestination(user: User): Promise<ArtistDestination> {
+  if (!user) return null;
 
   try {
     // Admins are NEVER trapped in the artist flow — even if they once applied
