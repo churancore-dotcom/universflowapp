@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, AlertTriangle } from 'lucide-react';
@@ -10,10 +10,13 @@ import { toast } from 'sonner';
 interface Props { isOpen: boolean; onClose: () => void; }
 
 const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
+  const [mounted, setMounted] = useState(false);
   const { user, signOut } = useAuth();
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   const submit = async () => {
     if (!user) return;
@@ -33,6 +36,8 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
       setLoading(false);
     }
   };
+
+  if (!mounted) return null;
 
   return createPortal(
     <AnimatePresence>
