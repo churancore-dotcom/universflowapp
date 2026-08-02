@@ -895,10 +895,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return () => {
       if (waitingTimer != null) clearTimeout(waitingTimer);
-      audio.removeEventListener('waiting', handleWaiting);
-      audio.removeEventListener('waiting', handleWaitingPerf);
-      audio.removeEventListener('playing', handlePlaying);
-      audio.removeEventListener('loadstart', handleLoadStartPerf);
+      for (const el of mediaEls) {
+        el.removeEventListener('waiting', handleWaiting);
+        el.removeEventListener('waiting', handleWaitingPerf);
+        el.removeEventListener('playing', handlePlaying);
+        el.removeEventListener('loadstart', handleLoadStartPerf);
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow);
