@@ -189,6 +189,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return;
       }
 
+      // Cached role/routing decisions belong to the previous identity.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        clearAccessCache();
+      }
+
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       setSentryUser(nextSession?.user ? { id: nextSession.user.id, email: nextSession.user.email } : null);
