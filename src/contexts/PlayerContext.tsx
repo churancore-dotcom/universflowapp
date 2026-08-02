@@ -809,28 +809,34 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         message: 'Buffering / stalled',
       });
     };
-    const handlePlaying = () => {
+    const handlePlaying = (event: Event) => {
       if (waitingTimer != null) { clearTimeout(waitingTimer); waitingTimer = null; }
-      const audioWithTs = audio as HTMLAudioElement & { __ufStartedAt?: number };
-      const startedAt = audioWithTs.__ufStartedAt;
+      const el = (event.currentTarget ?? event.target) as HTMLAudioElement & { __ufStartedAt?: number };
+      const startedAt = el?.__ufStartedAt;
       if (startedAt) {
         recordPerfEvent({
           event_type: 'playback_start',
           severity: 'info',
           latency_ms: Math.max(0, Math.round(performance.now() - startedAt)),
         });
-        audioWithTs.__ufStartedAt = undefined;
+        el.__ufStartedAt = undefined;
       }
     };
-    const handleLoadStartPerf = () => {
-      (audio as HTMLAudioElement & { __ufStartedAt?: number }).__ufStartedAt = performance.now();
+    const handleLoadStartPerf = (event: Event) => {
+      const el = (event.currentTarget ?? event.target) as HTMLAudioElement & { __ufStartedAt?: number };
+      if (el) el.__ufStartedAt = performance.now();
     };
 
-
-    audio.addEventListener('waiting', handleWaiting);
-    audio.addEventListener('waiting', handleWaitingPerf);
-    audio.addEventListener('playing', handlePlaying);
-    audio.addEventListener('loadstart', handleLoadStartPerf);
+    // Bind to BOTH elements: crossfade / gapless swaps promote nextAudio to be
+    // the active element, so listeners bound only to the first element go stale
+    // and stall recovery + progress reporting silently stop working.
+    const mediaEls = [audio, nextAudio];
+    for (const el of mediaEls) {
+      el.addEventListener('waiting', handleWaiting);
+      el.addEventListener('waiting', handleWaitingPerf);
+      el.addEventListener('playing', handlePlaying);
+      el.addEventListener('loadstart', handleLoadStartPerf);
+    }
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('pagehide', handlePageHide);
     window.addEventListener('pageshow', handlePageShow);
@@ -889,10 +895,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return () => {
       if (waitingTimer != null) clearTimeout(waitingTimer);
-      audio.removeEventListener('waiting', handleWaiting);
-      audio.removeEventListener('waiting', handleWaitingPerf);
-      audio.removeEventListener('playing', handlePlaying);
-      audio.removeEventListener('loadstart', handleLoadStartPerf);
+      for (const el of mediaEls) {
+        el.removeEventListener('waiting', handleWaiting);
+        el.removeEventListener('waiting', handleWaitingPerf);
+        el.removeEventListener('playing', handlePlaying);
+        el.removeEventListener('loadstart', handleLoadStartPerf);
+      }
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('pagehide', handlePageHide);
       window.removeEventListener('pageshow', handlePageShow);

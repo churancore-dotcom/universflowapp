@@ -21,7 +21,13 @@ export default function Notifications() {
   const { songs, user } = useOutletContext<Ctx>();
   const [follows, setFollows] = useState<Array<{ id: string; created_at: string; name: string }>>([]);
   const [statusEvents, setStatusEvents] = useState<Array<{ status: string; reviewed_at: string | null; updated_at: string }>>([]);
-  const [readAt, setReadAt] = useState<number>(() => +(localStorage.getItem(READ_KEY) ?? '0'));
+  const [readAt, setReadAt] = useState<number>(0);
+
+  // Storage is browser-only: reading it during SSR crashes the route, and
+  // reading it in a useState initializer causes a hydration mismatch.
+  useEffect(() => {
+    setReadAt(+(window.localStorage.getItem(READ_KEY) ?? '0'));
+  }, []);
 
   useEffect(() => {
     let alive = true;
