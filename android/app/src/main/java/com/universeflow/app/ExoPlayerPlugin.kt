@@ -264,6 +264,7 @@ class ExoPlayerPlugin : Plugin() {
     }
 
     private var errorRetryCount = 0
+    private val MAX_ERROR_RETRIES = 2
 
     private fun ensureListener(call: PluginCall?) {
         val svc = service() ?: return
