@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthError } from '@/lib/errorMessages';
 import { setSentryUser } from '@/lib/sentry';
+import { clearAccessCache } from '@/lib/accessCache';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -187,6 +188,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (event === 'SIGNED_OUT' && !navigator.onLine) {
         setIsLoading(false);
         return;
+      }
+
+      // Cached role/routing decisions belong to the previous identity.
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'USER_UPDATED') {
+        clearAccessCache();
       }
 
       setSession(nextSession);

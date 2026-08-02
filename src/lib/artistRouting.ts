@@ -1,5 +1,6 @@
 import type { User } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
+import { getAccess } from '@/lib/accessCache';
 
 export type ArtistDestination = '/artist/studio' | '/artist/status' | '/artist/onboarding' | null;
 
@@ -22,6 +23,13 @@ export function hasArtistSignupIntent(user?: User | null): boolean {
 }
 
 export async function getArtistDestination(user?: User | null): Promise<ArtistDestination> {
+  if (!user) return null;
+  // Cached per user: this ran on every guarded navigation and cost up to three
+  // round trips before the page was allowed to render.
+  return getAccess<ArtistDestination>(user.id, 'artist-destination', () => resolveArtistDestination(user));
+}
+
+async function resolveArtistDestination(user: User): Promise<ArtistDestination> {
   if (!user) return null;
 
   try {
