@@ -194,10 +194,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSentryUser(nextSession?.user ? { id: nextSession.user.id, email: nextSession.user.email } : null);
 
       if (nextSession?.user) {
-        setTimeout(async () => {
-          await ensureUserProfile(nextSession.user);
-          await checkAdminRole(nextSession.user.id);
-          await loadEmailVerified(nextSession.user.id);
+        setTimeout(() => {
+          void Promise.allSettled([
+            ensureUserProfile(nextSession.user),
+            checkAdminRole(nextSession.user.id),
+            loadEmailVerified(nextSession.user.id),
+          ]);
         }, 0);
       } else {
         setIsAdmin(false);
@@ -212,18 +214,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUser(existingSession?.user ?? null);
 
       if (existingSession?.user) {
-        await ensureUserProfile(existingSession.user);
-        await checkAdminRole(existingSession.user.id);
-        await loadEmailVerified(existingSession.user.id);
+        await Promise.allSettled([
+          ensureUserProfile(existingSession.user),
+          checkAdminRole(existingSession.user.id),
+          loadEmailVerified(existingSession.user.id),
+        ]);
 
         // Validate the refresh token while online. If it's invalid (signed out
         // elsewhere, rotated keys, stale session), sign out cleanly instead of
         // looping on 401s from authenticated edge functions like music-indexer.
         if (navigator.onLine) {
-          const { error: refreshErr } = await supabase.auth.refreshSession();
-          if (refreshErr) {
-            await supabase.auth.signOut().catch(() => {});
-          }
+          void supabase.auth.refreshSession().then(({ error: refreshErr }) => {
+            if (refreshErr) return supabase.auth.signOut().then(() => undefined).catch(() => undefined);
+            return undefined;
+          });
         }
       }
 

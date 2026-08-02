@@ -149,7 +149,7 @@ class ExoPlayerService : MediaSessionService() {
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (exo.playWhenReady && playbackState == Player.STATE_BUFFERING) acquireLocks()
                 if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) releaseLocks()
-                ensureEffectsBound()
+                ensureEffectsBound(forceReapply = playbackState == Player.STATE_READY)
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying || (exo.playWhenReady && exo.playbackState == Player.STATE_BUFFERING)) acquireLocks() else releaseLocks()
