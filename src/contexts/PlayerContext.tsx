@@ -468,6 +468,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   });
   const [gaplessPro, setGaplessPro] = useState(() => getRuntimePremium() && readStored('uf_gapless_pro') === 'true');
   const [audioElement, setAudioElement] = useState<HTMLAudioElement | null>(null);
+  // Secondary crossfade element. It is attached to the same WebAudio graph so
+  // an incoming track fades in WITH the user's EQ/stems already applied,
+  // instead of playing dry until the swap completes.
+  const [crossfadeElement, setCrossfadeElement] = useState<HTMLAudioElement | null>(null);
   const [showPrerollAd, setShowPrerollAd] = useState(false);
   const [adType, setAdType] = useState<'start' | 'end'>('start');
   const [pendingSong, setPendingSong] = useState<{ song: Song; offlineUrl?: string | null; songsQueue?: Song[]; requestSeq: number } | null>(null);
@@ -665,6 +669,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     nextAudio.setAttribute('webkit-playsinline', 'true');
     nextAudio.setAttribute('x-webkit-airplay', 'allow');
     nextAudioRef.current = nextAudio;
+    setCrossfadeElement(nextAudio);
 
 
     const recoverBackgroundPlayback = () => {
@@ -966,6 +971,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Wire the global EQ/audio engine to the live audio element. Persists across modal open/close.
   useGlobalAudioEngine(audioElement);
+  useGlobalAudioEngine(crossfadeElement, { skipNative: true });
 
   const publishNativeMusicControls = useCallback(async (song: Song, playing: boolean, duration?: number) => {
     try {
@@ -2571,6 +2577,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         audioRef.current = nextAudioRef.current;
         nextAudioRef.current = temp;
         setAudioElement(audioRef.current);
+        setCrossfadeElement(temp);
 
         // The incoming element is now the primary player, so this is a brand new
         // play request: reset the per-request guards. Without this the next
