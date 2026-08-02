@@ -53,10 +53,10 @@ const BottomNav = memo(function BottomNav() {
       cancelIdleCallback?: (id: number) => void;
     };
     if (idleWindow.requestIdleCallback) {
-      const id = idleWindow.requestIdleCallback(warmRoutes, { timeout: 1800 });
+      const id = idleWindow.requestIdleCallback(warmRoutes, { timeout: 4000 });
       return () => idleWindow.cancelIdleCallback?.(id);
     }
-    const id = window.setTimeout(warmRoutes, 400);
+    const id = window.setTimeout(warmRoutes, 3000);
     return () => window.clearTimeout(id);
   }, [router]);
 

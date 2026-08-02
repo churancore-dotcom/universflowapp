@@ -76,11 +76,12 @@ const reapplyNativeEqSoon = () => {
   // Native ExoPlayer may (re)allocate its audio session id at multiple points
   // between playQueue() and the first `playing` state: prepare, first render,
   // and each mediaItemTransition. Every rebind blanks the AudioEffect chain,
-  // so we re-push the user's EQ multiple times over ~2s to guarantee the
-  // slider values stick regardless of which rebind wins the race.
+  // so we re-push after prepare and after the session settles. The native
+  // service also persists the snapshot; avoiding a five-call bridge burst
+  // keeps transport commands responsive on slower phones.
   const fire = () => { try { window.dispatchEvent(new Event('uf-eq-changed')); } catch {} };
   fire();
-  [120, 350, 750, 1400, 2200].forEach((ms) => window.setTimeout(fire, ms));
+  [220, 900].forEach((ms) => window.setTimeout(fire, ms));
 };
 
 type SavedPlayerState = {

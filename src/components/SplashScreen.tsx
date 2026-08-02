@@ -22,10 +22,10 @@ const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete
   };
 
   useEffect(() => {
-    const cap = window.setTimeout(finish, 3500);
-    const t1 = window.setTimeout(() => setPhase('hold'), 500);
-    const t2 = window.setTimeout(() => setPhase('out'), 1700);
-    const t3 = window.setTimeout(finish, 2100);
+    const cap = window.setTimeout(finish, 1100);
+    const t1 = window.setTimeout(() => setPhase('hold'), 120);
+    const t2 = window.setTimeout(() => setPhase('out'), 520);
+    const t3 = window.setTimeout(finish, 720);
     return () => {
       window.clearTimeout(cap);
       window.clearTimeout(t1);
@@ -45,7 +45,7 @@ const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete
       initial={{ opacity: 1 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      transition={{ duration: 0.45, ease }}
+      transition={{ duration: 0.2, ease }}
     >
       <div className="flex flex-col items-center justify-center">
         <motion.div

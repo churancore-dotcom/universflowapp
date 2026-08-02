@@ -22,8 +22,9 @@ const DISMISSED_KEY = 'uf_dismissed_announcements_v1';
 const DELIVERED_KEY = 'uf_delivered_announcements_v1';
 
 const readSet = (key: string): Set<string> => {
+  if (typeof window === 'undefined') return new Set();
   try {
-    const raw = localStorage.getItem(key);
+    const raw = window.localStorage.getItem(key);
     if (!raw) return new Set();
     return new Set(JSON.parse(raw) as string[]);
   } catch (e) {
@@ -33,10 +34,11 @@ const readSet = (key: string): Set<string> => {
 };
 
 const writeSet = (key: string, set: Set<string>) => {
+  if (typeof window === 'undefined') return;
   try {
     // Keep only last 200 entries to avoid unbounded growth
     const arr = Array.from(set).slice(-200);
-    localStorage.setItem(key, JSON.stringify(arr));
+    window.localStorage.setItem(key, JSON.stringify(arr));
   } catch (e) { console.warn('AnnouncementBanner writeSet error:', e); }
 };
 

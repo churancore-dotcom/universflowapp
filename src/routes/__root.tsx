@@ -295,23 +295,20 @@ const AppContent = () => {
       <Suspense fallback={null}>
         <Toaster />
       </Suspense>
-      <AnimatePresence mode="popLayout" initial={false}>
-        {showSplash ? (
-          <SplashScreen key="splash" onComplete={handleSplashComplete} />
-        ) : (
-          <div key="routes" style={{ display: 'contents' }}>
-            <NavDirectionProvider>
-              <Suspense fallback={null}>
-                <OfflineGate />
-              </Suspense>
-              <Suspense fallback={<LazyFallback />}>
-                <main id="main-content" style={{ display: 'contents' }}>
-                  <Outlet />
-                </main>
-              </Suspense>
-            </NavDirectionProvider>
-          </div>
-        )}
+      <NavDirectionProvider>
+        <Suspense fallback={null}>
+          <OfflineGate />
+        </Suspense>
+        <Suspense fallback={<LazyFallback />}>
+          <main id="main-content" style={{ display: 'contents' }}>
+            <Outlet />
+          </main>
+        </Suspense>
+      </NavDirectionProvider>
+      {/* The splash is only a short visual cover. Routes/auth now load behind
+          it instead of waiting for its animation to finish. */}
+      <AnimatePresence initial={false}>
+        {showSplash && <SplashScreen key="splash" onComplete={handleSplashComplete} />}
       </AnimatePresence>
 
       <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+10px)] z-[60] pointer-events-none">
