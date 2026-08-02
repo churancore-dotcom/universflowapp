@@ -26,7 +26,9 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 export const ArtistProtectedRoute = ({ children, requireArtistRole = false }: { children: React.ReactNode; requireArtistRole?: boolean }) => {
   const { user, isLoading, emailVerified } = useAuth();
-  const [verifiedArtist, setVerifiedArtist] = useState<null | boolean>(null);
+  const [verifiedArtist, setVerifiedArtist] = useState<null | boolean>(
+    () => (requireArtistRole ? peekAccess<boolean>(user?.id, 'artist-access') ?? null : true),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -38,29 +40,26 @@ export const ArtistProtectedRoute = ({ children, requireArtistRole = false }: { 
       setVerifiedArtist(false);
       return;
     }
-    setVerifiedArtist(null);
-    (async () => {
-      try {
-        const { data, error } = await supabase.rpc('has_role', {
-          _user_id: user.id,
-          _role: 'artist',
-        });
-        if (!error && data) {
-          if (!cancelled) setVerifiedArtist(true);
-          return;
-        }
-        const { data: mem } = await supabase
-          .from('artist_team_members')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('status', 'active')
-          .limit(1)
-          .maybeSingle();
-        if (!cancelled) setVerifiedArtist(!!mem);
-      } catch {
-        if (!cancelled) setVerifiedArtist(false);
-      }
-    })();
+    // Render instantly on repeat navigation instead of flashing a blank screen.
+    const cached = peekAccess<boolean>(user.id, 'artist-access');
+    setVerifiedArtist(cached ?? null);
+    getAccess<boolean>(user.id, 'artist-access', async () => {
+      const { data, error } = await supabase.rpc('has_role', {
+        _user_id: user.id,
+        _role: 'artist',
+      });
+      if (!error && data) return true;
+      const { data: mem } = await supabase
+        .from('artist_team_members')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .limit(1)
+        .maybeSingle();
+      return !!mem;
+    })
+      .then((allowed) => { if (!cancelled) setVerifiedArtist(allowed); })
+      .catch(() => { if (!cancelled) setVerifiedArtist(false); });
     return () => { cancelled = true; };
   }, [user, emailVerified, requireArtistRole]);
 
@@ -75,7 +74,9 @@ export const ArtistProtectedRoute = ({ children, requireArtistRole = false }: { 
 
 export const ListenerRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, emailVerified } = useAuth();
-  const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(undefined);
+  const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(
+    () => peekAccess<ArtistDestination>(user?.id, 'artist-destination'),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -83,7 +84,7 @@ export const ListenerRoute = ({ children }: { children: React.ReactNode }) => {
       setArtistDestination(undefined);
       return;
     }
-    setArtistDestination(undefined);
+    setArtistDestination(peekAccess<ArtistDestination>(user.id, 'artist-destination'));
     getArtistDestination(user).then((destination) => {
       if (!cancelled) setArtistDestination(destination);
     });
@@ -100,22 +101,23 @@ export const ListenerRoute = ({ children }: { children: React.ReactNode }) => {
 
 export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
-  const [verified, setVerified] = useState<null | boolean>(null);
+  const [verified, setVerified] = useState<null | boolean>(
+    () => peekAccess<boolean>(user?.id, 'admin-access') ?? null,
+  );
 
   useEffect(() => {
     let cancelled = false;
     if (!user) { setVerified(false); return; }
-    (async () => {
-      try {
-        const { data, error } = await supabase.rpc('has_role', {
-          _user_id: user.id,
-          _role: 'admin',
-        });
-        if (!cancelled) setVerified(!error && !!data);
-      } catch {
-        if (!cancelled) setVerified(false);
-      }
-    })();
+    setVerified(peekAccess<boolean>(user.id, 'admin-access') ?? null);
+    getAccess<boolean>(user.id, 'admin-access', async () => {
+      const { data, error } = await supabase.rpc('has_role', {
+        _user_id: user.id,
+        _role: 'admin',
+      });
+      return !error && !!data;
+    })
+      .then((allowed) => { if (!cancelled) setVerified(allowed); })
+      .catch(() => { if (!cancelled) setVerified(false); });
     return () => { cancelled = true; };
   }, [user]);
 
