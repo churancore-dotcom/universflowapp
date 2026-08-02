@@ -1417,22 +1417,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       : null;
     const videoId = getNativePlaybackVideoId(song as Song & { videoId?: string });
 
-    // Echo/NewPipe-style APK path: if this is a YouTube Music item, always try
-    // phone-side InnerTube FIRST. Backend/Supabase googlevideo URLs are signed
-    // for the server IP and are exactly what caused slow starts/IP blocks.
-    if (videoId && !opts.skipNativeFastPath) {
-      try {
-        const res = await Promise.race([
-          InnerTubePlugin.resolveAudio({ videoId }),
-          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 5200)),
-        ]);
-        if (res?.url && !isYouTubeFallbackUrl(res.url)) {
-          markNativeResolvedStreamUrl(res.url, videoId);
-          return res.url;
-        }
-      } catch { /* fall through */ }
-    }
-
     if (directUrl && !opts.skipNativeFastPath) {
       let shouldRefreshYoutubeUrl = false;
       try {
@@ -1444,23 +1428,47 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!shouldRefreshYoutubeUrl) return buildNativeExoPlayerUrl(directUrl);
     }
 
-    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && (videoId || song.title)) {
-      try {
-        const nativeResolved = await Promise.race([
-          resolveNativeMetadataStream({ videoId: videoId || undefined, title: song.title, artist: song.artist }),
-          new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 7000)),
-        ]);
-        if (nativeResolved && !isYouTubeFallbackUrl(nativeResolved)) {
-          if (videoId) markNativeResolvedStreamUrl(nativeResolved, videoId);
-          return nativeResolved;
-        }
-      } catch { /* fall through */ }
-    }
+    // Race every resolver under one hard deadline. The old sequential chain
+    // could spend 5.2s on InnerTube, then 7s on metadata, then start the cloud
+    // fallback — leaving the UI apparently playing but silent for 12–19s.
+    // A failed candidate stays pending until another candidate succeeds or the
+    // shared deadline expires, so one quick failure cannot cancel the race.
+    const never = new Promise<string | null>(() => undefined);
+    const playable = (candidate: Promise<string | null>) => candidate
+      .then((url) => url && !isYouTubeFallbackUrl(url) ? url : never)
+      .catch(() => never);
+    const candidates: Promise<string | null>[] = [];
 
-    try {
-      const fresh = await resolveAudioUrl(song, { forceRefresh: true, skipNative: true });
-      if (fresh && !isYouTubeFallbackUrl(fresh)) return buildNativeExoPlayerUrl(fresh);
-    } catch { /* fall through to direct URL */ }
+    if (videoId && !opts.skipNativeFastPath) {
+      candidates.push(playable(
+        InnerTubePlugin.resolveAudio({ videoId }).then((result) => {
+          if (!result?.url || isYouTubeFallbackUrl(result.url)) return null;
+          markNativeResolvedStreamUrl(result.url, videoId);
+          return result.url;
+        }),
+      ));
+    }
+    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && (videoId || song.title)) {
+      candidates.push(playable(
+        resolveNativeMetadataStream({ videoId: videoId || undefined, title: song.title, artist: song.artist })
+          .then((url) => {
+            if (url && videoId) markNativeResolvedStreamUrl(url, videoId);
+            return url;
+          }),
+      ));
+    }
+    candidates.push(playable(
+      resolveAudioUrl(song, { forceRefresh: true, skipNative: true })
+        .then((url) => url ? buildNativeExoPlayerUrl(url) : null),
+    ));
+
+    if (candidates.length > 0) {
+      const resolved = await Promise.race([
+        ...candidates,
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 6200)),
+      ]);
+      if (resolved) return resolved;
+    }
 
     // Last resort for catalog uploads/direct CDN URLs. If this is a cloud-signed
     // googlevideo URL, buildStreamProxyUrl keeps the fetch on the signing side.
@@ -1846,7 +1854,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // ExoPlayer takes over. Some phone-signed YouTube/CDN URLs reject in
         // WebView even though ExoPlayer can play them, so never let this shadow
         // promise show a false "song can't play" or flip the UI to stopped.
-        if (isNativePlayerAvailable() && false) return;
         const assignedAt = (audioRef.current as (HTMLAudioElement & { __ufAssignedAt?: number }) | null)?.__ufAssignedAt ?? 0;
         if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
         console.warn('Playback failed:', err.message);
@@ -2336,6 +2343,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
           const nextSong = q[nextIdx];
           if (!nextSong) return;
+          // Native queues advance inside ExoPlayer, bypassing the web `ended`
+          // handler where ad cadence is normally counted. Pause immediately on
+          // the transition and hand the same track to the ad completion flow.
+          if (noteSongCompleted()) {
+            void ExoPlayerPlugin.pause().catch(() => undefined);
+            nativeUserPausedRef.current = true;
+            wasPlayingRef.current = false;
+            setIsPlaying(false);
+            setPendingSong({ song: nextSong, offlineUrl: null, songsQueue: q, requestSeq: playRequestSeqRef.current });
+            setAdType('end');
+            setShowPrerollAd(true);
+            return;
+          }
           activeSongIdentityRef.current = getSongIdentity(nextSong);
           currentSongRef.current = nextSong;
           currentIndexRef.current = nextIdx;
@@ -2793,7 +2813,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Android APK: ignore WebView shadow play() rejection while native
           // ExoPlayer takeover is pending/audible. Native failure is handled by
           // uf-native-playback-failed, not this HTMLAudioElement promise.
-          if (isNativePlayerAvailable() && false) return;
           const assignedAt = (audioRef.current as (HTMLAudioElement & { __ufAssignedAt?: number }) | null)?.__ufAssignedAt ?? 0;
           if (isNativePlayerAvailable() && assignedAt && Date.now() - assignedAt < 8000) return;
           setIsPlaying(false);
@@ -2904,7 +2923,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const onPrerollAdComplete = useCallback(() => {
     setShowPrerollAd(false);
-    if (pendingSong && pendingSong.requestSeq === playRequestSeqRef.current) {
+    // The overlay owns playback while visible. Do not silently discard the
+    // queued track merely because a native/background event advanced the global
+    // request counter during the ad.
+    if (pendingSong) {
       playActualSong(pendingSong.song, pendingSong.offlineUrl, pendingSong.songsQueue);
     }
     setPendingSong(null);
