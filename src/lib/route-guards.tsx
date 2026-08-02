@@ -134,7 +134,9 @@ const isWebLanding = () => typeof window !== 'undefined'
 
 export const RootGate = () => {
   const { user, isLoading, emailVerified } = useAuth();
-  const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(undefined);
+  const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(
+    () => peekAccess<ArtistDestination>(user?.id, 'artist-destination'),
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -142,7 +144,7 @@ export const RootGate = () => {
       setArtistDestination(undefined);
       return;
     }
-    setArtistDestination(undefined);
+    setArtistDestination(peekAccess<ArtistDestination>(user.id, 'artist-destination'));
     getArtistDestination(user).then((destination) => {
       if (!cancelled) setArtistDestination(destination);
     });
