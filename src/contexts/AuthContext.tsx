@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthError } from '@/lib/errorMessages';
 import { setSentryUser } from '@/lib/sentry';
+import { clearAccessCache } from '@/lib/accessCache';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
