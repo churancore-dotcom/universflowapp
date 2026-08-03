@@ -147,6 +147,7 @@ const useHydrated = () => {
 
 export const RootGate = () => {
   const { user, isLoading, emailVerified } = useAuth();
+  const hydrated = useHydrated();
   const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(
     () => peekAccess<ArtistDestination>(user?.id, 'artist-destination'),
   );
@@ -176,7 +177,7 @@ export const RootGate = () => {
       </Suspense>
     );
   }
-  if (typeof window !== 'undefined' && (isMedianApp || !isWebLanding())) {
+  if (hydrated && (isMedianApp || !isWebLanding())) {
     return <Navigate to="/auth" replace />;
   }
   return (
@@ -188,7 +189,8 @@ export const RootGate = () => {
 
 export const GetAppGate = () => {
   const { user } = useAuth();
-  if (typeof window !== 'undefined' && (isMedianApp || !isWebLanding())) {
+  const hydrated = useHydrated();
+  if (hydrated && (isMedianApp || !isWebLanding())) {
     return <Navigate to={user ? "/" : "/auth"} replace />;
   }
   return (
@@ -197,3 +199,4 @@ export const GetAppGate = () => {
     </Suspense>
   );
 };
+
