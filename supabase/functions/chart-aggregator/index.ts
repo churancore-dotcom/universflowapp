@@ -286,7 +286,14 @@ Deno.serve(async (req) => {
 
     const rawRows: Row[] = [...apple, ...newReleases, ...lastfm, ...yt, ...deezer];
 
-    const rows = rawRows.filter((r) => !isSpamRow(r));
+    // Normalize `metadata` on EVERY row: PostgREST derives the insert column
+    // list from the union of keys across the batch, so rows built without
+    // `metadata` were sent as NULL and violated the NOT NULL constraint —
+    // which wiped that country's charts (delete happens before insert).
+    const rows = rawRows
+      .filter((r) => !isSpamRow(r))
+      .map((r) => ({ ...r, metadata: r.metadata ?? {}, cover_url: r.cover_url ?? null, external_id: r.external_id ?? null }));
+
     if (rows.length === 0) {
       summary[cc] = 0;
       continue;
