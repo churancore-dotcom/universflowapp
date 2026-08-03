@@ -132,6 +132,19 @@ const WEB_LANDING_HOSTS = new Set(['universflow.in', 'www.universflow.in']);
 const isWebLanding = () => typeof window !== 'undefined'
   && WEB_LANDING_HOSTS.has(window.location.hostname.toLowerCase());
 
+/**
+ * True only after hydration. Host-based redirects MUST wait for this, otherwise
+ * the server renders the landing page while the first client render returns a
+ * <Navigate>, which makes React discard and rebuild the entire tree
+ * ("Hydration failed…") on every cold load.
+ */
+const useHydrated = () => {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+  return hydrated;
+};
+
+
 export const RootGate = () => {
   const { user, isLoading, emailVerified } = useAuth();
   const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(
