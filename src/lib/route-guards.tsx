@@ -132,8 +132,22 @@ const WEB_LANDING_HOSTS = new Set(['universflow.in', 'www.universflow.in']);
 const isWebLanding = () => typeof window !== 'undefined'
   && WEB_LANDING_HOSTS.has(window.location.hostname.toLowerCase());
 
+/**
+ * True only after hydration. Host-based redirects MUST wait for this, otherwise
+ * the server renders the landing page while the first client render returns a
+ * <Navigate>, which makes React discard and rebuild the entire tree
+ * ("Hydration failed…") on every cold load.
+ */
+const useHydrated = () => {
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+  return hydrated;
+};
+
+
 export const RootGate = () => {
   const { user, isLoading, emailVerified } = useAuth();
+  const hydrated = useHydrated();
   const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(
     () => peekAccess<ArtistDestination>(user?.id, 'artist-destination'),
   );
@@ -163,7 +177,7 @@ export const RootGate = () => {
       </Suspense>
     );
   }
-  if (typeof window !== 'undefined' && (isMedianApp || !isWebLanding())) {
+  if (hydrated && (isMedianApp || !isWebLanding())) {
     return <Navigate to="/auth" replace />;
   }
   return (
@@ -175,7 +189,8 @@ export const RootGate = () => {
 
 export const GetAppGate = () => {
   const { user } = useAuth();
-  if (typeof window !== 'undefined' && (isMedianApp || !isWebLanding())) {
+  const hydrated = useHydrated();
+  if (hydrated && (isMedianApp || !isWebLanding())) {
     return <Navigate to={user ? "/" : "/auth"} replace />;
   }
   return (
@@ -184,3 +199,4 @@ export const GetAppGate = () => {
     </Suspense>
   );
 };
+
