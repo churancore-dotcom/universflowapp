@@ -8,6 +8,14 @@ export interface UserArtistPref {
   created_at: string;
 }
 
+function portraitOnly(url?: string | null): string | null {
+  if (!url) return null;
+  if (url.includes('yt3.googleusercontent.com')) return url;
+  if (/cdn-images\.dzcdn\.net\/images\/artist\//i.test(url)) return url;
+  if (/\/storage\/v1\/object\//i.test(url)) return url;
+  return null;
+}
+
 // In-memory cache (per session) to avoid repeated reads
 let cache: { userId: string; data: UserArtistPref[]; ts: number } | null = null;
 const TTL = 60 * 1000;
@@ -46,7 +54,7 @@ export async function followArtist(
       {
         user_id: userId,
         artist_name: artistName,
-        artist_image: opts.image ?? null,
+        artist_image: portraitOnly(opts.image),
         artist_source: opts.source ?? 'lastfm',
       },
       { onConflict: 'user_id,artist_name' }
