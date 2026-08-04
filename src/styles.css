@@ -864,3 +864,118 @@ select {
 }
 html.light .liquid-glass-dense,
 html.pearl .liquid-glass-dense { --lg-base: hsl(0 0% 100% / 0.78); }
+
+/* ==========================================================================
+   ETHEREAL IRIDESCENCE — floating orbs and prismatic rim accents
+   --------------------------------------------------------------------------
+   Direction v3: ambient orbs that drift behind glass, plus a subtle
+   iridescent rim on featured surfaces. Kept performant with transforms
+   and opacity-only motion.
+   ========================================================================== */
+
+.ethereal-orb {
+  position: absolute;
+  border-radius: 9999px;
+  pointer-events: none;
+  filter: blur(90px) saturate(160%);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+}
+
+.ethereal-orb-rose {
+  width: 280px;
+  height: 280px;
+  background: hsl(var(--glow-iridescent-rose) / 0.32);
+  top: -80px;
+  right: -80px;
+  animation: ethereal-drift-1 22s ease-in-out infinite alternate;
+}
+
+.ethereal-orb-violet {
+  width: 260px;
+  height: 260px;
+  background: hsl(var(--glow-iridescent-violet) / 0.22);
+  bottom: 180px;
+  left: -100px;
+  animation: ethereal-drift-2 26s ease-in-out infinite alternate;
+}
+
+.ethereal-orb-peach {
+  width: 180px;
+  height: 180px;
+  background: hsl(var(--glow-iridescent-peach) / 0.14);
+  top: 40%;
+  left: -40px;
+  animation: ethereal-drift-3 30s ease-in-out infinite alternate;
+}
+
+@keyframes ethereal-drift-1 {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 0.28; }
+  50%  { transform: translate3d(-18px, 14px, 0) scale(1.08); opacity: 0.42; }
+  100% { transform: translate3d(8px, -10px, 0) scale(1.02); opacity: 0.32; }
+}
+
+@keyframes ethereal-drift-2 {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 0.18; }
+  50%  { transform: translate3d(14px, -18px, 0) scale(1.1); opacity: 0.30; }
+  100% { transform: translate3d(-10px, 8px, 0) scale(1.04); opacity: 0.22; }
+}
+
+@keyframes ethereal-drift-3 {
+  0%   { transform: translate3d(0, 0, 0) scale(1); opacity: 0.12; }
+  50%  { transform: translate3d(-12px, 10px, 0) scale(1.06); opacity: 0.20; }
+  100% { transform: translate3d(6px, -8px, 0) scale(1.03); opacity: 0.14; }
+}
+
+.iridescent-rim {
+  position: relative;
+}
+
+.iridescent-rim::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--glow-iridescent-rose) / 0.55),
+    hsl(var(--glow-iridescent-violet) / 0.35) 50%,
+    hsl(var(--glow-iridescent-peach) / 0.25) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.ethereal-glass {
+  --lg-blur: 44px;
+  --lg-base: hsl(0 0% 4% / 0.42);
+  --lg-rim: hsl(0 0% 100% / 0.12);
+  --lg-fill: linear-gradient(
+    165deg,
+    hsl(0 0% 100% / 0.14) 0%,
+    hsl(0 0% 100% / 0.05) 40%,
+    hsl(0 0% 100% / 0.02) 70%,
+    hsl(0 0% 100% / 0.08) 100%
+  );
+  --lg-shadow:
+    0 28px 70px -26px hsl(0 0% 0% / 0.65),
+    0 6px 18px -8px hsl(0 0% 0% / 0.35);
+}
+
+html.light .ethereal-glass,
+html.pearl .ethereal-glass {
+  --lg-base: hsl(0 0% 100% / 0.52);
+  --lg-rim: hsl(0 0% 100% / 0.65);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ethereal-orb { animation: none !important; }
+}
