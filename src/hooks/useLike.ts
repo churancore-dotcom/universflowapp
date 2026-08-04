@@ -4,6 +4,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isCatalogSongId } from '@/lib/songSupport';
 import { persistStreamSong, getTrackSource } from '@/lib/streamSongs';
+import { invalidateTasteProfile } from '@/lib/feedPersonalizer';
 import type { Song } from '@/contexts/PlayerContext';
 
 // ============================================================
@@ -25,6 +26,8 @@ const notifyLikeSubscribers = () => {
   for (const cb of likeSubscribers) {
     try { cb(); } catch { /* ignore */ }
   }
+  // A like is a strong taste signal — the feed should reflect it immediately.
+  invalidateTasteProfile();
   // Also let Library / Profile invalidate their react-query cache
   try { window.dispatchEvent(new Event('uf:likes-changed')); } catch { /* ignore */ }
 };
@@ -44,7 +47,15 @@ const saveStreamLikes = (likes: Set<string>) => {
   } catch { /* ignore */ }
 };
 
+export const resetLikeCache = () => {
+  likeCache = new Set();
+  likeCacheLoaded = false;
+  likeCacheUserId = null;
+  likeCachePromise = null;
+};
+
 const loadLikeCache = async (userId: string): Promise<void> => {
+  if (likeCacheUserId !== userId) resetLikeCache();
   if (likeCacheLoaded && likeCacheUserId === userId) return;
   if (likeCachePromise && likeCacheUserId === userId) return likeCachePromise;
 
