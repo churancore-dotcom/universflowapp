@@ -150,6 +150,7 @@ const Home = () => {
   const homeReady = songs.length > 0 && !isOffline;
   const allSongs = useMemo(() => songs, [songs]);
 
+
   // Real per-device listening history — no invented "on repeat" filler.
   const [recent, setRecent] = useState<Song[]>([]);
   useEffect(() => {
@@ -172,6 +173,11 @@ const Home = () => {
     window.addEventListener('universflow:recently-played-changed', load);
     return () => window.removeEventListener('universflow:recently-played-changed', load);
   }, [user?.id, isOffline]);
+
+  // A listener with real history gets a continuation-first feed; everyone else
+  // gets a discovery-first feed. 3 plays is enough signal to stop guessing.
+  const isReturning = recent.length >= 3;
+
 
   // Pull-to-refresh — re-fetches home feed on overscroll
   const pullToRefresh = usePullToRefresh({
@@ -359,17 +365,37 @@ const Home = () => {
                 </motion.section>
               )}
 
-              {/* Rails */}
+              {/* ====== RAILS ======
+                  Order follows intent, not layout convenience:
+                  • Returning listeners (real history) get continuation first —
+                    the artists they follow, then their personal mix, and only
+                    then broad discovery (charts / new releases).
+                  • New listeners have nothing to continue, so discovery leads:
+                    charts → new releases → artists worth following.
+                  Every rail self-hides when it has no real data, so the page
+                  never renders an empty heading. */}
               <div className="px-5 space-y-8">
-                {!isOffline && <TrendingNowSection songs={allSongs} enabled={homeReady} />}
-                {!isOffline && <FreshReleasesSection songs={allSongs} enabled={homeReady} />}
-                {!isOffline && <FollowedArtistSongsSection songs={allSongs} />}
-                {!isOffline && <MadeForYouSection />}
-                {!isOffline && <FeaturedArtistsSection />}
-
-                {/* Downloaded songs list only matters offline */}
-                {isOffline && allSongs.length > 0 && <AllSongsSection songs={allSongs} />}
+                {isOffline ? (
+                  allSongs.length > 0 && <AllSongsSection songs={allSongs} />
+                ) : isReturning ? (
+                  <>
+                    <FollowedArtistSongsSection songs={allSongs} />
+                    <MadeForYouSection />
+                    <TrendingNowSection songs={allSongs} enabled={homeReady} />
+                    <FreshReleasesSection songs={allSongs} enabled={homeReady} />
+                    <FeaturedArtistsSection />
+                  </>
+                ) : (
+                  <>
+                    <TrendingNowSection songs={allSongs} enabled={homeReady} />
+                    <FreshReleasesSection songs={allSongs} enabled={homeReady} />
+                    <FeaturedArtistsSection />
+                    <FollowedArtistSongsSection songs={allSongs} />
+                    <MadeForYouSection />
+                  </>
+                )}
               </div>
+
             </div>
           )}
         </main>
