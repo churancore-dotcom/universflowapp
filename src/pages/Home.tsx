@@ -224,30 +224,6 @@ const Home = () => {
     [allSongs, heroSong],
   );
 
-  const quickTiles = useMemo(() => {
-    const tiles: { title: string; subtitle: string; cover?: string; song?: Song; gradient: string }[] = [];
-    const first = allSongs.find((s) => s.cover_url);
-    const second = allSongs.filter((s) => s.cover_url && s.id !== first?.id)[0];
-    if (first) {
-      tiles.push({
-        title: first.title,
-        subtitle: first.artist,
-        cover: first.cover_url,
-        song: first,
-        gradient: 'from-rose-500/20 to-transparent',
-      });
-    }
-    if (second) {
-      tiles.push({
-        title: second.title,
-        subtitle: second.artist,
-        cover: second.cover_url,
-        song: second,
-        gradient: 'from-violet-500/20 to-transparent',
-      });
-    }
-    return tiles;
-  }, [allSongs]);
 
   const playHero = useCallback(() => {
     if (!heroSong) return;
