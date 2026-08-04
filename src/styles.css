@@ -1146,3 +1146,125 @@ main.bg-black,
 [class*="bg-black/"] {
   backdrop-filter: blur(40px) saturate(180%);
 }
+
+/* =========================================================================
+   6. NEUMORPHISM — global soft-UI material.
+   Everything raised is the same colour as the page, lit from the top-left
+   and shadowed to the bottom-right. Glass/blur surfaces are converted to
+   soft plastic so the whole app reads as one moulded object.
+   ========================================================================= */
+:root {
+  --neu-bg: 240 5% 11%;
+  --neu-surface: 240 5% 13%;
+  --neu-light: 240 8% 20%;
+  --neu-dark: 240 10% 5%;
+  --neu-dist: 8px;
+  --neu-blur: 18px;
+
+  --background: var(--neu-bg);
+  --card: var(--neu-surface);
+  --popover: 240 5% 14%;
+  --secondary: 240 5% 15%;
+  --muted: 240 5% 16%;
+  --input: 240 5% 10%;
+  --border: 240 6% 18%;
+  --surface-elevated: 240 5% 15%;
+  --surface-overlay: 240 5% 10%;
+  --sidebar-background: 240 5% 10%;
+}
+
+@utility neu {
+  background: hsl(var(--neu-surface));
+  box-shadow:
+    var(--neu-dist) var(--neu-dist) var(--neu-blur) hsl(var(--neu-dark) / 0.85),
+    calc(var(--neu-dist) * -1) calc(var(--neu-dist) * -1) var(--neu-blur) hsl(var(--neu-light) / 0.55);
+  border: none;
+}
+
+@utility neu-sm {
+  background: hsl(var(--neu-surface));
+  box-shadow:
+    4px 4px 10px hsl(var(--neu-dark) / 0.8),
+    -4px -4px 10px hsl(var(--neu-light) / 0.5);
+  border: none;
+}
+
+@utility neu-inset {
+  background: hsl(var(--neu-bg));
+  box-shadow:
+    inset 5px 5px 12px hsl(var(--neu-dark) / 0.9),
+    inset -5px -5px 12px hsl(var(--neu-light) / 0.5);
+  border: none;
+}
+
+@utility neu-press {
+  transition: box-shadow 180ms ease, transform 180ms ease;
+  &:active {
+    box-shadow:
+      inset 5px 5px 12px hsl(var(--neu-dark) / 0.9),
+      inset -5px -5px 12px hsl(var(--neu-light) / 0.45);
+  }
+}
+
+@utility neu-accent {
+  background: linear-gradient(145deg, hsl(var(--primary)), hsl(var(--primary) / 0.75));
+  color: hsl(var(--primary-foreground));
+  box-shadow:
+    6px 6px 16px hsl(var(--neu-dark) / 0.9),
+    -4px -4px 12px hsl(var(--neu-light) / 0.4),
+    inset 0 1px 0 hsl(0 0% 100% / 0.28);
+  border: none;
+}
+
+/* Convert every legacy glass / card surface into soft plastic. */
+.glass,
+.glass-strong,
+.glass-ultra,
+.glass-subtle,
+.ios-card,
+.ethereal-glass,
+.uf-bento-card,
+.bg-card,
+[class*="bg-card/"] {
+  background: hsl(var(--neu-surface)) !important;
+  backdrop-filter: none !important;
+  border: none !important;
+  box-shadow:
+    8px 8px 18px hsl(var(--neu-dark) / 0.85),
+    -8px -8px 18px hsl(var(--neu-light) / 0.5) !important;
+}
+
+/* Kill the old refraction / rim / grain overlays. */
+.glass::before, .glass::after,
+.glass-strong::before, .glass-strong::after,
+.glass-ultra::before, .glass-ultra::after,
+.glass-subtle::before, .glass-subtle::after,
+.ios-card::before, .ios-card::after,
+.ethereal-glass::before, .ethereal-glass::after,
+.iridescent-rim::before, .iridescent-rim::after {
+  display: none !important;
+}
+
+/* Ambient light fields off — neumorphism needs a flat, even ground. */
+body::before, body::after { display: none !important; }
+.ethereal-orb { display: none !important; }
+
+.page-header-glass {
+  background: hsl(var(--neu-bg)) !important;
+  backdrop-filter: none !important;
+  border-bottom: none !important;
+  box-shadow: 0 10px 24px hsl(var(--neu-dark) / 0.6);
+}
+
+[class*="bg-background/"],
+[class*="bg-black/"] {
+  backdrop-filter: none !important;
+}
+
+.ethereal-title {
+  background-image: none;
+  color: hsl(var(--foreground));
+  text-shadow:
+    2px 2px 4px hsl(var(--neu-dark) / 0.9),
+    -1px -1px 2px hsl(var(--neu-light) / 0.6);
+}
