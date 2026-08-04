@@ -1,16 +1,15 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Settings, LogOut, Shield, Heart, ListMusic, Crown, ChevronRight,
-  Edit2, Check, X, Star, Headphones, Download, Music2, Play,
+  Edit2, Check, X, Download, Music2, Play,
 } from 'lucide-react';
 import { useNavigate } from '@/lib/router-compat';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
+import { Song, usePlayer } from '@/contexts/PlayerContext';
 
 import BottomNav from '@/components/BottomNav';
-import ReviewModal from '@/components/ReviewModal';
-import ReviewsSheet from '@/components/ReviewsSheet';
 import { TabTransition } from '@/components/PageTransition';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
 import { Input } from '@/components/ui/input';
@@ -18,12 +17,13 @@ import { toast } from 'sonner';
 import { useDownloads } from '@/contexts/DownloadContext';
 import SEOHead from '@/components/SEOHead';
 import { loadLibrarySongs } from '@/lib/streamSongs';
+import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { triggerHaptic } from '@/hooks/useHaptics';
 
 interface ProfileData {
   username: string | null;
   username_changed: boolean;
 }
-type RecentCover = { id: string; title: string; artist: string; cover_url: string | null };
 
 /** Deterministic gradient per user id for the initials avatar */
 function gradientFromSeed(seed: string): string {
@@ -38,15 +38,14 @@ const Profile = () => {
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
   const { isPremium, isLoading: premiumLoading } = usePremium();
   const { downloads } = useDownloads();
+  const { playSong } = usePlayer();
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({ likedSongs: 0, playlists: 0, downloads: 0 });
   const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; streak: number; totalPlays: number }>({ minutes: 0, topArtist: null, streak: 0, totalPlays: 0 });
-  const [recentCovers, setRecentCovers] = useState<RecentCover[]>([]);
+  const [recentSongs, setRecentSongs] = useState<Song[]>([]);
   const [memberSinceLabel, setMemberSinceLabel] = useState<string>('');
   const [statsReady, setStatsReady] = useState(false);
-  const [showReview, setShowReview] = useState(false);
-  const [showReviewsList, setShowReviewsList] = useState(false);
 
   const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false });
   const [profileReady, setProfileReady] = useState(false);
@@ -54,14 +53,32 @@ const Profile = () => {
   const [newUsername, setNewUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-
-
   useEffect(() => {
     if (user) { setProfileReady(false); setStatsReady(false); fetchStats(); fetchProfile(); }
     else { setProfileReady(true); setStatsReady(true); }
   }, [user]);
 
   useEffect(() => { setStats(prev => ({ ...prev, downloads: downloads.length })); }, [downloads.length]);
+
+  // Recently played comes from the same per-device history the player writes,
+  // so every tile carries a real playable snapshot.
+  useEffect(() => {
+    const load = () => {
+      const entries = readLocalRecent(user?.id).filter((e) => e.song?.title && e.song?.artist);
+      setRecentSongs(entries.slice(0, 12).map((e) => ({
+        id: e.song_id,
+        title: e.song!.title as string,
+        artist: e.song!.artist as string,
+        album: e.song?.album ?? undefined,
+        cover_url: e.song?.cover_url ?? undefined,
+        audio_url: e.song?.audio_url ?? 'resolving',
+        duration: e.song?.duration ?? undefined,
+      } as Song)));
+    };
+    load();
+    window.addEventListener('universflow:recently-played-changed', load);
+    return () => window.removeEventListener('universflow:recently-played-changed', load);
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.created_at) { setMemberSinceLabel(''); return; }
@@ -99,46 +116,47 @@ const Profile = () => {
         loadLibrarySongs(user.id),
         supabase.from('playlists').select('id').eq('user_id', user.id),
         supabase.from('recently_played').select('song_id,played_at').eq('user_id', user.id).order('played_at', { ascending: false }).limit(500),
-        supabase.from('song_play_events').select('title,artist,cover_url,song_id,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
+        supabase.from('song_play_events').select('artist,song_id,created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(500),
       ]);
       setStats({ likedSongs: likedResolved.length, playlists: playlists.data?.length || 0, downloads: downloads.length });
 
-      type RecentRow = { song_id: string; played_at: string };
-      type CatalogSong = { id: string; title: string; artist: string; duration: number | null; cover_url: string | null };
-      type PlayEventRow = { title: string | null; artist: string | null; cover_url: string | null; song_id: string | null; created_at: string };
-
-      const recentRows = (recentPlays.data as RecentRow[] | null) || [];
-      const eventList = (playEvents.data as PlayEventRow[] | null) || [];
-      const catalogIds = [...new Set([
-        ...recentRows.map(r => r.song_id).filter(Boolean),
-        ...eventList.map(r => r.song_id).filter(Boolean) as string[],
-      ])];
-      const { data: catalogSongs } = catalogIds.length
-        ? await supabase.from('songs').select('id,title,artist,duration,cover_url').in('id', catalogIds)
-        : { data: [] as CatalogSong[] };
-      const songById = new Map(((catalogSongs as CatalogSong[] | null) || []).map(s => [s.id, s]));
-
-      const rows = [
-        ...recentRows.map(r => {
-          const s = songById.get(r.song_id);
-          return {
-            title: s?.title || null, artist: s?.artist || null, cover_url: s?.cover_url || null,
-            song_id: r.song_id, played_at: r.played_at, duration: Number(s?.duration) || 180,
-          };
-        }),
-        ...eventList.map(r => ({
-          title: r.title, artist: r.artist, cover_url: r.cover_url, song_id: r.song_id,
-          played_at: r.created_at, duration: 180,
-        })),
+      type PlayRow = { song_id: string | null; artist: string | null; played_at: string };
+      const rawRows: PlayRow[] = [
+        ...(((recentPlays.data as { song_id: string; played_at: string }[] | null) || [])
+          .map(r => ({ song_id: r.song_id, artist: null, played_at: r.played_at }))),
+        ...(((playEvents.data as { artist: string | null; song_id: string | null; created_at: string }[] | null) || [])
+          .map(r => ({ song_id: r.song_id, artist: r.artist, played_at: r.created_at }))),
       ];
-      const totalSeconds = rows.reduce((sum, r) => sum + (Number(r.duration) || 180), 0);
+
+      // The two tables overlap: the same play is logged in both. Dedupe on
+      // song + minute so plays and minutes aren't double-counted.
+      const dedup = new Map<string, PlayRow>();
+      for (const r of rawRows) {
+        const key = `${r.song_id || 'unknown'}|${(r.played_at || '').slice(0, 16)}`;
+        const existing = dedup.get(key);
+        dedup.set(key, existing ? { ...existing, artist: existing.artist || r.artist } : r);
+      }
+      const rows = [...dedup.values()];
+
+      // Real durations only — from the catalog where the song exists.
+      const catalogIds = [...new Set(rows.map(r => r.song_id).filter(Boolean) as string[])];
+      const { data: catalogSongs } = catalogIds.length
+        ? await supabase.from('songs').select('id,artist,duration').in('id', catalogIds)
+        : { data: [] as { id: string; artist: string | null; duration: number | null }[] };
+      const songById = new Map(((catalogSongs as { id: string; artist: string | null; duration: number | null }[] | null) || []).map(s => [s.id, s]));
+
+      let totalSeconds = 0;
       const artistCount = new Map<string, number>();
       const dayKeys = new Set<string>();
       rows.forEach(r => {
-        if (r.artist) artistCount.set(r.artist, (artistCount.get(r.artist) || 0) + 1);
+        const cat = r.song_id ? songById.get(r.song_id) : undefined;
+        const seconds = Number(cat?.duration);
+        if (Number.isFinite(seconds) && seconds > 0) totalSeconds += seconds;
+        const artist = r.artist || cat?.artist;
+        if (artist) artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
         if (r.played_at) dayKeys.add(new Date(r.played_at).toISOString().slice(0, 10));
       });
-      const top = (m: Map<string, number>) => [...m.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
+      const topArtist = [...artistCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
       let streak = 0;
       const cursor = new Date();
@@ -149,21 +167,11 @@ const Profile = () => {
         else break;
       }
 
-      const seen = new Set<string>();
-      const covers: RecentCover[] = [];
-      for (const r of rows) {
-        if (!r.title || !r.song_id) continue;
-        const key = String(r.song_id);
-        if (seen.has(key)) continue;
-        seen.add(key);
-        covers.push({ id: key, title: r.title, artist: r.artist || '', cover_url: r.cover_url });
-        if (covers.length >= 10) break;
-      }
-      setRecentCovers(covers);
       setListenStats({
         minutes: Math.round(totalSeconds / 60),
-        topArtist: top(artistCount),
-        streak, totalPlays: rows.length,
+        topArtist,
+        streak,
+        totalPlays: rows.length,
       });
     } finally { setStatsReady(true); }
   };
@@ -229,7 +237,6 @@ const Profile = () => {
           {/* ============ IDENTITY PANEL ============ */}
           <section className="px-5 pt-6">
             <div className="neu rounded-[30px] p-6 flex flex-col items-center text-center">
-              {/* Carved avatar well */}
               <div className="neu-inset rounded-full p-3">
                 <div
                   className="w-[92px] h-[92px] rounded-full flex items-center justify-center"
@@ -313,15 +320,14 @@ const Profile = () => {
           <div className="px-5 pt-6 space-y-7">
             <EmailVerificationCard />
 
-            {/* ============ STATS — carved dial cluster ============ */}
-            {profileSettled && user && (
+            {/* ============ STATS ============ */}
+            {profileSettled && user && listenStats.totalPlays > 0 && (
               <section className="neu rounded-[28px] p-4">
                 <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/35 mb-4 px-1">Listening</p>
-                <div className="grid grid-cols-2 gap-3">
+                <div className="grid grid-cols-3 gap-3">
                   <Dial value={fmt(listenStats.minutes)} label="Minutes" />
                   <Dial value={fmt(listenStats.totalPlays)} label="Plays" />
-                  <Dial value={listenStats.streak > 0 ? `${listenStats.streak}d` : '0d'} label="Streak" />
-                  <Dial value={fmt(stats.likedSongs)} label="Liked" />
+                  <Dial value={`${listenStats.streak}d`} label="Streak" />
                 </div>
 
                 {listenStats.topArtist && (
@@ -330,7 +336,7 @@ const Profile = () => {
                       <Play className="w-4 h-4 text-white" fill="currentColor" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Heavy rotation</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Most played artist</p>
                       <p className="font-semibold truncate text-[14px] mt-0.5">{listenStats.topArtist}</p>
                     </div>
                   </div>
@@ -338,41 +344,41 @@ const Profile = () => {
               </section>
             )}
 
-            {/* ============ RECENTLY PLAYED — cover pucks ============ */}
-            {profileSettled && recentCovers.length > 0 && (
+            {/* ============ RECENTLY PLAYED ============ */}
+            {recentSongs.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/35">Recently played</h2>
                   <button onClick={() => navigate('/library')} className="neu-sm neu-press px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-white/55">
-                    All
+                    Library
                   </button>
                 </div>
                 <div className="flex gap-4 overflow-x-auto hide-scrollbar -mx-5 px-5 pb-2">
-                  {recentCovers.map((c) => (
+                  {recentSongs.map((song) => (
                     <button
-                      key={c.id}
-                      onClick={() => navigate(`/search?q=${encodeURIComponent(`${c.title} ${c.artist}`.trim())}`)}
+                      key={song.id}
+                      onClick={() => { triggerHaptic('selection'); playSong(song, null, recentSongs); }}
                       className="shrink-0 w-[104px] text-left"
-                      aria-label={`Replay ${c.title}`}
+                      aria-label={`Play ${song.title}`}
                     >
                       <div className="neu neu-press rounded-3xl p-2">
                         <div className="neu-inset w-full aspect-square rounded-2xl overflow-hidden">
-                          {c.cover_url ? (
-                            <img src={c.cover_url} alt={c.title} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
+                          {song.cover_url ? (
+                            <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center"><Music2 className="w-6 h-6 text-white/20" /></div>
                           )}
                         </div>
                       </div>
-                      <p className="mt-2.5 px-1 text-[12px] font-semibold text-white/85 truncate leading-tight">{c.title}</p>
-                      <p className="px-1 text-[11px] text-white/35 truncate">{c.artist}</p>
+                      <p className="mt-2.5 px-1 text-[12px] font-semibold text-white/85 truncate leading-tight">{song.title}</p>
+                      <p className="px-1 text-[11px] text-white/35 truncate">{song.artist}</p>
                     </button>
                   ))}
                 </div>
               </section>
             )}
 
-            {/* ============ LIBRARY — moulded keys ============ */}
+            {/* ============ LIBRARY ============ */}
             <section>
               <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/35 mb-4">Your library</h2>
               <div className="space-y-3">
@@ -388,14 +394,6 @@ const Profile = () => {
                   label="Downloads"
                   hint={profileSettled ? `${stats.downloads} offline` : '—'}
                   onClick={() => navigate('/downloads')} />
-                <Key icon={<Headphones className="w-[18px] h-[18px] text-white/70" />}
-                  label="Audio & Equalizer"
-                  hint="Studio EQ, stems, spatial"
-                  onClick={() => navigate('/settings')} />
-                <Key icon={<Star className="w-[18px] h-[18px] text-amber-300" fill="currentColor" />}
-                  label="Reviews"
-                  hint="Rate Univers Flow"
-                  onClick={() => setShowReviewsList(true)} />
               </div>
             </section>
 
@@ -425,9 +423,6 @@ const Profile = () => {
                     hint="Manage the platform"
                     onClick={() => navigate('/admin')} />
                 )}
-                <Key icon={<Settings className="w-[18px] h-[18px] text-white/70" />} label="Settings"
-                  hint="Playback, quality, privacy"
-                  onClick={() => navigate('/settings')} />
                 <button onClick={handleLogout}
                   className="neu neu-press w-full flex items-center gap-4 px-4 py-4 rounded-3xl text-left">
                   <div className="neu-inset w-11 h-11 rounded-2xl flex items-center justify-center shrink-0">
@@ -445,12 +440,6 @@ const Profile = () => {
         </main>
 
         <BottomNav />
-        <ReviewModal isOpen={showReview} onClose={() => setShowReview(false)} />
-        <ReviewsSheet
-          isOpen={showReviewsList}
-          onClose={() => setShowReviewsList(false)}
-          onWriteReview={() => { setShowReviewsList(false); setTimeout(() => setShowReview(true), 250); }}
-        />
       </div>
     </TabTransition>
   );
@@ -481,4 +470,3 @@ function Key({ icon, label, hint, onClick }:
 }
 
 export default Profile;
-

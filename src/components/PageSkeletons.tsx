@@ -32,8 +32,8 @@ const RailHeader = ({ wide = false }: { wide?: boolean }) => (
 );
 
 // ── Home — bento hero + multiple horizontal rails + artist circles + viral list
-// Matches the real Home composition: HomeBento (hero + 2-col tiles), FreshReleases,
-// TrendingNow, FeaturedArtists circles, MadeForYou, CountryViral list rows.
+// Matches the real Home composition: hero panel, recently played,
+// TrendingNow, FreshReleases, FeaturedArtists circles, MadeForYou.
 export const HomeSkeleton = memo(() => (
   <div className="space-y-5 font-body" style={{ animation: 'fade-in 0.32s ease-out both' }}>
     {/* Bento hero — Continue Listening card (~180px) */}
