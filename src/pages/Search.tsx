@@ -583,7 +583,7 @@ const Search = () => {
 
   return (
     <TabTransition>
-      <div className="h-[100dvh] bg-background flex flex-col overflow-hidden relative">
+      <div className="ethereal-page h-[100dvh] flex flex-col overflow-hidden relative">
         <SEOHead
           title="Search Music — Songs, Artists & Albums | Univers Flow"
           description="Search any song, artist, or album worldwide. Discover and play tracks instantly on Univers Flow."

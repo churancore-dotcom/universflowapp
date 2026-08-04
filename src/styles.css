@@ -979,3 +979,170 @@ html.pearl .ethereal-glass {
 @media (prefers-reduced-motion: reduce) {
   .ethereal-orb { animation: none !important; }
 }
+
+/* ==========================================================================
+   ETHEREAL IRIDESCENCE — GLOBAL ROLLOUT (every screen)
+   --------------------------------------------------------------------------
+   The direction is applied through the shared material layer so every route
+   inherits it: a second drifting counter-light field behind all content, the
+   ethereal slab tokens on every glass/card surface, and prismatic rims on
+   featured chrome (headers, sheets, dialogs, bento cards).
+   ========================================================================== */
+
+/* --- 1. Counter-light field: drifts opposite body::before on every page --- */
+body::after {
+  content: "";
+  position: fixed;
+  inset: -30%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 22% 14%, hsl(var(--glow-iridescent-rose) / 0.26), transparent 70%),
+    radial-gradient(34% 30% at 86% 62%, hsl(var(--glow-iridescent-violet) / 0.22), transparent 72%),
+    radial-gradient(30% 26% at 52% 34%, hsl(var(--glow-iridescent-peach) / 0.14), transparent 74%);
+  filter: blur(72px) saturate(170%);
+  mix-blend-mode: screen;
+  opacity: 0.85;
+  animation: ethereal-field 34s ease-in-out infinite alternate;
+}
+
+@keyframes ethereal-field {
+  0%   { transform: translate3d(2%, 1%, 0) scale(1.04); opacity: 0.7; }
+  50%  { transform: translate3d(-3%, -2%, 0) scale(1.12); opacity: 0.95; }
+  100% { transform: translate3d(1%, -3%, 0) scale(1.06); opacity: 0.78; }
+}
+
+/* --- 2. Every glass surface becomes the ethereal slab -------------------- */
+.glass,
+.glass-strong,
+.glass-ultra,
+.glass-subtle,
+.liquid-glass,
+.ios-card,
+.uf-bento-card,
+.player-card,
+.bg-card,
+.bg-popover,
+[role="dialog"],
+[data-radix-popper-content-wrapper] > * {
+  --lg-base: hsl(0 0% 4% / 0.44);
+  --lg-rim: hsl(0 0% 100% / 0.13);
+  --lg-fill: linear-gradient(
+    165deg,
+    hsl(0 0% 100% / 0.13) 0%,
+    hsl(0 0% 100% / 0.05) 40%,
+    hsl(0 0% 100% / 0.02) 70%,
+    hsl(0 0% 100% / 0.08) 100%
+  );
+  --lg-sat: 180%;
+  --lg-shadow:
+    0 28px 70px -26px hsl(0 0% 0% / 0.62),
+    0 6px 18px -8px hsl(0 0% 0% / 0.32);
+}
+
+html.light .glass,
+html.light .glass-strong,
+html.light .glass-ultra,
+html.light .ios-card,
+html.light .uf-bento-card,
+html.light .bg-card,
+html.light .bg-popover,
+html.pearl .glass,
+html.pearl .glass-strong,
+html.pearl .glass-ultra,
+html.pearl .ios-card,
+html.pearl .uf-bento-card,
+html.pearl .bg-card,
+html.pearl .bg-popover {
+  --lg-base: hsl(0 0% 100% / 0.56);
+  --lg-rim: hsl(0 0% 100% / 0.7);
+}
+
+.glass          { --lg-blur: 30px; }
+.glass-strong   { --lg-blur: 44px; }
+.glass-ultra    { --lg-blur: 60px; }
+
+/* --- 3. Prismatic rim on featured chrome -------------------------------- */
+.glass-ultra,
+.uf-bento-card,
+[role="dialog"] {
+  position: relative;
+}
+
+.glass-ultra::after,
+.uf-bento-card::after,
+[role="dialog"]::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  z-index: 0;
+  background: linear-gradient(
+    135deg,
+    hsl(var(--glow-iridescent-rose) / 0.42),
+    hsl(var(--glow-iridescent-violet) / 0.26) 50%,
+    hsl(var(--glow-iridescent-peach) / 0.2) 100%
+  );
+  -webkit-mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  mask:
+    linear-gradient(#fff 0 0) content-box,
+    linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+/* --- 4. Page-level scaffolding any route can opt into ------------------- */
+@utility ethereal-page {
+  position: relative;
+  isolation: isolate;
+}
+
+@utility ethereal-title {
+  background-image: linear-gradient(
+    100deg,
+    hsl(var(--foreground)) 0%,
+    hsl(var(--foreground)) 42%,
+    hsl(var(--glow-iridescent-rose) / 0.95) 78%,
+    hsl(var(--glow-iridescent-peach) / 0.9) 100%
+  );
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+}
+
+/* Sticky page headers read as floating ethereal glass on every screen. */
+.page-header-glass {
+  --lg-blur: 44px;
+  backdrop-filter: blur(var(--lg-blur)) saturate(180%);
+  background-color: hsl(0 0% 4% / 0.42);
+  border-bottom: 0.5px solid hsl(0 0% 100% / 0.1);
+}
+html.light .page-header-glass,
+html.pearl .page-header-glass { background-color: hsl(0 0% 100% / 0.62); }
+
+@media (prefers-reduced-motion: reduce) {
+  body::after { animation: none; }
+}
+
+/* --- 5. Legacy opaque page shells become transparent so the ambient
+   ethereal field is visible on every route, and every translucent sticky
+   header picks up the deep ethereal blur. -------------------------------- */
+main.bg-background,
+.bg-background.min-h-screen,
+.bg-background.min-h-\[100dvh\],
+.bg-background.h-\[100dvh\],
+main.bg-black,
+.bg-black.min-h-screen,
+.bg-black.min-h-\[100dvh\],
+.bg-black.h-\[100dvh\] {
+  background-color: transparent;
+}
+
+[class*="bg-background/"],
+[class*="bg-black/"] {
+  backdrop-filter: blur(40px) saturate(180%);
+}

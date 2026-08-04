@@ -81,7 +81,7 @@ const DownloadsPage = memo(function DownloadsPage() {
         keywords="offline music, music downloads, Univers Flow offline"
       />
       <motion.div
-        className="min-h-screen bg-background pb-44 relative overflow-hidden"
+        className="ethereal-page min-h-screen pb-44 relative overflow-hidden"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
       >
         {/* Header */}
@@ -102,7 +102,7 @@ const DownloadsPage = memo(function DownloadsPage() {
             <ChevronLeft className="w-6 h-6" />
             <span className="text-[17px]">Back</span>
           </motion.button>
-          <h1 className="ml-1 text-[17px] font-semibold">Downloads</h1>
+          <h1 className="ethereal-title ml-1 text-[17px] font-semibold">Downloads</h1>
         </motion.header>
 
         <main className="px-5 pt-2 space-y-6">

@@ -225,7 +225,7 @@ const PremiumPage = memo(function PremiumPage() {
         ]}
       />
       <motion.div
-        className="min-h-screen pb-44 relative overflow-hidden bg-background text-foreground"
+        className="ethereal-page min-h-screen pb-44 relative overflow-hidden text-foreground"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
       >
         {/* Static rose glow — anchored top, single blur, perf-safe */}

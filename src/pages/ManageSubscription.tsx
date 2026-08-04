@@ -106,7 +106,7 @@ const ManageSubscription = () => {
   if (!isPremium) {
     return (
       <PageTransition>
-        <div className="min-h-screen bg-background pb-44">
+        <div className="ethereal-page min-h-screen pb-44">
           <header className="sticky top-0 z-30 px-2 pt-4 pb-3 flex items-center safe-area-pt"
             style={{ background: 'hsl(var(--background) / 0.85)', backdropFilter: 'blur(40px)' }}>
             <button onClick={() => navigate(-1)} className="flex items-center gap-1 px-2 py-2 text-primary">
@@ -145,7 +145,7 @@ const ManageSubscription = () => {
         keywords="manage subscription, Universflow premium plan, billing"
       />
       <motion.div
-        className="min-h-screen bg-background pb-44"
+        className="ethereal-page min-h-screen pb-44"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
       >
         {/* Header */}
