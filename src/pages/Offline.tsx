@@ -49,6 +49,7 @@ const Offline = memo(function Offline() {
     }
 
     // Listen for online/offline status
+    setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     
