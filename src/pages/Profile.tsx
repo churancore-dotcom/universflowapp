@@ -54,23 +54,7 @@ const Profile = () => {
   const [newUsername, setNewUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Parallax scroll
-  const scrollRef = useRef<HTMLElement | null>(null);
-  const [scrollY, setScrollY] = useState(0);
-  useEffect(() => {
-    const el = scrollRef.current;
-    if (!el) return;
-    let raf = 0;
-    const onScroll = () => {
-      if (raf) return;
-      raf = requestAnimationFrame(() => {
-        setScrollY(el.scrollTop);
-        raf = 0;
-      });
-    };
-    el.addEventListener('scroll', onScroll, { passive: true });
-    return () => { el.removeEventListener('scroll', onScroll); if (raf) cancelAnimationFrame(raf); };
-  }, []);
+
 
   useEffect(() => {
     if (user) { setProfileReady(false); setStatsReady(false); fetchStats(); fetchProfile(); }
