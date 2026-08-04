@@ -31,7 +31,7 @@ import EqualizerModal from '@/components/EqualizerModal';
 import PremiumLockOverlay from '@/components/PremiumLockOverlay';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Lock, ListMusic, Sliders, Play, User } from 'lucide-react';
+import { Music, Lock, ListMusic, Sliders, Play, User, Shuffle } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { usePremium } from '@/hooks/usePremium';
 // LCP hero logo is served from /public so it can be preloaded in index.html
