@@ -18,6 +18,13 @@ interface DisplayArtist {
   followed: boolean;
 }
 
+const isPortraitUrl = (url: string | null) => {
+  if (!url) return false;
+  return url.includes('yt3.googleusercontent.com')
+    || /cdn-images\.dzcdn\.net\/images\/artist\//i.test(url)
+    || /\/storage\/v1\/object\//i.test(url);
+};
+
 /**
  * Your Artists — editorial portrait cards.
  *
@@ -49,21 +56,25 @@ const FeaturedArtistsSection = () => {
     return out.slice(0, 10);
   }, [user, prefs, taste]);
 
-  // Real artist portraits (not album/song artwork) for anyone missing a photo.
-  const missing = useMemo(
-    () => baseArtists.filter((a) => !a.image).map((a) => a.name),
+  // Resolve every artist by name. Older follows may contain a song cover in
+  // artist_image, so only known portrait hosts are allowed as an instant cache.
+  const artistNames = useMemo(
+    () => baseArtists.map((a) => a.name),
     [baseArtists],
   );
   const { data: portraits } = useQuery({
-    queryKey: ['artist-portraits', missing.join('|')],
-    enabled: missing.length > 0,
+    queryKey: ['artist-portraits', artistNames.join('|')],
+    enabled: artistNames.length > 0,
     staleTime: 24 * 60 * 60 * 1000,
     gcTime: 24 * 60 * 60 * 1000,
-    queryFn: () => enrichArtistImages(missing),
+    queryFn: () => enrichArtistImages(artistNames),
   });
 
   const artists = useMemo<DisplayArtist[]>(
-    () => baseArtists.map((a) => (a.image ? a : { ...a, image: portraits?.[a.name] ?? null })),
+    () => baseArtists.map((a) => ({
+      ...a,
+      image: portraits?.[a.name] ?? (isPortraitUrl(a.image) ? a.image : null),
+    })),
     [baseArtists, portraits],
   );
 
@@ -99,7 +110,7 @@ const FeaturedArtistsSection = () => {
               className="relative block w-[148px] h-[196px] rounded-[28px] overflow-hidden neu text-left"
             >
               {artist.image ? (
-                <img src={artist.image} alt={artist.name} className="absolute inset-0 w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
+                <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/25 to-background flex items-center justify-center">
                   <User className="w-7 h-7 text-muted-foreground" />

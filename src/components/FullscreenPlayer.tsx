@@ -387,7 +387,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 <div className="relative z-10 flex items-center gap-1 flex-shrink-0">
                   <FollowArtistButton
                     artistName={currentSong.artist}
-                    artistImage={currentSong.cover_url}
+                    artistImage={currentSong.artist_photo_url}
                     source={currentSong.artist_id ? 'catalog' : 'lastfm'}
                     size="sm"
                   />
