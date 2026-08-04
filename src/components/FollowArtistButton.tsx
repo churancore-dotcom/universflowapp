@@ -4,8 +4,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import {
   followArtist as followArtistApi,
   unfollowArtist as unfollowArtistApi,
-  getUserArtistPrefs,
 } from '@/lib/userArtistPrefs';
+import { useFollowedArtists } from '@/hooks/useFollowedArtists';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
 
@@ -25,22 +25,17 @@ const FollowArtistButton = memo(function FollowArtistButton({
   size = 'sm',
 }: Props) {
   const { user } = useAuth();
+  const { names } = useFollowedArtists();
   const [isFollowing, setIsFollowing] = useState(false);
   const [busy, setBusy] = useState(false);
 
+  // Follow state comes from the shared, event-driven follow list, so pressing
+  // follow anywhere in the app updates every button instantly.
   useEffect(() => {
-    let cancelled = false;
-    if (!user || !artistName) {
-      setIsFollowing(false);
-      return;
-    }
-    getUserArtistPrefs(user.id).then((prefs) => {
-      if (cancelled) return;
-      const target = artistName.trim().toLowerCase();
-      setIsFollowing(prefs.some((p) => p.artist_name.trim().toLowerCase() === target));
-    });
-    return () => { cancelled = true; };
-  }, [user, artistName]);
+    if (!user || !artistName) { setIsFollowing(false); return; }
+    const target = artistName.trim().toLowerCase();
+    setIsFollowing(names.some((n) => n.trim().toLowerCase() === target));
+  }, [user, artistName, names]);
 
   const handleClick = useCallback(async (e: React.MouseEvent) => {
     e.stopPropagation();

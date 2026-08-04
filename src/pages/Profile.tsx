@@ -58,6 +58,15 @@ const Profile = () => {
     else { setProfileReady(true); setStatsReady(true); }
   }, [user]);
 
+  // Liking/unliking anywhere in the app must reflect here without a reload.
+  useEffect(() => {
+    if (!user) return;
+    const onLikes = () => { fetchStats(); };
+    window.addEventListener('uf:likes-changed', onLikes);
+    return () => window.removeEventListener('uf:likes-changed', onLikes);
+  }, [user]);
+
+
   useEffect(() => { setStats(prev => ({ ...prev, downloads: downloads.length })); }, [downloads.length]);
 
   // Recently played comes from the same per-device history the player writes,
