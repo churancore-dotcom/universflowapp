@@ -225,8 +225,10 @@ export default function ArtistPublic() {
       <FadeTransition>
         <div className="min-h-[100dvh] bg-background text-foreground flex items-center justify-center px-6">
           <div className="text-center">
-            <p className="text-muted-foreground text-[14px] mb-4">Artist not found.</p>
+            <h1 className="text-[19px] font-semibold tracking-tight mb-1">Artist not found</h1>
+            <p className="text-muted-foreground text-[14px] mb-4">This artist page doesn’t exist or was removed.</p>
             <Button onClick={() => navigate('/home')}>Back to home</Button>
+          </div>
           </div>
         </div>
       </FadeTransition>
