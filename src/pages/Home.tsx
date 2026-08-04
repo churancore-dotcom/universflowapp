@@ -153,10 +153,13 @@ const Home = () => {
 
   // Real per-device listening history — no invented "on repeat" filler.
   const [recent, setRecent] = useState<Song[]>([]);
+  const [lastPlayedAt, setLastPlayedAt] = useState<number | null>(null);
   useEffect(() => {
-    if (isOffline) { setRecent([]); return; }
+    if (isOffline) { setRecent([]); setLastPlayedAt(null); return; }
     const load = () => {
-      const entries = readLocalRecent(user?.id).filter((e) => e.song?.title && e.song?.artist);
+      const all = readLocalRecent(user?.id);
+      const entries = all.filter((e) => e.song?.title && e.song?.artist);
+      setLastPlayedAt(all.length > 0 ? Math.max(...all.map((e) => e.played_at)) : null);
       setRecent(
         entries.slice(0, 12).map((e) => ({
           id: e.song_id,
@@ -174,9 +177,24 @@ const Home = () => {
     return () => window.removeEventListener('universflow:recently-played-changed', load);
   }, [user?.id, isOffline]);
 
-  // A listener with real history gets a continuation-first feed; everyone else
-  // gets a discovery-first feed. 3 plays is enough signal to stop guessing.
-  const isReturning = recent.length >= 3;
+  // Behavioural signals. Computed after hydration only — the clock and
+  // localStorage don't exist on the server, and guessing them there would flip
+  // the whole feed order right after first paint.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+
+  const signals: HomeFeedSignals = useMemo(() => {
+    const now = hydrated ? new Date() : new Date(0);
+    return {
+      recentCount: recent.length,
+      msSinceLastPlay: hydrated && lastPlayedAt ? Date.now() - lastPlayedAt : null,
+      hour: hydrated ? now.getHours() : 12,
+      weekday: hydrated ? now.getDay() : 3,
+    };
+  }, [hydrated, recent.length, lastPlayedAt]);
+
+  const railOrder = useMemo(() => getHomeRailOrder(signals), [signals]);
+
 
 
   // Pull-to-refresh — re-fetches home feed on overscroll
