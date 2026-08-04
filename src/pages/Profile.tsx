@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import {
   Settings, LogOut, Shield, Heart, ListMusic, Crown, ChevronRight,
   Edit2, Check, X, Star, Headphones, Download, Music2, Play,
