@@ -322,7 +322,7 @@ const Home = () => {
                       </div>
                       <div className="min-w-0">
                         <span className="inline-block px-3 py-1 rounded-full neu-inset text-[9px] uppercase tracking-[0.2em] text-primary font-semibold">
-                          {currentSong ? 'Now playing' : "Today's pick"}
+                          {heroContextLabel(signals, !!currentSong)}
                         </span>
                         <h2 className="font-display text-[30px] leading-[0.95] tracking-[0.03em] text-foreground uppercase mt-2 line-clamp-2">
                           {heroSong.title}
