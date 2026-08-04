@@ -214,6 +214,16 @@ const Home = () => {
     return allSongs.find((s) => s.cover_url) || allSongs[0];
   }, [currentSong, allSongs]);
 
+  const jumpBackIn = useMemo<Song[]>(
+    () => allSongs.filter((s) => s.cover_url && s.id !== heroSong?.id).slice(0, 10),
+    [allSongs, heroSong],
+  );
+
+  const onRepeat = useMemo<Song[]>(
+    () => allSongs.filter((s) => s.id !== heroSong?.id).slice(10, 15),
+    [allSongs, heroSong],
+  );
+
   const quickTiles = useMemo(() => {
     const tiles: { title: string; subtitle: string; cover?: string; song?: Song; gradient: string }[] = [];
     const first = allSongs.find((s) => s.cover_url);
