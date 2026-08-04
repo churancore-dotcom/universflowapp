@@ -277,25 +277,42 @@ const Home = () => {
         </div>
 
         {/* Ethereal Header */}
-        <header className="flex-shrink-0 z-30 px-6 pt-4 pb-3 safe-area-pt">
+        <header className="flex-shrink-0 z-30 px-5 pt-4 pb-2 safe-area-pt">
           <div className="flex items-center justify-between">
             <div className="text-[26px] font-semibold tracking-tighter text-foreground">
               Univers<span className="text-primary">.</span>
             </div>
-            <motion.button
-              onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
-              aria-label="Open profile"
-              className="w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-primary to-primary/60 overflow-hidden"
-              whileTap={{ scale: 0.92 }}
-            >
-              <div className="w-full h-full rounded-full bg-background overflow-hidden flex items-center justify-center">
-                {userAvatar ? (
-                  <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-5 h-5 text-muted-foreground" />
-                )}
-              </div>
-            </motion.button>
+            <div className="flex items-center gap-2">
+              {[
+                { icon: ListMusic, action: () => setShowQueue(true), label: 'Open queue' },
+                { icon: Sliders, action: () => isPremium ? setShowEqualizer(true) : setShowEqPremium(true), label: isPremium ? 'Open equalizer' : 'Equalizer, Premium feature' },
+                { icon: Lock, action: () => setShowLockScreen(true), label: 'Open lock screen player' },
+              ].map(({ icon: Icon, action, label }, i) => (
+                <motion.button
+                  key={i}
+                  onClick={() => { triggerHaptic('selection'); action(); }}
+                  aria-label={label}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/[0.05] border border-white/[0.08] backdrop-blur-xl"
+                  whileTap={{ scale: 0.85 }}
+                >
+                  <Icon className="w-4 h-4 text-foreground/70" />
+                </motion.button>
+              ))}
+              <motion.button
+                onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
+                aria-label="Open profile"
+                className="w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-primary to-primary/60 overflow-hidden"
+                whileTap={{ scale: 0.92 }}
+              >
+                <div className="w-full h-full rounded-full bg-background overflow-hidden flex items-center justify-center">
+                  {userAvatar ? (
+                    <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-5 h-5 text-muted-foreground" />
+                  )}
+                </div>
+              </motion.button>
+            </div>
           </div>
         </header>
 
