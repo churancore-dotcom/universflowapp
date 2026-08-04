@@ -61,30 +61,20 @@ export function scoreHomeRails(s: HomeFeedSignals): Record<HomeRail, number> {
   const releaseWindow = s.weekday === 5 || s.weekday === 6 || s.weekday === 0;
 
   return {
-    // Unfinished session — the strongest signal on the page while warm.
-    continue: !hasHistory ? 0 : warmLoop ? 100 : coolingLoop ? 78 : 58,
-
-    // Familiar, chosen artists: high for a returning listener, a weak
-    // discovery row for a stranger.
-    followed: (isReturning ? 88 : 42) + (lateNight ? 4 : 0),
-
-    // Personal mix needs taste data to mean anything.
-    mix: isReturning ? 82 : 28,
-
-    // Social proof: the default first row for a stranger, and it climbs in the
-    // evening when people listen along with everyone else.
-    trending: (isReturning ? 54 : 94) + (eveningPeak ? 10 : 0),
-
-    // Novelty is only urgent inside the new-release window.
-    fresh: (isReturning ? 48 : 70) + (releaseWindow ? 24 : 0),
-
-    // Commitment ask — always last-ish, slightly stronger for newcomers who
-    // have no artists yet.
-    artists: isReturning ? 34 : 60,
+    // Fixed house order: New releases → Trending now → Continue listening →
+    // Featured artists → From your artists → Made for you. Both lead rails are
+    // taste-reranked per listener, so "what's new / what's hot" is already
+    // filtered to the music this person actually plays.
+    fresh: 100 + (releaseWindow ? 4 : 0),
+    trending: 90 + (eveningPeak ? 3 : 0),
+    continue: !hasHistory ? 0 : warmLoop ? 80 : coolingLoop ? 78 : 76,
+    artists: 60 + (isReturning ? 0 : 4),
+    followed: 50 + (lateNight ? 2 : 0),
+    mix: isReturning ? 40 : 0,
   };
 }
 
-const TIE_BREAK: HomeRail[] = ['continue', 'followed', 'mix', 'trending', 'fresh', 'artists'];
+const TIE_BREAK: HomeRail[] = ['fresh', 'trending', 'continue', 'artists', 'followed', 'mix'];
 
 export function getHomeRailOrder(s: HomeFeedSignals): HomeRail[] {
   const scores = scoreHomeRails(s);
@@ -92,6 +82,7 @@ export function getHomeRailOrder(s: HomeFeedSignals): HomeRail[] {
     (a, b) => scores[b] - scores[a] || TIE_BREAK.indexOf(a) - TIE_BREAK.indexOf(b),
   );
 }
+
 
 /** Contextual hero label — matches what the listener is actually about to do. */
 export function heroContextLabel(s: HomeFeedSignals, isPlaying: boolean): string {
