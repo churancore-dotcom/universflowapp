@@ -1268,3 +1268,31 @@ body::before, body::after { display: none !important; }
     2px 2px 4px hsl(var(--neu-dark) / 0.9),
     -1px -1px 2px hsl(var(--neu-light) / 0.6);
 }
+
+/* Nav + player chrome as soft plastic. */
+.liquid-glass,
+.liquid-glass-dense,
+.nav-glass,
+.player-card {
+  background: hsl(var(--neu-surface)) !important;
+  backdrop-filter: none !important;
+  border: none !important;
+  box-shadow:
+    8px 8px 20px hsl(var(--neu-dark) / 0.9),
+    -8px -8px 20px hsl(var(--neu-light) / 0.5) !important;
+}
+.liquid-glass::before, .liquid-glass::after,
+.liquid-glass-dense::before, .liquid-glass-dense::after,
+.nav-glass::before, .nav-glass::after,
+.player-card::before, .player-card::after { display: none !important; }
+
+/* Small translucent chips/buttons become subtly extruded instead of frosted. */
+[class*="bg-white/[0.0"],
+[class*="bg-white/5"],
+[class*="bg-white/10"] {
+  background-color: hsl(var(--neu-surface)) !important;
+  border-color: transparent !important;
+  box-shadow:
+    4px 4px 10px hsl(var(--neu-dark) / 0.8),
+    -4px -4px 10px hsl(var(--neu-light) / 0.45);
+}
