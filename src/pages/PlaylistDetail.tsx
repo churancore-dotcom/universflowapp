@@ -181,7 +181,7 @@ const PlaylistDetail = () => {
   return (
     <TabTransition>
       <motion.div 
-        className="min-h-screen bg-black pb-44"
+        className="ethereal-page min-h-screen pb-44"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >

@@ -346,7 +346,7 @@ const Settings = () => {
         description="Tune playback, audio quality, notifications and storage controls inside your Univers Flow account."
         keywords="Univers Flow settings, music app preferences, audio quality, notifications"
       />
-      <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
+      <div className="ethereal-page h-[100dvh] flex flex-col overflow-hidden">
         <header
           className="flex-shrink-0 z-30 px-2 pt-3 pb-2 flex items-center safe-area-pt"
           style={{
@@ -359,7 +359,7 @@ const Settings = () => {
             <ChevronLeft className="w-5 h-5" />
             <span className="text-sm">Back</span>
           </button>
-          <h1 className="text-sm font-semibold absolute left-1/2 -translate-x-1/2">Settings</h1>
+          <h1 className="ethereal-title text-sm font-semibold absolute left-1/2 -translate-x-1/2">Settings</h1>
         </header>
 
         <main className="flex-1 overflow-y-auto px-4 pt-3 pb-32 space-y-4" style={{ WebkitOverflowScrolling: 'touch' }}>

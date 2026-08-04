@@ -56,7 +56,7 @@ const GetApp = () => {
         jsonLdId="getapp-jsonld"
       />
 
-      <main className="min-h-[100dvh] w-full bg-black text-white overflow-y-auto overflow-x-hidden">
+      <main className="ethereal-page min-h-[100dvh] w-full text-foreground overflow-y-auto overflow-x-hidden">
 
         {/* ─── HERO ───────────────────────────────────────────── */}
         <section className="relative px-5 pt-10 pb-12">

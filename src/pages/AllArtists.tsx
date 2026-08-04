@@ -387,7 +387,7 @@ const AllArtists = () => {
   const categoriesWithAll = useMemo(() => ['Following', 'All', 'Universflow', ...ARTIST_CATEGORIES] as const, []);
 
   return (
-    <div className="h-[100dvh] bg-background flex flex-col overflow-hidden relative">
+    <div className="ethereal-page h-[100dvh] flex flex-col overflow-hidden relative">
       <SEOHead
         title="Browse Artists — Discover Music | Univers Flow"
         description="Browse and follow artists across every genre on Univers Flow. Stream songs, explore discographies, and download for offline listening."
@@ -414,7 +414,7 @@ const AllArtists = () => {
             whileTap={{ scale: 0.85 }}>
             <ArrowLeft className="w-4 h-4" />
           </motion.button>
-          <h1 className="text-xl font-bold tracking-tight truncate">
+          <h1 className="ethereal-title text-xl font-bold tracking-tight truncate">
             {selectedArtist ? selectedArtist.name : 'Discover Artists'}
           </h1>
         </div>

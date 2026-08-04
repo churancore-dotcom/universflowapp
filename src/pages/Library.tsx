@@ -229,7 +229,7 @@ const Library = () => {
 
   return (
     <TabTransition>
-      <div className="h-[100dvh] bg-background flex flex-col overflow-hidden relative">
+      <div className="ethereal-page h-[100dvh] flex flex-col overflow-hidden relative">
         <SEOHead
           title="Your Library — Liked Songs & Playlists | Univers Flow"
           description="Your liked songs, downloads, followed artists, and personal playlists — all in one place on Univers Flow."

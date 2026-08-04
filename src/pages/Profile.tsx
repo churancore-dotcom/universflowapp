@@ -229,7 +229,7 @@ const Profile = () => {
         description="Your Univers Flow profile: listening stats, library, downloads and account."
         path="/profile"
       />
-      <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
+      <div className="ethereal-page h-[100dvh] flex flex-col overflow-hidden">
         <main
           ref={scrollRef}
           className="flex-1 overflow-y-auto pb-32 safe-area-pt relative"

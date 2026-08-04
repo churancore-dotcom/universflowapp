@@ -43,7 +43,7 @@ const Support = () => {
         }}
       />
       <motion.div
-        className="relative min-h-screen bg-background pb-44 overflow-hidden"
+        className="ethereal-page relative min-h-screen pb-44 overflow-hidden"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
       >
         {/* Static rose ambient glow (no animation — perf) */}
