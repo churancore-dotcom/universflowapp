@@ -16,9 +16,11 @@ function toSong(t: { id: string; title?: string; artist?: string; album?: string
   } as Song;
 }
 
-// Session-stable random seed so each app open reshuffles rails, but they stay
-// stable while the user scrolls. Prevents "same songs in the same order".
-let SESSION_SEED = Math.floor(Math.random() * 1_000_000);
+// Session-stable seed so each app open reshuffles rails, but they stay stable
+// while the user scrolls. MUST be deterministic on the server: a random value
+// at module scope differs between the SSR render and hydration, which makes
+// React throw away the tree and visibly reorder the rails after first paint.
+let SESSION_SEED = typeof window === 'undefined' ? 1 : Math.floor(Math.random() * 1_000_000);
 function seededShuffle<T>(arr: T[], seed = SESSION_SEED): T[] {
   const out = arr.slice();
   let s = seed || 1;

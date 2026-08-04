@@ -574,6 +574,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       });
     } catch (error: any) {
       console.error('Failed to remove song:', error);
+      toast.error('Could not remove this download. Please try again.');
     }
   }, [blobUrls]);
 
@@ -605,6 +606,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setBlobUrls({});
     } catch (error: any) {
       console.error('Failed to clear downloads:', error);
+      toast.error('Could not clear your downloads. Please try again.');
     }
   }, [blobUrls]);
 
