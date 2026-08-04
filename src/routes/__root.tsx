@@ -168,9 +168,11 @@ function RootShell({ children }: { children: React.ReactNode }) {
         <HeadContent />
       </head>
       <body suppressHydrationWarning>
+        <LiquidGlassFilters />
         {children}
         <Scripts />
       </body>
+
     </html>
   );
 }
