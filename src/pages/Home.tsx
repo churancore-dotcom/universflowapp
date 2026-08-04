@@ -150,6 +150,7 @@ const Home = () => {
   const homeReady = songs.length > 0 && !isOffline;
   const allSongs = useMemo(() => songs, [songs]);
 
+
   // Real per-device listening history — no invented "on repeat" filler.
   const [recent, setRecent] = useState<Song[]>([]);
   useEffect(() => {
