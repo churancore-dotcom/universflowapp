@@ -309,11 +309,10 @@ const AppContent = () => {
           </main>
         </Suspense>
       </NavDirectionProvider>
-      {/* The splash is only a short visual cover. Routes/auth now load behind
-          it instead of waiting for its animation to finish. */}
-      <AnimatePresence initial={false}>
-        {showSplash && <SplashScreen key="splash" onComplete={handleSplashComplete} />}
-      </AnimatePresence>
+      {/* Visual cover only — never interactive, and unmounted (not just faded)
+          so it can't linger over the UI and swallow taps. */}
+      {showSplash && <SplashScreen key="splash" onComplete={handleSplashComplete} />}
+
 
       <div className="fixed inset-x-3 top-[calc(env(safe-area-inset-top)+10px)] z-[60] pointer-events-none">
         <div className="mx-auto max-w-md pointer-events-auto">
