@@ -1127,3 +1127,22 @@ html.pearl .page-header-glass { background-color: hsl(0 0% 100% / 0.62); }
 @media (prefers-reduced-motion: reduce) {
   body::after { animation: none; }
 }
+
+/* --- 5. Legacy opaque page shells become transparent so the ambient
+   ethereal field is visible on every route, and every translucent sticky
+   header picks up the deep ethereal blur. -------------------------------- */
+main.bg-background,
+.bg-background.min-h-screen,
+.bg-background.min-h-\[100dvh\],
+.bg-background.h-\[100dvh\],
+main.bg-black,
+.bg-black.min-h-screen,
+.bg-black.min-h-\[100dvh\],
+.bg-black.h-\[100dvh\] {
+  background-color: transparent;
+}
+
+[class*="bg-background/"],
+[class*="bg-black/"] {
+  backdrop-filter: blur(40px) saturate(180%);
+}
