@@ -359,17 +359,37 @@ const Home = () => {
                 </motion.section>
               )}
 
-              {/* Rails */}
+              {/* ====== RAILS ======
+                  Order follows intent, not layout convenience:
+                  • Returning listeners (real history) get continuation first —
+                    the artists they follow, then their personal mix, and only
+                    then broad discovery (charts / new releases).
+                  • New listeners have nothing to continue, so discovery leads:
+                    charts → new releases → artists worth following.
+                  Every rail self-hides when it has no real data, so the page
+                  never renders an empty heading. */}
               <div className="px-5 space-y-8">
-                {!isOffline && <TrendingNowSection songs={allSongs} enabled={homeReady} />}
-                {!isOffline && <FreshReleasesSection songs={allSongs} enabled={homeReady} />}
-                {!isOffline && <FollowedArtistSongsSection songs={allSongs} />}
-                {!isOffline && <MadeForYouSection />}
-                {!isOffline && <FeaturedArtistsSection />}
-
-                {/* Downloaded songs list only matters offline */}
-                {isOffline && allSongs.length > 0 && <AllSongsSection songs={allSongs} />}
+                {isOffline ? (
+                  allSongs.length > 0 && <AllSongsSection songs={allSongs} />
+                ) : isReturning ? (
+                  <>
+                    <FollowedArtistSongsSection songs={allSongs} />
+                    <MadeForYouSection />
+                    <TrendingNowSection songs={allSongs} enabled={homeReady} />
+                    <FreshReleasesSection songs={allSongs} enabled={homeReady} />
+                    <FeaturedArtistsSection />
+                  </>
+                ) : (
+                  <>
+                    <TrendingNowSection songs={allSongs} enabled={homeReady} />
+                    <FreshReleasesSection songs={allSongs} enabled={homeReady} />
+                    <FeaturedArtistsSection />
+                    <FollowedArtistSongsSection songs={allSongs} />
+                    <MadeForYouSection />
+                  </>
+                )}
               </div>
+
             </div>
           )}
         </main>
