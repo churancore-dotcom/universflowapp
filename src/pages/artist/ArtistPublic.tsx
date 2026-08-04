@@ -67,9 +67,14 @@ export default function ArtistPublic() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Parallax / sticky header
+  // Parallax / sticky header.
+  // The scroll container only exists once a profile has rendered — on the
+  // loading and "artist not found" branches the ref is never attached, and
+  // passing it to useScroll then logs "Container ref is defined but not
+  // hydrated". Only bind the container after the element is really mounted.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { scrollY } = useScroll({ container: scrollRef });
+  const [scrollReady, setScrollReady] = useState(false);
+  const { scrollY } = useScroll(scrollReady ? { container: scrollRef } : {});
   const bannerY = useTransform(scrollY, [0, 300], [0, 80]);
   const bannerScale = useTransform(scrollY, [0, 300], [1.04, 1.18]);
   const titleOpacity = useTransform(scrollY, [120, 200], [0, 1]);
