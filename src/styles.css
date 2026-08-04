@@ -582,17 +582,23 @@ html.pearl {
 body::before {
   content: "";
   position: fixed;
-  inset: -20%;
+  inset: -25%;
   z-index: 0;
   pointer-events: none;
   background:
-    radial-gradient(60% 46% at 16% 8%, hsl(var(--glow-primary) / 0.55), transparent 72%),
-    radial-gradient(56% 44% at 88% 20%, hsl(var(--glow-purple) / 0.42), transparent 74%),
-    radial-gradient(70% 52% at 60% 92%, hsl(var(--glow-accent) / 0.38), transparent 76%),
-    radial-gradient(48% 40% at 8% 78%, hsl(var(--glow-cyan) / 0.26), transparent 74%);
-  filter: blur(40px) saturate(140%);
-  opacity: 0.85;
-  animation: lg-drift 26s ease-in-out infinite alternate;
+    /* Ethereal rose orb — top right, the dominant light source */
+    radial-gradient(62% 58% at 78% 6%, hsl(var(--glow-iridescent-rose) / 0.48), transparent 70%),
+    /* Violet counter-orb — bottom left, creates iridescent edge tint */
+    radial-gradient(58% 54% at 12% 88%, hsl(var(--glow-iridescent-violet) / 0.34), transparent 72%),
+    /* Peach accent — mid left, warm highlight */
+    radial-gradient(44% 40% at 8% 42%, hsl(var(--glow-iridescent-peach) / 0.18), transparent 68%),
+    /* Legacy accent orbs preserved for depth */
+    radial-gradient(56% 44% at 88% 20%, hsl(var(--glow-purple) / 0.28), transparent 74%),
+    radial-gradient(70% 52% at 60% 92%, hsl(var(--glow-accent) / 0.22), transparent 76%),
+    radial-gradient(48% 40% at 8% 78%, hsl(var(--glow-cyan) / 0.16), transparent 74%);
+  filter: blur(44px) saturate(155%);
+  opacity: 0.92;
+  animation: lg-drift 28s ease-in-out infinite alternate;
 }
 
 #root {
@@ -602,8 +608,8 @@ body::before {
 
 @keyframes lg-drift {
   0%   { transform: translate3d(-2%, -1%, 0) scale(1.02); }
-  50%  { transform: translate3d(2%, 2%, 0) scale(1.06); }
-  100% { transform: translate3d(-1%, 3%, 0) scale(1.03); }
+  50%  { transform: translate3d(3%, 2%, 0) scale(1.08); }
+  100% { transform: translate3d(-1%, 3%, 0) scale(1.04); }
 }
 
 /* --- the slab itself ---------------------------------------------------- */
