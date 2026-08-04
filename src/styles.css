@@ -733,3 +733,125 @@ select {
 .min-h-\[100dvh\].bg-black,
 .h-\[100dvh\].bg-black,
 .min-h-screen.bg-black { background-color: transparent; }
+
+/* ==========================================================================
+   REAL LIQUID — actual refraction, not just blur
+   --------------------------------------------------------------------------
+   The band around every glass surface pushes the pixels *behind* it through an
+   SVG fractal-noise displacement map (see LiquidGlassFilters), so edges bend
+   and swim like a thick liquid lens. A slow specular sweep travels across the
+   slab, and the rim carries a faint chromatic split. Chromium honours url()
+   inside backdrop-filter; anything else silently falls back to the blur look.
+   ========================================================================== */
+
+@supports (backdrop-filter: url("#uf-liquid-warp")) {
+  .liquid-glass::after,
+  .glass-strong::after,
+  .glass-ultra::after,
+  .ios-card::after,
+  .uf-bento-card::after,
+  .player-bar::after,
+  .ios-tab-bar::after,
+  .bg-card::after,
+  .bg-popover::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    border-radius: inherit;
+    pointer-events: none;
+    padding: var(--lg-lens, 16px);
+    backdrop-filter: url("#uf-liquid-warp") blur(1px) brightness(1.06) saturate(150%);
+    /* Only the outer band refracts — the middle stays a clean readable slab. */
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    mask:
+      linear-gradient(#000 0 0) content-box exclude,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+  }
+
+  .liquid-glass-prism::after {
+    backdrop-filter: url("#uf-liquid-prism") blur(1px) brightness(1.08) saturate(165%);
+    --lg-lens: 22px;
+  }
+}
+
+/* Travelling specular sweep — the highlight a real liquid surface drags. */
+.liquid-glass,
+.glass-strong,
+.glass-ultra,
+.ios-card,
+.uf-bento-card,
+.player-bar,
+.ios-tab-bar,
+.bg-card,
+.bg-popover {
+  background-repeat: no-repeat;
+}
+
+.liquid-glass::before,
+.glass-strong::before,
+.glass-ultra::before,
+.ios-card::before,
+.uf-bento-card::before,
+.player-bar::before,
+.ios-tab-bar::before,
+.bg-card::before,
+.bg-popover::before {
+  background:
+    linear-gradient(180deg, hsl(0 0% 100% / 0.12) 0%, transparent 44%),
+    radial-gradient(120% 60% at 50% -20%, hsl(0 0% 100% / 0.14), transparent 60%),
+    linear-gradient(
+      104deg,
+      transparent 34%,
+      hsl(0 0% 100% / 0.10) 46%,
+      hsl(0 0% 100% / 0.16) 50%,
+      hsl(0 0% 100% / 0.08) 54%,
+      transparent 66%
+    );
+  background-size: auto, auto, 240% 100%;
+  background-position: 0 0, 0 0, 130% 0;
+  animation: lg-sheen 9s cubic-bezier(0.45, 0, 0.25, 1) infinite;
+}
+
+@keyframes lg-sheen {
+  0%, 62%  { background-position: 0 0, 0 0, 135% 0; }
+  100%     { background-position: 0 0, 0 0, -35% 0; }
+}
+
+/* Chromatic rim: thick glass never returns light perfectly neutral. */
+.liquid-glass,
+.glass-ultra,
+.player-bar,
+.ios-tab-bar {
+  box-shadow:
+    var(--lg-shadow),
+    var(--lg-inner),
+    inset 1px 0 0 hsl(340 90% 70% / 0.10),
+    inset -1px 0 0 hsl(195 90% 70% / 0.10);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .liquid-glass::before,
+  .glass-strong::before,
+  .glass-ultra::before,
+  .ios-card::before,
+  .uf-bento-card::before,
+  .player-bar::before,
+  .ios-tab-bar::before,
+  .bg-card::before,
+  .bg-popover::before { animation: none; }
+}
+
+/* Compact controls (nav pill, mini player) need a denser slab: at that height
+   the lens band would swallow the whole surface and page text behind it would
+   bleed through the icons. Tighter lens, heavier base, same material. */
+.liquid-glass-dense {
+  --lg-lens: 8px;
+  --lg-blur: 30px;
+  --lg-base: hsl(0 0% 5% / 0.66);
+}
+html.light .liquid-glass-dense,
+html.pearl .liquid-glass-dense { --lg-base: hsl(0 0% 100% / 0.78); }

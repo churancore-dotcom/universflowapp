@@ -156,7 +156,7 @@ const MiniPlayer = memo(function MiniPlayer() {
       >
         <motion.div
           layoutId="uf-player-surface"
-          className="liquid-glass liquid-glass-interactive rounded-3xl overflow-hidden relative touch-manipulation"
+          className="liquid-glass liquid-glass-dense liquid-glass-interactive rounded-3xl overflow-hidden relative touch-manipulation"
           style={{ ['--lg-blur' as string]: '40px' }}
           transition={{ type: 'spring', stiffness: 380, damping: 34 }}
           drag
