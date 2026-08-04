@@ -391,7 +391,7 @@ const Home = () => {
                   <div className="px-5 flex items-baseline justify-between mb-3">
                     <h3 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">Jump back in</h3>
                   </div>
-                  <div className="flex gap-4 overflow-x-auto no-scrollbar px-5 pb-1 snap-x snap-mandatory">
+                  <div className="flex gap-4 overflow-x-auto hide-scrollbar px-5 pb-1 snap-x snap-mandatory">
                     {jumpBackIn.map((song) => (
                       <motion.button
                         key={song.id}
