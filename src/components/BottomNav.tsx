@@ -97,15 +97,8 @@ const BottomNav = memo(function BottomNav() {
         <div
           role="tablist"
           aria-label="App sections"
-          className="pointer-events-auto relative flex flex-nowrap items-center gap-0.5 px-1.5 py-1.5 rounded-full overflow-hidden w-auto max-w-full"
-          style={{
-            background: 'linear-gradient(180deg, hsl(0 0% 8% / 0.92) 0%, hsl(0 0% 4% / 0.96) 100%)',
-            backdropFilter: 'blur(24px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(24px) saturate(180%)',
-            border: '0.5px solid hsl(0 0% 100% / 0.10)',
-            boxShadow:
-              '0 20px 50px -12px hsl(0 0% 0% / 0.7), 0 0 0 0.5px hsl(0 0% 100% / 0.04), inset 0 1px 0 hsl(0 0% 100% / 0.08)',
-          }}
+          className="liquid-glass pointer-events-auto relative flex flex-nowrap items-center gap-0.5 px-1.5 py-1.5 rounded-full overflow-hidden w-auto max-w-full"
+          style={{ ['--lg-blur' as string]: '38px' }}
         >
           {/* Soft cover glow */}
           {currentSong?.cover_url && (

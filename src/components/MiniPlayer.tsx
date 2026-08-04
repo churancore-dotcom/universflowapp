@@ -156,12 +156,8 @@ const MiniPlayer = memo(function MiniPlayer() {
       >
         <motion.div
           layoutId="uf-player-surface"
-          className="rounded-3xl overflow-hidden relative touch-manipulation"
-          style={{
-            background: 'linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(18 100% 82%) 100%)',
-            boxShadow: '0 12px 40px -10px hsl(var(--primary) / 0.45)',
-            border: '0.5px solid hsl(0 0% 100% / 0.16)',
-          }}
+          className="liquid-glass liquid-glass-interactive rounded-3xl overflow-hidden relative touch-manipulation"
+          style={{ ['--lg-blur' as string]: '40px' }}
           transition={{ type: 'spring', stiffness: 380, damping: 34 }}
           drag
           dragDirectionLock
@@ -210,9 +206,9 @@ const MiniPlayer = memo(function MiniPlayer() {
           )}
 
           {/* Progress bar - smooth transition */}
-          <div className="absolute top-0 left-0 right-0 h-[2px] bg-black/10 overflow-hidden rounded-t-xl z-10">
+          <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/10 overflow-hidden rounded-t-xl z-10">
             <motion.div
-              className="h-full bg-black"
+              className="h-full bg-white/90"
               style={{ width: `${progressPercent}%` }}
               transition={{ duration: 0.3, ease: "linear" }}
             />
@@ -263,7 +259,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                   className="absolute inset-0 flex flex-col justify-center"
                 >
                     <p
-                    className="font-bold text-[14px] text-black leading-tight pr-1"
+                    className="font-bold text-[14px] text-foreground leading-tight pr-1"
                     style={{
                       display: '-webkit-box',
                       WebkitLineClamp: 2,
@@ -273,7 +269,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                   >
                     {currentSong.title}
                   </p>
-                  <p className="text-[12px] text-black/60 truncate mt-0.5 pr-1">
+                  <p className="text-[12px] text-muted-foreground truncate mt-0.5 pr-1">
                     {currentSong.artist} · EQ {eqLabel.toUpperCase()}
                   </p>
                 </motion.div>
@@ -289,7 +285,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                 whileTap={{ scale: 0.85, x: -3 }}
                 transition={{ type: "spring", stiffness: 500, damping: 20 }}
               >
-                <SkipBack className="w-5 h-5 text-black" fill="black" />
+                <SkipBack className="w-5 h-5 text-foreground" fill="currentColor" />
               </motion.button>
               <motion.button
                 className="w-12 h-12 min-w-[48px] rounded-full flex items-center justify-center"
@@ -307,9 +303,9 @@ const MiniPlayer = memo(function MiniPlayer() {
                     transition={{ duration: 0.1 }}
                   >
                     {isPlaying ? (
-                      <Pause className="w-6 h-6 text-black" fill="black" />
+                      <Pause className="w-6 h-6 text-foreground" fill="currentColor" />
                     ) : (
-                      <Play className="w-6 h-6 text-black ml-0.5" fill="black" />
+                      <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
                     )}
                   </motion.div>
                 </AnimatePresence>
@@ -322,7 +318,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                 whileTap={{ scale: 0.85, x: 3 }}
                 transition={{ type: "spring", stiffness: 500, damping: 20 }}
               >
-                <SkipForward className="w-5 h-5 text-black" fill="black" />
+                <SkipForward className="w-5 h-5 text-foreground" fill="currentColor" />
               </motion.button>
 
               <motion.button
@@ -332,7 +328,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                 whileTap={{ scale: 0.85 }}
                 transition={{ type: "spring", stiffness: 500, damping: 20 }}
               >
-                <X className="w-5 h-5 text-black/50" />
+                <X className="w-5 h-5 text-muted-foreground" />
               </motion.button>
             </div>
           </div>

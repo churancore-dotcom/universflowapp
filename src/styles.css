@@ -521,3 +521,215 @@ html.light ::-webkit-scrollbar-thumb:hover { background: rgba(0, 0, 0, 0.28) !im
   .lockfx-ios-sheen, .lockfx-ios-orb, .lockfx-ios-orb-2,
   .lockfx-ios-beam, .lockfx-ios-aurora, .lockfx-ios-halo { animation: none !important; }
 }
+
+/* ==========================================================================
+   LIQUID GLASS — app-wide surface language
+   --------------------------------------------------------------------------
+   Every translucent surface in the app (glass helpers, shadcn card/popover/
+   dialog surfaces, nav pill, player bars, inputs) resolves to one physical
+   model: a refractive slab with a bright top rim, a soft specular sweep and
+   a saturated blur. These rules are intentionally UNLAYERED so they win over
+   Tailwind's utilities layer (`bg-card`, `bg-popover`, …) without needing a
+   sweep through every component file.
+   ========================================================================== */
+
+:root {
+  --lg-blur: 32px;
+  --lg-sat: 180%;
+  --lg-tint: 0 0% 100%;
+  --lg-fill: linear-gradient(
+    150deg,
+    hsl(0 0% 100% / 0.16) 0%,
+    hsl(0 0% 100% / 0.06) 32%,
+    hsl(0 0% 100% / 0.03) 60%,
+    hsl(0 0% 100% / 0.09) 100%
+  );
+  --lg-base: hsl(0 0% 100% / 0.055);
+  --lg-rim: hsl(0 0% 100% / 0.16);
+  --lg-shadow:
+    0 22px 60px -22px hsl(0 0% 0% / 0.75),
+    0 2px 10px -4px hsl(0 0% 0% / 0.45);
+  --lg-inner:
+    inset 0 1px 0 hsl(0 0% 100% / 0.22),
+    inset 0 -1px 0 hsl(0 0% 100% / 0.05),
+    inset 0 0 24px hsl(0 0% 100% / 0.04);
+}
+
+html.light,
+html.pearl {
+  --lg-base: hsl(0 0% 100% / 0.55);
+  --lg-rim: hsl(0 0% 100% / 0.75);
+  --lg-fill: linear-gradient(
+    150deg,
+    hsl(0 0% 100% / 0.55) 0%,
+    hsl(0 0% 100% / 0.28) 40%,
+    hsl(0 0% 100% / 0.18) 70%,
+    hsl(0 0% 100% / 0.4) 100%
+  );
+  --lg-shadow:
+    0 20px 50px -24px hsl(220 40% 20% / 0.28),
+    0 2px 8px -4px hsl(220 40% 20% / 0.16);
+  --lg-inner:
+    inset 0 1px 0 hsl(0 0% 100% / 0.9),
+    inset 0 -1px 0 hsl(220 30% 40% / 0.06);
+}
+
+/* Ambient light field the glass refracts. Without something behind it,
+   blur over flat black reads as plain grey. */
+body::before {
+  content: "";
+  position: fixed;
+  inset: -20%;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(60% 46% at 16% 8%, hsl(var(--glow-primary) / 0.55), transparent 72%),
+    radial-gradient(56% 44% at 88% 20%, hsl(var(--glow-purple) / 0.42), transparent 74%),
+    radial-gradient(70% 52% at 60% 92%, hsl(var(--glow-accent) / 0.38), transparent 76%),
+    radial-gradient(48% 40% at 8% 78%, hsl(var(--glow-cyan) / 0.26), transparent 74%);
+  filter: blur(40px) saturate(140%);
+  opacity: 0.85;
+  animation: lg-drift 26s ease-in-out infinite alternate;
+}
+
+#root {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes lg-drift {
+  0%   { transform: translate3d(-2%, -1%, 0) scale(1.02); }
+  50%  { transform: translate3d(2%, 2%, 0) scale(1.06); }
+  100% { transform: translate3d(-1%, 3%, 0) scale(1.03); }
+}
+
+/* --- the slab itself ---------------------------------------------------- */
+
+.liquid-glass,
+.glass,
+.glass-strong,
+.glass-ultra,
+.glass-subtle,
+.ios-card,
+.uf-bento-card,
+.btn-glass,
+.player-bar,
+.ios-tab-bar,
+.nav-glass,
+.player-card,
+.bg-card,
+.bg-popover,
+.bg-secondary {
+  position: relative;
+  background-color: var(--lg-base);
+  background-image: var(--lg-fill);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 0.5px solid var(--lg-rim);
+  box-shadow: var(--lg-shadow), var(--lg-inner);
+  isolation: isolate;
+}
+
+/* Top-edge specular highlight — the tell of a real glass edge. */
+.liquid-glass::before,
+.glass::before,
+.glass-strong::before,
+.glass-ultra::before,
+.ios-card::before,
+.uf-bento-card::before,
+.player-bar::before,
+.ios-tab-bar::before,
+.bg-card::before,
+.bg-popover::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, hsl(0 0% 100% / 0.10) 0%, transparent 42%),
+    radial-gradient(120% 60% at 50% -20%, hsl(0 0% 100% / 0.12), transparent 60%);
+}
+
+/* Blur strength ladder is preserved, just expressed through the token. */
+.glass          { --lg-blur: 26px; }
+.glass-strong   { --lg-blur: 40px; --lg-rim: hsl(0 0% 100% / 0.20); }
+.glass-ultra    { --lg-blur: 56px; --lg-rim: hsl(0 0% 100% / 0.24); }
+.player-bar,
+.ios-tab-bar    { --lg-blur: 48px; }
+
+/* Interactive glass reacts like a physical surface. */
+.btn-glass,
+.liquid-glass-interactive {
+  transition: transform 180ms cubic-bezier(0.32, 0.72, 0, 1),
+              box-shadow 220ms ease,
+              background-color 220ms ease;
+}
+.btn-glass:active,
+.liquid-glass-interactive:active {
+  transform: scale(0.975);
+  background-color: color-mix(in oklab, var(--lg-base) 82%, hsl(0 0% 100% / 0.12));
+}
+
+/* Fields read as recessed glass rather than flat chips. */
+.ios-input,
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+textarea,
+select {
+  backdrop-filter: blur(18px) saturate(140%);
+}
+
+.ios-input {
+  background: hsl(0 0% 100% / 0.06);
+  border: 0.5px solid hsl(0 0% 100% / 0.12);
+  box-shadow: inset 0 1px 2px hsl(0 0% 0% / 0.35), inset 0 -1px 0 hsl(0 0% 100% / 0.06);
+}
+.ios-input:focus {
+  background: hsl(0 0% 100% / 0.10);
+  border-color: hsl(var(--primary) / 0.7);
+  box-shadow: inset 0 1px 2px hsl(0 0% 0% / 0.3), 0 0 0 3px hsl(var(--primary) / 0.18);
+}
+
+/* Rounded corners on glass need a matching clip so the rim reads correctly. */
+.bg-card,
+.bg-popover,
+.uf-bento-card,
+.ios-card { border-radius: 1.25rem; }
+
+/* Graceful degradation on engines without backdrop-filter. */
+@supports not (backdrop-filter: blur(4px)) {
+  .liquid-glass,
+  .glass, .glass-strong, .glass-ultra, .ios-card, .uf-bento-card,
+  .btn-glass, .player-bar, .ios-tab-bar, .bg-card, .bg-popover, .bg-secondary {
+    background-color: hsl(0 0% 9% / 0.96);
+    background-image: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  body::before { animation: none; }
+}
+
+/* Small chips shouldn't carry full slab depth. */
+.bg-secondary {
+  --lg-blur: 18px;
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.12);
+}
+
+/* Page shells stay transparent so the ambient light field reads through the
+   glass above them. `html`/`body` still paint the opaque base colour. */
+.bg-background { background-color: transparent; }
+
+/* Ad-hoc frosted surfaces written directly as translucent white fills across
+   the app get the same refractive treatment, so no screen is left flat. */
+[class*="bg-white/[0.0"],
+[class*="bg-white/5"],
+[class*="bg-white/10"] {
+  backdrop-filter: blur(22px) saturate(150%);
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.10);
+}
+
+/* Full-screen page shells must not paint over the ambient field. */
+.min-h-\[100dvh\].bg-black,
+.h-\[100dvh\].bg-black,
+.min-h-screen.bg-black { background-color: transparent; }
