@@ -97,7 +97,7 @@ const BottomNav = memo(function BottomNav() {
         <div
           role="tablist"
           aria-label="App sections"
-          className="liquid-glass pointer-events-auto relative flex flex-nowrap items-center gap-0.5 px-1.5 py-1.5 rounded-full overflow-hidden w-auto max-w-full"
+          className="liquid-glass liquid-glass-dense pointer-events-auto relative flex flex-nowrap items-center gap-0.5 px-1.5 py-1.5 rounded-full overflow-hidden w-auto max-w-full"
           style={{ ['--lg-blur' as string]: '38px' }}
         >
           {/* Soft cover glow */}
