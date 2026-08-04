@@ -174,6 +174,11 @@ const Home = () => {
     return () => window.removeEventListener('universflow:recently-played-changed', load);
   }, [user?.id, isOffline]);
 
+  // A listener with real history gets a continuation-first feed; everyone else
+  // gets a discovery-first feed. 3 plays is enough signal to stop guessing.
+  const isReturning = recent.length >= 3;
+
+
   // Pull-to-refresh — re-fetches home feed on overscroll
   const pullToRefresh = usePullToRefresh({
     onRefresh: async () => {
