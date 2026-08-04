@@ -844,3 +844,14 @@ select {
   .bg-card::before,
   .bg-popover::before { animation: none; }
 }
+
+/* Compact controls (nav pill, mini player) need a denser slab: at that height
+   the lens band would swallow the whole surface and page text behind it would
+   bleed through the icons. Tighter lens, heavier base, same material. */
+.liquid-glass-dense {
+  --lg-lens: 8px;
+  --lg-blur: 30px;
+  --lg-base: hsl(0 0% 5% / 0.66);
+}
+html.light .liquid-glass-dense,
+html.pearl .liquid-glass-dense { --lg-base: hsl(0 0% 100% / 0.78); }
