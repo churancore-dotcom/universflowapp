@@ -606,6 +606,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setBlobUrls({});
     } catch (error: any) {
       console.error('Failed to clear downloads:', error);
+      toast.error('Could not clear your downloads. Please try again.');
     }
   }, [blobUrls]);
 
