@@ -29,6 +29,8 @@ import { useUserEQSettingsSync } from "@/lib/eqSettings";
 import { useAutoEQ } from "@/hooks/useAutoEQ";
 import NotFound from "@/pages/NotFound";
 import PrerollAd from "@/components/ads/PrerollAd";
+import LiquidGlassFilters from "@/components/LiquidGlassFilters";
+
 
 // Lazy load non-critical components
 const ArtistPicker = lazy(() => import("@/components/ArtistPicker"));
