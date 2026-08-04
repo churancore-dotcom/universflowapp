@@ -49,6 +49,8 @@ export function useGlobalAudioEngine(
     let nativeApplyChain: Promise<void> = Promise.resolve();
     let nativeApplyTimer: number | null = null;
     let pendingNativeSnapshot: ReturnType<typeof getEQSettings> | null = null;
+    let lastNativeSnapshotJSON = '';
+
     // Once we've attached WebAudio for this element, we can't detach — the
     // MediaElementSource permanently routes audio through the graph. We just
     // keep re-pushing settings on every src/play change.
@@ -141,14 +143,16 @@ export function useGlobalAudioEngine(
         if (native8DTimer == null) {
           native8DPhase = 0;
           native8DTimer = window.setInterval(() => {
-            native8DPhase += 0.22;
+            native8DPhase += 0.12;
             const cur = getEQSettings();
             if (!cur.spatialAudio) { stop8D(); return; }
             const sp = NATIVE_SPACES[cur.studioSpace] || NATIVE_SPACES.off;
             const bv = Math.max(cur.headphoneSurround ? 1000 : 0, sp.virt);
-            const osc = 600 + Math.round(400 * Math.sin(native8DPhase));
+            // Gentler swing + slower cadence: rapid Virtualizer writes on the
+            // Android audio session were audible as crackle/glitching.
+            const osc = 700 + Math.round(250 * Math.sin(native8DPhase));
             setNativeVirtualizer(Math.max(osc, bv));
-          }, 220);
+          }, 500);
         }
         setNativeVirtualizer(Math.max(800, baseVirt));
       } else {
@@ -171,12 +175,20 @@ export function useGlobalAudioEngine(
         const snapshot = pendingNativeSnapshot;
         pendingNativeSnapshot = null;
         if (!snapshot) return;
+        // Media events (loadstart/loadedmetadata/canplay/play/playing) all
+        // funnel here on every track change. Re-writing an identical effect
+        // snapshot rebuilds the native AudioEffect params mid-stream, which is
+        // exactly what users hear as EQ glitching on the APK. Skip no-ops.
+        const json = JSON.stringify(snapshot);
+        if (json === lastNativeSnapshotJSON) return;
+        lastNativeSnapshotJSON = json;
         const revision = ++nativeApplyRevision;
         nativeApplyChain = nativeApplyChain
           .catch(() => undefined)
           .then(() => applyNativeSnapshot(snapshot, revision));
       }, 32);
     };
+
 
 
     const doReapply = () => {
@@ -235,7 +247,11 @@ export function useGlobalAudioEngine(
 
 
     const scheduleRecoveryBurst = () => {
+      // The burst only exists to recover the WebAudio graph. On Android
+      // ExoPlayer owns audio, so bursting there just re-pokes native effects.
+      if (isNativePlayerAvailable()) return;
       clearRetries();
+
       retryTimers = RETRY_DELAYS_MS.map((delay) => window.setTimeout(() => {
         doReapply();
         if (getState() === 'processed') clearRetries();

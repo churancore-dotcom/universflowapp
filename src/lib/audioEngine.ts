@@ -79,7 +79,11 @@ interface Engine {
   cachedIR: AudioBuffer | null;
 }
 
+/** Log the "chain active" line once per session instead of on every reapply. */
+let loggedChainActive = false;
+
 const engine: Engine = {
+
   ctx: null,
   source: null,
   stemsSplitter: null,
@@ -861,10 +865,11 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
   try {
     buildProcessedChain(ctx, source);
     setMode('processed');
-    // FIX 3: explicit verification log — the WebAudio EQ chain
-    // (MediaElementSource → BiquadFilters → DynamicsCompressor → destination)
-    // is live and processing audio for this element.
-    console.log('WebAudio EQ chain active');
+    if (!loggedChainActive) {
+      loggedChainActive = true;
+      console.log('WebAudio EQ chain active');
+    }
+
     if (ctx.state === 'suspended') ctx.resume().catch(() => { });
     return true;
   } catch (e) {
