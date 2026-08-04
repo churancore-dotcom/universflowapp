@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { searchYouTubeMusicTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { getHomeRailOrder, heroContextLabel, type HomeFeedSignals } from '@/lib/homeFeedOrder';
+
 import MadeForYouSection from '@/components/MadeForYouSection';
 import AllSongsSection from '@/components/AllSongsSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
@@ -153,10 +155,13 @@ const Home = () => {
 
   // Real per-device listening history — no invented "on repeat" filler.
   const [recent, setRecent] = useState<Song[]>([]);
+  const [lastPlayedAt, setLastPlayedAt] = useState<number | null>(null);
   useEffect(() => {
-    if (isOffline) { setRecent([]); return; }
+    if (isOffline) { setRecent([]); setLastPlayedAt(null); return; }
     const load = () => {
-      const entries = readLocalRecent(user?.id).filter((e) => e.song?.title && e.song?.artist);
+      const all = readLocalRecent(user?.id);
+      const entries = all.filter((e) => e.song?.title && e.song?.artist);
+      setLastPlayedAt(all.length > 0 ? Math.max(...all.map((e) => e.played_at)) : null);
       setRecent(
         entries.slice(0, 12).map((e) => ({
           id: e.song_id,
@@ -174,9 +179,24 @@ const Home = () => {
     return () => window.removeEventListener('universflow:recently-played-changed', load);
   }, [user?.id, isOffline]);
 
-  // A listener with real history gets a continuation-first feed; everyone else
-  // gets a discovery-first feed. 3 plays is enough signal to stop guessing.
-  const isReturning = recent.length >= 3;
+  // Behavioural signals. Computed after hydration only — the clock and
+  // localStorage don't exist on the server, and guessing them there would flip
+  // the whole feed order right after first paint.
+  const [hydrated, setHydrated] = useState(false);
+  useEffect(() => { setHydrated(true); }, []);
+
+  const signals: HomeFeedSignals = useMemo(() => {
+    const now = hydrated ? new Date() : new Date(0);
+    return {
+      recentCount: recent.length,
+      msSinceLastPlay: hydrated && lastPlayedAt ? Date.now() - lastPlayedAt : null,
+      hour: hydrated ? now.getHours() : 12,
+      weekday: hydrated ? now.getDay() : 3,
+    };
+  }, [hydrated, recent.length, lastPlayedAt]);
+
+  const railOrder = useMemo(() => getHomeRailOrder(signals), [signals]);
+
 
 
   // Pull-to-refresh — re-fetches home feed on overscroll
@@ -302,7 +322,7 @@ const Home = () => {
                       </div>
                       <div className="min-w-0">
                         <span className="inline-block px-3 py-1 rounded-full neu-inset text-[9px] uppercase tracking-[0.2em] text-primary font-semibold">
-                          {currentSong ? 'Now playing' : "Today's pick"}
+                          {heroContextLabel(signals, !!currentSong)}
                         </span>
                         <h2 className="font-display text-[30px] leading-[0.95] tracking-[0.03em] text-foreground uppercase mt-2 line-clamp-2">
                           {heroSong.title}
@@ -330,71 +350,72 @@ const Home = () => {
                 </motion.section>
               )}
 
-              {/* ====== RECENTLY PLAYED (real history) ====== */}
-              {recent.length > 0 && (
-                <motion.section
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
-                >
-                  <div className="px-5 mb-4">
-                    <h2 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">Recently played</h2>
-                  </div>
-                  <div className="flex gap-5 overflow-x-auto hide-scrollbar px-5 pb-3 snap-x snap-mandatory">
-                    {recent.map((song) => (
-                      <motion.button
-                        key={song.id}
-                        onClick={() => playTile(song, recent)}
-                        whileTap={{ scale: 0.95 }}
-                        className="snap-start shrink-0 w-[132px] text-left"
-                      >
-                        <div className="w-[132px] h-[132px] rounded-[28px] neu neu-press p-2.5">
-                          <div className="w-full h-full rounded-[20px] overflow-hidden neu-inset">
-                            {song.cover_url ? (
-                              <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
-                            ) : (
-                              <div className="w-full h-full flex items-center justify-center"><Music className="w-6 h-6 text-muted-foreground" /></div>
-                            )}
-                          </div>
-                        </div>
-                        <p className="text-[13px] text-foreground mt-3 truncate font-medium px-1">{song.title}</p>
-                        <p className="text-[10px] text-muted-foreground truncate uppercase tracking-[0.14em] px-1">{song.artist}</p>
-                      </motion.button>
-                    ))}
-                  </div>
-                </motion.section>
-              )}
-
               {/* ====== RAILS ======
-                  Order follows intent, not layout convenience:
-                  • Returning listeners (real history) get continuation first —
-                    the artists they follow, then their personal mix, and only
-                    then broad discovery (charts / new releases).
-                  • New listeners have nothing to continue, so discovery leads:
-                    charts → new releases → artists worth following.
-                  Every rail self-hides when it has no real data, so the page
-                  never renders an empty heading. */}
-              <div className="px-5 space-y-8">
+                  Order is scored per listener in src/lib/homeFeedOrder.ts, not
+                  hardcoded: an open listening loop outranks everything while it
+                  is warm, familiarity beats novelty once we know their taste,
+                  social proof leads for a stranger, and the new-release rail is
+                  only promoted inside the Friday–Sunday window. Every rail
+                  self-hides with no real data, so nothing renders empty. */}
+              <div className="space-y-8">
                 {isOffline ? (
-                  allSongs.length > 0 && <AllSongsSection songs={allSongs} />
-                ) : isReturning ? (
-                  <>
-                    <FollowedArtistSongsSection songs={allSongs} />
-                    <MadeForYouSection />
-                    <TrendingNowSection songs={allSongs} enabled={homeReady} />
-                    <FreshReleasesSection songs={allSongs} enabled={homeReady} />
-                    <FeaturedArtistsSection />
-                  </>
+                  allSongs.length > 0 && (
+                    <div className="px-5"><AllSongsSection songs={allSongs} /></div>
+                  )
                 ) : (
-                  <>
-                    <TrendingNowSection songs={allSongs} enabled={homeReady} />
-                    <FreshReleasesSection songs={allSongs} enabled={homeReady} />
-                    <FeaturedArtistsSection />
-                    <FollowedArtistSongsSection songs={allSongs} />
-                    <MadeForYouSection />
-                  </>
+                  railOrder.map((rail) => {
+                    if (rail === 'continue') {
+                      if (recent.length === 0) return null;
+                      return (
+                        <motion.section
+                          key="continue"
+                          initial={{ opacity: 0, y: 14 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                        >
+                          <div className="px-5 mb-4">
+                            <h2 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">
+                              {signals.msSinceLastPlay !== null && signals.msSinceLastPlay < 6 * 60 * 60 * 1000
+                                ? 'Continue listening'
+                                : 'Jump back in'}
+                            </h2>
+                          </div>
+                          <div className="flex gap-5 overflow-x-auto hide-scrollbar px-5 pb-3 snap-x snap-mandatory">
+                            {recent.map((song) => (
+                              <motion.button
+                                key={song.id}
+                                onClick={() => playTile(song, recent)}
+                                whileTap={{ scale: 0.95 }}
+                                className="snap-start shrink-0 w-[132px] text-left"
+                              >
+                                <div className="w-[132px] h-[132px] rounded-[28px] neu neu-press p-2.5">
+                                  <div className="w-full h-full rounded-[20px] overflow-hidden neu-inset">
+                                    {song.cover_url ? (
+                                      <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
+                                    ) : (
+                                      <div className="w-full h-full flex items-center justify-center"><Music className="w-6 h-6 text-muted-foreground" /></div>
+                                    )}
+                                  </div>
+                                </div>
+                                <p className="text-[13px] text-foreground mt-3 truncate font-medium px-1">{song.title}</p>
+                                <p className="text-[10px] text-muted-foreground truncate uppercase tracking-[0.14em] px-1">{song.artist}</p>
+                              </motion.button>
+                            ))}
+                          </div>
+                        </motion.section>
+                      );
+                    }
+                    const body =
+                      rail === 'followed' ? <FollowedArtistSongsSection songs={allSongs} />
+                      : rail === 'mix' ? <MadeForYouSection />
+                      : rail === 'trending' ? <TrendingNowSection songs={allSongs} enabled={homeReady} />
+                      : rail === 'fresh' ? <FreshReleasesSection songs={allSongs} enabled={homeReady} />
+                      : <FeaturedArtistsSection />;
+                    return <div key={rail} className="px-5">{body}</div>;
+                  })
                 )}
               </div>
+
 
             </div>
           )}
