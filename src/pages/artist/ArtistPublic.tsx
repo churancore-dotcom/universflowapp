@@ -80,6 +80,12 @@ export default function ArtistPublic() {
   const titleOpacity = useTransform(scrollY, [120, 200], [0, 1]);
 
   useEffect(() => {
+    setScrollReady(!!scrollRef.current);
+  }, [profile, loading]);
+
+
+
+  useEffect(() => {
     (async () => {
       const { data: p } = await supabase
         .from('artist_profiles')
