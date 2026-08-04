@@ -79,7 +79,11 @@ interface Engine {
   cachedIR: AudioBuffer | null;
 }
 
+/** Log the "chain active" line once per session instead of on every reapply. */
+let loggedChainActive = false;
+
 const engine: Engine = {
+
   ctx: null,
   source: null,
   stemsSplitter: null,
