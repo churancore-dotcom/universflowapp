@@ -8,6 +8,8 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { searchYouTubeMusicTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { getHomeRailOrder, heroContextLabel, type HomeFeedSignals } from '@/lib/homeFeedOrder';
+
 import MadeForYouSection from '@/components/MadeForYouSection';
 import AllSongsSection from '@/components/AllSongsSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
