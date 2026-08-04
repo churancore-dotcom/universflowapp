@@ -67,12 +67,23 @@ export default function ArtistPublic() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Parallax / sticky header
+  // Parallax / sticky header.
+  // The scroll container only exists once a profile has rendered — on the
+  // loading and "artist not found" branches the ref is never attached, and
+  // passing it to useScroll then logs "Container ref is defined but not
+  // hydrated". Only bind the container after the element is really mounted.
   const scrollRef = useRef<HTMLDivElement>(null);
-  const { scrollY } = useScroll({ container: scrollRef });
+  const [scrollReady, setScrollReady] = useState(false);
+  const { scrollY } = useScroll(scrollReady ? { container: scrollRef } : {});
   const bannerY = useTransform(scrollY, [0, 300], [0, 80]);
   const bannerScale = useTransform(scrollY, [0, 300], [1.04, 1.18]);
   const titleOpacity = useTransform(scrollY, [120, 200], [0, 1]);
+
+  useEffect(() => {
+    setScrollReady(!!scrollRef.current);
+  }, [profile, loading]);
+
+
 
   useEffect(() => {
     (async () => {
@@ -214,7 +225,8 @@ export default function ArtistPublic() {
       <FadeTransition>
         <div className="min-h-[100dvh] bg-background text-foreground flex items-center justify-center px-6">
           <div className="text-center">
-            <p className="text-muted-foreground text-[14px] mb-4">Artist not found.</p>
+            <h1 className="text-[19px] font-semibold tracking-tight mb-1">Artist not found</h1>
+            <p className="text-muted-foreground text-[14px] mb-4">This artist page doesn’t exist or was removed.</p>
             <Button onClick={() => navigate('/home')}>Back to home</Button>
           </div>
         </div>
