@@ -7,7 +7,8 @@ import { triggerHaptic } from '@/hooks/useHaptics';
 import { useFollowedArtists } from '@/hooks/useFollowedArtists';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { topTasteArtists } from '@/lib/feedPersonalizer';
-import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { enrichArtistImages } from '@/lib/musicIndexer';
+import { useQuery } from '@tanstack/react-query';
 import FollowArtistButton from './FollowArtistButton';
 
 interface DisplayArtist {
@@ -30,7 +31,7 @@ const FeaturedArtistsSection = () => {
   const { prefs } = useFollowedArtists();
   const taste = useTasteProfile();
 
-  const artists = useMemo<DisplayArtist[]>(() => {
+  const baseArtists = useMemo<DisplayArtist[]>(() => {
     if (!user) return [];
     const out: DisplayArtist[] = prefs.map((p) => ({
       key: p.id,
@@ -40,20 +41,31 @@ const FeaturedArtistsSection = () => {
     }));
     const seen = new Set(out.map((a) => a.name.trim().toLowerCase()));
 
-    // Artwork for played-but-not-followed artists comes from real history.
-    const covers = new Map<string, string>();
-    for (const e of readLocalRecent(user.id)) {
-      const a = (e.song?.artist || '').trim().toLowerCase();
-      if (a && e.song?.cover_url && !covers.has(a)) covers.set(a, e.song.cover_url as string);
-    }
-
     for (const a of topTasteArtists(taste, 8)) {
       if (seen.has(a)) continue;
       seen.add(a);
-      out.push({ key: `taste-${a}`, name: a.replace(/\b\w/g, (c) => c.toUpperCase()), image: covers.get(a) ?? null, followed: false });
+      out.push({ key: `taste-${a}`, name: a.replace(/\b\w/g, (c) => c.toUpperCase()), image: null, followed: false });
     }
     return out.slice(0, 10);
   }, [user, prefs, taste]);
+
+  // Real artist portraits (not album/song artwork) for anyone missing a photo.
+  const missing = useMemo(
+    () => baseArtists.filter((a) => !a.image).map((a) => a.name),
+    [baseArtists],
+  );
+  const { data: portraits } = useQuery({
+    queryKey: ['artist-portraits', missing.join('|')],
+    enabled: missing.length > 0,
+    staleTime: 24 * 60 * 60 * 1000,
+    gcTime: 24 * 60 * 60 * 1000,
+    queryFn: () => enrichArtistImages(missing),
+  });
+
+  const artists = useMemo<DisplayArtist[]>(
+    () => baseArtists.map((a) => (a.image ? a : { ...a, image: portraits?.[a.name] ?? null })),
+    [baseArtists, portraits],
+  );
 
   if (artists.length === 0) return null;
 
