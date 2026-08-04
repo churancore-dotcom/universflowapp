@@ -128,7 +128,14 @@ export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
-const WEB_LANDING_HOSTS = new Set(['universflow.in', 'www.universflow.in']);
+// Every public marketing domain must serve the landing / APK page. Missing a
+// custom domain here silently bounced real visitors straight to /auth.
+const WEB_LANDING_HOSTS = new Set([
+  'universflow.in',
+  'www.universflow.in',
+  'universflow.cyou',
+  'www.universflow.cyou',
+]);
 const isWebLanding = () => typeof window !== 'undefined'
   && WEB_LANDING_HOSTS.has(window.location.hostname.toLowerCase());
 

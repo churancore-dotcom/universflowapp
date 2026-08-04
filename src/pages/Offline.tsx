@@ -25,7 +25,8 @@ const Offline = memo(function Offline() {
   const navigate = useNavigate();
   const [cachedSongs, setCachedSongs] = useState<CachedSong[]>([]);
   const [storageUsed, setStorageUsed] = useState<string>('0 MB');
-  const [isOnline, setIsOnline] = useState(navigator.onLine);
+  // Read after mount — touching `navigator` during render breaks SSR/hydration.
+  const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
     // Load downloaded songs from context
