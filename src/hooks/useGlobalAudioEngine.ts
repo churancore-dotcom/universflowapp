@@ -247,7 +247,11 @@ export function useGlobalAudioEngine(
 
 
     const scheduleRecoveryBurst = () => {
+      // The burst only exists to recover the WebAudio graph. On Android
+      // ExoPlayer owns audio, so bursting there just re-pokes native effects.
+      if (isNativePlayerAvailable()) return;
       clearRetries();
+
       retryTimers = RETRY_DELAYS_MS.map((delay) => window.setTimeout(() => {
         doReapply();
         if (getState() === 'processed') clearRetries();
