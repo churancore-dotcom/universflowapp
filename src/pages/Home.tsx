@@ -48,8 +48,10 @@ const upgradeThumb = (url?: string) => {
 };
 
 // Session-stable rotation so the home hero isn't the identical song on every
-// app open, while staying stable while the user scrolls.
-const HOME_SEED = Math.floor(Math.random() * 100000);
+// app open, while staying stable while the user scrolls. Deterministic during
+// SSR — a random module-scope value would differ between the server render and
+// hydration and flip the hero right after first paint.
+const HOME_SEED = typeof window === 'undefined' ? 0 : Math.floor(Math.random() * 100000);
 function rotate<T>(arr: T[], seed = HOME_SEED): T[] {
   if (arr.length < 2) return arr;
   const k = seed % arr.length;
