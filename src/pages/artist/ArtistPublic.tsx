@@ -229,7 +229,6 @@ export default function ArtistPublic() {
             <p className="text-muted-foreground text-[14px] mb-4">This artist page doesn’t exist or was removed.</p>
             <Button onClick={() => navigate('/home')}>Back to home</Button>
           </div>
-          </div>
         </div>
       </FadeTransition>
     );
