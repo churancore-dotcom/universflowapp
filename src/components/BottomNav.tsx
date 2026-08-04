@@ -97,8 +97,8 @@ const BottomNav = memo(function BottomNav() {
         <div
           role="tablist"
           aria-label="App sections"
-          className="liquid-glass liquid-glass-dense pointer-events-auto relative flex flex-nowrap items-center gap-0.5 px-1.5 py-1.5 rounded-full overflow-hidden w-auto max-w-full"
-          style={{ ['--lg-blur' as string]: '38px' }}
+          className="liquid-glass liquid-glass-dense iridescent-rim pointer-events-auto relative flex flex-nowrap items-center gap-0.5 px-1.5 py-1.5 rounded-full overflow-hidden w-auto max-w-full"
+          style={{ ['--lg-blur' as string]: '40px' }}
         >
           {/* Soft cover glow */}
           {currentSong?.cover_url && (

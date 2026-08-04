@@ -31,7 +31,7 @@ import EqualizerModal from '@/components/EqualizerModal';
 import PremiumLockOverlay from '@/components/PremiumLockOverlay';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Lock, ListMusic, Sliders } from 'lucide-react';
+import { Music, Lock, ListMusic, Sliders, Play, User } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { usePremium } from '@/hooks/usePremium';
 // LCP hero logo is served from /public so it can be preloaded in index.html
@@ -194,13 +194,6 @@ const Home = () => {
   // The home feed is now sourced from YouTube Music — no Realtime postgres_changes
   // listener is needed. React Query handles refresh + pull-to-refresh handles manual.
 
-  const greeting = useCallback(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
-  }, []);
-
   // Pull-to-refresh — re-fetches home feed on overscroll
   const pullToRefresh = usePullToRefresh({
     onRefresh: async () => {
@@ -210,6 +203,53 @@ const Home = () => {
 
     },
   });
+
+  const userAvatar = useMemo(() => {
+    const metadata = (user?.user_metadata || {}) as Record<string, unknown>;
+    return typeof metadata.avatar_url === 'string' ? metadata.avatar_url : undefined;
+  }, [user]);
+
+  const heroSong = useMemo(() => {
+    if (currentSong) return currentSong;
+    return allSongs.find((s) => s.cover_url) || allSongs[0];
+  }, [currentSong, allSongs]);
+
+  const quickTiles = useMemo(() => {
+    const tiles: { title: string; subtitle: string; cover?: string; song?: Song; gradient: string }[] = [];
+    const first = allSongs.find((s) => s.cover_url);
+    const second = allSongs.filter((s) => s.cover_url && s.id !== first?.id)[0];
+    if (first) {
+      tiles.push({
+        title: first.title,
+        subtitle: first.artist,
+        cover: first.cover_url,
+        song: first,
+        gradient: 'from-rose-500/20 to-transparent',
+      });
+    }
+    if (second) {
+      tiles.push({
+        title: second.title,
+        subtitle: second.artist,
+        cover: second.cover_url,
+        song: second,
+        gradient: 'from-violet-500/20 to-transparent',
+      });
+    }
+    return tiles;
+  }, [allSongs]);
+
+  const playHero = useCallback(() => {
+    if (!heroSong) return;
+    triggerHaptic('selection');
+    playSong(heroSong, null, allSongs.slice(0, 40));
+  }, [heroSong, playSong, allSongs]);
+
+  const playTile = useCallback((song?: Song) => {
+    if (!song) return;
+    triggerHaptic('selection');
+    playSong(song, null, allSongs.slice(0, 40));
+  }, [playSong, allSongs]);
 
   return (
     <TabTransition>
@@ -228,53 +268,21 @@ const Home = () => {
             isPartOf: { '@type': 'WebSite', name: 'Univers Flow', url: 'https://universflow.in' },
           }}
         />
-        
-        {/* Ambient background — cinematic */}
-        <div className="absolute inset-0 pointer-events-none">
-          <div 
-            className="absolute inset-0"
-            style={{
-              background: `
-                radial-gradient(ellipse 80% 50% at 50% 0%, hsl(350 100% 60% / 0.08), transparent),
-                radial-gradient(ellipse 60% 40% at 80% 20%, hsl(280 100% 65% / 0.05), transparent),
-                radial-gradient(ellipse 40% 30% at 10% 60%, hsl(210 100% 60% / 0.04), transparent)
-              `,
-            }}
-          />
+
+        {/* Ethereal ambient orbs */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden">
+          <div className="ethereal-orb ethereal-orb-rose" />
+          <div className="ethereal-orb ethereal-orb-violet" />
+          <div className="ethereal-orb ethereal-orb-peach" />
         </div>
 
-        {/* Premium Header */}
-        <header
-          className="flex-shrink-0 z-30 px-4 pt-3 pb-3 safe-area-pt"
-          style={{
-            background: 'rgba(0, 0, 0, 0.7)',
-            backdropFilter: 'blur(40px) saturate(180%)',
-            WebkitBackdropFilter: 'blur(40px) saturate(180%)',
-            borderBottom: '0.5px solid rgba(255, 255, 255, 0.06)',
-          }}
-        >
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <div
-                className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0"
-                style={{
-                  boxShadow: '0 2px 12px hsl(var(--primary) / 0.25)',
-                  border: '1.5px solid hsl(var(--primary) / 0.3)',
-                }}
-              >
-                <img src="/app-logo.webp" alt="Universflow app logo" width={40} height={40} loading="eager" {...({ fetchPriority: "high" } as React.ImgHTMLAttributes<HTMLImageElement>)} decoding="async" className="w-full h-full rounded-full object-cover" />
-              </div>
-              <div>
-                <p className="text-[19px] leading-none text-foreground font-extrabold tracking-tight">
-                  {greeting()}
-                </p>
-                <p className="text-[10px] text-[#FFB199]/70 font-bold tracking-[0.2em] uppercase mt-1">
-                  Universflow
-                </p>
-              </div>
+        {/* Ethereal Header */}
+        <header className="flex-shrink-0 z-30 px-5 pt-4 pb-2 safe-area-pt">
+          <div className="flex items-center justify-between">
+            <div className="text-[26px] font-semibold tracking-tighter text-foreground">
+              Univers<span className="text-primary">.</span>
             </div>
-            
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-2">
               {[
                 { icon: ListMusic, action: () => setShowQueue(true), label: 'Open queue' },
                 { icon: Sliders, action: () => isPremium ? setShowEqualizer(true) : setShowEqPremium(true), label: isPremium ? 'Open equalizer' : 'Equalizer, Premium feature' },
@@ -284,29 +292,36 @@ const Home = () => {
                   key={i}
                   onClick={() => { triggerHaptic('selection'); action(); }}
                   aria-label={label}
-                  className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0"
-                  style={{
-                    background: 'rgba(255,255,255,0.06)',
-                    border: '0.5px solid rgba(255,255,255,0.10)',
-                  }}
+                  className="w-9 h-9 rounded-xl flex items-center justify-center bg-white/[0.05] border border-white/[0.08] backdrop-blur-xl"
                   whileTap={{ scale: 0.85 }}
                 >
-                  <Icon className="w-4 h-4 text-foreground/60" />
+                  <Icon className="w-4 h-4 text-foreground/70" />
                 </motion.button>
               ))}
+              <motion.button
+                onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
+                aria-label="Open profile"
+                className="w-10 h-10 rounded-full p-[1.5px] bg-gradient-to-tr from-primary to-primary/60 overflow-hidden"
+                whileTap={{ scale: 0.92 }}
+              >
+                <div className="w-full h-full rounded-full bg-background overflow-hidden flex items-center justify-center">
+                  {userAvatar ? (
+                    <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <User className="w-5 h-5 text-muted-foreground" />
+                  )}
+                </div>
+              </motion.button>
             </div>
           </div>
         </header>
 
         {/* Scrollable content area */}
         <main 
-          className="flex-1 overflow-y-auto overflow-x-hidden px-3 pt-4 pb-36 relative z-10"
+          className="flex-1 overflow-y-auto overflow-x-hidden px-5 pt-2 pb-40 relative z-10"
           style={{ WebkitOverflowScrolling: 'touch' }}
           {...pullToRefresh.handlers}
         >
-        <h2 className="px-1 pt-1 pb-2 text-[13px] font-medium text-muted-foreground/80 tracking-tight">
-          Universflow — Stream and download free music
-        </h2>
         <PullToRefreshIndicator
           pullDistance={pullToRefresh.pullDistance}
           isRefreshing={pullToRefresh.isRefreshing}
@@ -318,25 +333,98 @@ const Home = () => {
           ) : isOffline && songs.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="space-y-3">
-              {/* New Bento Hero — Continue Listening + quick tiles */}
+            <div className="space-y-6">
+              {/* ====== ETHEREAL FEATURED CARD ====== */}
+              {heroSong && (
+                <motion.section
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="relative group"
+                >
+                  <div className="absolute -inset-0.5 rounded-[32px] bg-gradient-to-b from-white/20 to-transparent blur-sm opacity-50" />
+                  <button
+                    onClick={playHero}
+                    className="relative w-full h-80 rounded-[30px] overflow-hidden text-left block active:scale-[0.985] transition-transform ethereal-glass iridescent-rim border border-white/10"
+                  >
+                    {heroSong.cover_url && (
+                      <>
+                        <img
+                          src={heroSong.cover_url}
+                          alt=""
+                          className="absolute inset-0 w-full h-full object-cover opacity-70"
+                          loading="eager"
+                        />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent" />
+                      </>
+                    )}
+                    <div className="absolute top-5 left-5 z-20">
+                      <span className="px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-[10px] uppercase tracking-[0.18em] text-white/90 font-semibold">
+                        Exclusively For You
+                      </span>
+                    </div>
+                    <div className="absolute bottom-7 left-6 right-6 z-20">
+                      <h2 className="text-[32px] font-light text-white leading-[1.05]">
+                        {heroSong.title.split(' ').slice(0, 2).join(' ')}
+                        <br />
+                        <span className="font-semibold">{heroSong.title.split(' ').slice(2, 4).join(' ') || 'Echoes'}</span>
+                      </h2>
+                      <p className="text-white/50 text-sm mt-2">{heroSong.artist}</p>
+                      <div className="mt-4 flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center shadow-lg">
+                          <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                        </div>
+                        <span className="text-white/80 text-sm font-medium">Listen now</span>
+                      </div>
+                    </div>
+                  </button>
+                </motion.section>
+              )}
+
+              {/* ====== QUICK SELECT GRID ====== */}
+              {quickTiles.length > 0 && (
+                <motion.section
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.5, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+                  className="space-y-3"
+                >
+                  <div className="flex justify-between items-end px-1">
+                    <h3 className="text-lg font-medium text-foreground/90">Recent Vibes</h3>
+                    <span className="text-xs text-primary font-semibold tracking-wide">VIEW ALL</span>
+                  </div>
+                  <div className="grid grid-cols-2 gap-4">
+                    {quickTiles.map((tile, idx) => (
+                      <motion.button
+                        key={tile.title + idx}
+                        onClick={() => playTile(tile.song)}
+                        whileTap={{ scale: 0.96 }}
+                        className="aspect-square rounded-2xl bg-card border border-white/5 p-4 flex flex-col justify-end relative overflow-hidden text-left"
+                      >
+                        <div className={`absolute inset-0 bg-gradient-to-br ${tile.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500`} />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                        <div className="w-10 h-10 rounded-full bg-white/10 backdrop-blur-lg border border-white/20 mb-3 flex items-center justify-center relative z-10">
+                          <Play className="w-4 h-4 text-white fill-white ml-0.5" />
+                        </div>
+                        <p className="text-sm text-white font-medium relative z-10 truncate">{tile.title}</p>
+                        <p className="text-[10px] text-white/40 uppercase tracking-tighter relative z-10 truncate">{tile.subtitle}</p>
+                      </motion.button>
+                    ))}
+                  </div>
+                </motion.section>
+              )}
+
+              {/* Existing bento + rails, now with ethereal spacing */}
               {!isOffline && <HomeBento songs={allSongs} />}
 
-
-
-
-
               {!isOffline && <FreshReleasesSection songs={allSongs} enabled={homeReady} />}
-              {/* Followed artists rail — restored above Trending */}
               {!isOffline && <FollowedArtistSongsSection songs={allSongs} />}
               {!isOffline && <TrendingNowSection songs={allSongs} enabled={homeReady} />}
-              {/* Discovery — Featured Artists */}
               {!isOffline && <FeaturedArtistsSection />}
               {!isOffline && <MadeForYouSection />}
-              {/* Viral Now Rail — live country chart, real data */}
               {!isOffline && <CountryViralSection />}
 
-              {/* Saved songs only when offline — uploaded catalog is hidden from online Home */}
+              {/* Saved songs only when offline */}
               {isOffline && allSongs.length > 0 && (
                 <AllSongsSection songs={allSongs} />
               )}
