@@ -152,3 +152,20 @@ export function rerank<T extends RerankItem>(items: T[], profile: TasteProfile):
   scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
   return scored.map((s) => s.item);
 }
+
+/** Top artists by affinity — the real seeds for "Made For You". */
+export function topTasteArtists(profile: TasteProfile, n = 5): string[] {
+  return [...profile.artists.entries()]
+    .filter(([, v]) => v > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([k]) => k);
+}
+
+/** Top title keywords — used to widen seeds when artist affinity is thin. */
+export function topTasteKeywords(profile: TasteProfile, n = 3): string[] {
+  return [...profile.keywords.entries()]
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, n)
+    .map(([k]) => k);
+}
