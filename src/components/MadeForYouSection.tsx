@@ -10,10 +10,13 @@ import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import { supabase } from '@/integrations/supabase/client';
 import { isSpamSong } from '@/pages/Search';
+import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { rerank, topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
 
 const MadeForYouSection = memo(() => {
   const { user } = useAuth();
   const { playSong, currentSong } = usePlayer();
+  const taste = useTasteProfile();
 
   const recentEntries = useMemo(() => {
     if (!user?.id) return [] as ReturnType<typeof readLocalRecent>;
@@ -28,7 +31,13 @@ const MadeForYouSection = memo(() => {
   const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
 
   const { data: mix = [] } = useQuery({
-    queryKey: ['ytm-made-for-you-v3', user?.id ?? 'anon', recentIds.join(','), hourBucket],
+    queryKey: [
+      'ytm-made-for-you-v4',
+      user?.id ?? 'anon',
+      recentIds.join(','),
+      topTasteArtists(taste, 3).join(','),
+      hourBucket,
+    ],
     enabled: !!user,
     staleTime: 15 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
@@ -40,7 +49,9 @@ const MadeForYouSection = memo(() => {
       const snapshotSeeds = recentEntries
         .map((e) => (e.song?.artist || e.song?.title || '').trim())
         .filter(Boolean);
-      let seeds: string[] = [...snapshotSeeds];
+      // Strongest signal first: the artists this listener actually plays/likes
+      // most over the last 30 days, then the current session's snapshot.
+      let seeds: string[] = [...topTasteArtists(taste, 4), ...snapshotSeeds];
       if (recentIds.length) {
         const { data: rows } = await (supabase as unknown as {
           from: (t: string) => { select: (c: string) => { in: (col: string, vals: string[]) => { limit: (n: number) => Promise<{ data: Array<{ artist: string | null; title: string | null }> | null }> } } };
@@ -58,6 +69,10 @@ const MadeForYouSection = memo(() => {
       if (seeds.length) {
         const uniq = [...new Set(seeds)].slice(0, 3);
         seedQueries = uniq.map((s) => `${s} official music mix`);
+      }
+      if (!seedQueries.length) {
+        const kw = topTasteKeywords(taste, 2);
+        if (kw.length) seedQueries = kw.map((k) => `${k} official music mix`);
       }
       if (!seedQueries.length) {
         // Rotating diverse fallback pool — no more static "india top songs".
@@ -104,12 +119,11 @@ const MadeForYouSection = memo(() => {
         }
         if (out.length >= 18) break;
       }
-      // Light shuffle so the hero card isn't always the same track.
-      for (let i = out.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [out[i], out[j]] = [out[j], out[i]];
-      }
-      return out;
+      // Don't recommend what they just finished playing.
+      const recentSet = new Set(recentIds);
+      const fresh = out.filter((s) => !recentSet.has(s.id));
+      // Taste-rank the pool so the hero is the best match, not a random pick.
+      return rerank(fresh.length >= 6 ? fresh : out, taste);
     },
   });
 
