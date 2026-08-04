@@ -49,6 +49,8 @@ export function useGlobalAudioEngine(
     let nativeApplyChain: Promise<void> = Promise.resolve();
     let nativeApplyTimer: number | null = null;
     let pendingNativeSnapshot: ReturnType<typeof getEQSettings> | null = null;
+    let lastNativeSnapshotJSON = '';
+
     // Once we've attached WebAudio for this element, we can't detach — the
     // MediaElementSource permanently routes audio through the graph. We just
     // keep re-pushing settings on every src/play change.
