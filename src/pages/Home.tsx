@@ -60,10 +60,14 @@ function rotate<T>(arr: T[], seed = HOME_SEED): T[] {
 // One real pool for the hero: live regional chart sources only. A keyword
 // search is not a chart and can surface old popular uploads as "trending".
 const fetchHomeSongs = async (country: string): Promise<Song[]> => {
+  // No country yet (or a region YouTube has no chart for) → the real GLOBAL
+  // chart ('ZZ'), never the US chart. This app ships worldwide.
+  const cc = country || 'ZZ';
   const [charts, regionalFallback] = await Promise.all([
-    getYouTubeMusicCharts(country || 'US', 40).catch(() => ({ top: [], trending: [], videos: [], country: 'US' })),
-    getGeoTopTracks(country || 'US', 30).catch(() => []),
+    getYouTubeMusicCharts(cc, 40).catch(() => ({ top: [], trending: [], videos: [], country: cc })),
+    country ? getGeoTopTracks(country, 30).catch(() => []) : Promise.resolve([]),
   ]);
+
 
   const byId = new Map<string, Song>();
   const ingest = (list: { id: string; title?: string; artist?: string; album?: string; cover_url?: string; audio_url?: string; videoId?: string; duration?: number }[]) => {
