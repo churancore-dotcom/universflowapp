@@ -439,8 +439,9 @@ function extractFromItem(item: any): { videoId?: string; title: string; artist: 
     ? artistParts.join(', ')
     : (plainParts[0] || 'Unknown Artist');
   const cover = pickThumb(item?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails);
-  return { videoId, title: decodeEntities(title), artist: decodeEntities(artist), duration: parseDuration(durationText), cover };
+  return { videoId, title: decodeEntities(title), artist: decodeEntities(artist), duration: parseDuration(durationText), cover, musicVideoType };
 }
+
 
 function findContinuationToken(json: any): string | null {
   const stack: any[] = [json];
