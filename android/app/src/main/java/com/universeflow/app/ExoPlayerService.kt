@@ -269,12 +269,70 @@ class ExoPlayerService : MediaSessionService() {
     }
 
     /**
+     * Minimal channel + foreground promotion used before the media session is
+     * ready. Media3 replaces this notification (same id) as soon as it renders
+     * the real player, so the user never sees the placeholder.
+     */
+    private fun promoteToForegroundEarly() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val manager = getSystemService(NotificationManager::class.java)
+                val channel = NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    "Playback",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+                manager?.createNotificationChannel(channel)
+            }
+            val placeholder = androidx.core.app.NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_music)
+                .setContentTitle(getString(R.string.app_name))
+                .setOngoing(true)
+                .setSilent(true)
+                .build()
+            startForeground(NOTIFICATION_ID, placeholder)
+        } catch (t: Throwable) {
+            android.util.Log.w("ExoPlayerService", "early foreground failed: ${t.message}")
+        }
+    }
+
+    /** Pre-resolve the next [count] queue items so transitions never stall. */
+    private fun preloadUpcoming(exo: ExoPlayer, count: Int) {
+        try {
+            val tracks = ArrayList<Triple<String?, String?, String?>>()
+            var index = exo.nextMediaItemIndex
+            var remaining = count
+            while (index != C.INDEX_UNSET && remaining > 0 && index < exo.mediaItemCount) {
+                val uri = exo.getMediaItemAt(index).localConfiguration?.uri
+                if (uri != null && uri.scheme == "yt") {
+                    tracks.add(
+                        Triple(
+                            uri.host,
+                            uri.getQueryParameter("title"),
+                            uri.getQueryParameter("artist"),
+                        ),
+                    )
+                }
+                index += 1
+                remaining -= 1
+            }
+            if (tracks.isNotEmpty()) MasterResolver.prefetch(tracks, tracks.size)
+        } catch (_: Throwable) {}
+    }
+
+    /**
      * Keep the media notification alive while paused so the user can resume
      * from the lock screen / shade instead of the player vanishing on pause.
      */
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
         super.onUpdateNotification(session, true)
     }
+
 
     /** (Re)bind AudioEffects to the current player's session id. */
     @Synchronized
