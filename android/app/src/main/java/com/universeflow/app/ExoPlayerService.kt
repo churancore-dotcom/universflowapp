@@ -97,7 +97,16 @@ class ExoPlayerService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
+        // Promote to the foreground with a placeholder notification BEFORE the
+        // player and session exist. On Android 12+ a service started from the
+        // background is killed (ForegroundServiceStartNotAllowed / ANR) if it
+        // waits for Media3 to publish its own notification — this is what makes
+        // background playback survive screen-off and app-swipe reliably.
+        promoteToForegroundEarly()
+
         restoreEffectState()
+
+
 
         val audioAttrs = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
