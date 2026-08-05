@@ -375,14 +375,6 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
 
   // Deduplication: collapse every reupload of the same song onto one identity,
   // regardless of which channel uploaded it.
-  const bestScores = new Map<string, number>();
-  for (const t of allTracks) {
-    const key = songIdentity(t.track);
-    if (!bestScores.has(key) || t.score > bestScores.get(key)!) {
-      bestScores.set(key, t.score);
-    }
-  }
-
   // Keep exactly one upload for each recording identity. Merely pushing
   // duplicates to the bottom still surfaced the same song repeatedly after
   // scrolling; select the highest-authority candidate before sorting instead.
