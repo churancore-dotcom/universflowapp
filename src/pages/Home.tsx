@@ -261,32 +261,26 @@ const Home = () => {
         />
 
         {/* ====== HEADER ====== */}
-        <header className="flex-shrink-0 z-30 px-5 pt-5 pb-4 safe-area-pt">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}
-              </p>
-              <h1 className="font-display text-[30px] leading-[0.95] tracking-[0.05em] text-foreground mt-1">
-                UNIVERS <span className="text-primary">FLOW</span>
-              </h1>
-            </div>
+        <header className="flex-shrink-0 z-30 px-5 pt-5 pb-3 safe-area-pt">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+            <h1 className="font-display text-[30px] leading-none tracking-[0.08em] text-primary truncate">
+              UNIVERSFLOW
+            </h1>
             <motion.button
               onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
               aria-label="Open profile"
-              className="w-12 h-12 rounded-full neu neu-press flex items-center justify-center overflow-hidden"
+              className="w-10 h-10 shrink-0 rounded-full overflow-hidden border border-border/60 bg-card flex items-center justify-center"
               whileTap={{ scale: 0.94 }}
             >
-              <div className="w-9 h-9 rounded-full overflow-hidden neu-inset flex items-center justify-center">
-                {userAvatar ? (
-                  <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-4 h-4 text-muted-foreground" />
-                )}
-              </div>
+              {userAvatar ? (
+                <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-4 h-4 text-muted-foreground" />
+              )}
             </motion.button>
           </div>
         </header>
+
 
         {/* Scrollable content area */}
         <main
