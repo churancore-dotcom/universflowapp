@@ -119,7 +119,7 @@ const Home = () => {
 
   const { data: onlineSongs = (cachedSongs || []), isLoading } = useQuery({
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
-    queryFn: () => fetchHomeSongs(country || 'US'),
+    queryFn: () => fetchHomeSongs(country),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
