@@ -5,7 +5,7 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
-import { rerank } from '@/lib/feedPersonalizer';
+import { rerank, tasteScore } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
@@ -30,7 +30,8 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const trending = useMemo(() => {
     const pool = charts?.top?.length ? charts.top : fallbackPool;
     const clean = pool.filter((s) => !isSpamSong(s));
-    return rerank(clean, taste).slice(0, 12);
+    const relevant = taste.signalCount >= 5 ? clean.filter((song) => tasteScore(song, taste) > 0) : clean;
+    return rerank(relevant, taste).slice(0, 12);
   }, [charts, fallbackPool, taste]);
 
   if (trending.length === 0) return null;

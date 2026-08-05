@@ -346,11 +346,11 @@ class ExoPlayerService : MediaSessionService() {
         persistEffectState()
     }
 
-    fun applyStemMix(vocalMix: Int, instrumentalMix: Int) {
+    fun applyStemMix(vocalMix: Int, instrumentalMix: Int, persist: Boolean = true) {
         savedVocalMix = vocalMix.coerceIn(0, 100)
         savedInstrumentalMix = instrumentalMix.coerceIn(0, 100)
         stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix)
-        persistEffectState()
+        if (persist) persistEffectState()
     }
 
     private fun applyReverbParameters(effect: EnvironmentalReverb, amount: Int) {

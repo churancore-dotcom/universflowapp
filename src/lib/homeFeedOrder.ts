@@ -26,8 +26,6 @@
  */
 
 export type HomeRail =
-  | 'continue'
-  | 'followed'
   | 'mix'
   | 'trending'
   | 'fresh'
@@ -47,34 +45,25 @@ export interface HomeFeedSignals {
 const HOUR = 60 * 60 * 1000;
 
 export function scoreHomeRails(s: HomeFeedSignals): Record<HomeRail, number> {
-  const hasHistory = s.recentCount > 0;
   // 3 plays is where guessing stops and a pattern starts.
   const isReturning = s.recentCount >= 3;
-  const since = s.msSinceLastPlay;
-
-  // Warm loop: same-session-ish. Cooling: today-ish. Cold: old history.
-  const warmLoop = since !== null && since < 6 * HOUR;
-  const coolingLoop = since !== null && since < 48 * HOUR;
 
   const eveningPeak = s.hour >= 18 && s.hour <= 23;
-  const lateNight = s.hour >= 0 && s.hour < 6;
   const releaseWindow = s.weekday === 5 || s.weekday === 6 || s.weekday === 0;
 
   return {
-    // Fixed house order: New releases → Trending now → Continue listening →
-    // Featured artists → From your artists → Made for you. Both lead rails are
+    // Fixed house order: New releases → Trending now → Trending artists →
+    // Made for you. Both lead rails are
     // taste-reranked per listener, so "what's new / what's hot" is already
     // filtered to the music this person actually plays.
     fresh: 100 + (releaseWindow ? 4 : 0),
     trending: 90 + (eveningPeak ? 3 : 0),
-    continue: !hasHistory ? 0 : warmLoop ? 80 : coolingLoop ? 78 : 76,
     artists: 60 + (isReturning ? 0 : 4),
-    followed: 50 + (lateNight ? 2 : 0),
     mix: isReturning ? 40 : 0,
   };
 }
 
-const TIE_BREAK: HomeRail[] = ['fresh', 'trending', 'continue', 'artists', 'followed', 'mix'];
+const TIE_BREAK: HomeRail[] = ['fresh', 'trending', 'artists', 'mix'];
 
 export function getHomeRailOrder(s: HomeFeedSignals): HomeRail[] {
   const scores = scoreHomeRails(s);
@@ -87,9 +76,5 @@ export function getHomeRailOrder(s: HomeFeedSignals): HomeRail[] {
 /** Contextual hero label — matches what the listener is actually about to do. */
 export function heroContextLabel(s: HomeFeedSignals, isPlaying: boolean): string {
   if (isPlaying) return 'Now playing';
-  if (s.msSinceLastPlay !== null && s.msSinceLastPlay < 6 * HOUR) return 'Pick up where you left off';
-  if (s.hour < 6) return 'Late night';
-  if (s.hour < 12) return 'Start your morning';
-  if (s.hour < 18) return 'Afternoon pick';
-  return 'Tonight';
+  return 'Trending for you';
 }

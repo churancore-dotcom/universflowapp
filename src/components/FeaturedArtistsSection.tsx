@@ -2,20 +2,16 @@ import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from '@/lib/router-compat';
 import { User, ChevronRight } from 'lucide-react';
-import { useAuth } from '@/contexts/AuthContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { useFollowedArtists } from '@/hooks/useFollowedArtists';
-import { useTasteProfile } from '@/hooks/useTasteProfile';
-import { topTasteArtists } from '@/lib/feedPersonalizer';
 import { enrichArtistImages } from '@/lib/musicIndexer';
 import { useQuery } from '@tanstack/react-query';
 import FollowArtistButton from './FollowArtistButton';
+import type { Song } from '@/contexts/PlayerContext';
 
 interface DisplayArtist {
   key: string;
   name: string;
   image: string | null;
-  followed: boolean;
 }
 
 const isPortraitUrl = (url: string | null) => {
@@ -26,35 +22,24 @@ const isPortraitUrl = (url: string | null) => {
 };
 
 /**
- * Your Artists — editorial portrait cards.
- *
- * Real sources only: artists the listener follows (instant, event-driven) plus
- * the artists they actually play most, so the shelf is personal instead of a
- * generic circle strip.
+ * Trending Artists — real chart artists resolved to portrait-only imagery.
  */
-const FeaturedArtistsSection = () => {
-  const { user } = useAuth();
+const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
   const navigate = useNavigate();
-  const { prefs } = useFollowedArtists();
-  const taste = useTasteProfile();
 
   const baseArtists = useMemo<DisplayArtist[]>(() => {
-    if (!user) return [];
-    const out: DisplayArtist[] = prefs.map((p) => ({
-      key: p.id,
-      name: p.artist_name,
-      image: p.artist_image,
-      followed: true,
-    }));
-    const seen = new Set(out.map((a) => a.name.trim().toLowerCase()));
-
-    for (const a of topTasteArtists(taste, 8)) {
-      if (seen.has(a)) continue;
-      seen.add(a);
-      out.push({ key: `taste-${a}`, name: a.replace(/\b\w/g, (c) => c.toUpperCase()), image: null, followed: false });
+    const out: DisplayArtist[] = [];
+    const seen = new Set<string>();
+    for (const song of songs) {
+      const name = song.artist?.trim();
+      const key = name?.toLowerCase();
+      if (!name || !key || seen.has(key)) continue;
+      seen.add(key);
+      out.push({ key: `trending-${key}`, name, image: null });
+      if (out.length >= 10) break;
     }
-    return out.slice(0, 10);
-  }, [user, prefs, taste]);
+    return out;
+  }, [songs]);
 
   // Resolve every artist by name. Older follows may contain a song cover in
   // artist_image, so only known portrait hosts are allowed as an instant cache.
@@ -73,8 +58,8 @@ const FeaturedArtistsSection = () => {
   const artists = useMemo<DisplayArtist[]>(
     () => baseArtists.map((a) => ({
       ...a,
-      image: portraits?.[a.name] ?? (isPortraitUrl(a.image) ? a.image : null),
-    })),
+      image: portraits?.[a.name] ?? null,
+    })).filter((artist) => isPortraitUrl(artist.image)),
     [baseArtists, portraits],
   );
 
@@ -84,8 +69,8 @@ const FeaturedArtistsSection = () => {
     <section className="mb-2 pt-4">
       <div className="flex items-end justify-between mb-3 px-1">
         <div>
-          <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Your Artists</h2>
-          <p className="text-[10px] text-muted-foreground/55 font-semibold mt-0.5">Followed and most played by you</p>
+          <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Trending Artists</h2>
+          <p className="text-[10px] text-muted-foreground/55 font-semibold mt-0.5">Artists leading the charts right now</p>
         </div>
         <motion.button
           className="flex items-center gap-0.5 text-[11px] font-semibold text-primary"
@@ -120,7 +105,7 @@ const FeaturedArtistsSection = () => {
               <div className="absolute bottom-3 left-3 right-3">
                 <p className="text-[13.5px] font-extrabold text-white leading-tight line-clamp-2">{artist.name}</p>
                 <p className="text-[9.5px] text-white/55 uppercase tracking-[0.16em] mt-0.5">
-                  {artist.followed ? 'Following' : 'On repeat'}
+                  Trending now
                 </p>
               </div>
             </button>

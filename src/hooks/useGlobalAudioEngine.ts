@@ -77,7 +77,6 @@ export function useGlobalAudioEngine(
     };
 
     let native8DTimer: number | null = null;
-    let native8DPhase = 0;
     const stop8D = () => {
       if (native8DTimer != null) { window.clearInterval(native8DTimer); native8DTimer = null; }
     };
@@ -137,23 +136,11 @@ export function useGlobalAudioEngine(
       });
       if (revision !== nativeApplyRevision) return;
 
-      // 8D: oscillating virtualizer strength gives perceptible stereo movement
-      // on APK (the WebAudio pan LFO can't drive ExoPlayer's audio session).
+      // Android AudioEffect parameter writes can interrupt the hardware DSP on
+      // some devices. Keep spatial width static during playback; never animate
+      // the Virtualizer over the bridge.
       if (s.spatialAudio) {
-        if (native8DTimer == null) {
-          native8DPhase = 0;
-          native8DTimer = window.setInterval(() => {
-            native8DPhase += 0.12;
-            const cur = getEQSettings();
-            if (!cur.spatialAudio) { stop8D(); return; }
-            const sp = NATIVE_SPACES[cur.studioSpace] || NATIVE_SPACES.off;
-            const bv = Math.max(cur.headphoneSurround ? 1000 : 0, sp.virt);
-            // Gentler swing + slower cadence: rapid Virtualizer writes on the
-            // Android audio session were audible as crackle/glitching.
-            const osc = 700 + Math.round(250 * Math.sin(native8DPhase));
-            setNativeVirtualizer(Math.max(osc, bv));
-          }, 500);
-        }
+        stop8D();
         setNativeVirtualizer(Math.max(800, baseVirt));
       } else {
         stop8D();
@@ -196,7 +183,7 @@ export function useGlobalAudioEngine(
             // event genuinely retries instead of being deduped away.
             if (revision === nativeApplyRevision) lastNativeSnapshotJSON = '';
           });
-      }, 32);
+      }, 80);
     };
 
     // ExoPlayer builds a NEW audio session per track, and a fresh session comes
@@ -298,9 +285,10 @@ export function useGlobalAudioEngine(
         doReapply();
       }, delay);
     };
-    const onMediaReady = () => {
-      // New track => new native audio session => effects must be re-armed.
-      invalidateNativeSnapshot();
+    const onMediaReady = (event: Event) => {
+      // Only loadstart identifies a new source. loadedmetadata/canplay/playing
+      // are the same session and must not repeatedly rewrite live DSP state.
+      if (event.type === 'loadstart') invalidateNativeSnapshot();
       reapply();
       // Some mobile WebViews briefly report a direct/idle engine while the new
       // proxied source is still committing. Keep trying for <1s so the EQ never
@@ -312,7 +300,6 @@ export function useGlobalAudioEngine(
       if (isAttached) resume();
       // Playback start is the first moment the native session definitely
       // exists, so re-arm rather than trusting the previous push.
-      invalidateNativeSnapshot();
       reapplyNow();
     };
     const onPointer = () => { if (isAttached) resume(); };
