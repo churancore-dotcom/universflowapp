@@ -77,13 +77,18 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
     queryFn: () => enrichArtistImages(artistNames),
   });
 
-  const artists = useMemo<DisplayArtist[]>(
-    () => baseArtists.map((a) => ({
+  const artists = useMemo<DisplayArtist[]>(() => {
+    const resolved = baseArtists.map((a) => ({
       ...a,
-      image: portraits?.[a.name] ?? null,
-    })).filter((artist) => isPortraitUrl(artist.image)),
-    [baseArtists, portraits],
-  );
+      image: isPortraitUrl(portraits?.[a.name] ?? null) ? (portraits?.[a.name] ?? null) : null,
+    }));
+    const withPortrait = resolved.filter((a) => a.image);
+    // Prefer real portraits. If a region's chart artists have no portrait yet,
+    // still show the genuinely trending names with a monogram tile rather than
+    // hiding the rail or pasting a song cover onto an artist card.
+    return (withPortrait.length >= 4 ? withPortrait : resolved).slice(0, 10);
+  }, [baseArtists, portraits]);
+
 
   if (artists.length === 0) return null;
 
