@@ -417,8 +417,10 @@ interface YoutubeChartsResponse {
 
 // Real YouTube Music Charts (FEmusic_charts) per country. Same source that
 // music.youtube.com/charts renders; refreshes daily on YT's side.
-export async function getYouTubeMusicCharts(country = 'US', limit = 40): Promise<YtmCharts> {
-  const cc = /^[A-Z]{2}$/.test(country.toUpperCase()) ? country.toUpperCase() : 'US';
+// 'ZZ' is YouTube Music's real Global chart. When we don't know the listener's
+// country we must ask for Global, not the US chart — this app is worldwide.
+export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise<YtmCharts> {
+  const cc = /^[A-Z]{2}$/.test(country.toUpperCase()) ? country.toUpperCase() : 'ZZ';
   const cacheKey = `ytm-charts::${cc}::${limit}`;
   const memHit = chartsMemCache.get(cacheKey);
   const now = Date.now();
