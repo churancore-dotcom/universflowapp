@@ -173,7 +173,17 @@ class ExoPlayerService : MediaSessionService() {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 ensureEffectsBound()
             }
+            override fun onMediaItemTransition(
+                mediaItem: androidx.media3.common.MediaItem?,
+                reason: Int,
+            ) {
+                // Echo-style look-ahead: pre-resolve the next two queue items so
+                // the ResolvingDataSource never blocks on the network at the
+                // moment of transition (gapless, instant next-track start).
+                preloadUpcoming(exo, 2)
+            }
         })
+
 
         val sessionActivity = packageManager.getLaunchIntentForPackage(packageName)?.let {
             it.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
