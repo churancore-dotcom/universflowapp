@@ -367,8 +367,12 @@ object NativeYouTubeResolver {
             if (status != null && status != "OK") return null
             val streamingData = json.optJSONObject("streamingData") ?: return null
             val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
-            // Try adaptive audio first.
-            pickBestAudio(adaptive, ctx.name)?.let { return it }
+            // Try adaptive audio first, but only accept a URL the CDN actually
+            // serves — a parseable-yet-403 URL used to kill playback silently.
+            pickBestAudio(adaptive, ctx.name)?.let {
+                if (validate(it.first, ctx.userAgent)) return it
+                Log.d(TAG, "adaptive URL rejected by CDN for ${ctx.name}")
+            }
             // Fallback: progressive `formats` list (combined AV muxed) — better
             // than silence when YouTube ships SABR-only adaptive for this edge.
             // ExoPlayer will demux the audio track from the muxed stream.
@@ -379,6 +383,7 @@ object NativeYouTubeResolver {
                 val url = resolveFormatUrl(f) ?: continue
                 return url to f.optInt("itag", 0)
             }
+
             if (streamingData.has("serverAbrStreamingUrl")) {
                 Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
             }
