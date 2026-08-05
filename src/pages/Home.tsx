@@ -6,7 +6,7 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { searchYouTubeMusicTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
+import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import { getHomeRailOrder, heroContextLabel, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import MadeForYouSection from '@/components/MadeForYouSection';
@@ -58,12 +58,12 @@ function rotate<T>(arr: T[], seed = HOME_SEED): T[] {
   return [...arr.slice(k), ...arr.slice(0, k)];
 }
 
-// One real pool for the hero: YouTube Music charts for the user's country,
-// keyword search only as a backup when the region has no charts.
-const fetchHomeSongs = async (heroQuery: string, country: string): Promise<Song[]> => {
-  const [charts, searched] = await Promise.all([
+// One real pool for the hero: live regional chart sources only. A keyword
+// search is not a chart and can surface old popular uploads as "trending".
+const fetchHomeSongs = async (country: string): Promise<Song[]> => {
+  const [charts, regionalFallback] = await Promise.all([
     getYouTubeMusicCharts(country || 'US', 40).catch(() => ({ top: [], trending: [], videos: [], country: 'US' })),
-    searchYouTubeMusicTracks(heroQuery, 24).catch(() => []),
+    getGeoTopTracks(country || 'US', 30).catch(() => []),
   ]);
 
   const byId = new Map<string, Song>();
@@ -86,7 +86,7 @@ const fetchHomeSongs = async (heroQuery: string, country: string): Promise<Song[
   ingest(rotate(charts.top));
   ingest(rotate(charts.trending));
   ingest(rotate(charts.videos));
-  if (byId.size < 12) ingest(searched);
+  if (byId.size < 12) ingest(regionalFallback);
 
   return [...byId.values()];
 };
@@ -117,7 +117,7 @@ const Home = () => {
 
   const { data: onlineSongs = (cachedSongs || []), isLoading } = useQuery({
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
-    queryFn: () => fetchHomeSongs(countryQueries.hero, country || 'US'),
+    queryFn: () => fetchHomeSongs(country || 'US'),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,

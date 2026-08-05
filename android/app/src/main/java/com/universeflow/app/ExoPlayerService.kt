@@ -83,6 +83,12 @@ class ExoPlayerService : MediaSessionService() {
     private val stemAudioProcessor = StemAudioProcessor()
 
     private var boundSessionId: Int = C.AUDIO_SESSION_ID_UNSET
+    private val appliedEqBands: MutableMap<Short, Short> = HashMap()
+    private var appliedEqEnabled: Boolean? = null
+    private var appliedBass: Short? = null
+    private var appliedVirtualizer: Short? = null
+    private var appliedLoudness: Int? = null
+    private var appliedReverb: Int? = null
 
     private var mediaSession: MediaSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
@@ -310,29 +316,48 @@ class ExoPlayerService : MediaSessionService() {
     private fun applySavedEffectsToBoundSession() {
         try {
             equalizer?.let { effect ->
-                effect.enabled = eqEnabled
+                if (appliedEqEnabled != eqEnabled) {
+                    effect.enabled = eqEnabled
+                    appliedEqEnabled = eqEnabled
+                }
                 val range = effect.bandLevelRange
                 for ((band, level) in savedEqBands) {
-                    try { effect.setBandLevel(band, level.toInt().coerceIn(range[0].toInt(), range[1].toInt()).toShort()) } catch (_: Throwable) {}
+                    val clamped = level.toInt().coerceIn(range[0].toInt(), range[1].toInt()).toShort()
+                    if (appliedEqBands[band] != clamped) {
+                        try {
+                            effect.setBandLevel(band, clamped)
+                            appliedEqBands[band] = clamped
+                        } catch (_: Throwable) {}
+                    }
                 }
             }
             bassBoost?.let { effect ->
-                effect.enabled = savedBassBoostStrength > 0
-                if (effect.enabled && effect.strengthSupported) effect.setStrength(savedBassBoostStrength)
+                if (appliedBass != savedBassBoostStrength) {
+                    effect.enabled = savedBassBoostStrength > 0
+                    if (effect.enabled && effect.strengthSupported) effect.setStrength(savedBassBoostStrength)
+                    appliedBass = savedBassBoostStrength
+                }
             }
             virtualizer?.let { effect ->
-                effect.enabled = savedVirtualizerStrength > 0
-                if (effect.enabled && effect.strengthSupported) effect.setStrength(savedVirtualizerStrength)
+                if (appliedVirtualizer != savedVirtualizerStrength) {
+                    effect.enabled = savedVirtualizerStrength > 0
+                    if (effect.enabled && effect.strengthSupported) effect.setStrength(savedVirtualizerStrength)
+                    appliedVirtualizer = savedVirtualizerStrength
+                }
             }
             loudnessEnhancer?.let { effect ->
-                effect.enabled = savedLoudnessGainMb > 0
-                if (effect.enabled) effect.setTargetGain(savedLoudnessGainMb)
+                if (appliedLoudness != savedLoudnessGainMb) {
+                    effect.enabled = savedLoudnessGainMb > 0
+                    if (effect.enabled) effect.setTargetGain(savedLoudnessGainMb)
+                    appliedLoudness = savedLoudnessGainMb
+                }
             }
         } catch (_: Throwable) {}
     }
 
     fun applyReverb(amount: Int) {
         savedReverbAmount = amount.coerceIn(0, 100)
+        if (appliedReverb == savedReverbAmount) return
         val effect = environmentalReverb
         if (effect != null) {
             try {
@@ -343,6 +368,7 @@ class ExoPlayerService : MediaSessionService() {
                 )
             } catch (_: Throwable) {}
         }
+        appliedReverb = savedReverbAmount
         persistEffectState()
     }
 
@@ -414,6 +440,12 @@ class ExoPlayerService : MediaSessionService() {
         virtualizer = null
         loudnessEnhancer = null
         environmentalReverb = null
+        appliedEqBands.clear()
+        appliedEqEnabled = null
+        appliedBass = null
+        appliedVirtualizer = null
+        appliedLoudness = null
+        appliedReverb = null
         boundSessionId = C.AUDIO_SESSION_ID_UNSET
     }
 
