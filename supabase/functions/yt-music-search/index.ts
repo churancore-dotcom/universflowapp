@@ -16,6 +16,9 @@ interface SearchResult {
   duration?: number;
   published?: number;
   kind?: 'song' | 'video';
+  /** YouTube's own type tag; MUSIC_VIDEO_TYPE_ATV = original studio audio. */
+  musicVideoType?: string;
+
 }
 
 
