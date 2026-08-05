@@ -385,6 +385,9 @@ async function fetchParallelProviders(artist: string, title: string, duration?: 
     withTimeout(fetchNetease(artist, title), 3000).then((r) => r ? { ...r, source: 'netease' as const } : null),
     withTimeout(fetchQQMusic(artist, title), 3000).then((r) => r ? { ...r, source: 'qqmusic' as const } : null),
     withTimeout(fetchLyricsOvh(artist, title), 3200).then((r) => r ? { ...r, source: 'lyricsovh' as const } : null),
+    withTimeout(fetchLyricsPlus(artist, title, duration), 4200).then((r) => r ? { ...r, source: 'lyricsplus' as const } : null),
+    withTimeout(fetchUnison(artist, title, duration), 3500).then((r) => r ? { ...r, source: 'unison' as const } : null),
+
   ];
   const pending = tasks.map((p, i) => ({ i, promise: p.then((r) => ({ r, i })) }));
   while (pending.length) {
