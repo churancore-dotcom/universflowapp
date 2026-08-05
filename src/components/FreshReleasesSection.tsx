@@ -4,6 +4,7 @@ import { Play } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { tasteScore } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
@@ -31,6 +32,8 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
 
 
+  React.useEffect(() => { prewarmSongs(fresh, 4); }, [fresh]);
+
   if (fresh.length === 0) return null;
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, fresh); };
 
@@ -46,6 +49,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
           <motion.button
             key={song.id}
             onClick={() => play(song)}
+            {...prewarmIntentProps(song)}
             whileTap={{ scale: 0.96 }}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
