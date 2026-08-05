@@ -21,8 +21,19 @@ export function useYtmRail(query: string, options: YtmRailOptions = {}) {
     enabled: enabled && !!query && query.trim().length >= 2,
     staleTime: staleMinutes * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
+    // Keep the previously fetched rail visible while a slow refetch runs so a
+    // section never collapses to empty.
+    placeholderData: (prev) => prev,
     queryFn: async (): Promise<Song[]> => {
-      const results = await searchYouTubeMusicTracks(query, limit);
+      // Hard 8s ceiling: if the indexer is slow we fail fast and react-query
+      // keeps serving the cached rail instead of rendering an empty section.
+      let timeoutId: ReturnType<typeof setTimeout> | undefined;
+      const results = await Promise.race([
+        searchYouTubeMusicTracks(query, limit),
+        new Promise<never>((_, reject) => {
+          timeoutId = setTimeout(() => reject(new Error('ytm-rail timeout')), 8000);
+        }),
+      ]).finally(() => { if (timeoutId) clearTimeout(timeoutId); });
       return results
         .filter((t) => t.id && t.title && t.artist)
         .map((t) => ({
