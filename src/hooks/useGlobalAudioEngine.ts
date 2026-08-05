@@ -299,6 +299,8 @@ export function useGlobalAudioEngine(
       }, delay);
     };
     const onMediaReady = () => {
+      // New track => new native audio session => effects must be re-armed.
+      invalidateNativeSnapshot();
       reapply();
       // Some mobile WebViews briefly report a direct/idle engine while the new
       // proxied source is still committing. Keep trying for <1s so the EQ never
@@ -308,6 +310,9 @@ export function useGlobalAudioEngine(
 
     const onPlay = () => {
       if (isAttached) resume();
+      // Playback start is the first moment the native session definitely
+      // exists, so re-arm rather than trusting the previous push.
+      invalidateNativeSnapshot();
       reapplyNow();
     };
     const onPointer = () => { if (isAttached) resume(); };
@@ -322,6 +327,15 @@ export function useGlobalAudioEngine(
       reapplyNow();
       scheduleRecoveryBurst();
     };
+
+    // Entitlement resolved (or changed) — force a full re-arm of both the
+    // WebAudio graph and the native effect chain.
+    const onPremiumChanged = () => {
+      invalidateNativeSnapshot();
+      reapplyNow();
+      scheduleRecoveryBurst();
+    };
+
 
     doReapply();
     audioElement.addEventListener('loadstart', onMediaReady);
