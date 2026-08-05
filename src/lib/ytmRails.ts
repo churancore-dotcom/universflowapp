@@ -83,12 +83,18 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
       const out: Song[] = [];
       for (const t of tracks) {
         if (seen.has(t.id)) continue;
+        // A release tile with no artwork or no artist is not a real release
+        // card — those are the "mock looking" rows users complain about.
+        if (!t.cover_url || !t.artist) continue;
         seen.add(t.id);
         const s = toSong(t);
         if (s) out.push(s);
       }
-      return seededShuffle(out).slice(0, limit);
+      // YouTube returns new releases newest-first. Shuffling that is exactly
+      // what made the rail look like random old songs, so order is preserved.
+      return out.slice(0, limit);
     },
+
   });
 }
 
