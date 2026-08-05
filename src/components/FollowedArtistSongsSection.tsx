@@ -154,7 +154,7 @@ const FollowedArtistSongsSection = memo(function FollowedArtistSongsSection({ so
     <section className="mb-2 pt-4">
       <div className="flex items-end justify-between mb-3 px-1">
         <div>
-          <h2 className="text-[20px] leading-tight font-extrabold tracking-tight text-foreground">From Your Artists</h2>
+          <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">From Your Artists</h2>
           <p className="text-[11px] text-muted-foreground/55 font-semibold mt-0.5">New music from people you follow</p>
         </div>
       </div>

@@ -261,32 +261,26 @@ const Home = () => {
         />
 
         {/* ====== HEADER ====== */}
-        <header className="flex-shrink-0 z-30 px-5 pt-5 pb-4 safe-area-pt">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-[10px] uppercase tracking-[0.3em] text-muted-foreground">
-                {new Date().getHours() < 12 ? 'Good morning' : new Date().getHours() < 18 ? 'Good afternoon' : 'Good evening'}
-              </p>
-              <h1 className="font-display text-[30px] leading-[0.95] tracking-[0.05em] text-foreground mt-1">
-                UNIVERS <span className="text-primary">FLOW</span>
-              </h1>
-            </div>
+        <header className="flex-shrink-0 z-30 px-5 pt-5 pb-3 safe-area-pt">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
+            <h1 className="font-display text-[30px] leading-none tracking-[0.08em] text-primary truncate">
+              UNIVERSFLOW
+            </h1>
             <motion.button
               onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
               aria-label="Open profile"
-              className="w-12 h-12 rounded-full neu neu-press flex items-center justify-center overflow-hidden"
+              className="w-10 h-10 shrink-0 rounded-full overflow-hidden border border-border/60 bg-card flex items-center justify-center"
               whileTap={{ scale: 0.94 }}
             >
-              <div className="w-9 h-9 rounded-full overflow-hidden neu-inset flex items-center justify-center">
-                {userAvatar ? (
-                  <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
-                ) : (
-                  <User className="w-4 h-4 text-muted-foreground" />
-                )}
-              </div>
+              {userAvatar ? (
+                <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-4 h-4 text-muted-foreground" />
+              )}
             </motion.button>
           </div>
         </header>
+
 
         {/* Scrollable content area */}
         <main
@@ -306,7 +300,7 @@ const Home = () => {
             <EmptyState />
           ) : (
             <div className="space-y-8">
-              {/* ====== HERO ====== */}
+              {/* ====== HERO — artwork-dominant bento tile ====== */}
               {heroSong && (
                 <motion.section
                   initial={{ opacity: 0, y: 16 }}
@@ -314,48 +308,49 @@ const Home = () => {
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="px-5"
                 >
-                  <div className="rounded-[34px] neu p-5">
-                    <div className="flex items-center gap-4">
-                      <div className="w-[104px] h-[104px] rounded-3xl neu-inset p-2 shrink-0">
-                        <div className="w-full h-full rounded-2xl overflow-hidden">
-                          {heroSong.cover_url ? (
-                            <img src={heroSong.cover_url} alt="" className="w-full h-full object-cover" loading="eager" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center"><Music className="w-6 h-6 text-muted-foreground" /></div>
-                          )}
-                        </div>
-                      </div>
-                      <div className="min-w-0">
-                        <span className="inline-block px-3 py-1 rounded-full neu-inset text-[9px] uppercase tracking-[0.2em] text-primary font-semibold">
-                          {heroContextLabel(signals, !!currentSong)}
-                        </span>
-                        <h2 className="font-display text-[30px] leading-[0.95] tracking-[0.03em] text-foreground uppercase mt-2 line-clamp-2">
-                          {heroSong.title}
-                        </h2>
-                        <p className="text-muted-foreground text-[11px] mt-1.5 uppercase tracking-[0.16em] truncate">{heroSong.artist}</p>
-                      </div>
+                  <div className="flex items-end justify-between mb-3">
+                    <h2 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">
+                      {heroContextLabel(signals, !!currentSong)}
+                    </h2>
+                    <button
+                      onClick={shuffleAll}
+                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground"
+                    >
+                      <Shuffle className="w-3.5 h-3.5" /> Shuffle
+                    </button>
+                  </div>
+
+                  <div className="relative rounded-[28px] overflow-hidden aspect-[4/5] bg-card">
+                    {heroSong.cover_url ? (
+                      <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center"><Music className="w-10 h-10 text-muted-foreground" /></div>
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-transparent" />
+
+                    <div className="absolute bottom-0 left-0 right-0 p-6 pr-24">
+                      <span className="inline-block px-2 py-0.5 rounded-sm bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-[0.14em] mb-2">
+                        {heroIsCurrent && isPlaying ? 'Now playing' : 'Start here'}
+                      </span>
+                      <h3 className="font-display text-4xl leading-none uppercase text-foreground line-clamp-2">
+                        {heroSong.title}
+                      </h3>
+                      <p className="text-muted-foreground text-base font-medium mt-1 truncate">{heroSong.artist}</p>
                     </div>
 
-                    <div className="flex items-center gap-3 mt-5">
-                      <button
-                        onClick={playHero}
-                        className="flex-1 h-14 rounded-3xl neu-accent neu-press flex items-center justify-center gap-2 font-display text-xl tracking-[0.1em]"
-                      >
-                        {heroIsCurrent && isPlaying
-                          ? <><Pause className="w-4 h-4 fill-current" /> PAUSE</>
-                          : <><Play className="w-4 h-4 fill-current" /> PLAY</>}
-                      </button>
-                      <button
-                        onClick={shuffleAll}
-                        aria-label="Shuffle play"
-                        className="w-14 h-14 rounded-3xl neu neu-press flex items-center justify-center"
-                      >
-                        <Shuffle className="w-5 h-5 text-foreground/75" />
-                      </button>
-                    </div>
+                    <button
+                      onClick={playHero}
+                      aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
+                      className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                    >
+                      {heroIsCurrent && isPlaying
+                        ? <Pause className="w-6 h-6 fill-primary-foreground text-primary-foreground" />
+                        : <Play className="w-6 h-6 fill-primary-foreground text-primary-foreground ml-0.5" />}
+                    </button>
                   </div>
                 </motion.section>
               )}
+
 
               {/* ====== RAILS ======
                   Order is scored per listener in src/lib/homeFeedOrder.ts, not
@@ -387,28 +382,27 @@ const Home = () => {
                                 : 'Jump back in'}
                             </h2>
                           </div>
-                          <div className="flex gap-5 overflow-x-auto hide-scrollbar px-5 pb-3 snap-x snap-mandatory">
+                          <div className="flex gap-4 overflow-x-auto hide-scrollbar px-5 pb-3 snap-x snap-mandatory">
                             {recent.map((song) => (
                               <motion.button
                                 key={song.id}
                                 onClick={() => playTile(song, recent)}
                                 whileTap={{ scale: 0.95 }}
-                                className="snap-start shrink-0 w-[132px] text-left"
+                                className="snap-start shrink-0 w-44 text-left"
                               >
-                                <div className="w-[132px] h-[132px] rounded-[28px] neu neu-press p-2.5">
-                                  <div className="w-full h-full rounded-[20px] overflow-hidden neu-inset">
-                                    {song.cover_url ? (
-                                      <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center"><Music className="w-6 h-6 text-muted-foreground" /></div>
-                                    )}
-                                  </div>
+                                <div className="aspect-square w-44 rounded-2xl overflow-hidden bg-card mb-2">
+                                  {song.cover_url ? (
+                                    <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center"><Music className="w-6 h-6 text-muted-foreground" /></div>
+                                  )}
                                 </div>
-                                <p className="text-[13px] text-foreground mt-3 truncate font-medium px-1">{song.title}</p>
-                                <p className="text-[10px] text-muted-foreground truncate uppercase tracking-[0.14em] px-1">{song.artist}</p>
+                                <p className="text-sm font-semibold text-foreground truncate">{song.title}</p>
+                                <p className="text-[11px] text-muted-foreground truncate font-medium">{song.artist}</p>
                               </motion.button>
                             ))}
                           </div>
+
                         </motion.section>
                       );
                     }

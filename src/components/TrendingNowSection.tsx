@@ -46,7 +46,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
           <Flame className="w-3.5 h-3.5 text-primary" />
         </div>
         <div>
-          <h2 className="text-[19px] leading-tight font-extrabold tracking-tight text-foreground">Trending Now</h2>
+          <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Trending Now</h2>
           <p className="text-[10px] text-muted-foreground/55 font-semibold">Hot right now, tuned to your taste</p>
         </div>
       </div>
