@@ -401,12 +401,22 @@ async function getLocalizedNewReleases(gl: string, limit: number): Promise<Searc
   return out;
 }
 
-function extractFromItem(item: any): { videoId?: string; title: string; artist: string; duration: number; cover?: string } | null {
+function extractFromItem(item: any): { videoId?: string; title: string; artist: string; duration: number; cover?: string; musicVideoType?: string } | null {
+  const watch =
+    item?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint ||
+    item?.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.navigationEndpoint?.watchEndpoint;
+  // MUSIC_VIDEO_TYPE_ATV = the studio "audio track" upload, i.e. the real
+  // original song. Anything else (OMV music video, UGC re-upload, podcast) is
+  // a video-shaped duplicate and must rank below it.
+  const musicVideoType: string | undefined =
+    watch?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType;
   const videoId =
     item?.playlistItemData?.videoId ||
+    watch?.videoId ||
     item?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId ||
     item?.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.navigationEndpoint?.watchEndpoint?.videoId;
   if (!videoId) return null;
+
   const cols = item?.flexColumns || [];
   const title = runsText(cols?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text);
   const subRuns = cols?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
