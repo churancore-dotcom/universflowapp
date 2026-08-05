@@ -20,9 +20,15 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
   const fresh = useMemo(() => {
     const clean = pool.filter((s) => !isSpamSong(s));
-    const relevant = taste.signalCount >= 5 ? clean.filter((song) => tasteScore(song, taste) > 0) : clean;
-    return rerank(relevant, taste).slice(0, 12);
+    // New Releases must stay chronological (that's what "new" means). We only
+    // bubble taste matches to the front, preserving recency inside each group,
+    // instead of re-ranking or filtering real fresh drops out of the rail.
+    if (taste.signalCount < 5) return clean.slice(0, 12);
+    const liked = clean.filter((song) => tasteScore(song, taste) > 0);
+    const rest = clean.filter((song) => tasteScore(song, taste) <= 0);
+    return [...liked, ...rest].slice(0, 12);
   }, [pool, taste]);
+
 
 
   if (fresh.length === 0) return null;
