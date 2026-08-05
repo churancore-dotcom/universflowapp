@@ -10,6 +10,7 @@ import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { prewarmSong, prewarmIntentProps } from '@/lib/instantPlay';
 
 interface SongCardProps {
   song: Song;
@@ -36,6 +37,12 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
     }
   }, [song.artist_id, navigate]);
 
+  // Echo-Music instant play: warm the stream for the first visible cards, and
+  // for this card the instant a finger lands on it (before `click` fires).
+  React.useEffect(() => {
+    if (index < 4) prewarmSong(song);
+  }, [index, song]);
+
   const handleClick = useCallback(() => {
     triggerHaptic('impactLight');
     if (isCurrentSong) {
@@ -61,6 +68,7 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
       <motion.div
         className="relative aspect-square rounded-3xl overflow-hidden cursor-pointer"
         onClick={handleClick}
+        {...prewarmIntentProps(song)}
         whileTap={{ scale: 0.95 }}
         transition={{ type: "spring", stiffness: 400, damping: 25 }}
         style={{

@@ -4,6 +4,7 @@ import { Play, Flame } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { prewarmSong, prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { rerank, tasteScore } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
@@ -34,6 +35,9 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     return rerank(relevant, taste).slice(0, 12);
   }, [charts, fallbackPool, taste]);
 
+  // Pre-resolve the top of the chart so the first taps are instant.
+  React.useEffect(() => { prewarmSongs(trending, 4); }, [trending]);
+
   if (trending.length === 0) return null;
 
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, trending); };
@@ -56,6 +60,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
       <motion.button
         whileTap={{ scale: 0.98 }}
         onClick={() => play(lead)}
+        {...prewarmIntentProps(lead)}
         className="relative w-full h-[188px] rounded-[30px] overflow-hidden text-left neu"
       >
         {lead.cover_url && (
@@ -84,6 +89,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
             <motion.button
               key={song.id}
               onClick={() => play(song)}
+              {...prewarmIntentProps(song)}
               whileTap={{ scale: 0.95 }}
               className="snap-start shrink-0 w-[124px] text-left"
             >
