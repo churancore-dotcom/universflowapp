@@ -671,9 +671,16 @@ serve(async (req) => {
         const score = relevanceScore(r, cleanQuery, i, pass);
         if (score < 0) continue;
         seen.add(r.videoId);
-        merged.push({ ...r, _score: score, _kind: pass === 'songs' ? 'song' : 'video', kind: pass === 'songs' ? 'song' : 'video' });
+        // YouTube's own musicVideoType beats shelf provenance: ATV is the real
+        // studio track even when it surfaced from the "all"/videos pass, and a
+        // non-ATV item is a duplicate music video even inside the songs shelf.
+        const kind: 'song' | 'video' = r.musicVideoType
+          ? (r.musicVideoType === 'MUSIC_VIDEO_TYPE_ATV' ? 'song' : 'video')
+          : (pass === 'songs' ? 'song' : 'video');
+        merged.push({ ...r, _score: score, _kind: kind, kind });
       }
     }
+
 
     // Keep REAL songs (from YT Music SONGS shelf) strictly above generic videos,
     // then sort each bucket by relevance score.
