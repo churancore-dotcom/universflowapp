@@ -34,9 +34,23 @@ type SearchSource = 'songs' | 'artists';
 const normalizeText = (value = '') => value.toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const cleanIdentity = (value = '') => normalizeText(value).replace(/\b(official|lyrics?|video|audio|hd|4k|topic|vevo|records|music)\b/g, '').replace(/\s+/g, ' ').trim();
 const resultKey = (track: IndexedTrack) => `${cleanIdentity(track.artist)}::${cleanIdentity(track.title)}`;
+// Reuploads keep the real credit inside the title ("Ian Asher - Way Too Self Aware")
+// while the uploader channel is some aggregator. Split the credit out of the title so
+// every reupload of the same song collapses onto one identity.
+const stripBrackets = (value = '') => value.replace(/\([^)]*\)|\[[^\]]*\]/g, ' ');
+const splitTitleCredit = (title = '') => {
+  const parts = stripBrackets(title).split(/\s+[-–—|]\s+/).map((part) => part.trim()).filter(Boolean);
+  if (parts.length > 1) return { credit: parts[0], name: parts.slice(1).join(' ') };
+  return { credit: '', name: parts[0] || '' };
+};
+const songIdentity = (track: IndexedTrack) => {
+  const { credit, name } = splitTitleCredit(String(track.title || ''));
+  const creditKey = cleanIdentity(credit) || cleanIdentity(track.artist);
+  return `${creditKey}::${cleanIdentity(name) || cleanIdentity(track.title)}`;
+};
 const queryTokens = (query: string) => normalizeText(query).split(' ').filter((token) => token.length > 1 && !['song', 'songs', 'music', 'track', 'tracks', 'best', 'top', 'latest', 'new', 'by', 'ft', 'feat', 'featuring', 'from'].includes(token));
 const HIDDEN_RESULTS_KEY = 'uf_hidden_search_results_v1';
-const SEARCH_CACHE_NAMESPACE = 'stable-search-v13-original-first';
+const SEARCH_CACHE_NAMESPACE = 'stable-search-v14-uploader-authority';
 const SPAM_RESULT_PATTERNS = [
   /\b(top|best)\s*\d+\b/i,
   /\b\d+\s*(top|best|hit|hits|songs)\b/i,
@@ -335,14 +349,23 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const isOfficial = /\b(VEVO|Topic|Official)\b/i.test(rawArtist) || /\b(official\s*video|official\s*audio|official\s*music\s*video)\b/i.test(rawTitle);
     const officialBonus = isOfficial ? 400 : 0;
     const kindBonus = track.kind === "song" ? 450 : 0;
-    
+
+    // Uploader authority: when the title credits an artist ("Ian Asher - ..."),
+    // the real upload comes from that artist's own channel. Aggregator/reupload
+    // channels credit someone else in the title and must rank below it.
+    const credited = cleanIdentity(splitTitleCredit(rawTitle).credit);
+    const uploader = cleanIdentity(rawArtist);
+    const uploaderIsCredit =
+      !!credited && !!uploader && (uploader.includes(credited) || credited.includes(uploader));
+    const authority = credited ? (uploaderIsCredit ? 900 : -900) : 0;
+
     // Noise penalty (refined: don't penalize 'official')
     const actualNoise = /\b(slowed|reverb|8d|lofi|karaoke|instrumental|lyrics?|nightcore|mashup|remix|fan\s*made|unofficial|cover|tribute|ai\s*cover|ai\s*voice)\b/i;
     const parenNoise = (rawTitle.match(/\([^\)]{4,}\)|\[[^\]]{4,}\]/g) || []).length;
     const noiseWords = actualNoise.test(rawTitle) ? 1 : 0;
     const noisePenalty = parenNoise * 40 + noiseWords * 180 + (rawTitle.length > 70 ? 40 : 0);
 
-    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus - noisePenalty - index * 0.8;
+    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + authority - noisePenalty - index * 0.8;
     allTracks.push({ track, score, sourcePriority, index });
   };
 
@@ -350,10 +373,11 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
   literal.forEach((track, index) => processTrack(track, 520, index, 2));
   tagSets.forEach((set, setIndex) => set.forEach((track, index) => processTrack(track, 220 + setIndex * 40, index, 1)));
 
-  // Deduplication: Pick the best track for each artist::title pair
+  // Deduplication: collapse every reupload of the same song onto one identity,
+  // regardless of which channel uploaded it.
   const bestScores = new Map<string, number>();
   for (const t of allTracks) {
-    const key = resultKey(t.track);
+    const key = songIdentity(t.track);
     if (!bestScores.has(key) || t.score > bestScores.get(key)!) {
       bestScores.set(key, t.score);
     }
@@ -363,7 +387,7 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
   // This ranks official/best versions first and duplicates last.
   return allTracks
     .map((t) => {
-      const key = resultKey(t.track);
+      const key = songIdentity(t.track);
       const isPrimary = t.score === bestScores.get(key);
       const finalScore = isPrimary ? t.score : t.score - 5000;
       return { ...t, finalScore };
