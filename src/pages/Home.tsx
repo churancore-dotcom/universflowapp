@@ -19,7 +19,7 @@ import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection'
 import BottomNav from '@/components/BottomNav';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Play, User, Shuffle } from 'lucide-react';
+import { Music, Play, Pause, User, Shuffle } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { HomeSkeleton } from '@/components/PageSkeletons';
 import SEOHead from '@/components/SEOHead';
@@ -341,7 +341,9 @@ const Home = () => {
                         onClick={playHero}
                         className="flex-1 h-14 rounded-3xl neu-accent neu-press flex items-center justify-center gap-2 font-display text-xl tracking-[0.1em]"
                       >
-                        <Play className="w-4 h-4 fill-current" /> PLAY
+                        {heroIsCurrent && isPlaying
+                          ? <><Pause className="w-4 h-4 fill-current" /> PAUSE</>
+                          : <><Play className="w-4 h-4 fill-current" /> PLAY</>}
                       </button>
                       <button
                         onClick={shuffleAll}
