@@ -97,7 +97,16 @@ class ExoPlayerService : MediaSessionService() {
     override fun onCreate() {
         super.onCreate()
 
+        // Promote to the foreground with a placeholder notification BEFORE the
+        // player and session exist. On Android 12+ a service started from the
+        // background is killed (ForegroundServiceStartNotAllowed / ANR) if it
+        // waits for Media3 to publish its own notification — this is what makes
+        // background playback survive screen-off and app-swipe reliably.
+        promoteToForegroundEarly()
+
         restoreEffectState()
+
+
 
         val audioAttrs = AudioAttributes.Builder()
             .setUsage(C.USAGE_MEDIA)
@@ -137,13 +146,22 @@ class ExoPlayerService : MediaSessionService() {
         // Prewarm the InnerTube connection so first-tap latency is minimal.
         NativeYouTubeResolver.warm()
 
+        // Echo-style load control: a very low `bufferForPlayback` is the single
+        // biggest instant-start lever (playback begins after ~0.75s of audio),
+        // while min == max caps prefetch so long queues never balloon memory.
+        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+            .setBufferDurationsMs(50_000, 50_000, 750, 2_000)
+            .build()
+
         val builder = ExoPlayer.Builder(this)
             .setRenderersFactory(renderersFactory)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
             .setAudioAttributes(audioAttrs, /* handleAudioFocus */ true)
             .setHandleAudioBecomingNoisy(true)
             .setWakeMode(C.WAKE_MODE_NETWORK)
             .setPauseAtEndOfMediaItems(false)
+
 
         val exo = builder.build().also { p ->
             if (sessionId != C.AUDIO_SESSION_ID_UNSET) {
@@ -164,7 +182,17 @@ class ExoPlayerService : MediaSessionService() {
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 ensureEffectsBound()
             }
+            override fun onMediaItemTransition(
+                mediaItem: androidx.media3.common.MediaItem?,
+                reason: Int,
+            ) {
+                // Echo-style look-ahead: pre-resolve the next two queue items so
+                // the ResolvingDataSource never blocks on the network at the
+                // moment of transition (gapless, instant next-track start).
+                preloadUpcoming(exo, 2)
+            }
         })
+
 
         val sessionActivity = packageManager.getLaunchIntentForPackage(packageName)?.let {
             it.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
@@ -241,12 +269,70 @@ class ExoPlayerService : MediaSessionService() {
     }
 
     /**
+     * Minimal channel + foreground promotion used before the media session is
+     * ready. Media3 replaces this notification (same id) as soon as it renders
+     * the real player, so the user never sees the placeholder.
+     */
+    private fun promoteToForegroundEarly() {
+        try {
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                val manager = getSystemService(NotificationManager::class.java)
+                val channel = NotificationChannel(
+                    NOTIFICATION_CHANNEL_ID,
+                    "Playback",
+                    NotificationManager.IMPORTANCE_LOW,
+                ).apply {
+                    setShowBadge(false)
+                    lockscreenVisibility = Notification.VISIBILITY_PUBLIC
+                    setSound(null, null)
+                    enableVibration(false)
+                }
+                manager?.createNotificationChannel(channel)
+            }
+            val placeholder = androidx.core.app.NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
+                .setSmallIcon(R.drawable.ic_stat_music)
+                .setContentTitle(getString(R.string.app_name))
+                .setOngoing(true)
+                .setSilent(true)
+                .build()
+            startForeground(NOTIFICATION_ID, placeholder)
+        } catch (t: Throwable) {
+            android.util.Log.w("ExoPlayerService", "early foreground failed: ${t.message}")
+        }
+    }
+
+    /** Pre-resolve the next [count] queue items so transitions never stall. */
+    private fun preloadUpcoming(exo: ExoPlayer, count: Int) {
+        try {
+            val tracks = ArrayList<Triple<String?, String?, String?>>()
+            var index = exo.nextMediaItemIndex
+            var remaining = count
+            while (index != C.INDEX_UNSET && remaining > 0 && index < exo.mediaItemCount) {
+                val uri = exo.getMediaItemAt(index).localConfiguration?.uri
+                if (uri != null && uri.scheme == "yt") {
+                    tracks.add(
+                        Triple(
+                            uri.host,
+                            uri.getQueryParameter("title"),
+                            uri.getQueryParameter("artist"),
+                        ),
+                    )
+                }
+                index += 1
+                remaining -= 1
+            }
+            if (tracks.isNotEmpty()) MasterResolver.prefetch(tracks, tracks.size)
+        } catch (_: Throwable) {}
+    }
+
+    /**
      * Keep the media notification alive while paused so the user can resume
      * from the lock screen / shade instead of the player vanishing on pause.
      */
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
         super.onUpdateNotification(session, true)
     }
+
 
     /** (Re)bind AudioEffects to the current player's session id. */
     @Synchronized

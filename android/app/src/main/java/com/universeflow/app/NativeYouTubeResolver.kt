@@ -302,11 +302,14 @@ object NativeYouTubeResolver {
             put("hl", "en"); put("gl", "US")
         })
 
+        // clientId 28 = ANDROID_VR in YouTube's INNERTUBE_CONTEXT_CLIENT_NAME
+        // enum. Sending the wrong numeric id makes the edge distrust the client
+        // and reply with SABR-only / 403-prone URLs.
         return listOf(
-            ClientCtx("ANDROID_VR", "76", "1.61.48", vr161,
-                "com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip"),
-            ClientCtx("ANDROID_VR_1_43", "76", "1.43.32", vr143,
+            ClientCtx("ANDROID_VR_1_43", "28", "1.43.32", vr143,
                 "com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12L; GB) gzip"),
+            ClientCtx("ANDROID_VR", "28", "1.61.48", vr161,
+                "com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip"),
             ClientCtx("IOS", "5", "21.03.2", ios,
                 "com.google.ios.youtube/21.03.2 (iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X)"),
             ClientCtx("ANDROID_MUSIC", "21", "7.29.52", androidMusic,
@@ -314,6 +317,7 @@ object NativeYouTubeResolver {
             ClientCtx("ANDROID_CREATOR", "14", "24.45.100", androidCreator,
                 "com.google.android.apps.youtube.creator/24.45.100 (Linux; U; Android 14) gzip"),
         )
+
     }
 
     private fun attempt(videoId: String, ctx: ClientCtx): Pair<String, Int>? {
@@ -363,8 +367,12 @@ object NativeYouTubeResolver {
             if (status != null && status != "OK") return null
             val streamingData = json.optJSONObject("streamingData") ?: return null
             val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
-            // Try adaptive audio first.
-            pickBestAudio(adaptive, ctx.name)?.let { return it }
+            // Try adaptive audio first, but only accept a URL the CDN actually
+            // serves — a parseable-yet-403 URL used to kill playback silently.
+            pickBestAudio(adaptive, ctx.name)?.let {
+                if (validate(it.first, ctx.userAgent)) return it
+                Log.d(TAG, "adaptive URL rejected by CDN for ${ctx.name}")
+            }
             // Fallback: progressive `formats` list (combined AV muxed) — better
             // than silence when YouTube ships SABR-only adaptive for this edge.
             // ExoPlayer will demux the audio track from the muxed stream.
@@ -375,6 +383,7 @@ object NativeYouTubeResolver {
                 val url = resolveFormatUrl(f) ?: continue
                 return url to f.optInt("itag", 0)
             }
+
             if (streamingData.has("serverAbrStreamingUrl")) {
                 Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
             }
@@ -383,31 +392,50 @@ object NativeYouTubeResolver {
     }
 
     private fun pickBestAudio(adaptive: JSONArray, clientName: String): Pair<String, Int>? {
-        var best251: Pair<String, Int>? = null
-        var best140: Pair<String, Int>? = null
-        var bestOther: Pair<String, Int>? = null
-        var bestOtherBitrate = -1
+        // Echo's heuristic: only audio formats, only the ORIGINAL language track
+        // (dubbed/auto-translated tracks otherwise win on bitrate and the user
+        // hears a voiceover), then maximise bitrate with a bonus for opus/webm.
+        var best: Pair<String, Int>? = null
+        var bestScore = -1
 
         for (i in 0 until adaptive.length()) {
             val f = adaptive.optJSONObject(i) ?: continue
             val mime = f.optString("mimeType", "")
             if (!mime.startsWith("audio/")) continue
-            val itag = f.optInt("itag", 0)
-            val bitrate = f.optInt("bitrate", 0)
+            val track = f.optJSONObject("audioTrack")
+            val isOriginal = track == null || track.optBoolean("audioIsDefault", true) ||
+                track.optString("id", "").contains(".original")
+            if (!isOriginal) continue
             val url = resolveFormatUrl(f) ?: continue
-            when (itag) {
-                251 -> best251 = url to itag
-                140 -> best140 = url to itag
-                else -> if (bitrate > bestOtherBitrate) {
-                    bestOther = url to itag
-                    bestOtherBitrate = bitrate
-                }
+            val itag = f.optInt("itag", 0)
+            val score = f.optInt("bitrate", 0) + if (mime.contains("webm")) 10240 else 0
+            if (score > bestScore) {
+                best = url to itag
+                bestScore = score
             }
         }
-        val picked = best251 ?: best140 ?: bestOther
-        if (picked == null) Log.d(TAG, "no audio formats from $clientName")
-        return picked
+        if (best == null) Log.d(TAG, "no audio formats from $clientName")
+        return best
     }
+
+    /**
+     * Echo-style HEAD probe: a googlevideo URL can parse fine yet 403 on the
+     * first byte range. Validating before handing it to ExoPlayer keeps the race
+     * moving to the next client instead of failing playback.
+     */
+    private fun validate(url: String, userAgent: String): Boolean {
+        return try {
+            val req = Request.Builder()
+                .url(url)
+                .head()
+                .header("User-Agent", userAgent)
+                .build()
+            http.newCall(req).execute().use { it.isSuccessful }
+        } catch (_: Throwable) {
+            false
+        }
+    }
+
 
     /**
      * Resolves a streamingData format into a fully signed, n-decoded URL.

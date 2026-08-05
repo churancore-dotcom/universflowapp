@@ -16,6 +16,9 @@ interface SearchResult {
   duration?: number;
   published?: number;
   kind?: 'song' | 'video';
+  /** YouTube's own type tag; MUSIC_VIDEO_TYPE_ATV = original studio audio. */
+  musicVideoType?: string;
+
 }
 
 
@@ -401,12 +404,22 @@ async function getLocalizedNewReleases(gl: string, limit: number): Promise<Searc
   return out;
 }
 
-function extractFromItem(item: any): { videoId?: string; title: string; artist: string; duration: number; cover?: string } | null {
+function extractFromItem(item: any): { videoId?: string; title: string; artist: string; duration: number; cover?: string; musicVideoType?: string } | null {
+  const watch =
+    item?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint ||
+    item?.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.navigationEndpoint?.watchEndpoint;
+  // MUSIC_VIDEO_TYPE_ATV = the studio "audio track" upload, i.e. the real
+  // original song. Anything else (OMV music video, UGC re-upload, podcast) is
+  // a video-shaped duplicate and must rank below it.
+  const musicVideoType: string | undefined =
+    watch?.watchEndpointMusicSupportedConfigs?.watchEndpointMusicConfig?.musicVideoType;
   const videoId =
     item?.playlistItemData?.videoId ||
+    watch?.videoId ||
     item?.overlay?.musicItemThumbnailOverlayRenderer?.content?.musicPlayButtonRenderer?.playNavigationEndpoint?.watchEndpoint?.videoId ||
     item?.flexColumns?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs?.[0]?.navigationEndpoint?.watchEndpoint?.videoId;
   if (!videoId) return null;
+
   const cols = item?.flexColumns || [];
   const title = runsText(cols?.[0]?.musicResponsiveListItemFlexColumnRenderer?.text);
   const subRuns = cols?.[1]?.musicResponsiveListItemFlexColumnRenderer?.text?.runs || [];
@@ -429,8 +442,9 @@ function extractFromItem(item: any): { videoId?: string; title: string; artist: 
     ? artistParts.join(', ')
     : (plainParts[0] || 'Unknown Artist');
   const cover = pickThumb(item?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails);
-  return { videoId, title: decodeEntities(title), artist: decodeEntities(artist), duration: parseDuration(durationText), cover };
+  return { videoId, title: decodeEntities(title), artist: decodeEntities(artist), duration: parseDuration(durationText), cover, musicVideoType };
 }
+
 
 function findContinuationToken(json: any): string | null {
   const stack: any[] = [json];
@@ -464,9 +478,11 @@ function parseSearchPage(json: any, query: string, out: SearchResult[], seen: Se
       audio_url: `yt-video:${parsed.videoId}`,
       cover_url: parsed.cover,
       duration: parsed.duration || undefined,
+      musicVideoType: parsed.musicVideoType,
     });
   }
 }
+
 
 async function ytMusicSearch(query: string, params: string, targetCount = 80): Promise<SearchResult[]> {
   const resp = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
@@ -655,9 +671,16 @@ serve(async (req) => {
         const score = relevanceScore(r, cleanQuery, i, pass);
         if (score < 0) continue;
         seen.add(r.videoId);
-        merged.push({ ...r, _score: score, _kind: pass === 'songs' ? 'song' : 'video', kind: pass === 'songs' ? 'song' : 'video' });
+        // YouTube's own musicVideoType beats shelf provenance: ATV is the real
+        // studio track even when it surfaced from the "all"/videos pass, and a
+        // non-ATV item is a duplicate music video even inside the songs shelf.
+        const kind: 'song' | 'video' = r.musicVideoType
+          ? (r.musicVideoType === 'MUSIC_VIDEO_TYPE_ATV' ? 'song' : 'video')
+          : (pass === 'songs' ? 'song' : 'video');
+        merged.push({ ...r, _score: score, _kind: kind, kind });
       }
     }
+
 
     // Keep REAL songs (from YT Music SONGS shelf) strictly above generic videos,
     // then sort each bucket by relevance score.

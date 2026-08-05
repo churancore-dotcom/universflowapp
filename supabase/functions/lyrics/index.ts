@@ -12,7 +12,7 @@ const corsHeaders = {
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_ROLE = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
-type Source = 'artist' | 'lrclib' | 'kugou' | 'netease' | 'qqmusic' | 'lyricsovh';
+type Source = 'artist' | 'lrclib' | 'kugou' | 'netease' | 'qqmusic' | 'lyricsovh' | 'lyricsplus' | 'unison';
 
 interface LyricsResponse {
   success: boolean;
@@ -243,6 +243,100 @@ async function fetchLyricsOvh(artist: string, title: string): Promise<{ plain?: 
   return null;
 }
 
+// ───────── LyricsPlus mirror network ─────────
+// Community mirrors of the same index; any one of them can be down, so all are
+// raced and the last winner is promoted to the front of the list next time.
+const LP_SERVERS = [
+  'https://lyricsplus.prjktla.my.id',
+  'https://lyricsplus.atomix.one',
+  'https://lyricsplus.binimum.org',
+  'https://lyricsplus.prjktla.workers.dev',
+  'https://lyricsplus-seven.vercel.app',
+  'https://lyrics-plus-backend.vercel.app',
+];
+let lpLastWorking: string | null = null;
+
+/** Word/syllable-timed lines → standard `[mm:ss.xx]` LRC. */
+function lpToLrc(items: any[]): string | undefined {
+  const lines: string[] = [];
+  for (const it of items) {
+    const ms = Number(it?.time);
+    const text = String(it?.text || '').trim();
+    if (!Number.isFinite(ms) || !text) continue;
+    const total = Math.max(0, Math.round(ms));
+    const mm = String(Math.floor(total / 60000)).padStart(2, '0');
+    const ss = String(Math.floor((total % 60000) / 1000)).padStart(2, '0');
+    const cs = String(Math.floor((total % 1000) / 10)).padStart(2, '0');
+    lines.push(`[${mm}:${ss}.${cs}]${text}`);
+  }
+  return lines.length >= 4 ? lines.join('\n') : undefined;
+}
+
+async function fetchLyricsPlusFrom(
+  server: string,
+  artist: string,
+  title: string,
+  durationSec?: number,
+): Promise<{ synced?: string; plain?: string } | null> {
+  const qs = new URLSearchParams({ title: clean(title), artist: clean(artist) });
+  if (durationSec && durationSec > 0) qs.set('duration', String(Math.round(durationSec)));
+  const r = await fetch(`${server}/v2/lyrics/get?${qs.toString()}`, {
+    headers: { 'User-Agent': 'Universflow/1.0' },
+  });
+  if (!r.ok) return null;
+  const j = await r.json();
+  const synced = typeof j?.syncedLyrics === 'string' && j.syncedLyrics.includes('[')
+    ? j.syncedLyrics
+    : (Array.isArray(j?.lyrics) ? lpToLrc(j.lyrics) : undefined);
+  const plain = typeof j?.plainLyrics === 'string' && j.plainLyrics.trim().length >= 15
+    ? j.plainLyrics.trim()
+    : undefined;
+  if (!synced && !plain) return null;
+  lpLastWorking = server;
+  return { synced, plain };
+}
+
+async function fetchLyricsPlus(
+  artist: string,
+  title: string,
+  durationSec?: number,
+): Promise<{ synced?: string; plain?: string } | null> {
+  const ordered = lpLastWorking
+    ? [lpLastWorking, ...LP_SERVERS.filter((s) => s !== lpLastWorking)]
+    : LP_SERVERS;
+  const tasks = ordered.map((s) =>
+    fetchLyricsPlusFrom(s, artist, title, durationSec).catch(() => null),
+  );
+  // First mirror with real content wins; the rest are abandoned.
+  const results = await Promise.all(tasks.map((p) => withTimeout(p, 4000)));
+  return results.find((r) => r?.synced) || results.find((r) => r?.plain) || null;
+}
+
+// ───────── Unison (server-side matching, LRC out) ─────────
+async function fetchUnison(
+  artist: string,
+  title: string,
+  durationSec?: number,
+): Promise<{ synced?: string; plain?: string } | null> {
+  try {
+    const qs = new URLSearchParams({ song: clean(title), artist: clean(artist) });
+    if (durationSec && durationSec > 0) qs.set('duration', String(Math.round(durationSec)));
+    const r = await fetch(`https://unison.boidu.dev/lyrics?${qs.toString()}`, {
+      headers: { 'User-Agent': 'Universflow/1.0' },
+    });
+    if (!r.ok) return null;
+    const j = await r.json();
+    const entry = Array.isArray(j?.data) ? j.data[0] : j?.data;
+    const body = String(entry?.lyrics || '').trim();
+    if (!body) return null;
+    if (body.includes('[')) return { synced: body };
+    return body.length >= 15 ? { plain: body } : null;
+  } catch {
+    return null;
+  }
+}
+
+
 // ───────── Rate limit (per-IP, per instance) ─────────
 const RATE_LIMIT_MAX = 60;
 const RATE_LIMIT_WINDOW_MS = 60_000;
@@ -291,6 +385,9 @@ async function fetchParallelProviders(artist: string, title: string, duration?: 
     withTimeout(fetchNetease(artist, title), 3000).then((r) => r ? { ...r, source: 'netease' as const } : null),
     withTimeout(fetchQQMusic(artist, title), 3000).then((r) => r ? { ...r, source: 'qqmusic' as const } : null),
     withTimeout(fetchLyricsOvh(artist, title), 3200).then((r) => r ? { ...r, source: 'lyricsovh' as const } : null),
+    withTimeout(fetchLyricsPlus(artist, title, duration), 4200).then((r) => r ? { ...r, source: 'lyricsplus' as const } : null),
+    withTimeout(fetchUnison(artist, title, duration), 3500).then((r) => r ? { ...r, source: 'unison' as const } : null),
+
   ];
   const pending = tasks.map((p, i) => ({ i, promise: p.then((r) => ({ r, i })) }));
   while (pending.length) {
