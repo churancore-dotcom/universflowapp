@@ -347,7 +347,7 @@ export function useGlobalAudioEngine(
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('uf-eq-changed', onEqChanged);
     window.addEventListener('uf-eq-source-ready', onEqChanged);
-    window.addEventListener('uf-premium-changed', onEqChanged);
+    window.addEventListener('uf-premium-changed', onPremiumChanged);
     window.addEventListener('uf-eq-force-reattach', onEqChanged);
 
     return () => {
@@ -367,7 +367,7 @@ export function useGlobalAudioEngine(
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('uf-eq-changed', onEqChanged);
       window.removeEventListener('uf-eq-source-ready', onEqChanged);
-      window.removeEventListener('uf-premium-changed', onEqChanged);
+      window.removeEventListener('uf-premium-changed', onPremiumChanged);
       window.removeEventListener('uf-eq-force-reattach', onEqChanged);
     };
   }, [audioElement, skipNative]);
