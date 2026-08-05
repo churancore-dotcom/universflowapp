@@ -326,11 +326,11 @@ const isLocalMediaSource = (url?: string | null) => {
   return url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('file:') || url.startsWith('capacitor://');
 };
 
-// Only run WebAudio when Premium audio effects are actually enabled. Keeping
-// flat/default playback on the native <audio> path is much faster and avoids
-// Android background WebAudio suspension.
+// EQ / WebAudio effects are free for every user. Premium remains gated on
+// crossfade + gapless pro only. Flat settings still stay on the fast native
+// <audio> path to avoid Android background WebAudio suspension.
 const isEqProcessingEnabled = () => {
-  try { return getRuntimePremium() && hasWebAudioEffects(getEQSettings()); } catch { return false; }
+  try { return hasWebAudioEffects(getEQSettings()); } catch { return false; }
 };
 
 const isAutoplayEnabled = () => {
@@ -1358,7 +1358,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 const { getStreamBitrateCap } = await import('@/lib/userPrefs');
                 const native = await Promise.race([
                   resolveYouTubeStreamOnDevice(videoId, { bitrateCap: getStreamBitrateCap() }),
-                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 2500)),
+                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1500)),
                 ]);
                 if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
                   markNativeResolvedStreamUrl(native.streamUrl, videoId);
@@ -1371,14 +1371,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const firstNative = await tryNative();
             if (firstNative) return firstNative;
 
-            // Phase B: on Android, give the on-device resolver ONE retry
-            // before falling to the edge resolver. Edge URLs are signed for
-            // Supabase's IP and trigger the throttling/IP-block path we are
-            // trying to escape — every avoided hop counts.
-            if (isNativePlayerAvailable()) {
-              const secondNative = await tryNative();
-              if (secondNative) return secondNative;
-            }
+
 
             // FALLBACK: Supabase edge resolver + stream-proxy (web users, or
             // when on-device resolution failed twice for this particular videoId).
