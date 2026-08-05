@@ -464,9 +464,11 @@ function parseSearchPage(json: any, query: string, out: SearchResult[], seen: Se
       audio_url: `yt-video:${parsed.videoId}`,
       cover_url: parsed.cover,
       duration: parsed.duration || undefined,
+      musicVideoType: parsed.musicVideoType,
     });
   }
 }
+
 
 async function ytMusicSearch(query: string, params: string, targetCount = 80): Promise<SearchResult[]> {
   const resp = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
