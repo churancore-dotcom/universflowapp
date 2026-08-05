@@ -47,17 +47,6 @@ const upgradeThumb = (url?: string) => {
   return url.replace(/\/default\.jpg/i, '/hqdefault.jpg').replace(/\/mqdefault\.jpg/i, '/hqdefault.jpg');
 };
 
-// Session-stable rotation so the home hero isn't the identical song on every
-// app open, while staying stable while the user scrolls. Deterministic during
-// SSR — a random module-scope value would differ between the server render and
-// hydration and flip the hero right after first paint.
-const HOME_SEED = typeof window === 'undefined' ? 0 : Math.floor(Math.random() * 100000);
-function rotate<T>(arr: T[], seed = HOME_SEED): T[] {
-  if (arr.length < 2) return arr;
-  const k = seed % arr.length;
-  return [...arr.slice(k), ...arr.slice(0, k)];
-}
-
 // One real pool for the hero: live regional chart sources only. A keyword
 // search is not a chart and can surface old popular uploads as "trending".
 const fetchHomeSongs = async (country: string): Promise<Song[]> => {
@@ -87,9 +76,12 @@ const fetchHomeSongs = async (country: string): Promise<Song[]> => {
     }
   };
 
-  ingest(rotate(charts.top));
-  ingest(rotate(charts.trending));
-  ingest(rotate(charts.videos));
+  // Charts are ranked data. Preserve the provider's order rather than rotating
+  // it independently on server and client (which caused hydration mismatches
+  // and made old entries look like the current #1).
+  ingest(charts.top);
+  ingest(charts.trending);
+  ingest(charts.videos);
   if (byId.size < 12) ingest(regionalFallback);
 
   return [...byId.values()];

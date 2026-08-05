@@ -16,22 +16,6 @@ function toSong(t: { id: string; title?: string; artist?: string; album?: string
   } as Song;
 }
 
-// Session-stable seed so each app open reshuffles rails, but they stay stable
-// while the user scrolls. MUST be deterministic on the server: a random value
-// at module scope differs between the SSR render and hydration, which makes
-// React throw away the tree and visibly reorder the rails after first paint.
-let SESSION_SEED = typeof window === 'undefined' ? 1 : Math.floor(Math.random() * 1_000_000);
-function seededShuffle<T>(arr: T[], seed = SESSION_SEED): T[] {
-  const out = arr.slice();
-  let s = seed || 1;
-  for (let i = out.length - 1; i > 0; i--) {
-    s = (s * 9301 + 49297) % 233280;
-    const j = Math.floor((s / 233280) * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
-
 // Refresh rails every hour, not every day → real "trending / new" behaviour.
 function hourBucket() { return Math.floor(Date.now() / (60 * 60 * 1000)); }
 
@@ -126,9 +110,9 @@ export function useYtmCharts(country: string, enabled = true) {
       return {
         // Top Songs stays ranked (users expect the #1 to be #1).
         top: toList(charts.top),
-        // Trending / videos shuffle per session so the rails don't feel static.
-        trending: seededShuffle(toList(charts.trending)),
-        videos: seededShuffle(toList(charts.videos)),
+        // These are ranked chart feeds too; preserve their real ordering.
+        trending: toList(charts.trending),
+        videos: toList(charts.videos),
         country: charts.country,
       };
     },

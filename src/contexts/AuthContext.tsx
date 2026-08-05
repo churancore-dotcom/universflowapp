@@ -46,22 +46,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let verifyTimer: ReturnType<typeof setTimeout> | null = null;
 
     const reachable = async (): Promise<boolean> => {
-      const targets = [
-        'https://www.google.com/generate_204',
-        'https://cloudflare.com/cdn-cgi/trace',
-        'https://www.gstatic.com/generate_204',
-      ];
+      // Test this app's own origin. Third-party connectivity endpoints are
+      // commonly blocked by private DNS, VPNs, captive portals, or WebView
+      // policies even while Univers Flow and its music APIs are reachable.
       const controller = new AbortController();
       const t = setTimeout(() => controller.abort(), 3500);
       try {
-        const results = await Promise.allSettled(
-          targets.map((u) =>
-            fetch(u, { method: 'GET', mode: 'no-cors', cache: 'no-store', signal: controller.signal })
-          )
-        );
+        const response = await fetch(`/manifest.json?reachability=${Date.now()}`, {
+          method: 'GET',
+          cache: 'no-store',
+          signal: controller.signal,
+        });
         clearTimeout(t);
-        // no-cors → opaque responses resolve fulfilled even on 204/opaque
-        return results.some((r) => r.status === 'fulfilled');
+        return response.ok;
       } catch {
         clearTimeout(t);
         return false;
