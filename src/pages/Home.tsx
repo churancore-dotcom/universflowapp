@@ -24,7 +24,6 @@ import SEOHead from '@/components/SEOHead';
 import PullToRefreshIndicator from '@/components/PullToRefresh';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useUserCountry } from '@/hooks/useUserCountry';
-import { getCountryQueries } from '@/lib/countryQueries';
 
 // Simple empty state
 const EmptyState = memo(() => (
@@ -98,7 +97,6 @@ const Home = () => {
   const { downloads } = useDownloads();
   const queryClient = useQueryClient();
   const country = useUserCountry();
-  const countryQueries = useMemo(() => getCountryQueries(country), [country]);
 
   // Artist users land on their Studio dashboard, not the listener home.
   // We only auto-route once per session so they can browse later if they wish.
