@@ -382,28 +382,27 @@ const Home = () => {
                                 : 'Jump back in'}
                             </h2>
                           </div>
-                          <div className="flex gap-5 overflow-x-auto hide-scrollbar px-5 pb-3 snap-x snap-mandatory">
+                          <div className="flex gap-4 overflow-x-auto hide-scrollbar px-5 pb-3 snap-x snap-mandatory">
                             {recent.map((song) => (
                               <motion.button
                                 key={song.id}
                                 onClick={() => playTile(song, recent)}
                                 whileTap={{ scale: 0.95 }}
-                                className="snap-start shrink-0 w-[132px] text-left"
+                                className="snap-start shrink-0 w-44 text-left"
                               >
-                                <div className="w-[132px] h-[132px] rounded-[28px] neu neu-press p-2.5">
-                                  <div className="w-full h-full rounded-[20px] overflow-hidden neu-inset">
-                                    {song.cover_url ? (
-                                      <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
-                                    ) : (
-                                      <div className="w-full h-full flex items-center justify-center"><Music className="w-6 h-6 text-muted-foreground" /></div>
-                                    )}
-                                  </div>
+                                <div className="aspect-square w-44 rounded-2xl overflow-hidden bg-card mb-2">
+                                  {song.cover_url ? (
+                                    <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center"><Music className="w-6 h-6 text-muted-foreground" /></div>
+                                  )}
                                 </div>
-                                <p className="text-[13px] text-foreground mt-3 truncate font-medium px-1">{song.title}</p>
-                                <p className="text-[10px] text-muted-foreground truncate uppercase tracking-[0.14em] px-1">{song.artist}</p>
+                                <p className="text-sm font-semibold text-foreground truncate">{song.title}</p>
+                                <p className="text-[11px] text-muted-foreground truncate font-medium">{song.artist}</p>
                               </motion.button>
                             ))}
                           </div>
+
                         </motion.section>
                       );
                     }
