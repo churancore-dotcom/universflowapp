@@ -94,7 +94,7 @@ const fetchHomeSongs = async (heroQuery: string, country: string): Promise<Song[
 };
 
 const Home = () => {
-  const { currentSong, playSong } = usePlayer();
+  const { currentSong, playSong, isPlaying, togglePlay } = usePlayer();
   const { cachedSongs, updateCache } = useSongCache();
   const { isOffline, user } = useAuth();
   const { downloads } = useDownloads();
@@ -218,11 +218,16 @@ const Home = () => {
     return allSongs.find((s) => s.cover_url) || allSongs[0];
   }, [currentSong, allSongs]);
 
+  // When the hero IS the current track, the button must not restart it or
+  // replace the live queue — it toggles playback like any player control.
+  const heroIsCurrent = !!heroSong && !!currentSong && heroSong.id === currentSong.id;
+
   const playHero = useCallback(() => {
     if (!heroSong) return;
     triggerHaptic('selection');
+    if (heroIsCurrent) { togglePlay(); return; }
     playSong(heroSong, null, allSongs.slice(0, 40));
-  }, [heroSong, playSong, allSongs]);
+  }, [heroSong, heroIsCurrent, togglePlay, playSong, allSongs]);
 
   const playTile = useCallback((song?: Song, queue?: Song[]) => {
     if (!song) return;
