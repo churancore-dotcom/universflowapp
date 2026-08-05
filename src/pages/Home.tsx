@@ -19,7 +19,7 @@ import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection'
 import BottomNav from '@/components/BottomNav';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Play, User, Shuffle } from 'lucide-react';
+import { Music, Play, Pause, User, Shuffle } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { HomeSkeleton } from '@/components/PageSkeletons';
 import SEOHead from '@/components/SEOHead';
@@ -94,7 +94,7 @@ const fetchHomeSongs = async (heroQuery: string, country: string): Promise<Song[
 };
 
 const Home = () => {
-  const { currentSong, playSong } = usePlayer();
+  const { currentSong, playSong, isPlaying, togglePlay } = usePlayer();
   const { cachedSongs, updateCache } = useSongCache();
   const { isOffline, user } = useAuth();
   const { downloads } = useDownloads();
@@ -218,11 +218,16 @@ const Home = () => {
     return allSongs.find((s) => s.cover_url) || allSongs[0];
   }, [currentSong, allSongs]);
 
+  // When the hero IS the current track, the button must not restart it or
+  // replace the live queue — it toggles playback like any player control.
+  const heroIsCurrent = !!heroSong && !!currentSong && heroSong.id === currentSong.id;
+
   const playHero = useCallback(() => {
     if (!heroSong) return;
     triggerHaptic('selection');
+    if (heroIsCurrent) { togglePlay(); return; }
     playSong(heroSong, null, allSongs.slice(0, 40));
-  }, [heroSong, playSong, allSongs]);
+  }, [heroSong, heroIsCurrent, togglePlay, playSong, allSongs]);
 
   const playTile = useCallback((song?: Song, queue?: Song[]) => {
     if (!song) return;
@@ -336,7 +341,9 @@ const Home = () => {
                         onClick={playHero}
                         className="flex-1 h-14 rounded-3xl neu-accent neu-press flex items-center justify-center gap-2 font-display text-xl tracking-[0.1em]"
                       >
-                        <Play className="w-4 h-4 fill-current" /> PLAY
+                        {heroIsCurrent && isPlaying
+                          ? <><Pause className="w-4 h-4 fill-current" /> PAUSE</>
+                          : <><Play className="w-4 h-4 fill-current" /> PLAY</>}
                       </button>
                       <button
                         onClick={shuffleAll}
