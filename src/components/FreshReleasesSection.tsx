@@ -29,39 +29,38 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
   return (
     <section className="mb-2 pt-2">
-      <div className="flex items-end justify-between mb-3 px-1">
-        <div>
-          <h2 className="text-[20px] leading-tight font-extrabold tracking-tight text-foreground">New Releases</h2>
-          <p className="text-[11px] text-muted-foreground/55 font-semibold mt-0.5">Fresh official music picks</p>
-        </div>
+      <div className="flex items-end justify-between mb-4">
+        <h2 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">New Releases</h2>
+        <span className="text-[10px] text-muted-foreground font-bold tracking-[0.2em] uppercase">All releases</span>
       </div>
 
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="grid grid-cols-2 gap-4">
         {fresh.slice(0, 6).map((song, idx) => (
           <motion.button
             key={song.id}
             onClick={() => play(song)}
-            whileTap={{ scale: 0.985 }}
-            initial={{ opacity: 0, y: 3 }}
+            whileTap={{ scale: 0.96 }}
+            initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.03 + idx * 0.02 }}
-            className="min-w-0 rounded-2xl border border-white/[0.06] bg-card/80 p-2.5 text-left active:bg-white/[0.04]"
+            transition={{ delay: 0.03 + idx * 0.03 }}
+            className={`min-w-0 text-left ${idx % 2 === 1 ? 'pt-6' : ''}`}
           >
-            <div className="flex items-center gap-2.5 min-w-0">
-              <div className="w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 bg-muted ring-1 ring-white/10">
-                {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{song.title}</p>
-                <p className="text-[10.5px] text-muted-foreground/65 truncate mt-0.5">{song.artist}</p>
-              </div>
-              {idx === 0 && <Play className="w-3.5 h-3.5 text-primary flex-shrink-0" fill="currentColor" />}
+            <div className="aspect-square rounded-2xl overflow-hidden bg-card mb-2 relative">
+              {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
+              {idx === 0 && (
+                <span className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
+                  <Play className="w-3.5 h-3.5 text-primary-foreground ml-0.5" fill="currentColor" />
+                </span>
+              )}
             </div>
+            <p className="font-display text-lg leading-tight uppercase text-foreground truncate">{song.title}</p>
+            <p className="text-[11px] text-muted-foreground truncate font-medium">{song.artist}</p>
           </motion.button>
         ))}
       </div>
     </section>
   );
+
 });
 
 FreshReleasesSection.displayName = 'FreshReleasesSection';
