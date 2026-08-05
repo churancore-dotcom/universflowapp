@@ -83,12 +83,18 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
       const out: Song[] = [];
       for (const t of tracks) {
         if (seen.has(t.id)) continue;
+        // A release tile with no artwork or no artist is not a real release
+        // card — those are the "mock looking" rows users complain about.
+        if (!t.cover_url || !t.artist) continue;
         seen.add(t.id);
         const s = toSong(t);
         if (s) out.push(s);
       }
-      return seededShuffle(out).slice(0, limit);
+      // YouTube returns new releases newest-first. Shuffling that is exactly
+      // what made the rail look like random old songs, so order is preserved.
+      return out.slice(0, limit);
     },
+
   });
 }
 
@@ -97,7 +103,7 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
  */
 export function useYtmCharts(country: string, enabled = true) {
   return useQuery({
-    queryKey: ['ytm-charts-v2', (country || 'US').toUpperCase(), hourBucket()],
+    queryKey: ['ytm-charts-v2', (country || 'ZZ').toUpperCase(), hourBucket()],
     enabled,
     staleTime: 10 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
@@ -105,7 +111,7 @@ export function useYtmCharts(country: string, enabled = true) {
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     queryFn: async (): Promise<{ top: Song[]; trending: Song[]; videos: Song[]; country: string }> => {
-      const charts = await getYouTubeMusicCharts(country, 40);
+      const charts = await getYouTubeMusicCharts(country || 'ZZ', 40);
       const toList = (arr: IndexedTrack[]): Song[] => {
         const seen = new Set<string>();
         const out: Song[] = [];

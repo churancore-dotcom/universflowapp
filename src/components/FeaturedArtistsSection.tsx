@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from '@/lib/router-compat';
-import { User, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { enrichArtistImages } from '@/lib/musicIndexer';
 import { useQuery } from '@tanstack/react-query';
@@ -23,25 +23,45 @@ const isPortraitUrl = (url: string | null) => {
 
 };
 
+// Channel/aggregate names that are not real artists. These are what made the
+// rail look fake: "Various Artists", auto-generated "- Topic" channels, label
+// or lyric-mill uploads harvested from chart playlists.
+const NOT_AN_ARTIST = /^(various artists|unknown artist|va|dj|topic|music|lyrics?|audio|official|soundtrack|cast|karaoke|instrumental|cover|remix)$/i;
+const JUNK_SUFFIX = /\s*[-–]\s*topic$|\s*vevo$|\s*official$|\s*music$/i;
+
+/** Split "A, B & C feat. D" into the individual credited artists. */
+const splitCredits = (raw: string): string[] =>
+  raw
+    .replace(/\s*\((?:feat|ft|with)[^)]*\)/gi, ',')
+    .split(/,|&|\bfeat\.?\b|\bft\.?\b|\bwith\b|\bx\b|\bvs\.?\b/i)
+    .map((part) => part.replace(JUNK_SUFFIX, '').trim())
+    .filter((part) => part.length > 1 && part.length < 40 && !NOT_AN_ARTIST.test(part));
+
 /**
  * Trending Artists — real chart artists resolved to portrait-only imagery.
+ * Ranked by how often they appear across the live regional/global charts, which
+ * is the actual "who is trending right now" signal (Spotify does the same).
  */
 const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
   const navigate = useNavigate();
 
   const baseArtists = useMemo<DisplayArtist[]>(() => {
-    const out: DisplayArtist[] = [];
-    const seen = new Set<string>();
-    for (const song of songs) {
-      const name = song.artist?.trim();
-      const key = name?.toLowerCase();
-      if (!name || !key || seen.has(key)) continue;
-      seen.add(key);
-      out.push({ key: `trending-${key}`, name, image: null });
-      if (out.length >= 10) break;
-    }
-    return out;
+    const counts = new Map<string, { name: string; hits: number; first: number }>();
+    songs.forEach((song, index) => {
+      for (const name of splitCredits(song.artist || '')) {
+        const key = name.toLowerCase();
+        const existing = counts.get(key);
+        if (existing) existing.hits += 1;
+        else counts.set(key, { name, hits: 1, first: index });
+      }
+    });
+    return [...counts.values()]
+      // More chart entries = genuinely bigger right now; ties keep chart order.
+      .sort((a, b) => b.hits - a.hits || a.first - b.first)
+      .slice(0, 12)
+      .map((a) => ({ key: `trending-${a.name.toLowerCase()}`, name: a.name, image: null }));
   }, [songs]);
+
 
   // Resolve every artist by name. Older follows may contain a song cover in
   // artist_image, so only known portrait hosts are allowed as an instant cache.
@@ -57,13 +77,18 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
     queryFn: () => enrichArtistImages(artistNames),
   });
 
-  const artists = useMemo<DisplayArtist[]>(
-    () => baseArtists.map((a) => ({
+  const artists = useMemo<DisplayArtist[]>(() => {
+    const resolved = baseArtists.map((a) => ({
       ...a,
-      image: portraits?.[a.name] ?? null,
-    })).filter((artist) => isPortraitUrl(artist.image)),
-    [baseArtists, portraits],
-  );
+      image: isPortraitUrl(portraits?.[a.name] ?? null) ? (portraits?.[a.name] ?? null) : null,
+    }));
+    const withPortrait = resolved.filter((a) => a.image);
+    // Prefer real portraits. If a region's chart artists have no portrait yet,
+    // still show the genuinely trending names with a monogram tile rather than
+    // hiding the rail or pasting a song cover onto an artist card.
+    return (withPortrait.length >= 4 ? withPortrait : resolved).slice(0, 10);
+  }, [baseArtists, portraits]);
+
 
   if (artists.length === 0) return null;
 
@@ -100,9 +125,12 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
                 <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/25 to-background flex items-center justify-center">
-                  <User className="w-7 h-7 text-muted-foreground" />
+                  <span className="font-display text-4xl tracking-[0.06em] text-foreground/70 uppercase">
+                    {artist.name.slice(0, 2)}
+                  </span>
                 </div>
               )}
+
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
               <div className="absolute bottom-3 left-3 right-3">
                 <p className="text-[13.5px] font-extrabold text-white leading-tight line-clamp-2">{artist.name}</p>
