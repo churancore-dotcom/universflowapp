@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate, useSearchParams } from '@/lib/router-compat';
 import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { prewarmSong } from '@/lib/instantPlay';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import BottomNav from '@/components/BottomNav';
@@ -810,6 +811,7 @@ const Search = () => {
                         <div
                           className={`flex items-center gap-3 px-3 py-2.5 rounded-3xl cursor-pointer active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'bg-card/40 active:bg-white/5'} ${isResolving ? 'opacity-60' : ''}`}
                           onClick={() => !isResolving && handlePlayIndexed(track)}
+                          onPointerDown={() => prewarmSong({ id: track.id, title: track.title, artist: track.artist, videoId: track.videoId, audio_url: track.audio_url })}
                         >
                           <div className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'}`}>
                             {track.cover_url ? (
