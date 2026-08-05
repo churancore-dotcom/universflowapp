@@ -762,6 +762,7 @@ async function getSpotifyToken(): Promise<string | null> {
 }
 
 async function getSpotifyArtistImage(name: string): Promise<string | undefined> {
+  if (spotifyBlockedUntil > Date.now()) return undefined;
   const ck = `spotify-artist:${name.toLowerCase()}`;
   const cached = getCached<string | null>(ck);
   if (cached !== null) return cached || undefined;
@@ -775,9 +776,16 @@ async function getSpotifyArtistImage(name: string): Promise<string | undefined> 
     const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
     if (res.status === 401) { spotifyToken = null; return undefined; }
     if (!res.ok) {
-      console.error('spotify search error', res.status, await res.text());
+      const detail = await res.text();
+      console.error('spotify search error', res.status, detail);
+      if (res.status === 403 || res.status === 429) {
+        // App-level rejection or rate limit — pause Spotify for 30 minutes, fall back to Deezer.
+        spotifyBlockedUntil = Date.now() + 30 * 60 * 1000;
+      }
+      setCached(ck, null, 10 * 60 * 1000);
       return undefined;
     }
+
     const data = await res.json();
     const list: any[] = Array.isArray(data?.artists?.items) ? data.artists.items : [];
     const wanted = normalizeText(name);
