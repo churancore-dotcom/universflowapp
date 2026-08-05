@@ -383,17 +383,26 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     }
   }
 
-  // Final list: if not the best for its key, apply a "duplicate" penalty
-  // This ranks official/best versions first and duplicates last.
-  return allTracks
-    .map((t) => {
-      const key = songIdentity(t.track);
-      const isPrimary = t.score === bestScores.get(key);
-      const finalScore = isPrimary ? t.score : t.score - 5000;
-      return { ...t, finalScore };
-    })
-    .sort((a, b) => b.finalScore - a.finalScore || b.sourcePriority - a.sourcePriority || a.index - b.index)
-    .map((t) => t.track);
+  // Keep exactly one upload for each recording identity. Merely pushing
+  // duplicates to the bottom still surfaced the same song repeatedly after
+  // scrolling; select the highest-authority candidate before sorting instead.
+  const primaryTracks = new Map<string, (typeof allTracks)[number]>();
+  for (const candidate of allTracks) {
+    const key = songIdentity(candidate.track);
+    const current = primaryTracks.get(key);
+    if (
+      !current ||
+      candidate.score > current.score ||
+      (candidate.score === current.score && candidate.sourcePriority > current.sourcePriority) ||
+      (candidate.score === current.score && candidate.sourcePriority === current.sourcePriority && candidate.index < current.index)
+    ) {
+      primaryTracks.set(key, candidate);
+    }
+  }
+
+  return [...primaryTracks.values()]
+    .sort((a, b) => b.score - a.score || b.sourcePriority - a.sourcePriority || a.index - b.index)
+    .map((candidate) => candidate.track);
 }
 
 const Search = () => {
