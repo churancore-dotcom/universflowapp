@@ -125,9 +125,12 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
                 <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
               ) : (
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/25 to-background flex items-center justify-center">
-                  <User className="w-7 h-7 text-muted-foreground" />
+                  <span className="font-display text-4xl tracking-[0.06em] text-foreground/70 uppercase">
+                    {artist.name.slice(0, 2)}
+                  </span>
                 </div>
               )}
+
               <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
               <div className="absolute bottom-3 left-3 right-3">
                 <p className="text-[13.5px] font-extrabold text-white leading-tight line-clamp-2">{artist.name}</p>
