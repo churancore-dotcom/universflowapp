@@ -1,7 +1,7 @@
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from '@/lib/router-compat';
-import { User, ChevronRight } from 'lucide-react';
+import { ChevronRight } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { enrichArtistImages } from '@/lib/musicIndexer';
 import { useQuery } from '@tanstack/react-query';
