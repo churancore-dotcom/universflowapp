@@ -326,11 +326,11 @@ const isLocalMediaSource = (url?: string | null) => {
   return url.startsWith('blob:') || url.startsWith('data:') || url.startsWith('file:') || url.startsWith('capacitor://');
 };
 
-// EQ / WebAudio effects are free for every user. Premium remains gated on
-// crossfade + gapless pro only. Flat settings still stay on the fast native
-// <audio> path to avoid Android background WebAudio suspension.
+// EQ / audio effects are a PAID feature. Only run the WebAudio graph for
+// Premium users with non-flat settings — flat/default playback stays on the
+// fast native <audio> path (better Android background behaviour).
 const isEqProcessingEnabled = () => {
-  try { return hasWebAudioEffects(getEQSettings()); } catch { return false; }
+  try { return getRuntimePremium() && hasWebAudioEffects(getEQSettings()); } catch { return false; }
 };
 
 const isAutoplayEnabled = () => {

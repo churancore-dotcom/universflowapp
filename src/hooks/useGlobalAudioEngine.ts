@@ -179,15 +179,31 @@ export function useGlobalAudioEngine(
         // funnel here on every track change. Re-writing an identical effect
         // snapshot rebuilds the native AudioEffect params mid-stream, which is
         // exactly what users hear as EQ glitching on the APK. Skip no-ops.
-        const json = JSON.stringify(snapshot);
+        //
+        // The dedupe key MUST include the Premium flag: entitlement resolves
+        // asynchronously after cold boot, so a false -> true flip with an
+        // unchanged EQ snapshot used to be swallowed here and left the whole
+        // effect chain disabled until the user nudged a slider.
+        const json = `${getRuntimePremium() ? 1 : 0}|${JSON.stringify(snapshot)}`;
         if (json === lastNativeSnapshotJSON) return;
         lastNativeSnapshotJSON = json;
         const revision = ++nativeApplyRevision;
         nativeApplyChain = nativeApplyChain
           .catch(() => undefined)
-          .then(() => applyNativeSnapshot(snapshot, revision));
+          .then(() => applyNativeSnapshot(snapshot, revision))
+          .catch(() => {
+            // Bridge/session error: forget the snapshot so the next media or EQ
+            // event genuinely retries instead of being deduped away.
+            if (revision === nativeApplyRevision) lastNativeSnapshotJSON = '';
+          });
       }, 32);
     };
+
+    // ExoPlayer builds a NEW audio session per track, and a fresh session comes
+    // up with no AudioEffect attached. Forget the last pushed snapshot so the
+    // very next reapply re-arms EQ/bass/virtualizer on the new session — this
+    // is the "EQ works on one song then goes dead" bug.
+    const invalidateNativeSnapshot = () => { lastNativeSnapshotJSON = ''; };
 
 
 
@@ -283,6 +299,8 @@ export function useGlobalAudioEngine(
       }, delay);
     };
     const onMediaReady = () => {
+      // New track => new native audio session => effects must be re-armed.
+      invalidateNativeSnapshot();
       reapply();
       // Some mobile WebViews briefly report a direct/idle engine while the new
       // proxied source is still committing. Keep trying for <1s so the EQ never
@@ -292,6 +310,9 @@ export function useGlobalAudioEngine(
 
     const onPlay = () => {
       if (isAttached) resume();
+      // Playback start is the first moment the native session definitely
+      // exists, so re-arm rather than trusting the previous push.
+      invalidateNativeSnapshot();
       reapplyNow();
     };
     const onPointer = () => { if (isAttached) resume(); };
@@ -307,6 +328,15 @@ export function useGlobalAudioEngine(
       scheduleRecoveryBurst();
     };
 
+    // Entitlement resolved (or changed) — force a full re-arm of both the
+    // WebAudio graph and the native effect chain.
+    const onPremiumChanged = () => {
+      invalidateNativeSnapshot();
+      reapplyNow();
+      scheduleRecoveryBurst();
+    };
+
+
     doReapply();
     audioElement.addEventListener('loadstart', onMediaReady);
     audioElement.addEventListener('loadedmetadata', onMediaReady);
@@ -317,7 +347,7 @@ export function useGlobalAudioEngine(
     document.addEventListener('visibilitychange', onVisibility);
     window.addEventListener('uf-eq-changed', onEqChanged);
     window.addEventListener('uf-eq-source-ready', onEqChanged);
-    window.addEventListener('uf-premium-changed', onEqChanged);
+    window.addEventListener('uf-premium-changed', onPremiumChanged);
     window.addEventListener('uf-eq-force-reattach', onEqChanged);
 
     return () => {
@@ -337,7 +367,7 @@ export function useGlobalAudioEngine(
       document.removeEventListener('visibilitychange', onVisibility);
       window.removeEventListener('uf-eq-changed', onEqChanged);
       window.removeEventListener('uf-eq-source-ready', onEqChanged);
-      window.removeEventListener('uf-premium-changed', onEqChanged);
+      window.removeEventListener('uf-premium-changed', onPremiumChanged);
       window.removeEventListener('uf-eq-force-reattach', onEqChanged);
     };
   }, [audioElement, skipNative]);
