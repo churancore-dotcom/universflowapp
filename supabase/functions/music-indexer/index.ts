@@ -832,7 +832,7 @@ async function searchArtistDirectory(query: string, limit = 40): Promise<Indexed
     const enriched = await Promise.all(list.slice(0, limit).map(async (a: any) => {
       const name = String(a?.name || '').trim();
       if (!name) return null;
-      const image = sanitizeArtwork(getExtralargeImage(a?.image)) || await getDeezerArtistImage(name);
+      const image = (await getArtistPortrait(name)) || sanitizeArtwork(getExtralargeImage(a?.image));
       return {
         name,
         image_url: image,
@@ -858,7 +858,7 @@ async function getTopArtistsByTag(tag: string, limit = 30): Promise<IndexedArtis
     const enriched = await Promise.all(list.slice(0, limit).map(async (a: any) => {
       const name = String(a?.name || '').trim();
       if (!name) return null;
-      const image = sanitizeArtwork(getExtralargeImage(a?.image)) || await getDeezerArtistImage(name);
+      const image = (await getArtistPortrait(name)) || sanitizeArtwork(getExtralargeImage(a?.image));
       return {
         name,
         image_url: image,
@@ -876,7 +876,7 @@ async function getTopArtistsByTag(tag: string, limit = 30): Promise<IndexedArtis
 async function enrichArtistImages(names: string[]): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   await Promise.all(names.map(async (name) => {
-    const img = await getDeezerArtistImage(name);
+    const img = await getArtistPortrait(name);
     if (img) out[name] = img;
   }));
   return out;
