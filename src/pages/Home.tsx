@@ -194,6 +194,9 @@ const Home = () => {
 
   // When the hero IS the current track, the button must not restart it or
   // replace the live queue — it toggles playback like any player control.
+  // Warm the hero's stream as soon as Home renders — the most likely first tap.
+  useEffect(() => { if (heroSong) prewarmSong(heroSong); }, [heroSong]);
+
   const heroIsCurrent = !!heroSong && !!currentSong && heroSong.id === currentSong.id;
 
   const playHero = useCallback(() => {
