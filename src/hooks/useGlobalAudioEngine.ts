@@ -179,15 +179,31 @@ export function useGlobalAudioEngine(
         // funnel here on every track change. Re-writing an identical effect
         // snapshot rebuilds the native AudioEffect params mid-stream, which is
         // exactly what users hear as EQ glitching on the APK. Skip no-ops.
-        const json = JSON.stringify(snapshot);
+        //
+        // The dedupe key MUST include the Premium flag: entitlement resolves
+        // asynchronously after cold boot, so a false -> true flip with an
+        // unchanged EQ snapshot used to be swallowed here and left the whole
+        // effect chain disabled until the user nudged a slider.
+        const json = `${getRuntimePremium() ? 1 : 0}|${JSON.stringify(snapshot)}`;
         if (json === lastNativeSnapshotJSON) return;
         lastNativeSnapshotJSON = json;
         const revision = ++nativeApplyRevision;
         nativeApplyChain = nativeApplyChain
           .catch(() => undefined)
-          .then(() => applyNativeSnapshot(snapshot, revision));
+          .then(() => applyNativeSnapshot(snapshot, revision))
+          .catch(() => {
+            // Bridge/session error: forget the snapshot so the next media or EQ
+            // event genuinely retries instead of being deduped away.
+            if (revision === nativeApplyRevision) lastNativeSnapshotJSON = '';
+          });
       }, 32);
     };
+
+    // ExoPlayer builds a NEW audio session per track, and a fresh session comes
+    // up with no AudioEffect attached. Forget the last pushed snapshot so the
+    // very next reapply re-arms EQ/bass/virtualizer on the new session — this
+    // is the "EQ works on one song then goes dead" bug.
+    const invalidateNativeSnapshot = () => { lastNativeSnapshotJSON = ''; };
 
 
 
