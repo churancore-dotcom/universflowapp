@@ -17,8 +17,10 @@ interface DisplayArtist {
 const isPortraitUrl = (url: string | null) => {
   if (!url) return false;
   return url.includes('yt3.googleusercontent.com')
+    || /i\.scdn\.co\/image\//i.test(url) // Spotify artist portrait
     || /cdn-images\.dzcdn\.net\/images\/artist\//i.test(url)
     || /\/storage\/v1\/object\//i.test(url);
+
 };
 
 /**

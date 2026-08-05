@@ -717,13 +717,93 @@ async function smartSearch(query: string, limit = 30): Promise<IndexedTrack[]> {
   return results;
 }
 
-// ── Artist directory (with real PFPs from Deezer) ──
+// ── Artist directory (real PFPs: Spotify first, Deezer fallback) ──
 
 type IndexedArtistInfo = {
   name: string;
   image_url?: string;
   listeners?: number;
 };
+
+// Spotify client-credentials token (cached in-memory until shortly before expiry)
+let spotifyToken: { value: string; expiresAt: number } | null = null;
+// When Spotify rejects the app (e.g. 403 "premium subscription required"), back off
+// instead of hammering the API on every artist tile.
+let spotifyBlockedUntil = 0;
+
+
+async function getSpotifyToken(): Promise<string | null> {
+  const id = Deno.env.get('SPOTIFY_CLIENT_ID');
+  const secret = Deno.env.get('SPOTIFY_CLIENT_SECRET');
+  if (!id || !secret) return null;
+  if (spotifyToken && spotifyToken.expiresAt > Date.now()) return spotifyToken.value;
+  try {
+    const res = await fetch('https://accounts.spotify.com/api/token', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        Authorization: `Basic ${btoa(`${id}:${secret}`)}`,
+      },
+      body: 'grant_type=client_credentials',
+    });
+    if (!res.ok) {
+      console.error('spotify token error', res.status, await res.text());
+      return null;
+    }
+    const json = await res.json();
+    const token = String(json?.access_token || '');
+    if (!token) return null;
+    spotifyToken = { value: token, expiresAt: Date.now() + Math.max(60, Number(json?.expires_in || 3600) - 60) * 1000 };
+    return token;
+  } catch (e) {
+    console.error('spotify token failure', e);
+    return null;
+  }
+}
+
+async function getSpotifyArtistImage(name: string): Promise<string | undefined> {
+  if (spotifyBlockedUntil > Date.now()) return undefined;
+  const ck = `spotify-artist:${name.toLowerCase()}`;
+  const cached = getCached<string | null>(ck);
+  if (cached !== null) return cached || undefined;
+  const token = await getSpotifyToken();
+  if (!token) return undefined;
+  try {
+    const url = new URL('https://api.spotify.com/v1/search');
+    url.searchParams.set('q', name);
+    url.searchParams.set('type', 'artist');
+    url.searchParams.set('limit', '5');
+    const res = await fetch(url.toString(), { headers: { Authorization: `Bearer ${token}` } });
+    if (res.status === 401) { spotifyToken = null; return undefined; }
+    if (!res.ok) {
+      const detail = await res.text();
+      console.error('spotify search error', res.status, detail);
+      if (res.status === 403 || res.status === 429) {
+        // App-level rejection or rate limit — pause Spotify for 30 minutes, fall back to Deezer.
+        spotifyBlockedUntil = Date.now() + 30 * 60 * 1000;
+      }
+      setCached(ck, null, 10 * 60 * 1000);
+      return undefined;
+    }
+
+    const data = await res.json();
+    const list: any[] = Array.isArray(data?.artists?.items) ? data.artists.items : [];
+    const wanted = normalizeText(name);
+    const exact = list.filter((a) => normalizeText(String(a?.name || '')) === wanted);
+    // Among exact name matches pick the most popular (real artist, not a tribute act)
+    const pool = exact.length ? exact : list;
+    const match = pool.sort((a, b) => Number(b?.popularity || 0) - Number(a?.popularity || 0))[0];
+    const images: any[] = Array.isArray(match?.images) ? match.images : [];
+    const best = images.sort((a, b) => Number(b?.width || 0) - Number(a?.width || 0))[0];
+    const image = String(best?.url || '');
+    setCached(ck, image || null, 24 * 60 * 60 * 1000);
+    return image || undefined;
+  } catch (e) {
+    console.error('spotify artist image failure', e);
+    setCached(ck, null, 10 * 60 * 1000);
+    return undefined;
+  }
+}
 
 async function getDeezerArtistImage(name: string): Promise<string | undefined> {
   const ck = `deezer-artist:${name.toLowerCase()}`;
@@ -747,6 +827,12 @@ async function getDeezerArtistImage(name: string): Promise<string | undefined> {
   }
 }
 
+// Canonical artist portrait resolver: Spotify (best coverage) → Deezer fallback.
+async function getArtistPortrait(name: string): Promise<string | undefined> {
+  return (await getSpotifyArtistImage(name)) || (await getDeezerArtistImage(name));
+}
+
+
 async function searchArtistDirectory(query: string, limit = 40): Promise<IndexedArtistInfo[]> {
   const ck = `artist-dir:${query.toLowerCase()}:${limit}`;
   const c = getCached<IndexedArtistInfo[]>(ck);
@@ -758,7 +844,7 @@ async function searchArtistDirectory(query: string, limit = 40): Promise<Indexed
     const enriched = await Promise.all(list.slice(0, limit).map(async (a: any) => {
       const name = String(a?.name || '').trim();
       if (!name) return null;
-      const image = sanitizeArtwork(getExtralargeImage(a?.image)) || await getDeezerArtistImage(name);
+      const image = (await getArtistPortrait(name)) || sanitizeArtwork(getExtralargeImage(a?.image));
       return {
         name,
         image_url: image,
@@ -784,7 +870,7 @@ async function getTopArtistsByTag(tag: string, limit = 30): Promise<IndexedArtis
     const enriched = await Promise.all(list.slice(0, limit).map(async (a: any) => {
       const name = String(a?.name || '').trim();
       if (!name) return null;
-      const image = sanitizeArtwork(getExtralargeImage(a?.image)) || await getDeezerArtistImage(name);
+      const image = (await getArtistPortrait(name)) || sanitizeArtwork(getExtralargeImage(a?.image));
       return {
         name,
         image_url: image,
@@ -802,7 +888,7 @@ async function getTopArtistsByTag(tag: string, limit = 30): Promise<IndexedArtis
 async function enrichArtistImages(names: string[]): Promise<Record<string, string>> {
   const out: Record<string, string> = {};
   await Promise.all(names.map(async (name) => {
-    const img = await getDeezerArtistImage(name);
+    const img = await getArtistPortrait(name);
     if (img) out[name] = img;
   }));
   return out;
