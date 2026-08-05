@@ -790,9 +790,13 @@ async function getSpotifyArtistImage(name: string): Promise<string | undefined> 
     const list: any[] = Array.isArray(data?.artists?.items) ? data.artists.items : [];
     const wanted = normalizeText(name);
     const exact = list.filter((a) => normalizeText(String(a?.name || '')) === wanted);
-    // Among exact name matches pick the most popular (real artist, not a tribute act)
-    const pool = exact.length ? exact : list;
-    const match = pool.sort((a, b) => Number(b?.popularity || 0) - Number(a?.popularity || 0))[0];
+    // Never use Spotify's first fuzzy result for an artist tile. A near-name
+    // result can be a tribute act, uploader, playlist brand, or video channel.
+    const match = exact.sort((a, b) => Number(b?.popularity || 0) - Number(a?.popularity || 0))[0];
+    if (!match) {
+      setCached(ck, null, 10 * 60 * 1000);
+      return undefined;
+    }
     const images: any[] = Array.isArray(match?.images) ? match.images : [];
     const best = images.sort((a, b) => Number(b?.width || 0) - Number(a?.width || 0))[0];
     const image = String(best?.url || '');
@@ -827,9 +831,11 @@ async function getDeezerArtistImage(name: string): Promise<string | undefined> {
   }
 }
 
-// Canonical artist portrait resolver: Spotify (best coverage) → Deezer fallback.
+// Canonical artist portrait resolver. Artist tiles intentionally use Spotify
+// only: Deezer artist search can expose release/video artwork as an artist
+// picture. Missing is honest and is rendered as a monogram by the client.
 async function getArtistPortrait(name: string): Promise<string | undefined> {
-  return (await getSpotifyArtistImage(name)) || (await getDeezerArtistImage(name));
+  return getSpotifyArtistImage(name);
 }
 
 

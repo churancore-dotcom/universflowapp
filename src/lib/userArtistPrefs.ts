@@ -10,10 +10,10 @@ export interface UserArtistPref {
 
 function portraitOnly(url?: string | null): string | null {
   if (!url) return null;
-  if (url.includes('yt3.googleusercontent.com')) return url;
-  if (/i\.scdn\.co\/image\//i.test(url)) return url; // Spotify artist portrait
-
-  if (/cdn-images\.dzcdn\.net\/images\/artist\//i.test(url)) return url;
+  // Third-party artist images are now sourced from Spotify's exact artist
+  // result only. This prevents song/video artwork from being persisted as PFP.
+  // Artist-owned uploads are still accepted from our storage.
+  if (/^(?:https?:)?\/\/i\.scdn\.co\/image\/[a-z0-9]+(?:\?.*)?$/i.test(url)) return url;
   if (/\/storage\/v1\/object\//i.test(url)) return url;
   return null;
 }
