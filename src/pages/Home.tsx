@@ -6,8 +6,7 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { searchYouTubeMusicTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
-import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import { getHomeRailOrder, heroContextLabel, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import MadeForYouSection from '@/components/MadeForYouSection';
@@ -15,7 +14,6 @@ import AllSongsSection from '@/components/AllSongsSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
 import FreshReleasesSection from '@/components/FreshReleasesSection';
-import FollowedArtistSongsSection from '@/components/FollowedArtistSongsSection';
 import BottomNav from '@/components/BottomNav';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
@@ -26,7 +24,6 @@ import SEOHead from '@/components/SEOHead';
 import PullToRefreshIndicator from '@/components/PullToRefresh';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useUserCountry } from '@/hooks/useUserCountry';
-import { getCountryQueries } from '@/lib/countryQueries';
 
 // Simple empty state
 const EmptyState = memo(() => (
@@ -60,12 +57,12 @@ function rotate<T>(arr: T[], seed = HOME_SEED): T[] {
   return [...arr.slice(k), ...arr.slice(0, k)];
 }
 
-// One real pool for the hero: YouTube Music charts for the user's country,
-// keyword search only as a backup when the region has no charts.
-const fetchHomeSongs = async (heroQuery: string, country: string): Promise<Song[]> => {
-  const [charts, searched] = await Promise.all([
+// One real pool for the hero: live regional chart sources only. A keyword
+// search is not a chart and can surface old popular uploads as "trending".
+const fetchHomeSongs = async (country: string): Promise<Song[]> => {
+  const [charts, regionalFallback] = await Promise.all([
     getYouTubeMusicCharts(country || 'US', 40).catch(() => ({ top: [], trending: [], videos: [], country: 'US' })),
-    searchYouTubeMusicTracks(heroQuery, 24).catch(() => []),
+    getGeoTopTracks(country || 'US', 30).catch(() => []),
   ]);
 
   const byId = new Map<string, Song>();
@@ -88,7 +85,7 @@ const fetchHomeSongs = async (heroQuery: string, country: string): Promise<Song[
   ingest(rotate(charts.top));
   ingest(rotate(charts.trending));
   ingest(rotate(charts.videos));
-  if (byId.size < 12) ingest(searched);
+  if (byId.size < 12) ingest(regionalFallback);
 
   return [...byId.values()];
 };
@@ -100,7 +97,6 @@ const Home = () => {
   const { downloads } = useDownloads();
   const queryClient = useQueryClient();
   const country = useUserCountry();
-  const countryQueries = useMemo(() => getCountryQueries(country), [country]);
 
   // Artist users land on their Studio dashboard, not the listener home.
   // We only auto-route once per session so they can browse later if they wish.
@@ -119,7 +115,7 @@ const Home = () => {
 
   const { data: onlineSongs = (cachedSongs || []), isLoading } = useQuery({
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
-    queryFn: () => fetchHomeSongs(countryQueries.hero, country || 'US'),
+    queryFn: () => fetchHomeSongs(country || 'US'),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
@@ -153,32 +149,6 @@ const Home = () => {
   const allSongs = useMemo(() => songs, [songs]);
 
 
-  // Real per-device listening history — no invented "on repeat" filler.
-  const [recent, setRecent] = useState<Song[]>([]);
-  const [lastPlayedAt, setLastPlayedAt] = useState<number | null>(null);
-  useEffect(() => {
-    if (isOffline) { setRecent([]); setLastPlayedAt(null); return; }
-    const load = () => {
-      const all = readLocalRecent(user?.id);
-      const entries = all.filter((e) => e.song?.title && e.song?.artist);
-      setLastPlayedAt(all.length > 0 ? Math.max(...all.map((e) => e.played_at)) : null);
-      setRecent(
-        entries.slice(0, 12).map((e) => ({
-          id: e.song_id,
-          title: e.song!.title as string,
-          artist: e.song!.artist as string,
-          album: e.song?.album ?? undefined,
-          cover_url: e.song?.cover_url ?? undefined,
-          audio_url: e.song?.audio_url ?? 'resolving',
-          duration: e.song?.duration ?? undefined,
-        } as Song)),
-      );
-    };
-    load();
-    window.addEventListener('universflow:recently-played-changed', load);
-    return () => window.removeEventListener('universflow:recently-played-changed', load);
-  }, [user?.id, isOffline]);
-
   // Behavioural signals. Computed after hydration only — the clock and
   // localStorage don't exist on the server, and guessing them there would flip
   // the whole feed order right after first paint.
@@ -188,12 +158,12 @@ const Home = () => {
   const signals: HomeFeedSignals = useMemo(() => {
     const now = hydrated ? new Date() : new Date(0);
     return {
-      recentCount: recent.length,
-      msSinceLastPlay: hydrated && lastPlayedAt ? Date.now() - lastPlayedAt : null,
+      recentCount: 0,
+      msSinceLastPlay: null,
       hour: hydrated ? now.getHours() : 12,
       weekday: hydrated ? now.getDay() : 3,
     };
-  }, [hydrated, recent.length, lastPlayedAt]);
+  }, [hydrated]);
 
   const railOrder = useMemo(() => getHomeRailOrder(signals), [signals]);
 
@@ -366,52 +336,11 @@ const Home = () => {
                   )
                 ) : (
                   railOrder.map((rail) => {
-                    if (rail === 'continue') {
-                      if (recent.length === 0) return null;
-                      return (
-                        <motion.section
-                          key="continue"
-                          initial={{ opacity: 0, y: 14 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                        >
-                          <div className="px-5 mb-4">
-                            <h2 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">
-                              {signals.msSinceLastPlay !== null && signals.msSinceLastPlay < 6 * 60 * 60 * 1000
-                                ? 'Continue listening'
-                                : 'Jump back in'}
-                            </h2>
-                          </div>
-                          <div className="flex gap-4 overflow-x-auto hide-scrollbar px-5 pb-3 snap-x snap-mandatory">
-                            {recent.map((song) => (
-                              <motion.button
-                                key={song.id}
-                                onClick={() => playTile(song, recent)}
-                                whileTap={{ scale: 0.95 }}
-                                className="snap-start shrink-0 w-44 text-left"
-                              >
-                                <div className="aspect-square w-44 rounded-2xl overflow-hidden bg-card mb-2">
-                                  {song.cover_url ? (
-                                    <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
-                                  ) : (
-                                    <div className="w-full h-full flex items-center justify-center"><Music className="w-6 h-6 text-muted-foreground" /></div>
-                                  )}
-                                </div>
-                                <p className="text-sm font-semibold text-foreground truncate">{song.title}</p>
-                                <p className="text-[11px] text-muted-foreground truncate font-medium">{song.artist}</p>
-                              </motion.button>
-                            ))}
-                          </div>
-
-                        </motion.section>
-                      );
-                    }
                     const body =
-                      rail === 'followed' ? <FollowedArtistSongsSection songs={allSongs} />
-                      : rail === 'mix' ? <MadeForYouSection />
+                      rail === 'mix' ? <MadeForYouSection />
                       : rail === 'trending' ? <TrendingNowSection songs={allSongs} enabled={homeReady} />
                       : rail === 'fresh' ? <FreshReleasesSection songs={allSongs} enabled={homeReady} />
-                      : <FeaturedArtistsSection />;
+                      : <FeaturedArtistsSection songs={allSongs} />;
                     return <div key={rail} className="px-5">{body}</div>;
                   })
                 )}

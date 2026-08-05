@@ -18,8 +18,11 @@ import kotlin.math.sqrt
  */
 @OptIn(UnstableApi::class)
 class StemAudioProcessor : BaseAudioProcessor() {
-    @Volatile private var vocalMix = 1f
-    @Volatile private var instrumentalMix = 1f
+    @Volatile private var targetVocalMix = 1f
+    @Volatile private var targetInstrumentalMix = 1f
+    private var currentVocalMix = 1f
+    private var currentInstrumentalMix = 1f
+    private var smoothingCoeff = 0.002f
 
     // One-pole low-pass state used to split the mid channel into
     // low (kick/bass -> instrument bed) and band (lead vocal) content.
@@ -27,8 +30,8 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var lowCoeff = 0.05f
 
     fun setStemMix(vocalPercent: Int, instrumentalPercent: Int) {
-        vocalMix = vocalPercent.coerceIn(0, 100) / 100f
-        instrumentalMix = instrumentalPercent.coerceIn(0, 100) / 100f
+        targetVocalMix = vocalPercent.coerceIn(0, 100) / 100f
+        targetInstrumentalMix = instrumentalPercent.coerceIn(0, 100) / 100f
     }
 
     override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
@@ -42,6 +45,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val rc = 1f / (2f * Math.PI.toFloat() * 180f)
         val dt = 1f / inputAudioFormat.sampleRate.toFloat()
         lowCoeff = dt / (rc + dt)
+        smoothingCoeff = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.025f)).toDouble()).toFloat()
         lowState = 0f
         return inputAudioFormat
     }
@@ -55,35 +59,29 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val limit = inputBuffer.limit()
         val bytesPerFrame = inputAudioFormat.bytesPerFrame
         val output = replaceOutputBuffer(limit - position)
-        val vocal = vocalMix.coerceIn(0f, 1f)
-        val instrument = instrumentalMix.coerceIn(0f, 1f)
-        val neutral = vocal >= 0.995f && instrument >= 0.995f
-        val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
-        val makeup = if (power > 0.04f) min(1.9f, max(1f, 1f / power)) else 1f
-
         var cursor = position
         while (cursor + bytesPerFrame <= limit) {
+            currentVocalMix += smoothingCoeff * (targetVocalMix - currentVocalMix)
+            currentInstrumentalMix += smoothingCoeff * (targetInstrumentalMix - currentInstrumentalMix)
+            val vocal = currentVocalMix.coerceIn(0f, 1f)
+            val instrument = currentInstrumentalMix.coerceIn(0f, 1f)
+            val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
+            val makeup = if (power > 0.04f) min(1.6f, max(1f, 1f / power)) else 1f
             val left = inputBuffer.getShort(cursor).toInt()
             val right = inputBuffer.getShort(cursor + 2).toInt()
 
-            if (neutral) {
-                lowState += lowCoeff * ((left + right) * 0.5f - lowState)
-                output.putShort(left.toShort())
-                output.putShort(right.toShort())
-            } else {
-                val mid = (left + right) * 0.5f
-                val side = (left - right) * 0.5f
-                // Split mid: low end is part of the instrument bed, the rest is
-                // the lead vocal band. Keeps karaoke punchy, makes a-cappella
-                // actually strip the beat instead of just narrowing the stereo.
-                lowState += lowCoeff * (mid - lowState)
-                val midLow = lowState
-                val midBand = mid - lowState
-                val centre = midLow * instrument + midBand * vocal
-                val stereo = side * instrument
-                output.putShort(clip16((centre + stereo) * makeup))
-                output.putShort(clip16((centre - stereo) * makeup))
-            }
+            // Always use one continuous signal path. Switching between a raw
+            // passthrough branch and this matrix at 100% caused a buffer-edge
+            // discontinuity (click/stall) while a stem slider was moving.
+            val mid = (left + right) * 0.5f
+            val side = (left - right) * 0.5f
+            lowState += lowCoeff * (mid - lowState)
+            val midLow = lowState
+            val midBand = mid - lowState
+            val centre = midLow * instrument + midBand * vocal
+            val stereo = side * instrument
+            output.putShort(clip16((centre + stereo) * makeup))
+            output.putShort(clip16((centre - stereo) * makeup))
 
             // Preserve extra channels, if any, instead of dropping them.
             var extra = 4

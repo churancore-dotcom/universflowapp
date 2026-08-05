@@ -35,19 +35,18 @@ const cleanIdentity = (value = '') => normalizeText(value).replace(/\b(official|
 const resultKey = (track: IndexedTrack) => `${cleanIdentity(track.artist)}::${cleanIdentity(track.title)}`;
 const queryTokens = (query: string) => normalizeText(query).split(' ').filter((token) => token.length > 1 && !['song', 'songs', 'music', 'track', 'tracks', 'best', 'top', 'latest', 'new', 'by', 'ft', 'feat', 'featuring', 'from'].includes(token));
 const HIDDEN_RESULTS_KEY = 'uf_hidden_search_results_v1';
-const SEARCH_CACHE_NAMESPACE = 'stable-search-v12-ytm-expanded-clean';
+const SEARCH_CACHE_NAMESPACE = 'stable-search-v13-original-first';
 const SPAM_RESULT_PATTERNS = [
   /\b(top|best)\s*\d+\b/i,
   /\b\d+\s*(top|best|hit|hits|songs)\b/i,
   /\b(non\s*stop|jukebox|mashup|medley|playlist|compilation|collection|mixtape|full\s*album|all\s*songs)\b/i,
   /\b(sped\s*up|slowed(\s*\+?\s*reverb)?|nightcore|8\s*d|bass\s*boost(ed)?|reverb(ed)?)\b/i,
-  /\b(karaoke|instrumental|backing\s*track|minus\s*one)\b/i,
-  /\b(cover(\s*by)?|cover\s*version|fan\s*made|unofficial|tribute|ai\s*cover|ai\s*voice|ai\s*song)\b/i,
-  /\b(lyric\s*video|with\s*lyrics?|tutorial|reaction|breakdown|explained)\b/i,
-  /\b(whatsapp\s*status|ringtone|bgm|status\s*video|loop(ed)?|tiktok\s*version|reels?\s*version|shorts?)\b/i,
+  /\b(karaoke|instrumental|backing\s*track|minus\s*one|tribute)\b/i,
+  /\b(cover(\s*by)?|cover\s*version|fan\s*made|unofficial|ai\s*cover|ai\s*voice|ai\s*song)\b/i,
+  /\b(lyric\s*video|with\s*lyrics?|tutorial|reaction|breakdown|explained|status\s*video)\b/i,
+  /\b(whatsapp\s*status|ringtone|bgm|loop(ed)?|tiktok\s*version|reels?\s*version|shorts?)\b/i,
   /\b\d+\s*(hour|hours|hr|hrs|minute|minutes|min)\b/i,
   /\b(dj\s*remix|remix\s*by|club\s*mix|extended\s*mix|edm\s*remix|trap\s*remix|phonk\s*remix)\b/i,
-  /\b(speed\s*up|slow(ed)?\s*down|reverb\s*nation|nightcore\s*mania|speed\s*songs?|slowed\s*songs?)\b/i,
 ];
 const SPAM_ARTIST_PATTERNS = [
   /\b(speed\s*songs?|slowed\s*songs?|reverb\s*nation|nightcore|lofi\s*girl|ai\s*cover|topic\s*music|music\s*lover\s*\d+)\b/i,
@@ -132,15 +131,23 @@ function hideSearchTrack(track: IndexedTrack) {
 
 function isSpamTrack(track: IndexedTrack, query: string) {
   const q = normalizeText(query);
-  const haystack = `${track.title || ''} ${track.artist || ''} ${track.album || ''}`;
+  const title = track.title || "";
+  const artist = track.artist || "";
+  const haystack = `${title} ${artist} ${track.album || ""}`;
   const normalizedHaystack = normalizeText(haystack);
   const duration = Number(track.duration || 0);
-  const allowLongForm = /\b(lofi|mix|playlist|jukebox|medley|concert|live)\b/.test(q);
-  if (!track.title || !track.artist) return true;
-  if (duration && (duration < 75 || (!allowLongForm && duration > 540))) return true;
-  if (/\boriginals?\b/.test(normalizeText(track.artist)) && !q.includes('original')) return true;
-  if (!q.includes('lofi') && /\blo\s*fi\b|\blofi\b/.test(normalizedHaystack)) return true;
-  if (SPAM_ARTIST_PATTERNS.some((pattern) => pattern.test(track.artist || ''))) return true;
+  const allowLongForm = /\b(lofi|mix|playlist|jukebox|medley|concert|live|full album)\b/.test(q);
+  
+  if (!title || !artist) return true;
+  // Excessive duration check (too short or too long unless asked)
+  if (duration && (duration < 60 || (!allowLongForm && duration > 660))) return true;
+  
+  // Detect low-quality automated uploads (common on YouTube)
+  const isGenericArtist = /^(original|official|audio|music|songs|topic|records|vevo)$/i.test(normalizeText(artist).trim());
+  if (isGenericArtist && !q.includes("original") && !q.includes("topic")) return true;
+
+  if (!q.includes("lofi") && /\blo\s*fi\b|\blofi\b/.test(normalizedHaystack)) return true;
+  if (SPAM_ARTIST_PATTERNS.some((pattern) => pattern.test(artist))) return true;
   return SPAM_RESULT_PATTERNS.some((pattern) => pattern.test(haystack));
 }
 
@@ -286,93 +293,82 @@ async function searchUploadedArtistSongs(query: string): Promise<UploadedArtistT
     .filter(Boolean) as UploadedArtistTrack[];
 }
 
-function mergeUploadedArtistSongs(uploaded: UploadedArtistTrack[], tracks: IndexedTrack[]) {
-  if (!uploaded.length) return tracks;
-  const uploadedKeys = new Set(uploaded.map(resultKey));
-  const uploadedIds = new Set(uploaded.map((track) => track.id));
-  return [
-    ...uploaded,
-    ...tracks.filter((track) => !uploadedIds.has(track.id) && !uploadedKeys.has(resultKey(track))),
-  ];
-}
-
 function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: IndexedTrack[], tagSets: IndexedTrack[][], allowDiscoveryFallback = false) {
   const tokens = queryTokens(query);
-  const rows = new Map<string, { track: IndexedTrack; score: number; firstSeen: number; sourcePriority: number }>();
-  let firstSeen = 0;
+  const qNorm = normalizeText(query);
+  const allTracks: { track: IndexedTrack; score: number; sourcePriority: number; index: number }[] = [];
 
-  const add = (track: IndexedTrack, base: number, index: number, sourcePriority: number) => {
+  const processTrack = (track: IndexedTrack, base: number, index: number, sourcePriority: number) => {
     if (isSpamTrack(track, query)) return;
-    const key = resultKey(track);
-    if (!key || key === '::') return;
-    const haystack = normalizeText(`${track.title} ${track.artist} ${track.album || ''}`);
+    const rawTitle = String(track.title || "");
+    const rawArtist = String(track.artist || "");
+    const title = normalizeText(rawTitle);
+    const artist = normalizeText(rawArtist);
+    const haystack = normalizeText(`${rawTitle} ${rawArtist} ${track.album || ""}`);
+    
     const tokenHits = tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
-    const allTokens = tokens.length > 0 && tokenHits === tokens.length;
-    const phraseHit = normalizeText(query).length > 2 && haystack.includes(normalizeText(query));
+    const phraseHit = qNorm.length > 2 && haystack.includes(qNorm);
     if (!allowDiscoveryFallback && tokens.length > 0 && tokenHits === 0 && !phraseHit) return;
-    // Viral popularity: much stronger weight so the most-viewed / most-listened
-    // canonical upload lands at the top. Log scale prevents runaway winners
-    // from a single 1B-view track, but still hugely outranks unknown uploads.
-    const listeners = Math.max(0, Number(track.listeners) || 0);
-    const popularity = Math.min(180, Math.log10(1 + listeners) * 26);
-    // Explicit viral tier — anything with 5M+ plays gets a hard floor bump so
-    // "real" hits never sit under a cover, live version, or lyrics upload.
-    const viralTier = listeners >= 5_000_000 ? 220 : listeners >= 500_000 ? 110 : 0;
-    const title = normalizeText(track.title || '');
-    const artist = normalizeText(track.artist || '');
-    const qNorm = normalizeText(query);
-    // Title-first matching: user is searching for a SONG / lyric line, not an artist.
+
+    // Relevance
     const titleStartsWith = qNorm.length > 1 && title.startsWith(qNorm);
     const titlePhraseHit = qNorm.length > 2 && title.includes(qNorm);
     const titleAllTokens = tokens.length > 0 && tokens.every((t) => title.includes(t));
     const titleTokenHits = tokens.reduce((sum, t) => sum + (title.includes(t) ? 1 : 0), 0);
     const artistTokenHits = tokens.reduce((sum, t) => sum + (artist.includes(t) ? 1 : 0), 0);
-    const artistIntent = /\b(by|ft|feat|featuring|from)\b/i.test(query);
-    const exactArtist = tokens.length > 0 && tokens.every((t) => artist.includes(t)) && titleTokenHits === 0;
+    
     const relevance =
-      (titleStartsWith ? 900 : 0) +
-      (titlePhraseHit ? 700 : 0) +
-      (titleAllTokens ? 500 : 0) +
-      titleTokenHits * 120 +
-      artistTokenHits * 140 +
-      (phraseHit ? 80 : 0) +
-      (allTokens ? 60 : 0) +
-      (exactArtist ? 90 : 0);
-    // Originality: reward canonical uploads, penalize covers/remixes/lyric-vids.
-    const rawTitle = String(track.title || '');
-    const rawArtist = String(track.artist || '');
-    const parenNoise = (rawTitle.match(/\([^)]{4,}\)|\[[^\]]{4,}\]/g) || []).length;
-    const noiseWords = /\b(remaster(ed)?|reissue|version|edit|extended|radio\s*edit|deluxe|expanded|bonus|hd|hq|full\s*audio|full\s*song|full\s*hd|official\s*audio|slowed|reverb|8d|lofi|cover|karaoke|instrumental|lyrics?|nightcore|mashup|remix)\b/i.test(rawTitle) ? 1 : 0;
-    const cleanBonus = parenNoise === 0 && noiseWords === 0 ? 90 : 0;
-    const noisePenalty = parenNoise * 35 + noiseWords * 120 + (rawTitle.length > 60 ? 30 : 0);
-    // Verified artist / official channel bonus — pushes the original release
-    // above every copycat re-upload for the same title.
-    const isOfficialArtist = /\bVEVO\b/.test(rawArtist) || /\b-?\s*Topic\b/i.test(rawArtist) || /\bofficial\b/i.test(rawArtist);
-    const officialBonus = isOfficialArtist ? 280 : 0;
-    const songKindBonus = track.kind === 'song' ? 340 : 0; // YT Music "Songs" shelf = canonical audio
-    const artistUploadBonus = (track as any).source === 'artist_upload' ? 700 : 0;
-    const wrongArtistPenalty = artistIntent && tokens.length >= 2 && titleTokenHits > 0 && artistTokenHits === 0 && !phraseHit ? 260 : 0;
-    const score = base + relevance + popularity + viralTier + cleanBonus + officialBonus + songKindBonus + artistUploadBonus - noisePenalty - wrongArtistPenalty - index * 0.6;
-    const existing = rows.get(key);
-    if (!existing || score > existing.score || (score === existing.score && sourcePriority > existing.sourcePriority)) {
-      rows.set(key, { track, score, firstSeen: existing?.firstSeen ?? firstSeen++, sourcePriority });
-    }
+      (titleStartsWith ? 1000 : 0) +
+      (titlePhraseHit ? 800 : 0) +
+      (titleAllTokens ? 600 : 0) +
+      titleTokenHits * 150 +
+      artistTokenHits * 130 +
+      (phraseHit ? 100 : 0);
+
+    // Popularity
+    const listeners = Math.max(0, Number(track.listeners) || 0);
+    const popularity = Math.min(200, Math.log10(1 + listeners) * 28);
+    const viralTier = listeners >= 5_000_000 ? 250 : listeners >= 500_000 ? 120 : 0;
+
+    // Quality signals
+    const isOfficial = /\b(VEVO|Topic|Official)\b/i.test(rawArtist) || /\b(official\s*video|official\s*audio|official\s*music\s*video)\b/i.test(rawTitle);
+    const officialBonus = isOfficial ? 400 : 0;
+    const kindBonus = track.kind === "song" ? 450 : 0;
+    
+    // Noise penalty (refined: don't penalize 'official')
+    const actualNoise = /\b(slowed|reverb|8d|lofi|karaoke|instrumental|lyrics?|nightcore|mashup|remix|fan\s*made|unofficial|cover|tribute|ai\s*cover|ai\s*voice)\b/i;
+    const parenNoise = (rawTitle.match(/\([^\)]{4,}\)|\[[^\]]{4,}\]/g) || []).length;
+    const noiseWords = actualNoise.test(rawTitle) ? 1 : 0;
+    const noisePenalty = parenNoise * 40 + noiseWords * 180 + (rawTitle.length > 70 ? 40 : 0);
+
+    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus - noisePenalty - index * 0.8;
+    allTracks.push({ track, score, sourcePriority, index });
   };
 
-  youtube.forEach((track, index) => add(track, 360, index, 3));
-  literal.forEach((track, index) => add(track, 520, index, 2));
-  tagSets.forEach((set, setIndex) => set.forEach((track, index) => add(track, 220 + setIndex * 40, index, 1)));
+  youtube.forEach((track, index) => processTrack(track, 360, index, 3));
+  literal.forEach((track, index) => processTrack(track, 520, index, 2));
+  tagSets.forEach((set, setIndex) => set.forEach((track, index) => processTrack(track, 220 + setIndex * 40, index, 1)));
 
-  return Array.from(rows.values())
-    .sort((a, b) => {
-      // Real songs (YT Music SONGS shelf) strictly above music videos.
-      const aSong = a.track.kind === 'song' ? 1 : 0;
-      const bSong = b.track.kind === 'song' ? 1 : 0;
-      if (aSong !== bSong) return bSong - aSong;
-      return b.score - a.score || b.sourcePriority - a.sourcePriority || a.firstSeen - b.firstSeen || a.track.title.localeCompare(b.track.title) || a.track.artist.localeCompare(b.track.artist);
+  // Deduplication: Pick the best track for each artist::title pair
+  const bestScores = new Map<string, number>();
+  for (const t of allTracks) {
+    const key = resultKey(t.track);
+    if (!bestScores.has(key) || t.score > bestScores.get(key)!) {
+      bestScores.set(key, t.score);
+    }
+  }
+
+  // Final list: if not the best for its key, apply a "duplicate" penalty
+  // This ranks official/best versions first and duplicates last.
+  return allTracks
+    .map((t) => {
+      const key = resultKey(t.track);
+      const isPrimary = t.score === bestScores.get(key);
+      const finalScore = isPrimary ? t.score : t.score - 5000;
+      return { ...t, finalScore };
     })
-    .map(({ track }) => track);
-
+    .sort((a, b) => b.finalScore - a.finalScore || b.sourcePriority - a.sourcePriority || a.index - b.index)
+    .map((t) => t.track);
 }
 
 const Search = () => {
@@ -438,10 +434,8 @@ const Search = () => {
         if (cached) {
           const uploaded = await searchUploadedArtistSongs(trimmedQuery);
           if (!cancelled) {
-            setIndexedResults(
-              mergeUploadedArtistSongs(uploaded, cached)
-                .filter((track) => !isHiddenTrack(track, hiddenResults)),
-            );
+            setIndexedResults(rankAndDedupeResults(trimmedQuery, [...cached, ...uploaded], [], [], false)
+              .filter((track) => !isHiddenTrack(track, hiddenResults)));
             setSearching(false);
           }
           return;
@@ -453,7 +447,7 @@ const Search = () => {
         const [youtube, uploaded, artists] = await Promise.all([youtubeJob, uploadedJob, artistJob]);
         if (cancelled) return;
 
-        const merged = mergeUploadedArtistSongs(uploaded, rankAndDedupeResults(trimmedQuery, youtube, [], [], false))
+        const merged = rankAndDedupeResults(trimmedQuery, [...youtube, ...uploaded], [], [], false)
           .filter((track) => !isHiddenTrack(track, hiddenResults))
           .slice(0, 300);
 

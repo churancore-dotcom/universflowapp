@@ -859,7 +859,7 @@ class ExoPlayerPlugin : Plugin() {
             svc.savedBassBoostStrength = bass.toShort()
             svc.savedVirtualizerStrength = virtualizer.toShort()
             svc.savedLoudnessGainMb = loudness
-            svc.applyStemMix(vocal, instrumental)
+            svc.applyStemMix(vocal, instrumental, persist = false)
             svc.ensureEffectsBound(forceReapply = true)
             try { svc.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}
             svc.applyReverb(reverb)

@@ -125,10 +125,18 @@ function numericPlayCount(value: SaavnSong['playCount']): number | undefined {
 }
 
 function looksSpammy(song: SaavnSong): boolean {
-  const haystack = `${song.name || song.title || ''} ${primaryArtists(song)} ${albumName(song.album)}`;
+  const name = song.name || song.title || '';
+  const artist = primaryArtists(song);
+  const haystack = `${name} ${artist} ${albumName(song.album)}`;
   const duration = typeof song.duration === 'number' ? song.duration : Number(song.duration) || 0;
-  if (duration && (duration < 75 || duration > 540)) return true;
-  if (/\boriginals?\b/i.test(primaryArtists(song))) return true;
+  
+  // Reasonable song length: 60s to 11m
+  if (duration && (duration < 60 || duration > 660)) return true;
+  
+  // Generic "Originals" artist check - common for low-quality automated uploads
+  const artistNorm = artist.toLowerCase().trim();
+  if (artistNorm === 'original' || artistNorm === 'originals') return true;
+  
   return SPAM_TRACK_PATTERNS.some((pattern) => pattern.test(haystack));
 }
 

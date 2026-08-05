@@ -62,7 +62,8 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
         if (s) out.push(s);
       }
       // Reshuffle per session so rails don't repeat identical order.
-      return seededShuffle(out).slice(0, limit);
+      // The API returns newest-first; do not randomize recency into an old-looking rail.
+      return out.slice(0, limit);
     },
   });
 }
