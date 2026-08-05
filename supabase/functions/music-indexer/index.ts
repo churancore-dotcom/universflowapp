@@ -727,6 +727,10 @@ type IndexedArtistInfo = {
 
 // Spotify client-credentials token (cached in-memory until shortly before expiry)
 let spotifyToken: { value: string; expiresAt: number } | null = null;
+// When Spotify rejects the app (e.g. 403 "premium subscription required"), back off
+// instead of hammering the API on every artist tile.
+let spotifyBlockedUntil = 0;
+
 
 async function getSpotifyToken(): Promise<string | null> {
   const id = Deno.env.get('SPOTIFY_CLIENT_ID');
