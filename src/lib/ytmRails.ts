@@ -105,7 +105,7 @@ export function useYtmCharts(country: string, enabled = true) {
     refetchOnWindowFocus: false,
     refetchOnReconnect: true,
     queryFn: async (): Promise<{ top: Song[]; trending: Song[]; videos: Song[]; country: string }> => {
-      const charts = await getYouTubeMusicCharts(country, 40);
+      const charts = await getYouTubeMusicCharts(country || 'ZZ', 40);
       const toList = (arr: IndexedTrack[]): Song[] => {
         const seen = new Set<string>();
         const out: Song[] = [];
