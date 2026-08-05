@@ -302,11 +302,14 @@ object NativeYouTubeResolver {
             put("hl", "en"); put("gl", "US")
         })
 
+        // clientId 28 = ANDROID_VR in YouTube's INNERTUBE_CONTEXT_CLIENT_NAME
+        // enum. Sending the wrong numeric id makes the edge distrust the client
+        // and reply with SABR-only / 403-prone URLs.
         return listOf(
-            ClientCtx("ANDROID_VR", "76", "1.61.48", vr161,
-                "com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip"),
-            ClientCtx("ANDROID_VR_1_43", "76", "1.43.32", vr143,
+            ClientCtx("ANDROID_VR_1_43", "28", "1.43.32", vr143,
                 "com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12L; GB) gzip"),
+            ClientCtx("ANDROID_VR", "28", "1.61.48", vr161,
+                "com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip"),
             ClientCtx("IOS", "5", "21.03.2", ios,
                 "com.google.ios.youtube/21.03.2 (iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X)"),
             ClientCtx("ANDROID_MUSIC", "21", "7.29.52", androidMusic,
@@ -314,6 +317,7 @@ object NativeYouTubeResolver {
             ClientCtx("ANDROID_CREATOR", "14", "24.45.100", androidCreator,
                 "com.google.android.apps.youtube.creator/24.45.100 (Linux; U; Android 14) gzip"),
         )
+
     }
 
     private fun attempt(videoId: String, ctx: ClientCtx): Pair<String, Int>? {
