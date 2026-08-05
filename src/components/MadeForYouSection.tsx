@@ -6,6 +6,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import { supabase } from '@/integrations/supabase/client';
@@ -127,6 +128,8 @@ const MadeForYouSection = memo(() => {
     },
   });
 
+  React.useEffect(() => { prewarmSongs(mix, 3); }, [mix]);
+
   if (!mix.length) return null;
   const hero = mix[0];
   const rest = mix.slice(1, 5);
@@ -144,6 +147,7 @@ const MadeForYouSection = memo(() => {
       <motion.button
         whileTap={{ scale: 0.985 }}
         onClick={() => play(hero)}
+        {...prewarmIntentProps(hero)}
         className="relative w-full min-h-[150px] overflow-hidden text-left rounded-3xl border border-white/[0.06] bg-card p-4"
       >
         {hero.cover_url && (
@@ -164,7 +168,7 @@ const MadeForYouSection = memo(() => {
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
-            <button key={song.id} onClick={() => play(song)} className="w-full flex items-center justify-between gap-3 px-3 py-2.5 border-b border-white/[0.05] last:border-0 text-left active:bg-white/[0.04]">
+            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-3 py-2.5 border-b border-white/[0.05] last:border-0 text-left active:bg-white/[0.04]">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums w-6">{String(idx + 2).padStart(2, '0')}.</span>
                 <div className="min-w-0">
