@@ -1148,75 +1148,95 @@ main.bg-black,
 }
 
 /* =========================================================================
-   6. NEUMORPHISM — global soft-UI material.
-   Everything raised is the same colour as the page, lit from the top-left
-   and shadowed to the bottom-right. Glass/blur surfaces are converted to
-   soft plastic so the whole app reads as one moulded object.
+   6. ROSE OBSIDIAN — the app's material.
+   Near-black volcanic ground, panels cut from slightly lighter obsidian with
+   a single hairline of light on the top edge, and rose (#FF2D55) reserved for
+   action only. No soft-plastic shadows, no frosted glass: flat depth built
+   from tone + hairline + one deep drop shadow. Bento tiles are the unit.
+   Utility names are kept (neu*, glass*) so every existing screen inherits
+   this material without markup churn.
    ========================================================================= */
 :root {
-  --neu-bg: 240 5% 11%;
-  --neu-surface: 240 5% 13%;
-  --neu-light: 240 8% 20%;
-  --neu-dark: 240 10% 5%;
-  --neu-dist: 8px;
-  --neu-blur: 18px;
+  --obs-bg: 240 8% 4%;          /* #0a0a0c */
+  --obs-panel: 240 9% 8%;       /* #16161a */
+  --obs-panel-hi: 240 9% 11%;
+  --obs-sunk: 240 10% 3%;
+  --obs-hairline: 0 0% 100% / 0.07;
+  --obs-shadow: 240 20% 1%;
 
-  --background: var(--neu-bg);
-  --card: var(--neu-surface);
-  --popover: 240 5% 14%;
-  --secondary: 240 5% 15%;
-  --muted: 240 5% 16%;
-  --input: 240 5% 10%;
-  --border: 240 6% 18%;
-  --surface-elevated: 240 5% 15%;
-  --surface-overlay: 240 5% 10%;
-  --sidebar-background: 240 5% 10%;
+  --background: var(--obs-bg);
+  --card: var(--obs-panel);
+  --popover: 240 9% 9%;
+  --secondary: 240 9% 12%;
+  --muted: 240 9% 13%;
+  --muted-foreground: 240 6% 62%;
+  --input: 240 10% 6%;
+  --border: 240 8% 15%;
+  --surface-elevated: var(--obs-panel-hi);
+  --surface-overlay: 240 10% 5%;
+  --sidebar-background: 240 9% 5%;
+
+  --primary: 344 100% 59%;       /* #FF2D55 */
+  --primary-foreground: 0 0% 100%;
+  --accent: 344 100% 59%;
+  --ring: 344 100% 59%;
+  --glow-primary: 344 100% 59%;
 }
 
 @utility neu {
-  background: hsl(var(--neu-surface));
+  background:
+    linear-gradient(180deg, hsl(var(--obs-panel-hi)) 0%, hsl(var(--obs-panel)) 62%);
   box-shadow:
-    var(--neu-dist) var(--neu-dist) var(--neu-blur) hsl(var(--neu-dark) / 0.85),
-    calc(var(--neu-dist) * -1) calc(var(--neu-dist) * -1) var(--neu-blur) hsl(var(--neu-light) / 0.55);
-  border: none;
+    inset 0 1px 0 hsl(var(--obs-hairline)),
+    0 1px 0 0 hsl(var(--obs-hairline)) inset,
+    0 18px 40px -22px hsl(var(--obs-shadow) / 0.9);
+  border: 1px solid hsl(0 0% 100% / 0.05);
 }
 
 @utility neu-sm {
-  background: hsl(var(--neu-surface));
+  background: hsl(var(--obs-panel));
   box-shadow:
-    4px 4px 10px hsl(var(--neu-dark) / 0.8),
-    -4px -4px 10px hsl(var(--neu-light) / 0.5);
-  border: none;
+    inset 0 1px 0 hsl(var(--obs-hairline)),
+    0 10px 24px -18px hsl(var(--obs-shadow) / 0.9);
+  border: 1px solid hsl(0 0% 100% / 0.045);
 }
 
 @utility neu-inset {
-  background: hsl(var(--neu-bg));
-  box-shadow:
-    inset 5px 5px 12px hsl(var(--neu-dark) / 0.9),
-    inset -5px -5px 12px hsl(var(--neu-light) / 0.5);
-  border: none;
+  background: hsl(var(--obs-sunk));
+  box-shadow: inset 0 1px 2px hsl(var(--obs-shadow) / 0.9);
+  border: 1px solid hsl(0 0% 100% / 0.04);
 }
 
 @utility neu-press {
-  transition: box-shadow 180ms ease, transform 180ms ease;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.36, 1), filter 160ms ease;
   &:active {
-    box-shadow:
-      inset 5px 5px 12px hsl(var(--neu-dark) / 0.9),
-      inset -5px -5px 12px hsl(var(--neu-light) / 0.45);
+    transform: scale(0.975);
+    filter: brightness(1.12);
   }
 }
 
 @utility neu-accent {
-  background: linear-gradient(145deg, hsl(var(--primary)), hsl(var(--primary) / 0.75));
+  background: linear-gradient(150deg, hsl(344 100% 62%) 0%, hsl(344 100% 52%) 100%);
   color: hsl(var(--primary-foreground));
   box-shadow:
-    6px 6px 16px hsl(var(--neu-dark) / 0.9),
-    -4px -4px 12px hsl(var(--neu-light) / 0.4),
-    inset 0 1px 0 hsl(0 0% 100% / 0.28);
+    inset 0 1px 0 hsl(0 0% 100% / 0.3),
+    0 14px 34px -16px hsl(var(--primary) / 0.6);
   border: none;
 }
 
-/* Convert every legacy glass / card surface into soft plastic. */
+/* Rose-lit tile: used for the one thing on screen that matters most. */
+@utility obs-hot {
+  position: relative;
+  background:
+    radial-gradient(120% 120% at 100% 0%, hsl(var(--primary) / 0.18) 0%, transparent 55%),
+    linear-gradient(180deg, hsl(var(--obs-panel-hi)) 0%, hsl(var(--obs-panel)) 70%);
+  border: 1px solid hsl(var(--primary) / 0.18);
+  box-shadow:
+    inset 0 1px 0 hsl(0 0% 100% / 0.08),
+    0 24px 50px -26px hsl(var(--primary) / 0.35);
+}
+
+/* Every legacy glass / card surface becomes an obsidian panel. */
 .glass,
 .glass-strong,
 .glass-ultra,
@@ -1226,12 +1246,12 @@ main.bg-black,
 .uf-bento-card,
 .bg-card,
 [class*="bg-card/"] {
-  background: hsl(var(--neu-surface)) !important;
+  background: linear-gradient(180deg, hsl(var(--obs-panel-hi)) 0%, hsl(var(--obs-panel)) 65%) !important;
   backdrop-filter: none !important;
-  border: none !important;
+  border: 1px solid hsl(0 0% 100% / 0.05) !important;
   box-shadow:
-    8px 8px 18px hsl(var(--neu-dark) / 0.85),
-    -8px -8px 18px hsl(var(--neu-light) / 0.5) !important;
+    inset 0 1px 0 hsl(var(--obs-hairline)),
+    0 20px 44px -24px hsl(var(--obs-shadow) / 0.95) !important;
 }
 
 /* Kill the old refraction / rim / grain overlays. */
@@ -1245,54 +1265,73 @@ main.bg-black,
   display: none !important;
 }
 
-/* Ambient light fields off — neumorphism needs a flat, even ground. */
-body::before, body::after { display: none !important; }
+/* One faint rose aurora at the top of the page — the only ambient light. */
+body::after { display: none !important; }
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0 0 auto 0;
+  height: 46vh;
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(90% 100% at 22% 0%, hsl(344 100% 59% / 0.16) 0%, transparent 62%),
+    radial-gradient(70% 90% at 92% 4%, hsl(330 90% 70% / 0.08) 0%, transparent 60%);
+  display: block !important;
+}
 .ethereal-orb { display: none !important; }
 
 .page-header-glass {
-  background: hsl(var(--neu-bg)) !important;
-  backdrop-filter: none !important;
-  border-bottom: none !important;
-  box-shadow: 0 10px 24px hsl(var(--neu-dark) / 0.6);
+  background: linear-gradient(180deg, hsl(var(--obs-bg)) 30%, hsl(var(--obs-bg) / 0.6) 100%) !important;
+  backdrop-filter: blur(18px) !important;
+  border-bottom: 1px solid hsl(0 0% 100% / 0.05) !important;
+  box-shadow: none;
 }
 
 [class*="bg-background/"],
 [class*="bg-black/"] {
-  backdrop-filter: none !important;
+  backdrop-filter: blur(18px) !important;
 }
 
 .ethereal-title {
   background-image: none;
   color: hsl(var(--foreground));
-  text-shadow:
-    2px 2px 4px hsl(var(--neu-dark) / 0.9),
-    -1px -1px 2px hsl(var(--neu-light) / 0.6);
+  text-shadow: none;
 }
 
-/* Nav + player chrome as soft plastic. */
+/* Nav + player chrome: darker obsidian, hairline top, no plastic. */
 .liquid-glass,
 .liquid-glass-dense,
 .nav-glass,
 .player-card {
-  background: hsl(var(--neu-surface)) !important;
-  backdrop-filter: none !important;
-  border: none !important;
+  background: linear-gradient(180deg, hsl(240 9% 10% / 0.92) 0%, hsl(240 10% 5% / 0.96) 100%) !important;
+  backdrop-filter: blur(28px) saturate(140%) !important;
+  -webkit-backdrop-filter: blur(28px) saturate(140%) !important;
+  border: 1px solid hsl(0 0% 100% / 0.07) !important;
   box-shadow:
-    8px 8px 20px hsl(var(--neu-dark) / 0.9),
-    -8px -8px 20px hsl(var(--neu-light) / 0.5) !important;
+    inset 0 1px 0 hsl(0 0% 100% / 0.08),
+    0 -10px 40px -18px hsl(var(--obs-shadow)) !important;
 }
 .liquid-glass::before, .liquid-glass::after,
 .liquid-glass-dense::before, .liquid-glass-dense::after,
 .nav-glass::before, .nav-glass::after,
 .player-card::before, .player-card::after { display: none !important; }
 
-/* Small translucent chips/buttons become subtly extruded instead of frosted. */
+/* Small translucent chips stay translucent, just cleaner. */
 [class*="bg-white/[0.0"],
 [class*="bg-white/5"],
 [class*="bg-white/10"] {
-  background-color: hsl(var(--neu-surface)) !important;
-  border-color: transparent !important;
-  box-shadow:
-    4px 4px 10px hsl(var(--neu-dark) / 0.8),
-    -4px -4px 10px hsl(var(--neu-light) / 0.45);
+  background-color: hsl(var(--obs-panel-hi)) !important;
+  border-color: hsl(0 0% 100% / 0.06) !important;
+  box-shadow: inset 0 1px 0 hsl(0 0% 100% / 0.05);
 }
+
+/* Type: Bebas for every display heading, Barlow for everything else. */
+body {
+  font-family: 'Barlow', system-ui, -apple-system, sans-serif !important;
+}
+.font-display, .uf-display-title, .ethereal-title {
+  font-family: 'Bebas Neue', 'Barlow', system-ui, sans-serif !important;
+  letter-spacing: 0.04em;
+}
+
