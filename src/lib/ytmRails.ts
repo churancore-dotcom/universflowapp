@@ -97,7 +97,7 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
  */
 export function useYtmCharts(country: string, enabled = true) {
   return useQuery({
-    queryKey: ['ytm-charts-v2', (country || 'US').toUpperCase(), hourBucket()],
+    queryKey: ['ytm-charts-v2', (country || 'ZZ').toUpperCase(), hourBucket()],
     enabled,
     staleTime: 10 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
