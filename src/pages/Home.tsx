@@ -25,6 +25,7 @@ import SEOHead from '@/components/SEOHead';
 import PullToRefreshIndicator from '@/components/PullToRefresh';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useUserCountry } from '@/hooks/useUserCountry';
+import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 
 // Simple empty state
 const EmptyState = memo(() => (
@@ -150,17 +151,25 @@ const Home = () => {
   // localStorage don't exist on the server, and guessing them there would flip
   // the whole feed order right after first paint.
   const [hydrated, setHydrated] = useState(false);
-  useEffect(() => { setHydrated(true); }, []);
+  const [recentVersion, setRecentVersion] = useState(0);
+  useEffect(() => {
+    setHydrated(true);
+    const refresh = () => setRecentVersion((value) => value + 1);
+    window.addEventListener('universflow:recently-played-changed', refresh);
+    return () => window.removeEventListener('universflow:recently-played-changed', refresh);
+  }, []);
 
   const signals: HomeFeedSignals = useMemo(() => {
     const now = hydrated ? new Date() : new Date(0);
+    const recent = hydrated ? readLocalRecent(user?.id) : [];
+    const latestPlayedAt = recent[0]?.played_at;
     return {
-      recentCount: 0,
-      msSinceLastPlay: null,
+      recentCount: recent.length,
+      msSinceLastPlay: typeof latestPlayedAt === 'number' ? Math.max(0, now.getTime() - latestPlayedAt) : null,
       hour: hydrated ? now.getHours() : 12,
       weekday: hydrated ? now.getDay() : 3,
     };
-  }, [hydrated]);
+  }, [hydrated, recentVersion, user?.id]);
 
   const railOrder = useMemo(() => getHomeRailOrder(signals), [signals]);
 

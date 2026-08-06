@@ -53,6 +53,20 @@ const MadeForYouSection = memo(() => {
       // Strongest signal first: the artists this listener actually plays/likes
       // most over the last 30 days, then the current session's snapshot.
       let seeds: string[] = [...topTasteArtists(taste, 4), ...snapshotSeeds];
+      if (user?.id) {
+        const { data: eventRows } = await supabase
+          .from('song_play_events')
+          .select('artist, title')
+          .eq('user_id', user.id)
+          .eq('action', 'stream')
+          .order('created_at', { ascending: false })
+          .limit(12);
+        seeds.push(
+          ...(eventRows ?? [])
+            .map((row) => (row.artist || row.title || '').trim())
+            .filter(Boolean),
+        );
+      }
       if (recentIds.length) {
         const { data: rows } = await (supabase as unknown as {
           from: (t: string) => { select: (c: string) => { in: (col: string, vals: string[]) => { limit: (n: number) => Promise<{ data: Array<{ artist: string | null; title: string | null }> | null }> } } };

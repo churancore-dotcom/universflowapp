@@ -173,7 +173,7 @@ export function isSpamSong(input: { title?: string | null; artist?: string | nul
   const haystack = `${title} ${artist} ${input.album || ''}`;
   if (!title || !artist) return true;
   const duration = Number(input.duration || 0);
-  if (duration && (duration < 75 || duration > 600)) return true;
+  if (duration && (duration < 45 || duration > 900)) return true;
   if (SPAM_ARTIST_PATTERNS.some((p) => p.test(artist))) return true;
   return SPAM_RESULT_PATTERNS.some((p) => p.test(haystack));
 }
@@ -347,8 +347,10 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
 
     // Quality signals
     const isOfficial = /\b(VEVO|Topic|Official)\b/i.test(rawArtist) || /\b(official\s*video|official\s*audio|official\s*music\s*video)\b/i.test(rawTitle);
-    const officialBonus = isOfficial ? 400 : 0;
-    const kindBonus = track.kind === "song" ? 450 : 0;
+    const officialBonus = isOfficial ? 650 : 0;
+    // YT Music's ATV/Songs result is authoritative recording metadata. Generic
+    // video uploads and re-uploads must not beat it through title stuffing.
+    const kindBonus = track.kind === "song" ? 1500 : -350;
 
     // Uploader authority: when the title credits an artist ("Ian Asher - ..."),
     // the real upload comes from that artist's own channel. Aggregator/reupload

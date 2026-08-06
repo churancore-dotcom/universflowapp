@@ -8,6 +8,7 @@ import java.nio.ByteBuffer
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
+import kotlin.math.sin
 
 /**
  * Real-time native Mid/Side stem processor for the APK ExoPlayer path.
@@ -28,10 +29,24 @@ class StemAudioProcessor : BaseAudioProcessor() {
     // low (kick/bass -> instrument bed) and band (lead vocal) content.
     private var lowState = 0f
     private var lowCoeff = 0.05f
+    @Volatile private var targetSpatialDepth = 0f
+    @Volatile private var targetSurround = 0f
+    @Volatile private var targetLateNight = 0f
+    private var currentSpatialDepth = 0f
+    private var currentSurround = 0f
+    private var currentLateNight = 0f
+    private var spatialPhase = 0.0
+    private var spatialPhaseStep = 0.0
 
     fun setStemMix(vocalPercent: Int, instrumentalPercent: Int) {
         targetVocalMix = vocalPercent.coerceIn(0, 100) / 100f
         targetInstrumentalMix = instrumentalPercent.coerceIn(0, 100) / 100f
+    }
+
+    fun setEnhancements(spatialStrength: Int, surroundStrength: Int, lateNightGainMb: Int) {
+        targetSpatialDepth = spatialStrength.coerceIn(0, 1000) / 1000f
+        targetSurround = surroundStrength.coerceIn(0, 1000) / 1000f
+        targetLateNight = lateNightGainMb.coerceIn(0, 2000) / 2000f
     }
 
     override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
@@ -46,6 +61,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val dt = 1f / inputAudioFormat.sampleRate.toFloat()
         lowCoeff = dt / (rc + dt)
         smoothingCoeff = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.025f)).toDouble()).toFloat()
+        spatialPhaseStep = 2.0 * Math.PI * 0.12 / inputAudioFormat.sampleRate.toDouble()
         lowState = 0f
         return inputAudioFormat
     }
@@ -63,6 +79,9 @@ class StemAudioProcessor : BaseAudioProcessor() {
         while (cursor + bytesPerFrame <= limit) {
             currentVocalMix += smoothingCoeff * (targetVocalMix - currentVocalMix)
             currentInstrumentalMix += smoothingCoeff * (targetInstrumentalMix - currentInstrumentalMix)
+            currentSpatialDepth += smoothingCoeff * (targetSpatialDepth - currentSpatialDepth)
+            currentSurround += smoothingCoeff * (targetSurround - currentSurround)
+            currentLateNight += smoothingCoeff * (targetLateNight - currentLateNight)
             val vocal = currentVocalMix.coerceIn(0f, 1f)
             val instrument = currentInstrumentalMix.coerceIn(0f, 1f)
             val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
@@ -79,9 +98,17 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val midLow = lowState
             val midBand = mid - lowState
             val centre = midLow * instrument + midBand * vocal
-            val stereo = side * instrument
-            output.putShort(clip16((centre + stereo) * makeup))
-            output.putShort(clip16((centre - stereo) * makeup))
+            val widenedSide = side * instrument * (1f + currentSurround * 0.85f)
+            val pan = sin(spatialPhase).toFloat() * currentSpatialDepth * 0.82f
+            spatialPhase += spatialPhaseStep
+            if (spatialPhase >= 2.0 * Math.PI) spatialPhase -= 2.0 * Math.PI
+            val leftPan = sqrt(((1f - pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
+            val rightPan = sqrt(((1f + pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
+            val lateMakeup = 1f + currentLateNight * 0.65f
+            val rawLeft = (centre + widenedSide) * makeup * leftPan * lateMakeup
+            val rawRight = (centre - widenedSide) * makeup * rightPan * lateMakeup
+            output.putShort(clip16(softLimit(rawLeft, currentLateNight)))
+            output.putShort(clip16(softLimit(rawRight, currentLateNight)))
 
             // Preserve extra channels, if any, instead of dropping them.
             var extra = 4
@@ -98,5 +125,14 @@ class StemAudioProcessor : BaseAudioProcessor() {
 
     private fun clip16(value: Float): Short {
         return value.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+    }
+
+    private fun softLimit(value: Float, amount: Float): Float {
+        if (amount <= 0.001f) return value
+        val threshold = 22000f - amount * 6000f
+        val magnitude = kotlin.math.abs(value)
+        if (magnitude <= threshold) return value
+        val compressed = threshold + (magnitude - threshold) / (1f + amount * 5f)
+        return if (value < 0f) -compressed else compressed
     }
 }

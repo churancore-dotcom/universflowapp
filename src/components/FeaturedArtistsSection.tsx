@@ -16,10 +16,9 @@ interface DisplayArtist {
 
 const isPortraitUrl = (url: string | null) => {
   if (!url) return false;
-  // This rail is resolved through Spotify's artist endpoint. Do not accept
-  // channel thumbnails, song covers, old followed-artist values, or provider
-  // fallbacks merely because their host looks familiar.
-  return /^(?:https?:)?\/\/i\.scdn\.co\/image\/[a-z0-9]+(?:\?.*)?$/i.test(url);
+  // Only accept known artist-image CDN endpoints — never channel thumbnails or
+  // song covers. Deezer is the backend's exact-name fallback for Spotify gaps.
+  return /^(?:https?:)?\/\/(?:i\.scdn\.co\/image\/[a-z0-9]+|e-cdns-images\.dzcdn\.net\/images\/artist\/[a-z0-9]+\/\d+x\d+-\d+\.jpg)(?:\?.*)?$/i.test(url);
 };
 
 // Channel/aggregate names that are not real artists. These are what made the

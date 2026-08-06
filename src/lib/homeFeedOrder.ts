@@ -59,11 +59,13 @@ export function scoreHomeRails(s: HomeFeedSignals): Record<HomeRail, number> {
     fresh: 100 + (releaseWindow ? 4 : 0),
     trending: 90 + (eveningPeak ? 3 : 0),
     artists: 60 + (isReturning ? 0 : 4),
-    mix: isReturning ? 40 : 0,
+    // The shelf also provides a high-quality discovery mix for a new listener;
+    // once listening signals exist its query seeds become genuinely personal.
+    mix: isReturning ? 75 : 45,
   };
 }
 
-const TIE_BREAK: HomeRail[] = ['fresh', 'trending', 'artists', 'mix'];
+const TIE_BREAK: HomeRail[] = ['fresh', 'trending', 'mix', 'artists'];
 
 export function getHomeRailOrder(s: HomeFeedSignals): HomeRail[] {
   const scores = scoreHomeRails(s);

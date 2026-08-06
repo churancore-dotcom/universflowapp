@@ -66,14 +66,14 @@ export function useGlobalAudioEngine(
     // AudioEffect chain: virtualizer width, bass shelf, loudness makeup,
     // and 5-band EQ coloration offsets (in millibels, matches FALLBACK_NATIVE_BANDS).
     //                                          60Hz  230Hz 910Hz 3.6k  14k
-    const NATIVE_SPACES: Record<string, { virt: number; bass: number; loud: number; eqMb: number[] }> = {
-      off:       { virt: 0,    bass: 0,   loud: 0,   eqMb: [0, 0, 0, 0, 0] },
-      vinyl:     { virt: 400,  bass: 250, loud: 150, eqMb: [300, 150, 0, -300, -600] },
-      studio:    { virt: 250,  bass: 0,   loud: 100, eqMb: [0, 0, 150, 200, 100] },
-      bedroom:   { virt: 550,  bass: 150, loud: 250, eqMb: [200, 50, 0, -100, -250] },
-      hall:      { virt: 900,  bass: 250, loud: 400, eqMb: [350, 150, 0, 200, 400] },
-      cathedral: { virt: 1000, bass: 350, loud: 550, eqMb: [500, 250, -100, 250, 550] },
-      stadium:   { virt: 1000, bass: 450, loud: 650, eqMb: [600, 350, 0, 200, 350] },
+    const NATIVE_SPACES: Record<string, { virt: number; bass: number; loud: number; reverb: number; eqMb: number[] }> = {
+      off:       { virt: 0,    bass: 0,   loud: 0,   reverb: 0,  eqMb: [0, 0, 0, 0, 0] },
+      vinyl:     { virt: 400,  bass: 250, loud: 150, reverb: 8,  eqMb: [300, 150, 0, -300, -600] },
+      studio:    { virt: 250,  bass: 0,   loud: 100, reverb: 6,  eqMb: [0, 0, 150, 200, 100] },
+      bedroom:   { virt: 550,  bass: 150, loud: 250, reverb: 14, eqMb: [200, 50, 0, -100, -250] },
+      hall:      { virt: 900,  bass: 250, loud: 400, reverb: 28, eqMb: [350, 150, 0, 200, 400] },
+      cathedral: { virt: 1000, bass: 350, loud: 550, reverb: 42, eqMb: [500, 250, -100, 250, 550] },
+      stadium:   { virt: 1000, bass: 450, loud: 650, reverb: 34, eqMb: [600, 350, 0, 200, 350] },
     };
 
     let native8DTimer: number | null = null;
@@ -129,7 +129,7 @@ export function useGlobalAudioEngine(
         bassStrength: Math.max(userBass, space.bass),
         virtualizerStrength: s.spatialAudio ? Math.max(800, baseVirt) : baseVirt,
         loudnessGainMb: Math.max(lateNightMb, space.loud, stemMakeupMb),
-        reverbAmount: s.reverb,
+        reverbAmount: Math.max(s.reverb, space.reverb),
         vocalMix: s.vocalMix ?? 100,
         instrumentalMix: s.instrumentalMix ?? 100,
         playbackSpeed: s.playbackSpeed,
