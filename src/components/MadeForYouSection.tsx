@@ -115,9 +115,9 @@ const MadeForYouSection = memo(() => {
           `rnb slow jams ${currentYear}`,
           `edm dance hits ${currentYear}`,
         ];
-        // Deterministic rotation by hour so users get a stable set within
-        // the hour, but a different set each hour of the day.
-        const start = hourBucket % POOL.length;
+        // Rotate only the cold-start fallback. Once listening/like/follow
+        // signals exist, the listener's real taste controls these queries.
+        const start = Math.floor(Date.now() / (60 * 60 * 1000)) % POOL.length;
         seedQueries = [POOL[start], POOL[(start + 3) % POOL.length], POOL[(start + 7) % POOL.length]];
       }
 
