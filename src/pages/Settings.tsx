@@ -196,7 +196,6 @@ const Settings = () => {
     setIsPrivate(!!row?.is_private);
     if (typeof row?.mood_pushes_enabled === 'boolean') {
       setMoodPushes(row.mood_pushes_enabled);
-      localStorage.setItem('uf_mood_pushes', String(row.mood_pushes_enabled));
     }
     setProfileCreated(row?.created_at || user.created_at || null);
   }, [user]);
@@ -273,7 +272,6 @@ const Settings = () => {
   const handleHaptics = (val: boolean) => {
     setHaptics(val);
     setHapticsEnabled(val);           // aligns with useHaptics's storage key
-    localStorage.setItem('uf_haptics', String(val)); // legacy mirror
     if (val) triggerHaptic('selection'); // instant confirmation buzz
   };
 
@@ -618,13 +616,11 @@ const Settings = () => {
                   checked={moodPushes}
                   onCheckedChange={async (val) => {
                     setMoodPushes(val);
-                    localStorage.setItem('uf_mood_pushes', String(val));
                     const { data: { user: u } } = await supabase.auth.getUser();
                     if (u) {
                       const { error } = await supabase.from('profiles').update({ mood_pushes_enabled: val }).eq('user_id', u.id);
                       if (error) {
                         setMoodPushes(!val);
-                        localStorage.setItem('uf_mood_pushes', String(!val));
                         toast.error('Could not update Smart Mood Picks');
                       }
                     }

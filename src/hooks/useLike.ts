@@ -50,6 +50,11 @@ const saveStreamLikes = (likes: Set<string>) => {
 };
 
 export const resetLikeCache = () => {
+  if (likeRealtimeChannel) {
+    supabase.removeChannel(likeRealtimeChannel);
+    likeRealtimeChannel = null;
+    likeRealtimeUserId = null;
+  }
   likeCache = new Set();
   likeCacheLoaded = false;
   likeCacheUserId = null;
@@ -57,7 +62,10 @@ export const resetLikeCache = () => {
 };
 
 const loadLikeCache = async (userId: string, force = false): Promise<void> => {
-  if (likeCacheUserId !== userId) resetLikeCache();
+  if (likeCacheUserId !== userId) {
+    resetLikeCache();
+    likeCacheUserId = userId;
+  }
   if (!force && likeCacheLoaded && likeCacheUserId === userId) return;
   if (likeCachePromise && likeCacheUserId === userId) {
     if (!force) return likeCachePromise;
@@ -66,7 +74,6 @@ const loadLikeCache = async (userId: string, force = false): Promise<void> => {
     await likeCachePromise;
   }
 
-  likeCacheUserId = userId;
   likeCachePromise = (async () => {
     const { data } = await supabase
       .from('user_library')
