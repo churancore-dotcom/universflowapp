@@ -831,11 +831,11 @@ async function getDeezerArtistImage(name: string): Promise<string | undefined> {
   }
 }
 
-// Canonical artist portrait resolver. Artist tiles intentionally use Spotify
-// only: Deezer artist search can expose release/video artwork as an artist
-// picture. Missing is honest and is rendered as a monogram by the client.
+// Canonical artist portrait resolver. Spotify is authoritative; Deezer's
+// artist endpoint is a resilient exact-name fallback when Spotify is missing
+// or temporarily rate-limited. Neither path uses track/video thumbnails.
 async function getArtistPortrait(name: string): Promise<string | undefined> {
-  return getSpotifyArtistImage(name);
+  return (await getSpotifyArtistImage(name)) || (await getDeezerArtistImage(name));
 }
 
 

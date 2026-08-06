@@ -87,7 +87,7 @@ function relevanceScore(r: SearchResult, q: string, index: number, pass: 'songs'
   score += titleHits * 150 + artistHits * 55;
   if (/\b(official\s*(music\s*)?(video|audio)|provided to youtube by|vevo|topic)\b/i.test(`${r.title} ${r.artist}`)) score += 140;
   if (/\b(lyric|lyrics|status|shorts|reels|cover|remix|slowed|sped)\b/i.test(`${r.title} ${r.artist}`)) score -= 260;
-  if (r.duration && (r.duration < 75 || r.duration > 540)) score -= 600;
+  if (r.duration && (r.duration < 45 || r.duration > 900)) score -= 600;
   return score - index * 1.5;
 }
 

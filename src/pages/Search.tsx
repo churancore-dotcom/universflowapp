@@ -173,7 +173,7 @@ export function isSpamSong(input: { title?: string | null; artist?: string | nul
   const haystack = `${title} ${artist} ${input.album || ''}`;
   if (!title || !artist) return true;
   const duration = Number(input.duration || 0);
-  if (duration && (duration < 75 || duration > 600)) return true;
+  if (duration && (duration < 45 || duration > 900)) return true;
   if (SPAM_ARTIST_PATTERNS.some((p) => p.test(artist))) return true;
   return SPAM_RESULT_PATTERNS.some((p) => p.test(haystack));
 }
