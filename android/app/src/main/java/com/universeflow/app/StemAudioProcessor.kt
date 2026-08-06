@@ -38,6 +38,12 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var spatialPhase = 0.0
     private var spatialPhaseStep = 0.0
 
+    /** Device-independent 10-band EQ; replaces the vendor AudioFX equalizer. */
+    val equalizer = PcmEqualizer()
+    private var blockCounter = 0
+    private var eqActive = false
+    private var eqHeadroom = 1f
+
     fun setStemMix(vocalPercent: Int, instrumentalPercent: Int) {
         targetVocalMix = vocalPercent.coerceIn(0, 100) / 100f
         targetInstrumentalMix = instrumentalPercent.coerceIn(0, 100) / 100f
@@ -63,11 +69,16 @@ class StemAudioProcessor : BaseAudioProcessor() {
         smoothingCoeff = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.025f)).toDouble()).toFloat()
         spatialPhaseStep = 2.0 * Math.PI * 0.12 / inputAudioFormat.sampleRate.toDouble()
         lowState = 0f
+        equalizer.configure(inputAudioFormat.sampleRate)
+        eqActive = equalizer.tickBlock()
+        eqHeadroom = equalizer.headroomGain()
+        blockCounter = 0
         return inputAudioFormat
     }
 
     override fun onFlush() {
         lowState = 0f
+        equalizer.reset()
     }
 
     override fun queueInput(inputBuffer: ByteBuffer) {
@@ -77,6 +88,14 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val output = replaceOutputBuffer(limit - position)
         var cursor = position
         while (cursor + bytesPerFrame <= limit) {
+            // Smooth EQ gains once per 64-frame block: cheap, and slider drags
+            // become sweeps instead of coefficient jumps.
+            if (blockCounter <= 0) {
+                eqActive = equalizer.tickBlock()
+                eqHeadroom = equalizer.headroomGain()
+                blockCounter = 64
+            }
+            blockCounter--
             currentVocalMix += smoothingCoeff * (targetVocalMix - currentVocalMix)
             currentInstrumentalMix += smoothingCoeff * (targetInstrumentalMix - currentInstrumentalMix)
             currentSpatialDepth += smoothingCoeff * (targetSpatialDepth - currentSpatialDepth)
@@ -105,8 +124,12 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val leftPan = sqrt(((1f - pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
             val rightPan = sqrt(((1f + pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
             val lateMakeup = 1f + currentLateNight * 0.65f
-            val rawLeft = (centre + widenedSide) * makeup * leftPan * lateMakeup
-            val rawRight = (centre - widenedSide) * makeup * rightPan * lateMakeup
+            var rawLeft = (centre + widenedSide) * makeup * leftPan * lateMakeup
+            var rawRight = (centre - widenedSide) * makeup * rightPan * lateMakeup
+            if (eqActive) {
+                rawLeft = equalizer.process(0, rawLeft * eqHeadroom)
+                rawRight = equalizer.process(1, rawRight * eqHeadroom)
+            }
             output.putShort(clip16(softLimit(rawLeft, currentLateNight)))
             output.putShort(clip16(softLimit(rawRight, currentLateNight)))
 
