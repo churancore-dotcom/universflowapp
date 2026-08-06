@@ -134,8 +134,10 @@ export const useLike = (songId: string, song?: Song | null) => {
     if (!user) {
       sync();
     } else {
-      ensureLikeRealtime(user.id);
-      loadLikeCache(user.id).then(sync);
+      loadLikeCache(user.id).then(() => {
+        ensureLikeRealtime(user.id);
+        sync();
+      });
     }
 
     likeSubscribers.add(sync);
