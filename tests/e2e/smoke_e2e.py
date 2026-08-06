@@ -91,6 +91,11 @@ async def restore_injected_session(context, page) -> bool:
     await page.goto(BASE, wait_until="domcontentloaded")
     await page.wait_for_timeout(4_000)
     ok = "/auth" not in page.url
+    if not ok:
+        # Injected session was rejected (expired refresh token) — fall through
+        # to credential login rather than reporting a product failure.
+        print("INFO managed session not accepted; falling back to credentials")
+        return False
     check("login (managed session)", ok, page.url)
     return ok
 
