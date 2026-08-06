@@ -22,6 +22,8 @@ const CACHE_VERSION = 'v4-ytm-innertube';
 
 const namespaceKey = (namespace: string) => `${CACHE_VERSION}:${namespace}`;
 
+import { cachesEnabled } from '@/lib/ssrCache';
+
 const stores = new Map<string, Map<string, Entry<unknown>>>();
 
 const getStore = <T>(namespace: string): Map<string, Entry<T>> => {
@@ -37,6 +39,7 @@ const getStore = <T>(namespace: string): Map<string, Entry<T>> => {
 const normalize = (key: string) => key.trim().toLowerCase().replace(/\s+/g, ' ');
 
 export const getCached = <T>(namespace: string, key: string): T | undefined => {
+  if (!cachesEnabled()) return undefined;
   const store = getStore<T>(namespace);
   const k = normalize(key);
   const hit = store.get(k);
@@ -52,6 +55,7 @@ export const getCached = <T>(namespace: string, key: string): T | undefined => {
 };
 
 export const setCached = <T>(namespace: string, key: string, value: T): void => {
+  if (!cachesEnabled()) return;
   const store = getStore<T>(namespace);
   const k = normalize(key);
   store.set(k, { value, expiresAt: Date.now() + TTL_MS });

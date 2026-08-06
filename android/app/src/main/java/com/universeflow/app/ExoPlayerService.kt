@@ -49,6 +49,11 @@ class ExoPlayerService : MediaSessionService() {
         private const val WAKELOCK_TIMEOUT_MS = 4L * 60L * 60L * 1000L
         const val NOTIFICATION_CHANNEL_ID = "uf_playback"
         const val NOTIFICATION_ID = 8801
+        // Smoothed effect-ramp shape (see applySavedEffectsToBoundSession).
+        private const val TICK_MS = 30L
+        private const val EQ_STEP_MB = 120          // ~1.2 dB per tick
+        private const val STRENGTH_STEP = 90        // of 0..1000
+        private const val LOUDNESS_STEP_MB = 150
         private const val HTTP_USER_AGENT = "Mozilla/5.0 (Linux; Android 14; UniverseFlow) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0 Mobile Safari/537.36"
     }
 
@@ -343,7 +348,7 @@ class ExoPlayerService : MediaSessionService() {
         // repeatedly tear down the working EQ just because (for example) a
         // device does not implement Virtualizer or LoudnessEnhancer.
         if (sid == boundSessionId) {
-            if (forceReapply) applySavedEffectsToBoundSession()
+            if (forceReapply) scheduleEffectRamp()
             return
         }
 
@@ -399,7 +404,24 @@ class ExoPlayerService : MediaSessionService() {
         boundSessionId = sid
     }
 
+    // ---- Smoothed parameter ramps ----
+    //
+    // Writing a new band level / strength in one jump makes the DSP change its
+    // filter coefficients instantly, which is audible as a click ("zipper
+    // noise") and on some Qualcomm/MTK devices briefly starves the audio track
+    // enough to stall playback. Every parameter now walks to its target in
+    // small steps on a 30ms tick, so a slider drag is heard as a smooth sweep.
+    private val effectHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val rampTick = Runnable { applySavedEffectsToBoundSession() }
+    private var rampScheduled = false
+
+    private fun stepToward(current: Int, target: Int, step: Int): Int {
+        if (current == target) return target
+        return if (target > current) minOf(target, current + step) else maxOf(target, current - step)
+    }
+
     private fun applySavedEffectsToBoundSession() {
+        var settled = true
         try {
             equalizer?.let { effect ->
                 if (appliedEqEnabled != eqEnabled) {
@@ -408,38 +430,72 @@ class ExoPlayerService : MediaSessionService() {
                 }
                 val range = effect.bandLevelRange
                 for ((band, level) in savedEqBands) {
-                    val clamped = level.toInt().coerceIn(range[0].toInt(), range[1].toInt()).toShort()
-                    if (appliedEqBands[band] != clamped) {
+                    val target = level.toInt().coerceIn(range[0].toInt(), range[1].toInt())
+                    val current = appliedEqBands[band]?.toInt() ?: target
+                    val next = stepToward(current, target, EQ_STEP_MB)
+                    if (next != current || appliedEqBands[band] == null) {
                         try {
-                            effect.setBandLevel(band, clamped)
-                            appliedEqBands[band] = clamped
+                            effect.setBandLevel(band, next.toShort())
+                            appliedEqBands[band] = next.toShort()
                         } catch (_: Throwable) {}
                     }
+                    if (next != target) settled = false
                 }
             }
             bassBoost?.let { effect ->
-                if (appliedBass != savedBassBoostStrength) {
-                    effect.enabled = savedBassBoostStrength > 0
-                    if (effect.enabled && effect.strengthSupported) effect.setStrength(savedBassBoostStrength)
-                    appliedBass = savedBassBoostStrength
+                val target = savedBassBoostStrength.toInt()
+                val current = appliedBass?.toInt() ?: target
+                val next = stepToward(current, target, STRENGTH_STEP)
+                if (next != current || appliedBass == null) {
+                    // Keep the effect enabled while ramping down to 0 so the
+                    // final step is a fade, not an abrupt bypass switch.
+                    effect.enabled = next > 0 || target > 0
+                    if (effect.enabled && effect.strengthSupported) effect.setStrength(next.toShort())
+                    if (next == 0 && target == 0) effect.enabled = false
+                    appliedBass = next.toShort()
                 }
+                if (next != target) settled = false
             }
             virtualizer?.let { effect ->
-                if (appliedVirtualizer != savedVirtualizerStrength) {
-                    effect.enabled = savedVirtualizerStrength > 0
-                    if (effect.enabled && effect.strengthSupported) effect.setStrength(savedVirtualizerStrength)
-                    appliedVirtualizer = savedVirtualizerStrength
+                val target = savedVirtualizerStrength.toInt()
+                val current = appliedVirtualizer?.toInt() ?: target
+                val next = stepToward(current, target, STRENGTH_STEP)
+                if (next != current || appliedVirtualizer == null) {
+                    effect.enabled = next > 0 || target > 0
+                    if (effect.enabled && effect.strengthSupported) effect.setStrength(next.toShort())
+                    if (next == 0 && target == 0) effect.enabled = false
+                    appliedVirtualizer = next.toShort()
                 }
+                if (next != target) settled = false
             }
             loudnessEnhancer?.let { effect ->
-                if (appliedLoudness != savedLoudnessGainMb) {
-                    effect.enabled = savedLoudnessGainMb > 0
-                    if (effect.enabled) effect.setTargetGain(savedLoudnessGainMb)
-                    appliedLoudness = savedLoudnessGainMb
+                val target = savedLoudnessGainMb
+                val current = appliedLoudness ?: target
+                val next = stepToward(current, target, LOUDNESS_STEP_MB)
+                if (next != current || appliedLoudness == null) {
+                    effect.enabled = next > 0 || target > 0
+                    if (effect.enabled) effect.setTargetGain(next)
+                    if (next == 0 && target == 0) effect.enabled = false
+                    appliedLoudness = next
                 }
+                if (next != target) settled = false
             }
-        } catch (_: Throwable) {}
+        } catch (_: Throwable) { settled = true }
+
+        rampScheduled = false
+        if (!settled) {
+            rampScheduled = true
+            effectHandler.postDelayed(rampTick, TICK_MS)
+        }
     }
+
+    /** Schedule one ramp pass; repeat calls while a ramp is running are free. */
+    private fun scheduleEffectRamp() {
+        if (rampScheduled) return
+        rampScheduled = true
+        effectHandler.post(rampTick)
+    }
+
 
     fun applyReverb(amount: Int) {
         savedReverbAmount = amount.coerceIn(0, 100)
@@ -516,6 +572,8 @@ class ExoPlayerService : MediaSessionService() {
     }
 
     private fun releaseEffects() {
+        effectHandler.removeCallbacks(rampTick)
+        rampScheduled = false
         try { equalizer?.release() } catch (_: Throwable) {}
         try { bassBoost?.release() } catch (_: Throwable) {}
         try { virtualizer?.release() } catch (_: Throwable) {}

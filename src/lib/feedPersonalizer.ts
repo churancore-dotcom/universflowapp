@@ -12,6 +12,7 @@
  */
 
 import { supabase } from '@/integrations/supabase/client';
+import { cachesEnabled } from '@/lib/ssrCache';
 
 export interface TasteProfile {
   /** artistName(lowercased) -> affinity score (higher = better) */
@@ -66,7 +67,8 @@ const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 /** Build (or reuse a cached) taste profile from recent play events. */
 export async function getTasteProfile(userId: string | null | undefined): Promise<TasteProfile> {
   if (!userId) return EMPTY_PROFILE;
-  if (cache && cache.userId === userId && Date.now() - cache.at < CACHE_TTL) {
+  // SSR isolation: never read another request's profile from module scope.
+  if (cachesEnabled() && cache && cache.userId === userId && Date.now() - cache.at < CACHE_TTL) {
     return cache.profile;
   }
 
@@ -106,7 +108,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
   }
 
   const profile: TasteProfile = { artists, keywords, skips, signalCount };
-  cache = { userId, at: Date.now(), profile };
+  if (cachesEnabled()) cache = { userId, at: Date.now(), profile };
   return profile;
 }
 

@@ -2,7 +2,13 @@
 // Server cache (stream_url_cache) is 5h; YouTube signed URLs live ~6h.
 // We mirror that on the client so repeat plays never hit the edge function.
 
-const NAMESPACE = 'ytm:stream:v1';
+import { BUILD_INFO } from '@/lib/buildInfo';
+
+// The namespace carries the app version, so shipping an update automatically
+// abandons every URL resolved by the previous build (resolver changes, format
+// preference changes, proxy changes) instead of replaying stale/broken audio.
+const NAMESPACE = `ytm:stream:v2:${BUILD_INFO.version}`;
+const LEGACY_NAMESPACES = ['ytm:stream:v1'];
 const TTL_MS = 6 * 60 * 60 * 1000;
 const VOLATILE_TTL_MS = 20 * 60 * 1000;
 const MAX_ENTRIES = 200;
@@ -65,7 +71,15 @@ function writeLS(videoId: string, entry: Entry) {
   }
 }
 
+let legacyPurged = false;
+function purgeLegacyOnce() {
+  if (legacyPurged || typeof window === 'undefined') return;
+  legacyPurged = true;
+  purgeLegacyStreamCaches();
+}
+
 export function getCachedStream(videoId: string): Entry | null {
+  purgeLegacyOnce();
   const now = Date.now();
   const mem = memory.get(videoId);
   if (mem && now - mem.ts < maxAgeFor(mem.url) && !mem.url.startsWith('yt-video:')) return mem;
@@ -100,6 +114,34 @@ export function setCachedStream(videoId: string, url: string, meta?: Entry['meta
     for (const [k] of oldest) memory.delete(k);
   }
   writeLS(videoId, entry);
+}
+
+/** Drop every entry that resolved to a URL that just failed playback. */
+export function invalidateStreamUrl(url?: string | null) {
+  if (!url) return;
+  for (const [videoId, entry] of memory) {
+    if (entry.url === url) invalidateStream(videoId);
+  }
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k?.startsWith(NAMESPACE)) continue;
+      const raw = localStorage.getItem(k);
+      if (raw && raw.includes(url)) localStorage.removeItem(k);
+    }
+  } catch { /* ignore */ }
+}
+
+/** One-time sweep of entries written by older cache formats. */
+export function purgeLegacyStreamCaches() {
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i--) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k.startsWith('ytm:stream:') && !k.startsWith(NAMESPACE)) localStorage.removeItem(k);
+      else if (LEGACY_NAMESPACES.some((ns) => k.startsWith(ns))) localStorage.removeItem(k);
+    }
+  } catch { /* ignore */ }
 }
 
 export function invalidateStream(videoId: string) {

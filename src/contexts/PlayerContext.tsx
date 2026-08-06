@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { useGlobalAudioEngine } from '@/hooks/useGlobalAudioEngine';
 import { supabase } from '@/integrations/supabase/client';
-import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, prefetchYouTubeVideoStream, invalidateYouTubeStream } from '@/lib/musicIndexer';
+import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, prefetchYouTubeVideoStream, invalidateYouTubeStream, invalidateStreamUrl } from '@/lib/musicIndexer';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import { recordPerfEvent } from '@/lib/perfMonitor';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
@@ -2080,6 +2080,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (isNativePlayerAvailable() && (audio.muted || false)) return;
 
       console.warn('[player] audio error:', errorCode, errorMessage);
+      // The URL we just failed on must never be served from cache again —
+      // signed googlevideo URLs expire and would otherwise be replayed for hours.
+      invalidateStreamUrl(audio.src);
       recordPerfEvent({
         event_type: 'playback_error',
         severity: 'error',
