@@ -72,6 +72,29 @@ class ConsoleWatch:
         return out
 
 
+async def restore_injected_session(context, page) -> bool:
+    """Prefer Lovable's managed session (no credentials in the repo)."""
+    session = os.environ.get("LOVABLE_BROWSER_SUPABASE_SESSION_JSON")
+    storage_key = os.environ.get("LOVABLE_BROWSER_SUPABASE_STORAGE_KEY")
+    cookies_json = os.environ.get("LOVABLE_BROWSER_SUPABASE_COOKIES_JSON")
+    if not session or not storage_key:
+        return False
+    if cookies_json:
+        cookies = json.loads(cookies_json)
+        for c in cookies:
+            c["url"] = BASE
+        await context.add_cookies(cookies)
+    await page.goto(BASE, wait_until="domcontentloaded")
+    await page.evaluate(
+        f"window.localStorage.setItem({json.dumps(storage_key)}, {json.dumps(session)})"
+    )
+    await page.goto(BASE, wait_until="domcontentloaded")
+    await page.wait_for_timeout(4_000)
+    ok = "/auth" not in page.url
+    check("login (managed session)", ok, page.url)
+    return ok
+
+
 async def login(page) -> bool:
     email = os.environ.get("UF_TEST_EMAIL")
     password = os.environ.get("UF_TEST_PASSWORD")
@@ -205,7 +228,8 @@ async def main() -> int:
         page = await context.new_page()
         console = ConsoleWatch(page)
 
-        await login(page)
+        if not await restore_injected_session(context, page):
+            await login(page)
         console.drain()
         await check_home(page, console)
         await check_artist_portraits(page)

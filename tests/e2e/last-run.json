@@ -1,5 +1,10 @@
 [
   {
+    "check": "login (managed session)",
+    "ok": false,
+    "detail": "http://localhost:8080/auth"
+  },
+  {
     "check": "login",
     "ok": true,
     "detail": "skipped (no UF_TEST_EMAIL / UF_TEST_PASSWORD)"
