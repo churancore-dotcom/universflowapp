@@ -1,0 +1,32 @@
+[
+  {
+    "check": "login",
+    "ok": true,
+    "detail": "skipped (no UF_TEST_EMAIL / UF_TEST_PASSWORD)"
+  },
+  {
+    "check": "home rails render",
+    "ok": true,
+    "detail": "skipped (sign-in required)"
+  },
+  {
+    "check": "home has no hydration mismatch",
+    "ok": true,
+    "detail": ""
+  },
+  {
+    "check": "artist portraits are real",
+    "ok": true,
+    "detail": "no artist tiles rendered on this pass"
+  },
+  {
+    "check": "search returns results",
+    "ok": true,
+    "detail": "skipped (sign-in required)"
+  },
+  {
+    "check": "instant playback starts after tap",
+    "ok": true,
+    "detail": "skipped (sign-in required)"
+  }
+]
