@@ -87,6 +87,21 @@ class ExoPlayerService : MediaSessionService() {
 
     private val stemAudioProcessor = StemAudioProcessor()
 
+    /** Our own device-independent 10-band EQ (see PcmEqualizer). */
+    val pcmEqualizer: PcmEqualizer get() = stemAudioProcessor.equalizer
+
+    /**
+     * Push saved band levels into the PCM equalizer. Unlike the vendor
+     * AudioFX equalizer this is not tied to the audio session id, so nothing
+     * has to be re-applied on a per-song session rebind.
+     */
+    fun applyPcmEq() {
+        pcmEqualizer.setEnabled(eqEnabled)
+        for (i in 0 until PcmEqualizer.BAND_COUNT) {
+            pcmEqualizer.setBandMillibels(i, savedEqBands[i.toShort()]?.toInt() ?: 0)
+        }
+    }
+
     private var boundSessionId: Int = C.AUDIO_SESSION_ID_UNSET
     private val appliedEqBands: MutableMap<Short, Short> = HashMap()
     private var appliedEqEnabled: Boolean? = null
@@ -353,22 +368,10 @@ class ExoPlayerService : MediaSessionService() {
         }
 
         releaseEffects()
-        try {
-            equalizer = Equalizer(1, sid).apply {
-                enabled = eqEnabled
-                // Re-apply every previously saved band level so user EQ
-                // survives per-song audio-session rebinds.
-                try {
-                    val range = bandLevelRange
-                    val min = range[0].toInt()
-                    val max = range[1].toInt()
-                    for ((band, level) in savedEqBands) {
-                        val clamped = level.toInt().coerceIn(min, max).toShort()
-                        try { setBandLevel(band, clamped) } catch (_: Throwable) {}
-                    }
-                } catch (_: Throwable) {}
-            }
-        } catch (_: Throwable) { equalizer = null }
+        // No vendor Equalizer: bands run through PcmEqualizer inside the PCM
+        // pipeline so every device behaves identically.
+        equalizer = null
+        applyPcmEq()
         try {
             bassBoost = BassBoost(1, sid).apply {
                 if (savedBassBoostStrength > 0) {
@@ -423,25 +426,6 @@ class ExoPlayerService : MediaSessionService() {
     private fun applySavedEffectsToBoundSession() {
         var settled = true
         try {
-            equalizer?.let { effect ->
-                if (appliedEqEnabled != eqEnabled) {
-                    effect.enabled = eqEnabled
-                    appliedEqEnabled = eqEnabled
-                }
-                val range = effect.bandLevelRange
-                for ((band, level) in savedEqBands) {
-                    val target = level.toInt().coerceIn(range[0].toInt(), range[1].toInt())
-                    val current = appliedEqBands[band]?.toInt() ?: target
-                    val next = stepToward(current, target, EQ_STEP_MB)
-                    if (next != current || appliedEqBands[band] == null) {
-                        try {
-                            effect.setBandLevel(band, next.toShort())
-                            appliedEqBands[band] = next.toShort()
-                        } catch (_: Throwable) {}
-                    }
-                    if (next != target) settled = false
-                }
-            }
             bassBoost?.let { effect ->
                 val target = savedBassBoostStrength.toInt()
                 val current = appliedBass?.toInt() ?: target
