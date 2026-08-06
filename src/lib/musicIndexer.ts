@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { findSongStreamUrl } from '@/lib/jiosaavn';
-import { getCachedStream as getYtmCached, setCachedStream as setYtmCached, invalidateStream as invalidateYtmCached } from '@/lib/ytmStreamCache';
+import { getCachedStream as getYtmCached, setCachedStream as setYtmCached, invalidateStream as invalidateYtmCached, invalidateStreamUrl as invalidateYtmCachedByUrl } from '@/lib/ytmStreamCache';
+import { withRequestLock, isInFailureCooldown, markRequestFailed, clearRequestFailure } from '@/lib/requestLock';
 import { recordPerfEvent } from '@/lib/perfMonitor';
 
 /**
@@ -639,6 +640,23 @@ export async function resolveYouTubeVideoStream(
     return { success: false, error: 'Invalid video id' };
   }
 
+  // RACE GUARD: a prewarm, a tap and an error-recovery retry can all ask for the
+  // same videoId at once. Without a lock they run independent resolver chains and
+  // the last one to finish overwrites the cache — that is how a listener ends up
+  // hearing the wrong track. One lock key per (videoId, forceRefresh).
+  const lockKey = `yt:${id}:${opts.forceRefresh === true ? 'force' : 'cached'}`;
+  if (!opts.forceRefresh && isInFailureCooldown(lockKey) && !getYtmCached(id)?.url) {
+    return { success: false, error: 'No audio stream available' };
+  }
+  return withRequestLock(lockKey, () => resolveYouTubeVideoStreamInner(id, opts, lockKey));
+}
+
+async function resolveYouTubeVideoStreamInner(
+  id: string,
+  opts: { forceRefresh?: boolean; title?: string; artist?: string },
+  lockKey: string,
+): Promise<ResolveTrackResponse> {
+
   // 1) 6h client cache
   if (!opts.forceRefresh) {
     const cached = getYtmCached(id);
@@ -728,6 +746,7 @@ export async function resolveYouTubeVideoStream(
 
 
   if (winner?.streamUrl) {
+    clearRequestFailure(lockKey);
     setYtmCached(id, winner.streamUrl, {
       title: winner.title,
       artist: winner.artist,
@@ -780,11 +799,17 @@ export async function resolveYouTubeVideoStream(
     } catch { /* nothing left */ }
   }
 
+  markRequestFailed(lockKey);
   return { success: false, error: 'No audio stream available' };
 }
 
 export function invalidateYouTubeStream(videoId: string) {
   invalidateYtmCached(videoId);
+}
+
+/** Forget a specific stream URL after it failed to play (expired signature etc). */
+export function invalidateStreamUrl(url?: string | null) {
+  invalidateYtmCachedByUrl(url);
 }
 
 async function resolveViaEdgeFunction(artist: string, title: string, cacheKey: string, forceRefresh = false): Promise<ResolveTrackResponse> {

@@ -15,6 +15,8 @@ const TTL_MS = 5 * 60 * 1000;
 
 type Entry<T> = { value?: T; resolvedAt: number; inflight?: Promise<T> };
 
+import { cachesEnabled } from '@/lib/ssrCache';
+
 const store = new Map<string, Entry<unknown>>();
 
 function keyFor(userId: string, kind: string) {
@@ -23,7 +25,7 @@ function keyFor(userId: string, kind: string) {
 
 /** Synchronously read a fresh cached decision, or undefined when unknown. */
 export function peekAccess<T>(userId: string | undefined | null, kind: string): T | undefined {
-  if (!userId) return undefined;
+  if (!userId || !cachesEnabled()) return undefined;
   const entry = store.get(keyFor(userId, kind)) as Entry<T> | undefined;
   if (!entry || entry.value === undefined) return undefined;
   if (Date.now() - entry.resolvedAt > TTL_MS) return undefined;
@@ -36,6 +38,8 @@ export function getAccess<T>(
   kind: string,
   loader: () => Promise<T>,
 ): Promise<T> {
+  // SSR isolation: role/access decisions must never survive across requests.
+  if (!cachesEnabled()) return loader();
   const key = keyFor(userId, kind);
   const entry = store.get(key) as Entry<T> | undefined;
   if (entry) {

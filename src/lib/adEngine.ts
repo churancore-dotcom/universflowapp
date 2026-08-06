@@ -31,6 +31,8 @@ export interface AdCampaign {
   ends_at: string | null;
 }
 
+import { cachesEnabled as isBrowserCache } from '@/lib/ssrCache';
+
 const COUNTER_KEY = 'uf_ad_songs_since_v1';
 const CACHE_TTL = 5 * 60 * 1000;
 
@@ -50,7 +52,7 @@ const isLive = (c: AdCampaign): boolean => {
 
 /** Fetches (and caches) the highest-priority live campaign. */
 export const loadAdCampaign = async (force = false): Promise<AdCampaign | null> => {
-  if (!force && cached && Date.now() - cachedAt < CACHE_TTL) return cached;
+  if (!force && isBrowserCache() && cached && Date.now() - cachedAt < CACHE_TTL) return cached;
   if (inflight) {
     if (!force) return inflight;
     await inflight;

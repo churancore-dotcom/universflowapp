@@ -1,4 +1,5 @@
 import { supabase } from '@/integrations/supabase/client';
+import { cachesEnabled } from '@/lib/ssrCache';
 
 export interface UserArtistPref {
   id: string;
@@ -29,7 +30,8 @@ const notifyArtistPrefsChanged = () => {
 };
 
 export async function getUserArtistPrefs(userId: string, force = false): Promise<UserArtistPref[]> {
-  if (!force && cache && cache.userId === userId && Date.now() - cache.ts < TTL) {
+  // SSR isolation: module-scope cache is browser-only (one module = one user).
+  if (!force && cachesEnabled() && cache && cache.userId === userId && Date.now() - cache.ts < TTL) {
     return cache.data;
   }
   const { data, error } = await supabase
@@ -41,7 +43,7 @@ export async function getUserArtistPrefs(userId: string, force = false): Promise
     console.error('Failed to load user artist prefs:', error);
     return [];
   }
-  cache = { userId, data: data || [], ts: Date.now() };
+  if (cachesEnabled()) cache = { userId, data: data || [], ts: Date.now() };
   return data || [];
 }
 
