@@ -61,6 +61,9 @@ interface ExoPlayerPluginShape {
   preloadQueue: (opts: { tracks: NativeQueueTrack[]; limit?: number }) => Promise<void>;
   pause: () => Promise<void>;
   resume: () => Promise<void>;
+  skipToNext: () => Promise<{ advanced: boolean }>;
+  skipToPrevious: () => Promise<{ advanced: boolean }>;
+  setRepeatMode: (opts: { mode: 'off' | 'all' | 'one' }) => Promise<void>;
   stop: () => Promise<void>;
   seekTo: (opts: { positionMs: number }) => Promise<void>;
   setVolume: (opts: { volume: number }) => Promise<void>;

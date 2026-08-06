@@ -564,6 +564,46 @@ class ExoPlayerPlugin : Plugin() {
     }
 
     @PluginMethod
+    fun skipToNext(call: PluginCall) {
+        runOnMain {
+            val p = service()?.player
+            val advanced = p?.hasNextMediaItem() == true
+            if (advanced) {
+                isStartingUp = true
+                p?.seekToNextMediaItem()
+                p?.playWhenReady = true
+                p?.play()
+            }
+            call.resolve(JSObject().put("advanced", advanced))
+        }
+    }
+
+    @PluginMethod
+    fun skipToPrevious(call: PluginCall) {
+        runOnMain {
+            val p = service()?.player
+            val advanced = p?.hasPreviousMediaItem() == true
+            if (advanced) p?.seekToPreviousMediaItem() else p?.seekTo(0L)
+            p?.playWhenReady = true
+            p?.play()
+            call.resolve(JSObject().put("advanced", advanced))
+        }
+    }
+
+    @PluginMethod
+    fun setRepeatMode(call: PluginCall) {
+        val mode = when (call.getString("mode")) {
+            "one" -> Player.REPEAT_MODE_ONE
+            "all" -> Player.REPEAT_MODE_ALL
+            else -> Player.REPEAT_MODE_OFF
+        }
+        runOnMain {
+            service()?.player?.repeatMode = mode
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
     fun stop(call: PluginCall) {
         playGeneration.incrementAndGet()
         runOnMain {
@@ -859,6 +899,11 @@ class ExoPlayerPlugin : Plugin() {
             svc.savedBassBoostStrength = bass.toShort()
             svc.savedVirtualizerStrength = virtualizer.toShort()
             svc.savedLoudnessGainMb = loudness
+            svc.applyPcmEnhancements(
+                spatialStrength = virtualizer,
+                surroundStrength = virtualizer,
+                lateNightGainMb = loudness,
+            )
             svc.applyStemMix(vocal, instrumental, persist = false)
             svc.ensureEffectsBound(forceReapply = true)
             try { svc.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}

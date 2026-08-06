@@ -521,6 +521,10 @@ class ExoPlayerService : MediaSessionService() {
         if (persist) persistEffectState()
     }
 
+    fun applyPcmEnhancements(spatialStrength: Int, surroundStrength: Int, lateNightGainMb: Int) {
+        stemAudioProcessor.setEnhancements(spatialStrength, surroundStrength, lateNightGainMb)
+    }
+
     private fun applyReverbParameters(effect: EnvironmentalReverb, amount: Int) {
         val wet = amount.coerceIn(0, 100)
         effect.enabled = wet > 0

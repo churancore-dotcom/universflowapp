@@ -6,7 +6,7 @@ import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { prewarmSong, prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
-import { rerank, tasteScore } from '@/lib/feedPersonalizer';
+import { rerank } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
@@ -31,8 +31,9 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const trending = useMemo(() => {
     const pool = charts?.top?.length ? charts.top : fallbackPool;
     const clean = pool.filter((s) => !isSpamSong(s));
-    const relevant = taste.signalCount >= 5 ? clean.filter((song) => tasteScore(song, taste) > 0) : clean;
-    return rerank(relevant, taste).slice(0, 12);
+    // Personalization reorders a real chart; it must never delete most of the
+    // chart merely because the listener has not played those artists before.
+    return rerank(clean, taste).slice(0, 18);
   }, [charts, fallbackPool, taste]);
 
   // Pre-resolve the top of the chart so the first taps are instant.

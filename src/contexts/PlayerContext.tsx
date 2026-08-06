@@ -3126,6 +3126,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       nextAudioRef.current.src = '';
     }
 
+    if (isNativePlayerAvailable()) {
+      try {
+        const result = await ExoPlayerPlugin.skipToNext();
+        if (result.advanced) return;
+      } catch { /* rebuild the queue below */ }
+    }
+
     const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
     if (nextIdx !== null) {
       playSongAtIndex(nextIdx, queue);
@@ -3135,7 +3142,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [queue, currentIndex, shuffle, repeat, showPrerollAd, getNextIndex, playSongAtIndex]);
 
-  const prevSong = useCallback(() => {
+  const prevSong = useCallback(async () => {
     if (queue.length === 0) return;
     if (showPrerollAd) return;
 
@@ -3149,6 +3156,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (nextAudioRef.current) {
       nextAudioRef.current.pause();
       nextAudioRef.current.src = '';
+    }
+
+
+    if (isNativePlayerAvailable()) {
+      try {
+        await ExoPlayerPlugin.skipToPrevious();
+        return;
+      } catch { /* use the web queue fallback below */ }
     }
 
     // If more than 3 seconds in, restart current song
@@ -3227,6 +3242,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return newMode;
     });
   }, []);
+
+  useEffect(() => {
+    if (!isNativePlayerAvailable()) return;
+    void ExoPlayerPlugin.setRepeatMode({ mode: repeat }).catch(() => undefined);
+  }, [repeat]);
 
   const toggleCrossfade = useCallback(() => {
     if (!getRuntimePremium()) {
