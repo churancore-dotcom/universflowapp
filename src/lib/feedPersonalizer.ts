@@ -13,6 +13,7 @@
 
 import { supabase } from '@/integrations/supabase/client';
 import { cachesEnabled } from '@/lib/ssrCache';
+import { loadLibrarySongs } from '@/lib/streamSongs';
 
 export interface TasteProfile {
   /** artistName(lowercased) -> affinity score (higher = better) */
@@ -73,15 +74,25 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
   }
 
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
-  const { data, error } = await supabase
-    .from('song_play_events')
-    .select('action, artist, title, score_weight, created_at')
-    .eq('user_id', userId)
-    .gte('created_at', since)
-    .order('created_at', { ascending: false })
-    .limit(2000);
+  // YouTube-style implicit taste: combine behavior (plays/skips), explicit
+  // intent (likes), and artist follows. A listener should not need five cloud
+  // play events before their feed starts feeling personal.
+  const [eventsResult, likedSongs, followedResult] = await Promise.all([
+    supabase
+      .from('song_play_events')
+      .select('action, artist, title, score_weight, created_at')
+      .eq('user_id', userId)
+      .gte('created_at', since)
+      .order('created_at', { ascending: false })
+      .limit(2000),
+    loadLibrarySongs(userId).catch(() => []),
+    supabase
+      .from('user_artist_preferences')
+      .select('artist_name')
+      .eq('user_id', userId),
+  ]);
 
-  if (error || !data) return EMPTY_PROFILE;
+  const data = eventsResult.data ?? [];
 
   const artists = new Map<string, number>();
   const keywords = new Map<string, number>();
@@ -105,6 +116,23 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
       skips.set(a, (skips.get(a) || 0) + r * 2);
       signalCount++;
     }
+  }
+
+  for (const song of likedSongs) {
+    const artist = (song.artist || '').trim().toLowerCase();
+    if (!artist) continue;
+    artists.set(artist, (artists.get(artist) || 0) + 7);
+    for (const keyword of tokenize(song.title || '')) {
+      keywords.set(keyword, (keywords.get(keyword) || 0) + 1.5);
+    }
+    signalCount += 2;
+  }
+
+  for (const row of followedResult.data ?? []) {
+    const artist = (row.artist_name || '').trim().toLowerCase();
+    if (!artist) continue;
+    artists.set(artist, (artists.get(artist) || 0) + 9);
+    signalCount += 2;
   }
 
   const profile: TasteProfile = { artists, keywords, skips, signalCount };

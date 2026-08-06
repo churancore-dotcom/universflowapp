@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,11 +18,24 @@ const MadeForYouSection = memo(() => {
   const { user } = useAuth();
   const { playSong, currentSong } = usePlayer();
   const taste = useTasteProfile();
+  const [recentVersion, setRecentVersion] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRecentVersion((value) => value + 1);
+    window.addEventListener('universflow:recently-played-changed', refresh);
+    window.addEventListener('uf:likes-changed', refresh);
+    window.addEventListener('uf:artist-prefs-changed', refresh);
+    return () => {
+      window.removeEventListener('universflow:recently-played-changed', refresh);
+      window.removeEventListener('uf:likes-changed', refresh);
+      window.removeEventListener('uf:artist-prefs-changed', refresh);
+    };
+  }, []);
 
   const recentEntries = useMemo(() => {
     if (!user?.id) return [] as ReturnType<typeof readLocalRecent>;
-    return readLocalRecent(user.id).slice(0, 5);
-  }, [user?.id]);
+    return readLocalRecent(user.id).slice(0, 20);
+  }, [user?.id, recentVersion]);
   const recentIds = useMemo(
     () => recentEntries.map((r) => r.song_id).filter(Boolean),
     [recentEntries],

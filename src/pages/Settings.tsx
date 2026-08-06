@@ -189,11 +189,15 @@ const Settings = () => {
     if (!user) return;
     const { data } = await supabase
       .from('profiles')
-      .select('is_private, created_at')
+      .select('is_private, created_at, mood_pushes_enabled')
       .eq('user_id', user.id)
       .single();
-    const row = data as { is_private?: boolean; created_at?: string } | null;
+    const row = data as { is_private?: boolean; created_at?: string; mood_pushes_enabled?: boolean } | null;
     setIsPrivate(!!row?.is_private);
+    if (typeof row?.mood_pushes_enabled === 'boolean') {
+      setMoodPushes(row.mood_pushes_enabled);
+      localStorage.setItem('uf_mood_pushes', String(row.mood_pushes_enabled));
+    }
     setProfileCreated(row?.created_at || user.created_at || null);
   }, [user]);
 
@@ -616,7 +620,14 @@ const Settings = () => {
                     setMoodPushes(val);
                     localStorage.setItem('uf_mood_pushes', String(val));
                     const { data: { user: u } } = await supabase.auth.getUser();
-                    if (u) { await supabase.from('profiles').update({ mood_pushes_enabled: val }).eq('user_id', u.id); }
+                    if (u) {
+                      const { error } = await supabase.from('profiles').update({ mood_pushes_enabled: val }).eq('user_id', u.id);
+                      if (error) {
+                        setMoodPushes(!val);
+                        localStorage.setItem('uf_mood_pushes', String(!val));
+                        toast.error('Could not update Smart Mood Picks');
+                      }
+                    }
                   }}
                   className="data-[state=checked]:bg-primary scale-90"
                   aria-label="Toggle Smart Mood Picks"

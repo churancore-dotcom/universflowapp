@@ -5,7 +5,7 @@
 import type { Song } from '@/contexts/PlayerContext';
 
 const KEY = 'uf_song_history_v1';
-const MAX = 20;
+const MAX = 100;
 
 export interface SongHistoryEntry {
   id: string;
