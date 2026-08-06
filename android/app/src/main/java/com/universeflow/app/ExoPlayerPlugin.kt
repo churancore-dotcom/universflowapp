@@ -679,7 +679,7 @@ class ExoPlayerPlugin : Plugin() {
             val svc = service()
             svc?.eqEnabled = enabled
             svc?.ensureEffectsBound()
-            try { svc?.equalizer?.enabled = enabled } catch (_: Throwable) {}
+            svc?.applyPcmEq()
             svc?.persistEffectState()
             call.resolve()
         }
@@ -692,22 +692,9 @@ class ExoPlayerPlugin : Plugin() {
         runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.ensureEffectsBound()
-            val eq = svc?.equalizer
-            if (eq == null) {
-                // Even if the effect isn't bound yet (no audio session id), save
-                // the intended level so it gets applied the moment effects bind.
-                svc?.savedEqBands?.put(band.toShort(), mb.toShort())
-                svc?.persistEffectState()
-                call.resolve(); return@runWhenReady
-            }
-            try {
-                val range = eq.bandLevelRange
-                val min = range[0].toInt()
-                val max = range[1].toInt()
-                val clamped = mb.coerceIn(min, max).toShort()
-                eq.setBandLevel(band.toShort(), clamped)
-                svc.savedEqBands[band.toShort()] = clamped
-            } catch (_: Throwable) {}
+            val clamped = mb.coerceIn(PcmEqualizer.MIN_LEVEL_MB, PcmEqualizer.MAX_LEVEL_MB).toShort()
+            svc?.savedEqBands?.put(band.toShort(), clamped)
+            svc?.applyPcmEq()
             svc?.persistEffectState()
             call.resolve()
         }
@@ -719,18 +706,15 @@ class ExoPlayerPlugin : Plugin() {
         runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.ensureEffectsBound()
-            val eq = svc?.equalizer
-            val minMax = try { eq?.bandLevelRange } catch (_: Throwable) { null }
-            val min = minMax?.getOrNull(0)?.toInt() ?: -1500
-            val max = minMax?.getOrNull(1)?.toInt() ?: 1500
             for (i in 0 until arr.length()) {
                 val obj = arr.optJSONObject(i) ?: continue
                 val band = obj.optInt("band", -1)
                 if (band < 0) continue
-                val clamped = obj.optInt("levelMillibels", 0).coerceIn(min, max).toShort()
-                try { eq?.setBandLevel(band.toShort(), clamped) } catch (_: Throwable) {}
+                val clamped = obj.optInt("levelMillibels", 0)
+                    .coerceIn(PcmEqualizer.MIN_LEVEL_MB, PcmEqualizer.MAX_LEVEL_MB).toShort()
                 svc?.savedEqBands?.put(band.toShort(), clamped)
             }
+            svc?.applyPcmEq()
             svc?.persistEffectState()
             call.resolve()
         }
@@ -741,39 +725,20 @@ class ExoPlayerPlugin : Plugin() {
         runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             svc?.ensureEffectsBound()
-            val eq = svc?.equalizer
             val out = JSObject()
-            if (eq == null) {
-                out.put("available", false)
-                out.put("numberOfBands", 0)
-                out.put("minLevel", 0)
-                out.put("maxLevel", 0)
-                out.put("bands", org.json.JSONArray())
-                call.resolve(out)
-                return@runWhenReady
+            val arr = org.json.JSONArray()
+            for (i in 0 until PcmEqualizer.BAND_COUNT) {
+                val obj = JSObject()
+                obj.put("index", i)
+                obj.put("centerFrequencyHz", PcmEqualizer.CENTER_FREQS_HZ[i])
+                obj.put("level", svc?.savedEqBands?.get(i.toShort())?.toInt() ?: 0)
+                arr.put(obj)
             }
-            try {
-                val n = eq.numberOfBands.toInt()
-                val range = eq.bandLevelRange
-                val arr = org.json.JSONArray()
-                for (i in 0 until n) {
-                    val freqRange = eq.getBandFreqRange(i.toShort())
-                    val center = eq.getCenterFreq(i.toShort()) // milliHz
-                    val obj = JSObject()
-                    obj.put("index", i)
-                    obj.put("centerFrequencyHz", center / 1000)
-                    obj.put("minFrequencyHz", freqRange[0] / 1000)
-                    obj.put("maxFrequencyHz", freqRange[1] / 1000)
-                    arr.put(obj)
-                }
-                out.put("available", true)
-                out.put("numberOfBands", n)
-                out.put("minLevel", range[0].toInt())
-                out.put("maxLevel", range[1].toInt())
-                out.put("bands", arr)
-            } catch (_: Throwable) {
-                out.put("available", false)
-            }
+            out.put("available", true)
+            out.put("numberOfBands", PcmEqualizer.BAND_COUNT)
+            out.put("minLevel", PcmEqualizer.MIN_LEVEL_MB)
+            out.put("maxLevel", PcmEqualizer.MAX_LEVEL_MB)
+            out.put("bands", arr)
             call.resolve(out)
         }
     }
@@ -893,9 +858,11 @@ class ExoPlayerPlugin : Plugin() {
                 for (i in 0 until bands.length()) {
                     val item = bands.optJSONObject(i) ?: continue
                     val band = item.optInt("band", -1)
-                    if (band >= 0) svc.savedEqBands[band.toShort()] = item.optInt("levelMillibels", 0).toShort()
+                    if (band >= 0) svc.savedEqBands[band.toShort()] = item.optInt("levelMillibels", 0)
+                        .coerceIn(PcmEqualizer.MIN_LEVEL_MB, PcmEqualizer.MAX_LEVEL_MB).toShort()
                 }
             }
+            svc.applyPcmEq()
             svc.savedBassBoostStrength = bass.toShort()
             svc.savedVirtualizerStrength = virtualizer.toShort()
             svc.savedLoudnessGainMb = loudness
