@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders,
   KeyRound, Trash2, EyeOff, Smartphone, Mail, CheckCircle2, Wifi, Download,
-  Radio, Bell, Sparkles, Vibrate, Globe, HardDrive, FileText, Info, ShieldCheck,
+  Radio, Bell, Music2, Vibrate, Globe, HardDrive, FileText, Info, ShieldCheck,
   Languages, Waves, Zap, Repeat, PlayCircle, HelpCircle,
 } from 'lucide-react';
 
@@ -154,7 +154,7 @@ const Settings = () => {
   const [gaplessPlayback, setGaplessPlayback] = useState(() => localStorage.getItem('uf_gapless') !== 'false');
   const [autoplay, setAutoplay] = useState(() => localStorage.getItem('uf_autoplay') !== 'false');
   const [notifications, setNotifications] = useState(() => localStorage.getItem('uf_notifications') !== 'false');
-  const [moodPushes, setMoodPushes] = useState(() => localStorage.getItem('uf_mood_pushes') !== 'false');
+  const [moodPushes, setMoodPushes] = useState(true);
   const [haptics, setHaptics] = useState(() => getHapticsEnabled());
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
@@ -189,11 +189,14 @@ const Settings = () => {
     if (!user) return;
     const { data } = await supabase
       .from('profiles')
-      .select('is_private, created_at')
+      .select('is_private, created_at, mood_pushes_enabled')
       .eq('user_id', user.id)
       .single();
-    const row = data as { is_private?: boolean; created_at?: string } | null;
+    const row = data as { is_private?: boolean; created_at?: string; mood_pushes_enabled?: boolean } | null;
     setIsPrivate(!!row?.is_private);
+    if (typeof row?.mood_pushes_enabled === 'boolean') {
+      setMoodPushes(row.mood_pushes_enabled);
+    }
     setProfileCreated(row?.created_at || user.created_at || null);
   }, [user]);
 
@@ -269,7 +272,6 @@ const Settings = () => {
   const handleHaptics = (val: boolean) => {
     setHaptics(val);
     setHapticsEnabled(val);           // aligns with useHaptics's storage key
-    localStorage.setItem('uf_haptics', String(val)); // legacy mirror
     if (val) triggerHaptic('selection'); // instant confirmation buzz
   };
 
@@ -435,7 +437,7 @@ const Settings = () => {
             <div className="px-4 py-3 border-b border-white/5">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="w-4 h-4 text-primary" />
+                  <Waves className="w-4 h-4 text-primary" />
                   <span className="text-sm">Crossfade Curve</span>
                 </div>
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">Pro</span>
@@ -606,7 +608,7 @@ const Settings = () => {
               right={<Switch checked={notifications} onCheckedChange={handleNotifications} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle push notifications" />}
             />
             <Row
-              icon={<Sparkles className="w-4 h-4" />}
+              icon={<Music2 className="w-4 h-4" />}
               label="Smart Mood Picks"
               sub="A daily song that matches your vibe"
               right={
@@ -614,9 +616,14 @@ const Settings = () => {
                   checked={moodPushes}
                   onCheckedChange={async (val) => {
                     setMoodPushes(val);
-                    localStorage.setItem('uf_mood_pushes', String(val));
                     const { data: { user: u } } = await supabase.auth.getUser();
-                    if (u) { await supabase.from('profiles').update({ mood_pushes_enabled: val }).eq('user_id', u.id); }
+                    if (u) {
+                      const { error } = await supabase.from('profiles').update({ mood_pushes_enabled: val }).eq('user_id', u.id);
+                      if (error) {
+                        setMoodPushes(!val);
+                        toast.error('Could not update Smart Mood Picks');
+                      }
+                    }
                   }}
                   className="data-[state=checked]:bg-primary scale-90"
                   aria-label="Toggle Smart Mood Picks"

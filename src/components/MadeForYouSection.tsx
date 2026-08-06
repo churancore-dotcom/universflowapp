@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import React, { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -18,18 +18,28 @@ const MadeForYouSection = memo(() => {
   const { user } = useAuth();
   const { playSong, currentSong } = usePlayer();
   const taste = useTasteProfile();
+  const [recentVersion, setRecentVersion] = useState(0);
+
+  useEffect(() => {
+    const refresh = () => setRecentVersion((value) => value + 1);
+    window.addEventListener('universflow:recently-played-changed', refresh);
+    window.addEventListener('uf:likes-changed', refresh);
+    window.addEventListener('uf:artist-prefs-changed', refresh);
+    return () => {
+      window.removeEventListener('universflow:recently-played-changed', refresh);
+      window.removeEventListener('uf:likes-changed', refresh);
+      window.removeEventListener('uf:artist-prefs-changed', refresh);
+    };
+  }, []);
 
   const recentEntries = useMemo(() => {
     if (!user?.id) return [] as ReturnType<typeof readLocalRecent>;
-    return readLocalRecent(user.id).slice(0, 5);
-  }, [user?.id]);
+    return readLocalRecent(user.id).slice(0, 20);
+  }, [user?.id, recentVersion]);
   const recentIds = useMemo(
     () => recentEntries.map((r) => r.song_id).filter(Boolean),
     [recentEntries],
   );
-
-  // Rotate seed pool every hour so "For You" doesn't show identical songs.
-  const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
 
   const { data: mix = [] } = useQuery({
     queryKey: [
@@ -37,7 +47,8 @@ const MadeForYouSection = memo(() => {
       user?.id ?? 'anon',
       recentIds.join(','),
       topTasteArtists(taste, 3).join(','),
-      hourBucket,
+      topTasteKeywords(taste, 3).join(','),
+      taste.signalCount,
     ],
     enabled: !!user,
     staleTime: 15 * 60 * 1000,
@@ -104,9 +115,9 @@ const MadeForYouSection = memo(() => {
           `rnb slow jams ${currentYear}`,
           `edm dance hits ${currentYear}`,
         ];
-        // Deterministic rotation by hour so users get a stable set within
-        // the hour, but a different set each hour of the day.
-        const start = hourBucket % POOL.length;
+        // Rotate only the cold-start fallback. Once listening/like/follow
+        // signals exist, the listener's real taste controls these queries.
+        const start = Math.floor(Date.now() / (60 * 60 * 1000)) % POOL.length;
         seedQueries = [POOL[start], POOL[(start + 3) % POOL.length], POOL[(start + 7) % POOL.length]];
       }
 

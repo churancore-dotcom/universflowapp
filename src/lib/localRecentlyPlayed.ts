@@ -7,7 +7,10 @@
 // table — can still be rehydrated for the Home "Jump Back In" tile and the
 // "For You" seed pool.
 
-const MAX_ENTRIES = 24;
+// Keep enough history to learn long-term taste and populate profile/history
+// surfaces. 100 lightweight snapshots is still comfortably below mobile
+// localStorage limits (artwork/audio are URLs, not binary data).
+const MAX_ENTRIES = 100;
 
 export type LocalRecentSnapshot = {
   id: string;

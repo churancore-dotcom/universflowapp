@@ -17,6 +17,8 @@ let likeCache = new Set<string>();
 let likeCacheLoaded = false;
 let likeCacheUserId: string | null = null;
 let likeCachePromise: Promise<void> | null = null;
+let likeRealtimeUserId: string | null = null;
+let likeRealtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
 // Subscribers — every mounted useLike hook registers here so a like toggle on
 // one card instantly re-renders every other LikeButton + Library list for the
@@ -48,18 +50,30 @@ const saveStreamLikes = (likes: Set<string>) => {
 };
 
 export const resetLikeCache = () => {
+  if (likeRealtimeChannel) {
+    supabase.removeChannel(likeRealtimeChannel);
+    likeRealtimeChannel = null;
+    likeRealtimeUserId = null;
+  }
   likeCache = new Set();
   likeCacheLoaded = false;
   likeCacheUserId = null;
   likeCachePromise = null;
 };
 
-const loadLikeCache = async (userId: string): Promise<void> => {
-  if (likeCacheUserId !== userId) resetLikeCache();
-  if (likeCacheLoaded && likeCacheUserId === userId) return;
-  if (likeCachePromise && likeCacheUserId === userId) return likeCachePromise;
+const loadLikeCache = async (userId: string, force = false): Promise<void> => {
+  if (likeCacheUserId !== userId) {
+    resetLikeCache();
+    likeCacheUserId = userId;
+  }
+  if (!force && likeCacheLoaded && likeCacheUserId === userId) return;
+  if (likeCachePromise && likeCacheUserId === userId) {
+    if (!force) return likeCachePromise;
+    // Serialize a realtime refresh behind an in-flight initial read so an
+    // older response can never overwrite the newer committed library state.
+    await likeCachePromise;
+  }
 
-  likeCacheUserId = userId;
   likeCachePromise = (async () => {
     const { data } = await supabase
       .from('user_library')
@@ -75,6 +89,23 @@ const loadLikeCache = async (userId: string): Promise<void> => {
   })();
 
   return likeCachePromise;
+};
+
+const ensureLikeRealtime = (userId: string) => {
+  if (likeRealtimeUserId === userId && likeRealtimeChannel) return;
+  if (likeRealtimeChannel) supabase.removeChannel(likeRealtimeChannel);
+  likeRealtimeUserId = userId;
+  likeRealtimeChannel = supabase
+    .channel(`library-live-${userId}`)
+    .on(
+      'postgres_changes',
+      { event: '*', schema: 'public', table: 'user_library', filter: `user_id=eq.${userId}` },
+      () => {
+        likeCacheLoaded = false;
+        loadLikeCache(userId, true).then(notifyLikeSubscribers).catch(() => {});
+      },
+    )
+    .subscribe();
 };
 
 export const useLike = (songId: string, song?: Song | null) => {
@@ -103,7 +134,10 @@ export const useLike = (songId: string, song?: Song | null) => {
     if (!user) {
       sync();
     } else {
-      loadLikeCache(user.id).then(sync);
+      loadLikeCache(user.id).then(() => {
+        ensureLikeRealtime(user.id);
+        sync();
+      });
     }
 
     likeSubscribers.add(sync);
@@ -156,6 +190,9 @@ export const useLike = (songId: string, song?: Song | null) => {
         saveStreamLikes(streamLikes);
       }
 
+      // The optimistic event above can race the write. Emit again only after
+      // persistence so Library/Profile/feed refetch the committed row.
+      notifyLikeSubscribers();
       toast.success(newLiked ? 'Added to favorites ❤️' : 'Removed from favorites');
     } catch (error) {
       console.error('Error toggling like:', error);

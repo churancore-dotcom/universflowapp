@@ -42,7 +42,7 @@ const Profile = () => {
   const navigate = useNavigate();
 
   const [stats, setStats] = useState({ likedSongs: 0, playlists: 0, downloads: 0 });
-  const [listenStats, setListenStats] = useState<{ minutes: number; topArtist: string | null; streak: number; totalPlays: number }>({ minutes: 0, topArtist: null, streak: 0, totalPlays: 0 });
+  const [listenStats, setListenStats] = useState<{ minutes: number; streak: number; totalPlays: number }>({ minutes: 0, streak: 0, totalPlays: 0 });
   const [recentSongs, setRecentSongs] = useState<Song[]>([]);
   const [memberSinceLabel, setMemberSinceLabel] = useState<string>('');
   const [statsReady, setStatsReady] = useState(false);
@@ -74,7 +74,7 @@ const Profile = () => {
   useEffect(() => {
     const load = () => {
       const entries = readLocalRecent(user?.id).filter((e) => e.song?.title && e.song?.artist);
-      setRecentSongs(entries.slice(0, 12).map((e) => ({
+       setRecentSongs(entries.slice(0, 30).map((e) => ({
         id: e.song_id,
         title: e.song!.title as string,
         artist: e.song!.artist as string,
@@ -155,17 +155,13 @@ const Profile = () => {
       const songById = new Map(((catalogSongs as { id: string; artist: string | null; duration: number | null }[] | null) || []).map(s => [s.id, s]));
 
       let totalSeconds = 0;
-      const artistCount = new Map<string, number>();
       const dayKeys = new Set<string>();
       rows.forEach(r => {
         const cat = r.song_id ? songById.get(r.song_id) : undefined;
         const seconds = Number(cat?.duration);
         if (Number.isFinite(seconds) && seconds > 0) totalSeconds += seconds;
-        const artist = r.artist || cat?.artist;
-        if (artist) artistCount.set(artist, (artistCount.get(artist) || 0) + 1);
         if (r.played_at) dayKeys.add(new Date(r.played_at).toISOString().slice(0, 10));
       });
-      const topArtist = [...artistCount.entries()].sort((a, b) => b[1] - a[1])[0]?.[0] || null;
 
       let streak = 0;
       const cursor = new Date();
@@ -178,7 +174,6 @@ const Profile = () => {
 
       setListenStats({
         minutes: Math.round(totalSeconds / 60),
-        topArtist,
         streak,
         totalPlays: rows.length,
       });
@@ -339,17 +334,6 @@ const Profile = () => {
                   <Dial value={`${listenStats.streak}d`} label="Streak" />
                 </div>
 
-                {listenStats.topArtist && (
-                  <div className="neu-inset mt-3 rounded-2xl px-4 py-3.5 flex items-center gap-3">
-                    <div className="neu-accent w-10 h-10 rounded-full flex items-center justify-center shrink-0">
-                      <Play className="w-4 h-4 text-white" fill="currentColor" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-white/35">Most played artist</p>
-                      <p className="font-semibold truncate text-[14px] mt-0.5">{listenStats.topArtist}</p>
-                    </div>
-                  </div>
-                )}
               </section>
             )}
 
