@@ -556,7 +556,9 @@ class ExoPlayerService : MediaSessionService() {
                     if (band != null && level != null) savedEqBands[band] = level
                 }
             }
+            applyPcmEq()
         } catch (_: Throwable) {}
+
     }
 
     private fun releaseEffects() {
