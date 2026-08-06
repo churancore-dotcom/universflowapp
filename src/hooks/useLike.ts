@@ -59,7 +59,12 @@ export const resetLikeCache = () => {
 const loadLikeCache = async (userId: string, force = false): Promise<void> => {
   if (likeCacheUserId !== userId) resetLikeCache();
   if (!force && likeCacheLoaded && likeCacheUserId === userId) return;
-  if (!force && likeCachePromise && likeCacheUserId === userId) return likeCachePromise;
+  if (likeCachePromise && likeCacheUserId === userId) {
+    if (!force) return likeCachePromise;
+    // Serialize a realtime refresh behind an in-flight initial read so an
+    // older response can never overwrite the newer committed library state.
+    await likeCachePromise;
+  }
 
   likeCacheUserId = userId;
   likeCachePromise = (async () => {
