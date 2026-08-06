@@ -41,16 +41,14 @@ const MadeForYouSection = memo(() => {
     [recentEntries],
   );
 
-  // Rotate seed pool every hour so "For You" doesn't show identical songs.
-  const hourBucket = Math.floor(Date.now() / (60 * 60 * 1000));
-
   const { data: mix = [] } = useQuery({
     queryKey: [
       'ytm-made-for-you-v4',
       user?.id ?? 'anon',
       recentIds.join(','),
       topTasteArtists(taste, 3).join(','),
-      hourBucket,
+      topTasteKeywords(taste, 3).join(','),
+      taste.signalCount,
     ],
     enabled: !!user,
     staleTime: 15 * 60 * 1000,

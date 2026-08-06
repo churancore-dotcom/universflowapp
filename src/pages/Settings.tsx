@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders,
   KeyRound, Trash2, EyeOff, Smartphone, Mail, CheckCircle2, Wifi, Download,
-  Radio, Bell, Sparkles, Vibrate, Globe, HardDrive, FileText, Info, ShieldCheck,
+  Radio, Bell, Music2, Vibrate, Globe, HardDrive, FileText, Info, ShieldCheck,
   Languages, Waves, Zap, Repeat, PlayCircle, HelpCircle,
 } from 'lucide-react';
 
@@ -439,7 +439,7 @@ const Settings = () => {
             <div className="px-4 py-3 border-b border-white/5">
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="w-4 h-4 text-primary" />
+                  <Waves className="w-4 h-4 text-primary" />
                   <span className="text-sm">Crossfade Curve</span>
                 </div>
                 <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">Pro</span>
@@ -610,7 +610,7 @@ const Settings = () => {
               right={<Switch checked={notifications} onCheckedChange={handleNotifications} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle push notifications" />}
             />
             <Row
-              icon={<Sparkles className="w-4 h-4" />}
+              icon={<Music2 className="w-4 h-4" />}
               label="Smart Mood Picks"
               sub="A daily song that matches your vibe"
               right={

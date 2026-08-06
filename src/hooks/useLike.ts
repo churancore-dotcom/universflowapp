@@ -59,7 +59,7 @@ export const resetLikeCache = () => {
 const loadLikeCache = async (userId: string, force = false): Promise<void> => {
   if (likeCacheUserId !== userId) resetLikeCache();
   if (!force && likeCacheLoaded && likeCacheUserId === userId) return;
-  if (likeCachePromise && likeCacheUserId === userId) return likeCachePromise;
+  if (!force && likeCachePromise && likeCacheUserId === userId) return likeCachePromise;
 
   likeCacheUserId = userId;
   likeCachePromise = (async () => {
