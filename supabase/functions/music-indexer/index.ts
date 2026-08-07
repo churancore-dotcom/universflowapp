@@ -1596,10 +1596,19 @@ serve(async (req) => {
         });
       }
       try {
+        const ck = `artist-imgs:${cacheRound}:${names.map((n) => n.toLowerCase()).sort().join('|')}`;
+        const cached = getCached<Record<string, string>>(ck);
+        if (cached) {
+          return new Response(JSON.stringify({ success: true, results: cached }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         const results = await enrichArtistImages(names);
+        setCached(ck, results, 6 * 60 * 60 * 1000);
         return new Response(JSON.stringify({ success: true, results }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+
       } catch (error) {
         console.error('music-indexer enrich-artist-images error:', error);
         return new Response(JSON.stringify({ success: true, results: {} }), {
