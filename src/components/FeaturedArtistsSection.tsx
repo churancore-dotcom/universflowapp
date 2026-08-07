@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from '@/lib/router-compat';
 import { ChevronRight } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { enrichArtistImages } from '@/lib/musicIndexer';
+import { cachedArtistPortrait, enrichArtistImages } from '@/lib/musicIndexer';
 import { useQuery } from '@tanstack/react-query';
 import FollowArtistButton from './FollowArtistButton';
 import type { Song } from '@/contexts/PlayerContext';
@@ -84,10 +84,11 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
   });
 
   const artists = useMemo<DisplayArtist[]>(() => {
-    const resolved = baseArtists.map((a) => ({
-      ...a,
-      image: isPortraitUrl(portraits?.[a.name] ?? null) ? (portraits?.[a.name] ?? null) : null,
-    }));
+    const resolved = baseArtists.map((a) => {
+      // Locally cached portrait paints instantly; the query result refines it.
+      const url = portraits?.[a.name] ?? cachedArtistPortrait(a.name);
+      return { ...a, image: isPortraitUrl(url) ? url : null };
+    });
     const withPortrait = resolved.filter((a) => a.image);
     // Prefer real portraits. If a region's chart artists have no portrait yet,
     // still show the genuinely trending names with a monogram tile rather than
