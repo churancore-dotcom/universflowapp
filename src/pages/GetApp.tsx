@@ -9,11 +9,14 @@ const VERSION = "1.0.0";
 const SIZE = "11 MB";
 
 const SHOTS = [
-  { src: "/screenshots/player.png", alt: "Universflow Now Playing screen" },
-  { src: "/screenshots/home.png", alt: "Universflow home screen" },
-  { src: "/screenshots/library.png", alt: "Your Library — liked songs and playlists" },
-  { src: "/screenshots/search.png", alt: "Discover and search" },
+  { src: "/screenshots/home.png", alt: "Universflow home feed with personalized rails" },
+  { src: "/screenshots/search.png", alt: "Search results with instant like buttons" },
+  { src: "/screenshots/library.png", alt: "Your Library — liked songs" },
+  { src: "/screenshots/playlist.png", alt: "Playlist detail screen" },
+  { src: "/screenshots/downloads.png", alt: "Offline downloads screen" },
+  { src: "/screenshots/premium.png", alt: "Universflow Premium plans" },
   { src: "/screenshots/profile.png", alt: "Profile and listening stats" },
+  { src: "/screenshots/settings.png", alt: "Playback and download settings" },
 ];
 
 const handleShare = async () => {
