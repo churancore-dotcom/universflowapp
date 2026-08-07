@@ -19,7 +19,7 @@ const isPortraitUrl = (url: string | null) => {
   // Only accept known artist-image CDN endpoints — never channel thumbnails or
   // song covers. Deezer is the backend's exact-name fallback for Spotify gaps.
   try {
-    const parsed = new URL(url, window.location.origin);
+    const parsed = new URL(url, 'https://universflow.invalid');
     const spotify = parsed.hostname === 'i.scdn.co' && /^\/image\/[a-z0-9]+$/i.test(parsed.pathname);
     const deezer = parsed.hostname === 'e-cdns-images.dzcdn.net'
       && /^\/images\/artist\/[a-z0-9]+\/[a-z0-9-]+\.jpg$/i.test(parsed.pathname);

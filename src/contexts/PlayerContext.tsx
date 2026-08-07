@@ -1939,8 +1939,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const nextTrack = activeQueue[nextIdx];
         const currentIdentity = currentSongRef.current ? getSongIdentity(currentSongRef.current) : `index-${activeIndex}`;
         const adBoundary = `${currentIdentity}>${nextTrack ? getSongIdentity(nextTrack) : nextIdx}`;
-        if (lastAdBoundaryRef.current !== adBoundary && noteSongCompleted()) {
-          lastAdBoundaryRef.current = adBoundary;
+        const shouldCountBoundary = lastAdBoundaryRef.current !== adBoundary;
+        if (shouldCountBoundary) lastAdBoundaryRef.current = adBoundary;
+        if (shouldCountBoundary && noteSongCompleted()) {
           if (nextTrack) {
             try { audio.pause(); } catch { /* noop */ }
             wasPlayingRef.current = false;
@@ -2356,8 +2357,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // the transition and hand the same track to the ad completion flow.
           const currentIdentity = currentSongRef.current ? getSongIdentity(currentSongRef.current) : `index-${currentIndexRef.current}`;
           const adBoundary = `${currentIdentity}>${getSongIdentity(nextSong)}`;
-          if (lastAdBoundaryRef.current !== adBoundary && noteSongCompleted()) {
-            lastAdBoundaryRef.current = adBoundary;
+          const shouldCountBoundary = lastAdBoundaryRef.current !== adBoundary;
+          if (shouldCountBoundary) lastAdBoundaryRef.current = adBoundary;
+          if (shouldCountBoundary && noteSongCompleted()) {
             void ExoPlayerPlugin.pause().catch(() => undefined);
             nativeUserPausedRef.current = true;
             wasPlayingRef.current = false;
