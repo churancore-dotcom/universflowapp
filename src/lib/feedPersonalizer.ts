@@ -14,6 +14,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { cachesEnabled } from '@/lib/ssrCache';
 import { loadLibrarySongs } from '@/lib/streamSongs';
+import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 
 export interface TasteProfile {
   /** artistName(lowercased) -> affinity score (higher = better) */
@@ -135,6 +136,22 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
     signalCount += 2;
   }
 
+  // Local playback is written immediately, while cloud analytics can arrive
+  // later or be unavailable offline. Fold it in so one listening session can
+  // reshape the next Home render without waiting for background ingestion.
+  for (const entry of readLocalRecent(userId).slice(0, 50)) {
+    const artist = (entry.song?.artist || '').trim().toLowerCase();
+    const title = entry.song?.title || '';
+    if (!artist) continue;
+    const ageDays = Math.max(0, (Date.now() - entry.played_at) / 86_400_000);
+    const weight = Math.max(0.5, 4 * Math.exp(-ageDays / 7));
+    artists.set(artist, (artists.get(artist) || 0) + weight);
+    for (const keyword of tokenize(title)) {
+      keywords.set(keyword, (keywords.get(keyword) || 0) + weight * 0.35);
+    }
+    signalCount += 1;
+  }
+
   const profile: TasteProfile = { artists, keywords, skips, signalCount };
   if (cachesEnabled()) cache = { userId, at: Date.now(), profile };
   return profile;
@@ -150,7 +167,7 @@ export interface RerankItem { artist?: string | null; title?: string | null }
  * Returns 0 for cold-start (so original order is preserved).
  */
 export function tasteScore(item: RerankItem, profile: TasteProfile): number {
-  if (profile.signalCount < 5) return 0;
+  if (profile.signalCount < 1) return 0;
   const a = (item.artist || '').trim().toLowerCase();
   let s = 0;
   if (a) {
@@ -170,7 +187,7 @@ export function tasteScore(item: RerankItem, profile: TasteProfile): number {
  * decreasing positional score so we don't fully discard the source ranking.
  */
 export function rerank<T extends RerankItem>(items: T[], profile: TasteProfile): T[] {
-  if (profile.signalCount < 5 || items.length < 2) return items;
+  if (profile.signalCount < 1 || items.length < 2) return items;
   const scored = items.map((item, idx) => {
     // Editorial weight: first item ~ 1.0, decays slowly. Personal score is added.
     const editorial = 1 / Math.log2(idx + 2);

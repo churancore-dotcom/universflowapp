@@ -312,6 +312,10 @@ class ExoPlayerService : MediaSessionService() {
             val placeholder = androidx.core.app.NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(R.drawable.ic_stat_music)
                 .setContentTitle(getString(R.string.app_name))
+                .setContentText(getString(R.string.preparing_playback))
+                .setCategory(androidx.core.app.NotificationCompat.CATEGORY_TRANSPORT)
+                .setVisibility(androidx.core.app.NotificationCompat.VISIBILITY_PUBLIC)
+                .setOnlyAlertOnce(true)
                 .setOngoing(true)
                 .setSilent(true)
                 .build()
@@ -483,6 +487,12 @@ class ExoPlayerService : MediaSessionService() {
 
     fun applyReverb(amount: Int) {
         savedReverbAmount = amount.coerceIn(0, 100)
+        stemAudioProcessor.setEnhancements(
+            savedVirtualizerStrength.toInt(),
+            savedVirtualizerStrength.toInt(),
+            savedLoudnessGainMb,
+            savedReverbAmount,
+        )
         if (appliedReverb == savedReverbAmount) return
         val effect = environmentalReverb
         if (effect != null) {
@@ -505,8 +515,8 @@ class ExoPlayerService : MediaSessionService() {
         if (persist) persistEffectState()
     }
 
-    fun applyPcmEnhancements(spatialStrength: Int, surroundStrength: Int, lateNightGainMb: Int) {
-        stemAudioProcessor.setEnhancements(spatialStrength, surroundStrength, lateNightGainMb)
+    fun applyPcmEnhancements(spatialStrength: Int, surroundStrength: Int, lateNightGainMb: Int, reverbAmount: Int = savedReverbAmount) {
+        stemAudioProcessor.setEnhancements(spatialStrength, surroundStrength, lateNightGainMb, reverbAmount)
     }
 
     private fun applyReverbParameters(effect: EnvironmentalReverb, amount: Int) {
@@ -548,6 +558,12 @@ class ExoPlayerService : MediaSessionService() {
             savedVocalMix = prefs.getInt("vocalMix", 100).coerceIn(0, 100)
             savedInstrumentalMix = prefs.getInt("instrumentalMix", 100).coerceIn(0, 100)
             stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix)
+            stemAudioProcessor.setEnhancements(
+                savedVirtualizerStrength.toInt(),
+                savedVirtualizerStrength.toInt(),
+                savedLoudnessGainMb,
+                savedReverbAmount,
+            )
             prefs.getString("bands", null)?.split(',')?.forEach { entry ->
                 val pair = entry.split(':')
                 if (pair.size == 2) {

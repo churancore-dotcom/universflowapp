@@ -51,9 +51,9 @@ const MadeForYouSection = memo(() => {
       taste.signalCount,
     ],
     enabled: !!user,
-    staleTime: 15 * 60 * 1000,
+    staleTime: 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
-    refetchInterval: 20 * 60 * 1000,
+    refetchInterval: 5 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
       let seedQueries: string[] = [];
       // Snapshot artists from local recents cover YT/audius tracks that never

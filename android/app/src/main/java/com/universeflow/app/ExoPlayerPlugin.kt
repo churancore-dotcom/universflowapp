@@ -870,6 +870,7 @@ class ExoPlayerPlugin : Plugin() {
                 spatialStrength = virtualizer,
                 surroundStrength = virtualizer,
                 lateNightGainMb = loudness,
+                reverbAmount = reverb,
             )
             svc.applyStemMix(vocal, instrumental, persist = false)
             svc.ensureEffectsBound(forceReapply = true)
