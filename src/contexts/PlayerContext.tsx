@@ -1937,7 +1937,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         // Ad break — ONLY on auto-advance (never on a user tap, so tap-to-play
         // latency is untouched). Premium users are excluded inside the engine.
         const nextTrack = activeQueue[nextIdx];
-        const adBoundary = `${getSongIdentity(currentSongRef.current)}>${nextTrack ? getSongIdentity(nextTrack) : nextIdx}`;
+        const currentIdentity = currentSongRef.current ? getSongIdentity(currentSongRef.current) : `index-${activeIndex}`;
+        const adBoundary = `${currentIdentity}>${nextTrack ? getSongIdentity(nextTrack) : nextIdx}`;
         if (lastAdBoundaryRef.current !== adBoundary && noteSongCompleted()) {
           lastAdBoundaryRef.current = adBoundary;
           if (nextTrack) {
@@ -2353,7 +2354,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Native queues advance inside ExoPlayer, bypassing the web `ended`
           // handler where ad cadence is normally counted. Pause immediately on
           // the transition and hand the same track to the ad completion flow.
-          const adBoundary = `${getSongIdentity(currentSongRef.current)}>${getSongIdentity(nextSong)}`;
+          const currentIdentity = currentSongRef.current ? getSongIdentity(currentSongRef.current) : `index-${currentIndexRef.current}`;
+          const adBoundary = `${currentIdentity}>${getSongIdentity(nextSong)}`;
           if (lastAdBoundaryRef.current !== adBoundary && noteSongCompleted()) {
             lastAdBoundaryRef.current = adBoundary;
             void ExoPlayerPlugin.pause().catch(() => undefined);
