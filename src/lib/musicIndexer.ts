@@ -896,19 +896,72 @@ export async function getTopArtistsByTag(tag: string, limit = 40): Promise<Index
   }
 }
 
-export async function enrichArtistImages(names: string[]): Promise<Record<string, string>> {
-  const filtered = names.filter((n) => typeof n === 'string' && n.trim()).slice(0, 60);
-  if (!filtered.length) return {};
+const PORTRAIT_CACHE_KEY = 'uf_artist_portraits_v1';
+const PORTRAIT_TTL = 7 * 24 * 60 * 60 * 1000;
+
+type PortraitCache = Record<string, { url: string; at: number }>;
+
+function readPortraitCache(): PortraitCache {
+  if (typeof window === 'undefined') return {};
   try {
-    const data = await requestIndexer<ArtistImagesResponse>({
-      action: 'enrich-artist-images',
-      names: filtered,
-    });
-    return data.results && typeof data.results === 'object' ? data.results : {};
+    const raw = window.localStorage.getItem(PORTRAIT_CACHE_KEY);
+    const parsed = raw ? (JSON.parse(raw) as PortraitCache) : {};
+    return parsed && typeof parsed === 'object' ? parsed : {};
   } catch {
     return {};
   }
 }
+
+function writePortraitCache(cache: PortraitCache) {
+  if (typeof window === 'undefined') return;
+  try {
+    const entries = Object.entries(cache)
+      .filter(([, v]) => v && Date.now() - v.at < PORTRAIT_TTL)
+      .slice(-400);
+    window.localStorage.setItem(PORTRAIT_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+  } catch { /* quota — cache is best-effort */ }
+}
+
+/** Read the locally cached portrait for a name (instant paint, no network). */
+export function cachedArtistPortrait(name: string): string | null {
+  const hit = readPortraitCache()[name.trim().toLowerCase()];
+  return hit && Date.now() - hit.at < PORTRAIT_TTL ? hit.url : null;
+}
+
+export async function enrichArtistImages(names: string[]): Promise<Record<string, string>> {
+  const filtered = names.filter((n) => typeof n === 'string' && n.trim()).slice(0, 60);
+  if (!filtered.length) return {};
+
+  // Serve known portraits instantly and only ask the backend for the rest, so a
+  // cold start (or a failing request) never leaves artist cards blank.
+  const cache = readPortraitCache();
+  const out: Record<string, string> = {};
+  const missing: string[] = [];
+  for (const name of filtered) {
+    const hit = cache[name.trim().toLowerCase()];
+    if (hit && Date.now() - hit.at < PORTRAIT_TTL) out[name] = hit.url;
+    else missing.push(name);
+  }
+  if (!missing.length) return out;
+
+  try {
+    const data = await requestIndexer<ArtistImagesResponse>({
+      action: 'enrich-artist-images',
+      names: missing,
+    });
+    const fresh = data.results && typeof data.results === 'object' ? data.results : {};
+    for (const [name, url] of Object.entries(fresh)) {
+      if (typeof url !== 'string' || !url) continue;
+      out[name] = url;
+      cache[name.trim().toLowerCase()] = { url, at: Date.now() };
+    }
+    writePortraitCache(cache);
+    return out;
+  } catch {
+    return out;
+  }
+}
+
 
 // Country viral chart (Last.fm geo.getTopTracks). Returns real per-country trending tracks.
 export async function getGeoTopTracks(country: string, limit = 30): Promise<IndexedTrack[]> {

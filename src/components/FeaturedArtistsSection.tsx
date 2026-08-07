@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate } from '@/lib/router-compat';
 import { ChevronRight } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { enrichArtistImages } from '@/lib/musicIndexer';
+import { cachedArtistPortrait, enrichArtistImages } from '@/lib/musicIndexer';
 import { useQuery } from '@tanstack/react-query';
 import FollowArtistButton from './FollowArtistButton';
 import type { Song } from '@/contexts/PlayerContext';
@@ -21,8 +21,11 @@ const isPortraitUrl = (url: string | null) => {
   try {
     const parsed = new URL(url, 'https://universflow.invalid');
     const spotify = parsed.hostname === 'i.scdn.co' && /^\/image\/[a-z0-9]+$/i.test(parsed.pathname);
-    const deezer = parsed.hostname === 'e-cdns-images.dzcdn.net'
-      && /^\/images\/artist\/[a-z0-9]+\/[a-z0-9-]+\.jpg$/i.test(parsed.pathname);
+    // Deezer serves artist portraits from several CDN hostnames
+    // (cdn-images / e-cdns-images / e-cdn-images). What guarantees it is a real
+    // portrait — never a song cover — is the /images/artist/ path segment.
+    const deezer = /(^|\.)dzcdn\.net$/i.test(parsed.hostname)
+      && /^\/images\/artist\/[a-z0-9]+\//i.test(parsed.pathname);
     return spotify || deezer;
   } catch {
     return false;
@@ -84,10 +87,11 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
   });
 
   const artists = useMemo<DisplayArtist[]>(() => {
-    const resolved = baseArtists.map((a) => ({
-      ...a,
-      image: isPortraitUrl(portraits?.[a.name] ?? null) ? (portraits?.[a.name] ?? null) : null,
-    }));
+    const resolved = baseArtists.map((a) => {
+      // Locally cached portrait paints instantly; the query result refines it.
+      const url = portraits?.[a.name] ?? cachedArtistPortrait(a.name);
+      return { ...a, image: isPortraitUrl(url) ? url : null };
+    });
     const withPortrait = resolved.filter((a) => a.image);
     // Prefer real portraits. If a region's chart artists have no portrait yet,
     // still show the genuinely trending names with a monogram tile rather than

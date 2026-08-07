@@ -50,7 +50,6 @@ const MadeForYouSection = memo(() => {
       topTasteKeywords(taste, 3).join(','),
       taste.signalCount,
     ],
-    enabled: !!user,
     staleTime: 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
     refetchInterval: 5 * 60 * 1000,

@@ -1583,25 +1583,11 @@ serve(async (req) => {
     }
 
     if (action === 'enrich-artist-images') {
-      const userId = await getAuthenticatedUserId(req);
-      if (!userId) {
-        return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
-          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
-      }
-      const admin = getAdminClient();
-      if (admin) {
-        const { data: allowed } = await admin.rpc('check_and_increment_rate_limit', {
-          _user_id: userId,
-          _endpoint: 'music-indexer:enrich-artist-images',
-          _max_per_minute: 20,
-        });
-        if (allowed === false) {
-          return new Response(JSON.stringify({ success: false, error: 'Rate limit exceeded' }), {
-            status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-          });
-        }
-      }
+      // Public: artist portraits are public catalogue imagery (Spotify/Deezer),
+      // no user data involved. Gating it behind auth was why artist cards showed
+      // blank monograms for signed-out sessions and on cold APK starts.
+      const cacheRound = Math.floor(Date.now() / (6 * 60 * 60 * 1000));
+
 
       const names = Array.isArray(body.names) ? body.names.filter((n: unknown): n is string => typeof n === 'string').slice(0, 60) : [];
       if (!names.length) {
@@ -1610,10 +1596,19 @@ serve(async (req) => {
         });
       }
       try {
+        const ck = `artist-imgs:${cacheRound}:${names.map((n) => n.toLowerCase()).sort().join('|')}`;
+        const cached = getCached<Record<string, string>>(ck);
+        if (cached) {
+          return new Response(JSON.stringify({ success: true, results: cached }), {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
         const results = await enrichArtistImages(names);
+        setCached(ck, results, 6 * 60 * 60 * 1000);
         return new Response(JSON.stringify({ success: true, results }), {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+
       } catch (error) {
         console.error('music-indexer enrich-artist-images error:', error);
         return new Response(JSON.stringify({ success: true, results: {} }), {
