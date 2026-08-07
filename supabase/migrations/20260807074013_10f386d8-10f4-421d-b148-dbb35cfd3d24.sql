@@ -1,0 +1,1 @@
+UPDATE public.profiles SET email_verified = true WHERE email = 'promo.p9nvds@universflowtest.com';
