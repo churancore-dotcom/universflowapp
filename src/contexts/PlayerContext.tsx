@@ -1172,7 +1172,69 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       };
 
-      // 1) Same artist
+      // 1) YT Music Radio FIRST — this is what YouTube/Spotify actually do:
+      // the next-up queue is a real "mix" built around the track you're on, not
+      // a random dump of the local catalogue.
+      const seedVideoId = seed.id?.startsWith('ytm-') ? seed.id.slice(4) : undefined;
+      if (seedVideoId) {
+        try {
+          const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId: seedVideoId } });
+          const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
+          for (const t of tracks) {
+            if (!t?.videoId) continue;
+            const id = `ytm-${t.videoId}`;
+            if (existing.has(id)) continue;
+            existing.add(id);
+            pool.push({
+              id,
+              title: t.title,
+              artist: t.artist || 'Unknown',
+              cover_url: t.cover_url,
+              audio_url: t.audio_url || `yt-video:${t.videoId}`,
+              duration: t.duration || undefined,
+              source: 'indexed',
+            } as Song);
+            if (pool.length >= 25) break;
+          }
+        } catch (e) {
+          console.warn('[autoMix] ytm-radio failed', e);
+        }
+      }
+
+      // 2) Taste-aware search mix — same artist / similar sound from the live
+      // catalogue, so even a locally uploaded seed keeps playing forever.
+      if (pool.length < 12) {
+        const queries = [seed.artist, seed.title]
+          .map((v) => (v || '').trim())
+          .filter(Boolean)
+          .slice(0, 2)
+          .map((v) => `${v} official music mix`);
+        for (const q of queries) {
+          if (pool.length >= 20) break;
+          try {
+            const tracks = await searchYouTubeMusicTracks(q, 20);
+            for (const t of tracks) {
+              const id = t.id || (t.videoId ? `ytm-${t.videoId}` : '');
+              if (!id || existing.has(id)) continue;
+              existing.add(id);
+              pool.push({
+                id,
+                title: t.title,
+                artist: t.artist || 'Unknown',
+                cover_url: t.cover_url,
+                audio_url: t.audio_url || (t.videoId ? `yt-video:${t.videoId}` : ''),
+                duration: t.duration || undefined,
+                source: 'indexed',
+              } as Song);
+              if (pool.length >= 20) break;
+            }
+          } catch (e) {
+            console.warn('[autoMix] search mix failed', e);
+          }
+        }
+      }
+
+      // 3) Same artist
       if (pool.length < 25) {
         const artistName = seed.artist?.trim();
         if (artistName) {
@@ -1186,7 +1248,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
 
-      // 2) Same genre / mood
+      // 4) Same genre / mood
       if (pool.length < 25 && (seed.genre || seed.mood)) {
         let q = supabase
           .from('songs')
@@ -1201,7 +1263,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         pushUnique(shuffled);
       }
 
-      // 3) Trending fallback
+      // 5) Trending fallback
       if (pool.length < 10) {
         const { data } = await supabase
           .from('songs')
@@ -1211,38 +1273,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           .limit(40);
         const shuffled = [...((data as SongRowWithArtist[] | null) || [])].sort(() => Math.random() - 0.5);
         pushUnique(shuffled);
-      }
-
-      // 4) YT Music Radio fallback — pulls the official "Mix" queue Innertube
-      // builds for ANY video. Kicks in when local DB doesn't have enough.
-      // We always try if seed is a YTM track (id "ytm-<videoId>"), and as
-      // a last resort even for local tracks via title+artist resolved videoId.
-      if (pool.length < 15) {
-        const seedVideoId = seed.id?.startsWith('ytm-') ? seed.id.slice(4) : undefined;
-        if (seedVideoId) {
-          try {
-            const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId: seedVideoId } });
-            const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
-            for (const t of tracks) {
-              if (!t?.videoId) continue;
-              const id = `ytm-${t.videoId}`;
-              if (existing.has(id)) continue;
-              existing.add(id);
-              pool.push({
-                id,
-                title: t.title,
-                artist: t.artist || 'Unknown',
-                cover_url: t.cover_url,
-                audio_url: t.audio_url || `yt-video:${t.videoId}`,
-                duration: t.duration || undefined,
-                source: 'indexed',
-              } as Song);
-              if (pool.length >= 25) break;
-            }
-          } catch (e) {
-            console.warn('[autoMix] ytm-radio failed', e);
-          }
-        }
       }
 
       pool.forEach((s) => autoMixSeenRef.current.add(s.id));
@@ -1278,7 +1308,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!isAutoplayEnabled()) return;
     if (queue.length === 0) return;
     const remaining = queue.length - currentIndex - 1;
-    if (remaining > 2) return;
+    if (remaining > 3) return;
     if (autoMixInFlightRef.current) return;
     const seed = queue[currentIndex] || currentSong;
     if (!seed) return;
