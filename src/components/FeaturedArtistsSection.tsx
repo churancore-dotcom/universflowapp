@@ -21,8 +21,11 @@ const isPortraitUrl = (url: string | null) => {
   try {
     const parsed = new URL(url, 'https://universflow.invalid');
     const spotify = parsed.hostname === 'i.scdn.co' && /^\/image\/[a-z0-9]+$/i.test(parsed.pathname);
-    const deezer = parsed.hostname === 'e-cdns-images.dzcdn.net'
-      && /^\/images\/artist\/[a-z0-9]+\/[a-z0-9-]+\.jpg$/i.test(parsed.pathname);
+    // Deezer serves artist portraits from several CDN hostnames
+    // (cdn-images / e-cdns-images / e-cdn-images). What guarantees it is a real
+    // portrait — never a song cover — is the /images/artist/ path segment.
+    const deezer = /(^|\.)dzcdn\.net$/i.test(parsed.hostname)
+      && /^\/images\/artist\/[a-z0-9]+\//i.test(parsed.pathname);
     return spotify || deezer;
   } catch {
     return false;
