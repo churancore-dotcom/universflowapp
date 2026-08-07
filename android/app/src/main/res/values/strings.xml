@@ -4,4 +4,5 @@
     <string name="title_activity_main">Univers Flow</string>
     <string name="package_name">com.universeflow.app</string>
     <string name="custom_url_scheme">com.universeflow.app</string>
+    <string name="preparing_playback">Preparing your music…</string>
 </resources>

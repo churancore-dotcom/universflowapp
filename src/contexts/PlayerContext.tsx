@@ -519,6 +519,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const volumeRef = useRef(volume);
   const isPlayingRef = useRef(isPlaying);
   const endedFiredForSeqRef = useRef<number>(-1);
+  // Native and WebView completion signals can describe the same boundary.
+  // Count/show one ad for that boundary, never once per transport callback.
+  const lastAdBoundaryRef = useRef<string | null>(null);
   // Auto-mix guard: prevents repeated extend calls while the network is in
   // flight, and remembers song-ids already added so we don't loop the same
   // recommendations forever.
@@ -1933,8 +1936,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (nextIdx !== null && activeQueue.length > 0) {
         // Ad break — ONLY on auto-advance (never on a user tap, so tap-to-play
         // latency is untouched). Premium users are excluded inside the engine.
-        if (noteSongCompleted()) {
-          const nextTrack = activeQueue[nextIdx];
+        const nextTrack = activeQueue[nextIdx];
+        const adBoundary = `${getSongIdentity(currentSongRef.current)}>${nextTrack ? getSongIdentity(nextTrack) : nextIdx}`;
+        if (lastAdBoundaryRef.current !== adBoundary && noteSongCompleted()) {
+          lastAdBoundaryRef.current = adBoundary;
           if (nextTrack) {
             try { audio.pause(); } catch { /* noop */ }
             wasPlayingRef.current = false;
@@ -2348,7 +2353,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // Native queues advance inside ExoPlayer, bypassing the web `ended`
           // handler where ad cadence is normally counted. Pause immediately on
           // the transition and hand the same track to the ad completion flow.
-          if (noteSongCompleted()) {
+          const adBoundary = `${getSongIdentity(currentSongRef.current)}>${getSongIdentity(nextSong)}`;
+          if (lastAdBoundaryRef.current !== adBoundary && noteSongCompleted()) {
+            lastAdBoundaryRef.current = adBoundary;
             void ExoPlayerPlugin.pause().catch(() => undefined);
             nativeUserPausedRef.current = true;
             wasPlayingRef.current = false;

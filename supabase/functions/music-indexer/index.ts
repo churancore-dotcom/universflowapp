@@ -819,9 +819,14 @@ async function getDeezerArtistImage(name: string): Promise<string | undefined> {
     url.searchParams.set('limit', '3');
     const data = await fetchJson(url.toString(), 5000);
     const list = Array.isArray(data?.data) ? data.data : [];
-    // Prefer exact name match
+    // Exact names only. A fuzzy first result can put a tribute act or similarly
+    // named creator's face on the wrong artist card.
     const wantedKey = normalizeText(name);
-    const match = list.find((a: any) => normalizeText(String(a?.name || '')) === wantedKey) || list[0];
+    const match = list.find((a: any) => normalizeText(String(a?.name || '')) === wantedKey);
+    if (!match) {
+      setCached(ck, null, 30 * 60 * 1000);
+      return undefined;
+    }
     const image = match?.picture_xl || match?.picture_big || match?.picture_medium || '';
     setCached(ck, image || null, 24 * 60 * 60 * 1000);
     return image || undefined;

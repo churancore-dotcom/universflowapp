@@ -8,7 +8,6 @@ import {
   Scripts,
   useRouter,
 } from "@tanstack/react-router";
-import { AnimatePresence } from "framer-motion";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "@/lib/lovable-error-reporting";
@@ -20,8 +19,6 @@ import { NavDirectionProvider } from "@/components/PageTransition";
 import { SentryErrorBoundary } from "@/components/SentryErrorBoundary";
 import SplashScreen from "@/components/SplashScreen";
 import MobileShell from "@/components/MobileShell";
-import { supabase } from "@/integrations/supabase/client";
-import { getArtistDestination, hasArtistSignupIntent } from "@/lib/artistRouting";
 import { usePushRegistration } from "@/hooks/usePushRegistration";
 import { usePlaybackSync } from "@/hooks/usePlaybackSync";
 import { usePremium } from "@/hooks/usePremium";
@@ -33,7 +30,6 @@ import LiquidGlassFilters from "@/components/LiquidGlassFilters";
 
 
 // Lazy load non-critical components
-const ArtistPicker = lazy(() => import("@/components/ArtistPicker"));
 const RateUsPopup = lazy(() => import("@/components/RateUsPopup"));
 const ReviewModal = lazy(() => import("@/components/ReviewModal"));
 const GlobalPlayerLayer = lazy(() => import("@/components/GlobalPlayerLayer"));
@@ -219,61 +215,13 @@ const PrerollAdWrapper = () => {
 };
 
 const PostAuthGate = () => {
-  const { user, emailVerified } = useAuth();
-  const [showPicker, setShowPicker] = useState(false);
+  const { user } = useAuth();
   const [showReview, setShowReview] = useState(false);
-  const [artistFlow, setArtistFlow] = useState(false);
-
-  useEffect(() => {
-    if (!user) return;
-    if (emailVerified !== true) return;
-    let cancelled = false;
-    (async () => {
-      const destination = await getArtistDestination(user);
-      if (cancelled) return;
-      if (destination || hasArtistSignupIntent(user)) {
-        setArtistFlow(true);
-        setShowPicker(false);
-        localStorage.removeItem('uf_just_signed_up');
-        return;
-      }
-      setArtistFlow(false);
-
-      const justSignedUp = localStorage.getItem('uf_just_signed_up');
-      if (!justSignedUp) return;
-
-      const key = `uf_artists_picked_${user.id}`;
-      if (localStorage.getItem(key)) {
-        localStorage.removeItem('uf_just_signed_up');
-        return;
-      }
-
-      supabase.from('user_artist_preferences').select('id').eq('user_id', user.id).limit(1)
-        .then(({ data }) => {
-          if (data && data.length > 0) {
-            localStorage.setItem(key, '1');
-            localStorage.removeItem('uf_just_signed_up');
-          } else {
-            setTimeout(() => setShowPicker(true), 600);
-          }
-        });
-    })();
-    return () => { cancelled = true; };
-  }, [user, emailVerified]);
-
-  const handlePickerComplete = () => {
-    localStorage.removeItem('uf_just_signed_up');
-    setShowPicker(false);
-  };
 
   if (!user) return null;
-  if (artistFlow) return null;
   return (
     <Suspense fallback={null}>
-      <AnimatePresence>
-        {showPicker && <ArtistPicker key="picker" onComplete={handlePickerComplete} />}
-      </AnimatePresence>
-      {!showPicker && <RateUsPopup onOpenReview={() => setShowReview(true)} />}
+      <RateUsPopup onOpenReview={() => setShowReview(true)} />
       <ReviewModal isOpen={showReview} onClose={() => setShowReview(false)} />
     </Suspense>
   );
