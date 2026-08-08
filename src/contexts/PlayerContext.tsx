@@ -2899,9 +2899,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const sourceForEvent = isCatalogUuid ? 'catalog' : (song.id?.startsWith('yt-') ? 'youtube' : (song.id?.startsWith('audius-') ? 'audius' : 'external'));
     recentlyPlayedTimerRef.current = window.setTimeout(() => {
       recentlyPlayedTimerRef.current = null;
+      // Device history is written for everyone (signed in or not) so the local
+      // taste profile works from the very first session.
+      if (song.id) {
+        import('@/lib/localRecentlyPlayed').then((m) =>
+          m.pushLocalRecent(null, song.id, {
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            cover_url: song.cover_url,
+            audio_url: song.audio_url,
+            duration: song.duration,
+          }),
+        );
+      }
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;
-        // Jump Back In is per-device only — write to localStorage, NOT the cloud.
         // Jump Back In is per-device only — write to localStorage, NOT the cloud.
         // Store snapshot for non-catalog ids (yt-…/ytm-…) so Home can rehydrate.
         if (song.id) {
@@ -2917,6 +2931,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }),
           );
         }
+
         // Anonymized aggregate analytics only (no per-user history reveal).
         supabase.from('song_play_events').insert({
           user_id: user.id,
