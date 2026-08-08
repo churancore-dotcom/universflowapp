@@ -228,7 +228,24 @@ export async function setNativePlaybackSpeed(speed: number): Promise<void> {
   try { await ExoPlayerPlugin.setPlaybackSpeed({ speed: clamped }); } catch {}
 }
 
+/** Room geometry for a Studio Space, applied by the native RoomReverb. */
+export interface NativeSpaceGeometry {
+  /** 0..100 tail length */
+  room: number;
+  /** 0..100 high-frequency absorption */
+  damping: number;
+  /** 0..100 reverb level */
+  wet: number;
+  /** 0..100 stereo spread of the tail */
+  width: number;
+  /** 0..240 ms initial gap — the main room-size cue */
+  predelayMs: number;
+  /** 50..240 % physical scaling of the comb network */
+  size: number;
+}
+
 export async function applyNativeAudioEffects(opts: {
+
   enabled: boolean;
   webBands: number[];
   webFrequenciesHz: number[];
