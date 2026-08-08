@@ -6,7 +6,9 @@ import {
   isNativePlayerAvailable,
   applyNativeAudioEffects,
   setNativeVirtualizer,
+  type NativeSpaceGeometry,
 } from '@/lib/nativePlayer';
+
 // nativeMirror removed — on Android, ExoPlayer always owns audio when available.
 
 // Web EQ band center frequencies — must mirror BAND_DEFS in audioEngine.ts.
