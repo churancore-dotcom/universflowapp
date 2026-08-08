@@ -1246,16 +1246,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             for (const t of tracks) {
               const id = t.id || (t.videoId ? `ytm-${t.videoId}` : '');
               if (!id || existing.has(id)) continue;
+              if (isDuplicate({ title: t.title, artist: t.artist })) continue;
               existing.add(id);
+              markSeen({ title: t.title, artist: t.artist });
               pool.push({
                 id,
                 title: t.title,
                 artist: t.artist || 'Unknown',
-                cover_url: t.cover_url,
+                cover_url: t.cover_url || (t.videoId ? `https://i.ytimg.com/vi/${t.videoId}/hqdefault.jpg` : undefined),
                 audio_url: t.audio_url || (t.videoId ? `yt-video:${t.videoId}` : ''),
                 duration: t.duration || undefined,
                 source: 'indexed',
               } as Song);
+
               if (pool.length >= 20) break;
             }
           } catch (e) {
