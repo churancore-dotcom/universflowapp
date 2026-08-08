@@ -26,6 +26,40 @@ const queue: QueuedEvent[] = [];
 let flushTimer: number | null = null;
 const MAX_QUEUE = 50;
 
+// ---- Local live ring buffer (powers the in-app debug panel) ----
+// Purely client-side: no table reads, no extra requests, so it costs nothing
+// and keeps working forever.
+export interface LiveEvent extends PerfEventInput {
+  at: number;
+  route: string;
+}
+const RING_MAX = 300;
+const ring: LiveEvent[] = [];
+const liveListeners = new Set<(events: LiveEvent[]) => void>();
+
+export function getLiveEvents(): LiveEvent[] {
+  return [...ring];
+}
+
+export function clearLiveEvents() {
+  ring.length = 0;
+  liveListeners.forEach((l) => l([]));
+}
+
+export function subscribeLiveEvents(fn: (events: LiveEvent[]) => void): () => void {
+  liveListeners.add(fn);
+  fn(getLiveEvents());
+  return () => { liveListeners.delete(fn); };
+}
+
+function pushLive(evt: PerfEventInput) {
+  ring.unshift({ ...evt, at: Date.now(), route: typeof location !== 'undefined' ? location.pathname : '' });
+  if (ring.length > RING_MAX) ring.length = RING_MAX;
+  const snapshot = getLiveEvents();
+  liveListeners.forEach((l) => { try { l(snapshot); } catch { /* ignore */ } });
+}
+
+
 async function flush() {
   flushTimer = null;
   if (queue.length === 0) return;
