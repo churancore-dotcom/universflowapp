@@ -20,10 +20,12 @@ export function useTasteProfile(): TasteProfile {
   const { data } = useQuery({
     queryKey: ['taste-profile', user?.id ?? 'anon'],
     queryFn: () => getTasteProfile(user?.id ?? null),
-    enabled: !!user,
+    // Signed-out listeners still get a device-local profile, so the very first
+    // session already shapes the feed instead of showing everyone the same rows.
     staleTime: 5 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
   });
+
 
   useEffect(() => {
     if (!user) return;
