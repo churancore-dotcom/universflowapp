@@ -144,11 +144,31 @@ const MadeForYouSection = memo(() => {
         }
         if (out.length >= 18) break;
       }
-      // Don't recommend what they just finished playing.
+      // Don't recommend what they just finished playing — by id AND by
+      // title/artist, because the same song reaches us under several ids.
+      const norm = (v?: string | null) => (v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
       const recentSet = new Set(recentIds);
-      const fresh = out.filter((s) => !recentSet.has(s.id));
+      const recentPrints = new Set(
+        recentEntries.map((e) => `${norm(e.song?.title)}~${norm(e.song?.artist)}`).filter((k) => k !== '~'),
+      );
+      // Artists this listener keeps skipping are a real negative signal; a
+      // "for you" shelf that keeps re-serving them is what made it feel dead.
+      // Skip weights are keyed by trimmed lowercase artist (see feedPersonalizer).
+      const mutedArtists = new Set(
+        [...taste.skips.entries()]
+          .filter(([artist, weight]) => weight >= 3 && (taste.artists.get(artist) ?? 0) < weight)
+          .map(([artist]) => artist),
+      );
+      const fresh = out.filter((s) => {
+        if (recentSet.has(s.id)) return false;
+        if (recentPrints.has(`${norm(s.title)}~${norm(s.artist)}`)) return false;
+        if (mutedArtists.has((s.artist || '').trim().toLowerCase())) return false;
+        return true;
+      });
+
       // Taste-rank the pool so the hero is the best match, not a random pick.
       return rerank(fresh.length >= 6 ? fresh : out, taste);
+
     },
   });
 

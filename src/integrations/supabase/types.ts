@@ -2495,6 +2495,18 @@ export type Database = {
         Args: { p_request_id: string; p_status: string }
         Returns: Json
       }
+      app_trending_tracks: {
+        Args: { p_country?: string; p_hours?: number; p_limit?: number }
+        Returns: {
+          artist: string
+          cover_url: string
+          listeners: number
+          plays: number
+          score: number
+          title: string
+          track_id: string
+        }[]
+      }
       check_and_increment_ip_rate_limit: {
         Args: { _endpoint: string; _ip_hash: string; _max_per_minute: number }
         Returns: boolean

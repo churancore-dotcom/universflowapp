@@ -11,6 +11,8 @@ import { isSpamSong } from '@/pages/Search';
 import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { getCountryQueries } from '@/lib/countryQueries';
+import { useAppTrending } from '@/lib/appTrending';
+
 
 interface Props { songs?: Song[]; enabled?: boolean }
 
@@ -23,6 +25,9 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const { playSong, currentSong } = usePlayer();
   const taste = useTasteProfile();
   const country = useUserCountry();
+  // REAL trending first: aggregated plays/skips/likes from UniversFlow's own
+  // listeners in the last 48h. Editorial charts only top the shelf up.
+  const { data: appTrending } = useAppTrending(country, enabled);
   const { data: charts } = useYtmCharts(country, enabled);
   const q = getCountryQueries(country);
   const needsFallback = enabled && (charts?.top.length ?? 0) === 0;
@@ -44,29 +49,40 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   );
 
   const trending = useMemo(() => {
-    const pool = charts?.top?.length ? charts.top : fallbackPool;
-    const clean = pool.filter((s) => !isSpamSong(s));
+    const real = (appTrending?.songs ?? []).filter((s) => !isSpamSong(s));
+    const editorial = (charts?.top?.length ? charts.top : fallbackPool).filter((s) => !isSpamSong(s));
     // Personalization reorders a real chart; it must never delete most of the
     // chart merely because the listener has not played those artists before.
-    const ranked = rerank(clean, taste);
-    if (!seedPool.length) return ranked.slice(0, 18);
+    const rankedReal = rerank(real, taste);
+    const rankedEditorial = rerank(editorial, taste);
+
+    const seen = new Set<string>();
+    const push = (out: Song[], s: Song) => {
+      const key = `${s.title}|${s.artist}`.toLowerCase();
+      if (seen.has(key)) return;
+      seen.add(key);
+      out.push(s);
+    };
+    const base: Song[] = [];
+    // In-app trending leads. Editorial fills the rest so the shelf is never
+    // thin while the play history is still building up.
+    rankedReal.forEach((s) => push(base, s));
+    rankedEditorial.forEach((s) => push(base, s));
+
+    if (!seedPool.length) return base.slice(0, 18);
     // Weave taste-matched hits into the chart instead of replacing it: the
     // shelf stays a real chart, but it leads with what this listener loves.
-    const seen = new Set(ranked.map((s) => `${s.title}|${s.artist}`.toLowerCase()));
-    const extras = rerank(seedPool.filter((s) => !isSpamSong(s)), taste).filter((s) => {
-      const key = `${s.title}|${s.artist}`.toLowerCase();
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    });
+    const extras: Song[] = [];
+    rerank(seedPool.filter((s) => !isSpamSong(s)), taste).forEach((s) => push(extras, s));
     const merged: Song[] = [];
     let e = 0;
-    for (let i = 0; i < ranked.length && merged.length < 18; i++) {
-      merged.push(ranked[i]);
+    for (let i = 0; i < base.length && merged.length < 18; i++) {
+      merged.push(base[i]);
       if (i % 3 === 2 && e < extras.length) merged.push(extras[e++]);
     }
     return merged.slice(0, 18);
-  }, [charts, fallbackPool, seedPool, taste]);
+  }, [appTrending, charts, fallbackPool, seedPool, taste]);
+
 
 
   // Pre-resolve the top of the chart so the first taps are instant.
