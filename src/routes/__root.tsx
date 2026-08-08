@@ -70,10 +70,10 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" },
-      { title: "Universflow — Free Music App for Android (APK Download)" },
+      { title: "Universflow — Free Music Streaming App" },
       { name: "google-site-verification", content: "9i6sSAmlmRyKCJS2U4vNTHoKzSLvG4qx7bViokCa7Ik" },
-      { name: "title", content: "Universflow — Free Music App for Android (APK Download)" },
-      { name: "description", content: "Stream millions of songs free on Universflow. Build playlists, follow artists, download for offline, and enjoy an Apple Music–style player." },
+      { name: "title", content: "Universflow — Free Music Streaming App" },
+      { name: "description", content: "Universflow is a free music streaming app: play millions of songs, follow artists and download tracks for offline listening." },
       { name: "keywords", content: "free music app, music app, song app, song download app, mp3 song download app, mp3 download app, mp3 music download app, music download app, music player, free music download, free music apps, online music app, music streaming app, offline music app, music app for Android, free music app for Android, gana wala apps, mp3 gana, hindi songs app, punjabi songs app, bollywood music app, spotify alternative, jiosaavn alternative, gaana alternative, wynk alternative, snaptube alternative, Universflow, Universflow APK, Universflow download, Universflow Android app" },
       { name: "author", content: "Universflow Team" },
       { name: "creator", content: "Universflow Team" },
