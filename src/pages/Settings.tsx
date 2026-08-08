@@ -4,7 +4,9 @@ import {
   KeyRound, Trash2, EyeOff, Smartphone, Mail, CheckCircle2, Wifi, Download,
   Radio, Bell, Music2, Vibrate, Globe, HardDrive, FileText, Info, ShieldCheck,
   Languages, Waves, Zap, Repeat, PlayCircle, HelpCircle,
+  Activity,
 } from 'lucide-react';
+
 
 import { useNavigate } from '@/lib/router-compat';
 import BottomNav from '@/components/BottomNav';
