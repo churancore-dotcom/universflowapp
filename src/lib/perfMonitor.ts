@@ -91,6 +91,7 @@ function scheduleFlush() {
 
 export function recordPerfEvent(evt: PerfEventInput) {
   try {
+    pushLive(evt);
     let uid: string | null = null;
     try {
       // Pull cached session synchronously when available
