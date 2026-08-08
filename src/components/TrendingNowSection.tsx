@@ -6,7 +6,7 @@ import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { prewarmSong, prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
-import { rerank } from '@/lib/feedPersonalizer';
+import { rerank, topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
@@ -28,13 +28,46 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const needsFallback = enabled && (charts?.top.length ?? 0) === 0;
   const { data: fallbackPool = [] } = useYtmRail(`trending-v3-${country}`, q.trending, 36, needsFallback);
 
+  // Taste-seeded trending: what's hot *in the lanes this listener actually
+  // plays*. Two listeners in the same country no longer see the same 18 rows.
+  const seeds = useMemo(() => {
+    const artists = topTasteArtists(taste, 2);
+    const keywords = topTasteKeywords(taste, 1);
+    return [...artists, ...keywords].filter(Boolean).slice(0, 2);
+  }, [taste]);
+  const seedQuery = seeds.length ? `${seeds.join(' ')} trending songs` : '';
+  const { data: seedPool = [] } = useYtmRail(
+    `trending-taste-${country}-${seeds.join('|')}`,
+    seedQuery,
+    18,
+    enabled && seeds.length > 0,
+  );
+
   const trending = useMemo(() => {
     const pool = charts?.top?.length ? charts.top : fallbackPool;
     const clean = pool.filter((s) => !isSpamSong(s));
     // Personalization reorders a real chart; it must never delete most of the
     // chart merely because the listener has not played those artists before.
-    return rerank(clean, taste).slice(0, 18);
-  }, [charts, fallbackPool, taste]);
+    const ranked = rerank(clean, taste);
+    if (!seedPool.length) return ranked.slice(0, 18);
+    // Weave taste-matched hits into the chart instead of replacing it: the
+    // shelf stays a real chart, but it leads with what this listener loves.
+    const seen = new Set(ranked.map((s) => `${s.title}|${s.artist}`.toLowerCase()));
+    const extras = rerank(seedPool.filter((s) => !isSpamSong(s)), taste).filter((s) => {
+      const key = `${s.title}|${s.artist}`.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    const merged: Song[] = [];
+    let e = 0;
+    for (let i = 0; i < ranked.length && merged.length < 18; i++) {
+      merged.push(ranked[i]);
+      if (i % 3 === 2 && e < extras.length) merged.push(extras[e++]);
+    }
+    return merged.slice(0, 18);
+  }, [charts, fallbackPool, seedPool, taste]);
+
 
   // Pre-resolve the top of the chart so the first taps are instant.
   React.useEffect(() => { prewarmSongs(trending, 2); }, [trending]);

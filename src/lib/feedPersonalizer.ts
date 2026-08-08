@@ -66,13 +66,31 @@ const EMPTY_PROFILE: TasteProfile = {
 let cache: { userId: string; at: number; profile: TasteProfile } | null = null;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+/** Local-only profile for signed-out listeners (device history, no cloud read). */
+function localOnlyProfile(): TasteProfile {
+  const artists = new Map<string, number>();
+  const keywords = new Map<string, number>();
+  for (const entry of readLocalRecent(null).slice(0, 50)) {
+    const artist = (entry.song?.artist || '').trim().toLowerCase();
+    if (!artist) continue;
+    const ageDays = Math.max(0, (Date.now() - entry.played_at) / 86_400_000);
+    const weight = Math.max(0.5, 4 * Math.exp(-ageDays / 7));
+    artists.set(artist, (artists.get(artist) || 0) + weight);
+    for (const keyword of tokenize(entry.song?.title || '')) {
+      keywords.set(keyword, (keywords.get(keyword) || 0) + weight * 0.35);
+    }
+  }
+  return { artists, keywords, skips: new Map(), signalCount: artists.size };
+}
+
 /** Build (or reuse a cached) taste profile from recent play events. */
 export async function getTasteProfile(userId: string | null | undefined): Promise<TasteProfile> {
-  if (!userId) return EMPTY_PROFILE;
+  if (!userId) return typeof window === 'undefined' ? EMPTY_PROFILE : localOnlyProfile();
   // SSR isolation: never read another request's profile from module scope.
   if (cachesEnabled() && cache && cache.userId === userId && Date.now() - cache.at < CACHE_TTL) {
     return cache.profile;
   }
+
 
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   // YouTube-style implicit taste: combine behavior (plays/skips), explicit
@@ -188,13 +206,18 @@ export function tasteScore(item: RerankItem, profile: TasteProfile): number {
  */
 export function rerank<T extends RerankItem>(items: T[], profile: TasteProfile): T[] {
   if (profile.signalCount < 1 || items.length < 2) return items;
+  // Confidence ramps the personal weight: a listener with one session gets a
+  // gentle nudge, a heavy listener gets a feed that is visibly theirs.
+  const confidence = Math.min(1, profile.signalCount / 15);
+  const personalWeight = 0.8 + confidence * 1.1; // 0.8 → 1.9
   const scored = items.map((item, idx) => {
     // Editorial weight: first item ~ 1.0, decays slowly. Personal score is added.
     const editorial = 1 / Math.log2(idx + 2);
     const personal = tasteScore(item, profile);
     // Normalize personal so it doesn't completely override the source order.
     const personalNorm = Math.tanh(personal / 8); // [-1, 1]
-    return { item, idx, score: editorial + personalNorm * 0.9 };
+    return { item, idx, score: editorial + personalNorm * personalWeight };
+
   });
   scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
   return scored.map((s) => s.item);

@@ -2899,9 +2899,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const sourceForEvent = isCatalogUuid ? 'catalog' : (song.id?.startsWith('yt-') ? 'youtube' : (song.id?.startsWith('audius-') ? 'audius' : 'external'));
     recentlyPlayedTimerRef.current = window.setTimeout(() => {
       recentlyPlayedTimerRef.current = null;
+      // Device history is written for everyone (signed in or not) so the local
+      // taste profile works from the very first session.
+      if (song.id) {
+        import('@/lib/localRecentlyPlayed').then((m) =>
+          m.pushLocalRecent(null, song.id, {
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            cover_url: song.cover_url,
+            audio_url: song.audio_url,
+            duration: song.duration,
+          }),
+        );
+      }
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;
-        // Jump Back In is per-device only — write to localStorage, NOT the cloud.
         // Jump Back In is per-device only — write to localStorage, NOT the cloud.
         // Store snapshot for non-catalog ids (yt-…/ytm-…) so Home can rehydrate.
         if (song.id) {
@@ -2917,6 +2931,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }),
           );
         }
+
         // Anonymized aggregate analytics only (no per-user history reveal).
         supabase.from('song_play_events').insert({
           user_id: user.id,
@@ -3155,6 +3170,29 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // underneath the full-screen ad.
     if (showPrerollAd) return;
 
+    // Negative taste signal: a manual skip inside the first 15s means "not for
+    // me". Without this the feed only ever learned from plays, so it drifted
+    // toward whatever was played once and never corrected itself.
+    const skipped = currentSong;
+    const heardFor = audioRef.current?.currentTime ?? 0;
+    if (skipped && heardFor > 0.5 && heardFor < 15) {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (!user) return;
+        void supabase.from('song_play_events').insert({
+          user_id: user.id,
+          track_id: (skipped.id || `${skipped.artist}-${skipped.title}`).slice(0, 220),
+          song_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(skipped.id) ? skipped.id : null,
+          title: (skipped.title || 'Unknown').slice(0, 220),
+          artist: (skipped.artist || 'Unknown').slice(0, 220),
+          cover_url: skipped.cover_url || null,
+          source: 'player',
+          action: 'skip',
+          score_weight: 1,
+        });
+      }).catch(() => {});
+    }
+
+
     // Cancel crossfade
     if (crossfadeIntervalRef.current) {
       clearInterval(crossfadeIntervalRef.current);
@@ -3181,7 +3219,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Loop back to start even if repeat is off when manually pressing next
       playSongAtIndex(0, queue);
     }
-  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, getNextIndex, playSongAtIndex]);
+  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, currentSong, getNextIndex, playSongAtIndex]);
 
   const prevSong = useCallback(async () => {
     if (queue.length === 0) return;
