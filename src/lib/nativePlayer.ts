@@ -87,10 +87,17 @@ interface ExoPlayerPluginShape {
     virtualizerStrength: number;
     loudnessGainMb: number;
     reverbAmount: number;
+    spaceWet?: number;
+    spaceRoom?: number;
+    spaceDamping?: number;
+    spaceWidth?: number;
+    spacePredelayMs?: number;
+    spaceSize?: number;
     vocalMix: number;
     instrumentalMix: number;
     playbackSpeed: number;
   }) => Promise<void>;
+
   setPlaybackSpeed: (opts: { speed: number }) => Promise<void>;
   addListener: (
     event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
@@ -221,7 +228,24 @@ export async function setNativePlaybackSpeed(speed: number): Promise<void> {
   try { await ExoPlayerPlugin.setPlaybackSpeed({ speed: clamped }); } catch {}
 }
 
+/** Room geometry for a Studio Space, applied by the native RoomReverb. */
+export interface NativeSpaceGeometry {
+  /** 0..100 tail length */
+  room: number;
+  /** 0..100 high-frequency absorption */
+  damping: number;
+  /** 0..100 reverb level */
+  wet: number;
+  /** 0..100 stereo spread of the tail */
+  width: number;
+  /** 0..240 ms initial gap — the main room-size cue */
+  predelayMs: number;
+  /** 50..240 % physical scaling of the comb network */
+  size: number;
+}
+
 export async function applyNativeAudioEffects(opts: {
+
   enabled: boolean;
   webBands: number[];
   webFrequenciesHz: number[];
@@ -230,6 +254,8 @@ export async function applyNativeAudioEffects(opts: {
   virtualizerStrength: number;
   loudnessGainMb: number;
   reverbAmount: number;
+  space?: NativeSpaceGeometry | null;
+
   vocalMix: number;
   instrumentalMix: number;
   playbackSpeed: number;
@@ -264,6 +290,14 @@ export async function applyNativeAudioEffects(opts: {
       virtualizerStrength: Math.max(0, Math.min(1000, Math.round(opts.virtualizerStrength))),
       loudnessGainMb: Math.max(0, Math.min(2000, Math.round(opts.loudnessGainMb))),
       reverbAmount: Math.max(0, Math.min(100, Math.round(opts.reverbAmount))),
+      // -1 tells native "no Studio Space selected — keep the plain reverb voicing".
+      spaceWet: opts.space ? Math.max(0, Math.min(100, Math.round(opts.space.wet))) : -1,
+      spaceRoom: Math.round(opts.space?.room ?? 50),
+      spaceDamping: Math.round(opts.space?.damping ?? 45),
+      spaceWidth: Math.round(opts.space?.width ?? 80),
+      spacePredelayMs: Math.round(opts.space?.predelayMs ?? 14),
+      spaceSize: Math.round(opts.space?.size ?? 100),
+
       vocalMix: Math.max(0, Math.min(100, Math.round(opts.vocalMix))),
       instrumentalMix: Math.max(0, Math.min(100, Math.round(opts.instrumentalMix))),
       playbackSpeed: Math.max(0.5, Math.min(2, opts.playbackSpeed)),
