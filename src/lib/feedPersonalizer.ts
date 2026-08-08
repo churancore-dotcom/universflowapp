@@ -66,13 +66,31 @@ const EMPTY_PROFILE: TasteProfile = {
 let cache: { userId: string; at: number; profile: TasteProfile } | null = null;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
+/** Local-only profile for signed-out listeners (device history, no cloud read). */
+function localOnlyProfile(): TasteProfile {
+  const artists = new Map<string, number>();
+  const keywords = new Map<string, number>();
+  for (const entry of readLocalRecent(null).slice(0, 50)) {
+    const artist = (entry.song?.artist || '').trim().toLowerCase();
+    if (!artist) continue;
+    const ageDays = Math.max(0, (Date.now() - entry.played_at) / 86_400_000);
+    const weight = Math.max(0.5, 4 * Math.exp(-ageDays / 7));
+    artists.set(artist, (artists.get(artist) || 0) + weight);
+    for (const keyword of tokenize(entry.song?.title || '')) {
+      keywords.set(keyword, (keywords.get(keyword) || 0) + weight * 0.35);
+    }
+  }
+  return { artists, keywords, skips: new Map(), signalCount: artists.size };
+}
+
 /** Build (or reuse a cached) taste profile from recent play events. */
 export async function getTasteProfile(userId: string | null | undefined): Promise<TasteProfile> {
-  if (!userId) return EMPTY_PROFILE;
+  if (!userId) return typeof window === 'undefined' ? EMPTY_PROFILE : localOnlyProfile();
   // SSR isolation: never read another request's profile from module scope.
   if (cachesEnabled() && cache && cache.userId === userId && Date.now() - cache.at < CACHE_TTL) {
     return cache.profile;
   }
+
 
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   // YouTube-style implicit taste: combine behavior (plays/skips), explicit
