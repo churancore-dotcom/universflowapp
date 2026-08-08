@@ -165,18 +165,12 @@ class StemAudioProcessor : BaseAudioProcessor() {
                 rawLeft = equalizer.process(0, rawLeft * eqHeadroom)
                 rawRight = equalizer.process(1, rawRight * eqHeadroom)
             }
-            if (currentReverb > 0.001f) {
-                val delayedLeft = reverbLeft[reverbCursor]
-                val delayedRight = reverbRight[reverbCursor]
-                val feedback = 0.18f + currentReverb * 0.48f
-                reverbLeft[reverbCursor] = rawLeft + delayedRight * feedback
-                reverbRight[reverbCursor] = rawRight + delayedLeft * feedback
-                val wet = currentReverb * 0.38f
-                rawLeft = rawLeft * (1f - wet * 0.35f) + delayedLeft * wet
-                rawRight = rawRight * (1f - wet * 0.35f) + delayedRight * wet
-                reverbCursor++
-                if (reverbCursor >= reverbLeft.size) reverbCursor = 0
+            if (reverb.isActive) {
+                reverb.process(rawLeft, rawRight, reverbScratch)
+                rawLeft = reverbScratch[0]
+                rawRight = reverbScratch[1]
             }
+
             output.putShort(clip16(softLimit(rawLeft, currentLateNight)))
             output.putShort(clip16(softLimit(rawRight, currentLateNight)))
 
