@@ -290,6 +290,14 @@ export async function applyNativeAudioEffects(opts: {
       virtualizerStrength: Math.max(0, Math.min(1000, Math.round(opts.virtualizerStrength))),
       loudnessGainMb: Math.max(0, Math.min(2000, Math.round(opts.loudnessGainMb))),
       reverbAmount: Math.max(0, Math.min(100, Math.round(opts.reverbAmount))),
+      // -1 tells native "no Studio Space selected — keep the plain reverb voicing".
+      spaceWet: opts.space ? Math.max(0, Math.min(100, Math.round(opts.space.wet))) : -1,
+      spaceRoom: Math.round(opts.space?.room ?? 50),
+      spaceDamping: Math.round(opts.space?.damping ?? 45),
+      spaceWidth: Math.round(opts.space?.width ?? 80),
+      spacePredelayMs: Math.round(opts.space?.predelayMs ?? 14),
+      spaceSize: Math.round(opts.space?.size ?? 100),
+
       vocalMix: Math.max(0, Math.min(100, Math.round(opts.vocalMix))),
       instrumentalMix: Math.max(0, Math.min(100, Math.round(opts.instrumentalMix))),
       playbackSpeed: Math.max(0.5, Math.min(2, opts.playbackSpeed)),
