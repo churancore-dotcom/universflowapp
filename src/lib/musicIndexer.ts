@@ -372,13 +372,25 @@ async function invokeGated<T>(
     // One retry for pure transport failures ("Failed to fetch"): those are
     // connection-pool casualties, not real resolver misses.
     for (let attempt = 0; attempt < 2; attempt += 1) {
+      const startedAt = Date.now();
       const { data, error } = await supabase.functions.invoke(functionName, { body });
       const transport = /failed to fetch|network|load failed/i.test(error?.message || '');
+      // Feed the on-device diagnostics panel: every attempt, its outcome and
+      // whether a retry rescued it.
+      recordPerfEvent({
+        event_type: error ? 'edge_call_error' : 'edge_call_ok',
+        severity: error ? (transport && attempt === 0 ? 'info' : 'warn') : 'info',
+        source: functionName,
+        latency_ms: Date.now() - startedAt,
+        message: error?.message ?? null,
+        details: { attempt: attempt + 1, retried: attempt > 0, priority },
+      });
       if (!error || !transport || attempt === 1) {
         return { data: (data ?? null) as T | null, error: error as { message?: string } | null };
       }
       await new Promise((r) => setTimeout(r, 250 + Math.random() * 250));
     }
+
     return { data: null, error: { message: 'Function request failed' } };
   } finally {
     releaseEdgeSlot();
