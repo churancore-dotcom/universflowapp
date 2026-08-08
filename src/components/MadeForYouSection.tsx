@@ -152,7 +152,7 @@ const MadeForYouSection = memo(() => {
     },
   });
 
-  React.useEffect(() => { prewarmSongs(mix, 3); }, [mix]);
+  React.useEffect(() => { prewarmSongs(mix, 2); }, [mix]);
 
   if (!mix.length) return null;
   const hero = mix[0];

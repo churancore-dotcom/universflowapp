@@ -32,7 +32,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
 
 
-  React.useEffect(() => { prewarmSongs(fresh, 4); }, [fresh]);
+  React.useEffect(() => { prewarmSongs(fresh, 2); }, [fresh]);
 
   if (fresh.length === 0) return null;
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, fresh); };

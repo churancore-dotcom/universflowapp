@@ -81,7 +81,7 @@ export function prewarmSong(song?: WarmableSong | null): void {
 }
 
 /** Warm the first `limit` tracks of a rail/list as soon as it renders. */
-export function prewarmSongs(songs?: Array<WarmableSong | null | undefined> | null, limit = 4): void {
+export function prewarmSongs(songs?: Array<WarmableSong | null | undefined> | null, limit = 2): void {
   if (!songs?.length || typeof window === 'undefined') return;
   const batch = songs.filter(Boolean).slice(0, limit) as WarmableSong[];
   if (!batch.length) return;
@@ -99,9 +99,11 @@ export function prewarmSongs(songs?: Array<WarmableSong | null | undefined> | nu
     } catch { /* ignore */ }
   }
 
-  // Stagger the JS resolvers so a rail render never floods the network.
+  // Stagger the JS resolvers so a rail render never floods the network. Home
+  // renders several rails at once, so warms are spaced generously and the
+  // resolver's own low-priority queue absorbs the rest.
   batch.forEach((song, i) => {
-    window.setTimeout(() => prewarmSong(song), i * 120);
+    window.setTimeout(() => prewarmSong(song), 300 + i * 450);
   });
 }
 
