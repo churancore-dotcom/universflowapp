@@ -29,6 +29,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
     // low (kick/bass -> instrument bed) and band (lead vocal) content.
     private var lowState = 0f
     private var lowCoeff = 0.05f
+    // Second one-pole at 9 kHz: mid content above it is air/cymbals, i.e.
+    // instrument bed, not lead vocal. Without this split karaoke also erased
+    // the top end and sounded hollow.
+    private var highState = 0f
+    private var highCoeff = 0.5f
     @Volatile private var targetSpatialDepth = 0f
     @Volatile private var targetSurround = 0f
     @Volatile private var targetLateNight = 0f
@@ -72,6 +77,8 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val rc = 1f / (2f * Math.PI.toFloat() * 180f)
         val dt = 1f / inputAudioFormat.sampleRate.toFloat()
         lowCoeff = dt / (rc + dt)
+        val rcHigh = 1f / (2f * Math.PI.toFloat() * 9000f)
+        highCoeff = dt / (rcHigh + dt)
         smoothingCoeff = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.025f)).toDouble()).toFloat()
         spatialPhaseStep = 2.0 * Math.PI * 0.12 / inputAudioFormat.sampleRate.toDouble()
         // A cross-fed 89ms delay gives Spaces a real, device-independent room
@@ -80,6 +87,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         reverbRight = FloatArray(reverbLeft.size)
         reverbCursor = 0
         lowState = 0f
+        highState = 0f
         equalizer.configure(inputAudioFormat.sampleRate)
         eqActive = equalizer.tickBlock()
         eqHeadroom = equalizer.headroomGain()
@@ -89,6 +97,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
 
     override fun onFlush() {
         lowState = 0f
+        highState = 0f
         equalizer.reset()
         java.util.Arrays.fill(reverbLeft, 0f)
         java.util.Arrays.fill(reverbRight, 0f)
@@ -129,9 +138,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val mid = (left + right) * 0.5f
             val side = (left - right) * 0.5f
             lowState += lowCoeff * (mid - lowState)
+            highState += highCoeff * (mid - highState)
             val midLow = lowState
-            val midBand = mid - lowState
-            val centre = midLow * instrument + midBand * vocal
+            val midHigh = mid - highState
+            val midBand = mid - lowState - midHigh
+            val centre = (midLow + midHigh) * instrument + midBand * vocal
             val widenedSide = side * instrument * (1f + currentSurround * 0.85f)
             val pan = sin(spatialPhase).toFloat() * currentSpatialDepth * 0.82f
             spatialPhase += spatialPhaseStep
