@@ -206,13 +206,18 @@ export function tasteScore(item: RerankItem, profile: TasteProfile): number {
  */
 export function rerank<T extends RerankItem>(items: T[], profile: TasteProfile): T[] {
   if (profile.signalCount < 1 || items.length < 2) return items;
+  // Confidence ramps the personal weight: a listener with one session gets a
+  // gentle nudge, a heavy listener gets a feed that is visibly theirs.
+  const confidence = Math.min(1, profile.signalCount / 15);
+  const personalWeight = 0.8 + confidence * 1.1; // 0.8 → 1.9
   const scored = items.map((item, idx) => {
     // Editorial weight: first item ~ 1.0, decays slowly. Personal score is added.
     const editorial = 1 / Math.log2(idx + 2);
     const personal = tasteScore(item, profile);
     // Normalize personal so it doesn't completely override the source order.
     const personalNorm = Math.tanh(personal / 8); // [-1, 1]
-    return { item, idx, score: editorial + personalNorm * 0.9 };
+    return { item, idx, score: editorial + personalNorm * personalWeight };
+
   });
   scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
   return scored.map((s) => s.item);
