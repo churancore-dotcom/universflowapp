@@ -237,6 +237,8 @@ export async function applyNativeAudioEffects(opts: {
   virtualizerStrength: number;
   loudnessGainMb: number;
   reverbAmount: number;
+  space?: NativeSpaceGeometry | null;
+
   vocalMix: number;
   instrumentalMix: number;
   playbackSpeed: number;
