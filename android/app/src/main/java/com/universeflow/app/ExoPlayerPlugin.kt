@@ -847,9 +847,16 @@ class ExoPlayerPlugin : Plugin() {
         val virtualizer = (call.getInt("virtualizerStrength") ?: 0).coerceIn(0, 1000)
         val loudness = (call.getInt("loudnessGainMb") ?: 0).coerceIn(0, 2000)
         val reverb = (call.getInt("reverbAmount") ?: 0).coerceIn(0, 100)
+        val spaceWet = (call.getInt("spaceWet") ?: -1)
+        val spaceRoom = (call.getInt("spaceRoom") ?: 50).coerceIn(0, 100)
+        val spaceDamp = (call.getInt("spaceDamping") ?: 45).coerceIn(0, 100)
+        val spaceWidth = (call.getInt("spaceWidth") ?: 80).coerceIn(0, 100)
+        val spacePredelay = (call.getInt("spacePredelayMs") ?: 14).coerceIn(0, 240)
+        val spaceSize = (call.getInt("spaceSize") ?: 100).coerceIn(50, 240)
         val vocal = (call.getInt("vocalMix") ?: 100).coerceIn(0, 100)
         val instrumental = (call.getInt("instrumentalMix") ?: 100).coerceIn(0, 100)
         val speed = (call.getDouble("playbackSpeed") ?: 1.0).coerceIn(0.5, 2.0).toFloat()
+
         runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
             val svc = service()
             if (svc == null) { call.reject("Audio service unavailable"); return@runWhenReady }
