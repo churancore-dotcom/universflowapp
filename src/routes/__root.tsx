@@ -96,9 +96,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:site_name", content: "Universflow" },
       { property: "og:locale", content: "en_US" },
       { property: "og:locale:alternate", content: "hi_IN" },
-      { property: "og:title", content: "Universflow — Free Music Streaming, Download & Offline Player" },
-      { property: "og:description", content: "Stream millions of songs free on Universflow. Discover trending tracks, follow artists, build playlists, download songs, and listen offline." },
-      { property: "og:url", content: "https://universflow.in/" },
+      // og:title / og:description / og:url are defined per-route (see leaf head()).
+
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
       { property: "og:image:secure_url", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
       { property: "og:image:type", content: "image/webp" },
