@@ -37,16 +37,16 @@ class StemAudioProcessor : BaseAudioProcessor() {
     @Volatile private var targetSpatialDepth = 0f
     @Volatile private var targetSurround = 0f
     @Volatile private var targetLateNight = 0f
-    @Volatile private var targetReverb = 0f
     private var currentSpatialDepth = 0f
     private var currentSurround = 0f
     private var currentLateNight = 0f
-    private var currentReverb = 0f
     private var spatialPhase = 0.0
     private var spatialPhaseStep = 0.0
-    private var reverbLeft = FloatArray(1)
-    private var reverbRight = FloatArray(1)
-    private var reverbCursor = 0
+
+    /** Real room reverb (pre-delay + comb/allpass network) — see RoomReverb. */
+    val reverb = RoomReverb()
+    private val reverbScratch = FloatArray(2)
+
 
     /** Device-independent 10-band EQ; replaces the vendor AudioFX equalizer. */
     val equalizer = PcmEqualizer()
