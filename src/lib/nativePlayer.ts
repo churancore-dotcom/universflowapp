@@ -87,10 +87,17 @@ interface ExoPlayerPluginShape {
     virtualizerStrength: number;
     loudnessGainMb: number;
     reverbAmount: number;
+    spaceWet?: number;
+    spaceRoom?: number;
+    spaceDamping?: number;
+    spaceWidth?: number;
+    spacePredelayMs?: number;
+    spaceSize?: number;
     vocalMix: number;
     instrumentalMix: number;
     playbackSpeed: number;
   }) => Promise<void>;
+
   setPlaybackSpeed: (opts: { speed: number }) => Promise<void>;
   addListener: (
     event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
