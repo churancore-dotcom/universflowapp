@@ -677,7 +677,9 @@ const Settings = () => {
               onClick={() => navigate(isPremium ? '/subscription' : '/premium')}
             />
             <Row icon={<MessageSquare className="w-4 h-4" />} label="Contact Support" chevron onClick={() => setShowSupport(true)} />
-            <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & FAQs" chevron last onClick={() => setShowSupport(true)} />
+            <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & FAQs" chevron onClick={() => setShowSupport(true)} />
+            <Row icon={<Activity className="w-4 h-4" />} label="Playback Diagnostics" chevron last onClick={() => navigate('/debug')} />
+
           </Section>
 
           {/* ============ 9. STORAGE ============ */}
