@@ -108,9 +108,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@UniversFlow" },
       { name: "twitter:creator", content: "@UniversFlow" },
       { name: "twitter:domain", content: "universflow.in" },
-      { name: "twitter:url", content: "https://universflow.in/" },
-      { name: "twitter:title", content: "Universflow — Free Music Streaming, Download & Offline Player" },
-      { name: "twitter:description", content: "Stream millions of songs free on Universflow. Discover trending tracks, follow artists, build playlists, download songs, and listen offline." },
+      // twitter:url / twitter:title / twitter:description are defined per-route.
+
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
       { name: "twitter:image:alt", content: "Universflow — Free music streaming and download app for Android" },
       { name: "twitter:app:name:googleplay", content: "Universflow" },
