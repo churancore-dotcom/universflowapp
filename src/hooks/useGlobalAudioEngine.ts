@@ -144,6 +144,8 @@ export function useGlobalAudioEngine(
         virtualizerStrength: s.spatialAudio ? Math.max(800, baseVirt) : baseVirt,
         loudnessGainMb: Math.max(lateNightMb, space.loud, stemMakeupMb),
         reverbAmount: Math.max(s.reverb, space.reverb),
+        space: space.geo,
+
         vocalMix: s.vocalMix ?? 100,
         instrumentalMix: s.instrumentalMix ?? 100,
         playbackSpeed: s.playbackSpeed,
