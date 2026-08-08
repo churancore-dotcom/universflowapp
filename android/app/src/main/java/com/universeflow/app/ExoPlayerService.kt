@@ -494,19 +494,20 @@ class ExoPlayerService : MediaSessionService() {
             savedReverbAmount,
         )
         if (appliedReverb == savedReverbAmount) return
-        val effect = environmentalReverb
-        if (effect != null) {
-            try {
-                applyReverbParameters(effect, savedReverbAmount)
-                player?.setAuxEffectInfo(
-                    if (savedReverbAmount > 0) AuxEffectInfo(effect.id, savedReverbAmount / 100f)
-                    else AuxEffectInfo(0, 0f)
-                )
-            } catch (_: Throwable) {}
-        }
+        // The vendor EnvironmentalReverb aux bus is intentionally left off: it
+        // stacks on our own RoomReverb and its per-device voicing is what made
+        // Studio Spaces sound like a muddy fade instead of a real room.
+        try { player?.setAuxEffectInfo(AuxEffectInfo(0, 0f)) } catch (_: Throwable) {}
+        try { environmentalReverb?.enabled = false } catch (_: Throwable) {}
         appliedReverb = savedReverbAmount
         persistEffectState()
     }
+
+    /** Studio Space voicing (room size, damping, wet, width, pre-delay). */
+    fun applySpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int) {
+        stemAudioProcessor.setSpace(room, damping, wet, width, preDelayMs, size)
+    }
+
 
     fun applyStemMix(vocalMix: Int, instrumentalMix: Int, persist: Boolean = true) {
         savedVocalMix = vocalMix.coerceIn(0, 100)
