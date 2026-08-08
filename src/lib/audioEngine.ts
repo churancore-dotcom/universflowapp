@@ -304,11 +304,23 @@ function applyReverbMix(percent: number) {
   engine.wetGain.gain.setTargetAtTime(wet, now, SMOOTH);
 }
 
-/** Build a stereo IR from a SpaceProfile. */
+/**
+ * Build a stereo IR from a SpaceProfile.
+ *
+ * Two stages, because a bare noise decay reads as "the track got quieter and
+ * blurry", not as a room:
+ *   1. discrete early reflections — the taps your ear uses to size the room,
+ *      spread slightly differently per channel so the space feels wide;
+ *   2. a damped diffuse tail with exponential decay.
+ */
 function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
-  const length = Math.floor(ctx.sampleRate * p.duration);
-  const predelaySamples = Math.floor(ctx.sampleRate * p.predelay);
-  const buf = ctx.createBuffer(2, length, ctx.sampleRate);
+  const sr = ctx.sampleRate;
+  const length = Math.floor(sr * p.duration);
+  const predelaySamples = Math.floor(sr * p.predelay);
+  const buf = ctx.createBuffer(2, length, sr);
+  // Bigger rooms => later, sparser early reflections.
+  const spread = Math.max(0.004, p.predelay * 1.9 + 0.012);
+  const reflectionCount = Math.round(6 + (1 - p.density) * 10);
   for (let ch = 0; ch < 2; ch++) {
     const data = buf.getChannelData(ch);
     let seed = (ch + 1) * 9301;
@@ -316,19 +328,31 @@ function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     };
+    // --- diffuse tail ---
     let lpState = 0;
-    const lpCoef = 1 - p.damping * 0.7;
-    for (let i = 0; i < length; i++) {
-      if (i < predelaySamples) { data[i] = 0; continue; }
-      const t = (i - predelaySamples) / (length - predelaySamples);
+    const lpCoef = 1 - p.damping * 0.75;
+    for (let i = predelaySamples; i < length; i++) {
+      const t = (i - predelaySamples) / Math.max(1, length - predelaySamples);
       const decay = Math.pow(1 - t, p.decay);
       const sample = rand() < p.density ? (rand() * 2 - 1) : 0;
       lpState = lpState + lpCoef * (sample - lpState);
-      data[i] = lpState * decay * 0.55;
+      data[i] = lpState * decay * 0.5;
+    }
+    // --- early reflections on top ---
+    let offset = predelaySamples + Math.floor(sr * spread * (0.6 + ch * 0.35));
+    let amp = 0.85;
+    for (let r = 0; r < reflectionCount && offset < length - 2; r++) {
+      const polarity = rand() < 0.5 ? -1 : 1;
+      data[offset] += polarity * amp * (0.65 + rand() * 0.35);
+      // Slight smear so a tap is a reflection, not a click.
+      data[offset + 1] += polarity * amp * 0.35;
+      amp *= 0.68 + p.density * 0.18;
+      offset += Math.floor(sr * spread * (0.55 + rand() * 0.9));
     }
   }
   return buf;
 }
+
 
 /** Default fallback IR (used when no Studio Space is selected). */
 function getReverbIR(ctx: AudioContext): AudioBuffer {
