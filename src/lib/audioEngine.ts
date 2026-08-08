@@ -38,8 +38,10 @@ interface Engine {
   stemsMidLowFilter: BiquadFilterNode | null;
   stemsMidBandHigh: BiquadFilterNode | null;
   stemsMidBandLow: BiquadFilterNode | null;
+  stemsMidHighFilter: BiquadFilterNode | null;
   stemsMidLowGain: GainNode | null;
   stemsMidBandGain: GainNode | null;
+  stemsMidHighGain: GainNode | null;
   stemsSideL: GainNode | null;
   stemsSideR: GainNode | null;
   stemsSideSum: GainNode | null;
@@ -94,8 +96,10 @@ const engine: Engine = {
   stemsMidLowFilter: null,
   stemsMidBandHigh: null,
   stemsMidBandLow: null,
+  stemsMidHighFilter: null,
   stemsMidLowGain: null,
   stemsMidBandGain: null,
+  stemsMidHighGain: null,
   stemsSideL: null,
   stemsSideR: null,
   stemsSideSum: null,
@@ -489,8 +493,14 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   stemsMidBandHigh.type = 'highpass'; stemsMidBandHigh.frequency.value = 180; stemsMidBandHigh.Q.value = 0.7;
   const stemsMidBandLow = ctx.createBiquadFilter();
   stemsMidBandLow.type = 'lowpass'; stemsMidBandLow.frequency.value = 9000; stemsMidBandLow.Q.value = 0.7;
+  // Mid content above 9 kHz (cymbals, air, hi-hats) is instrument bed, not
+  // voice. It used to be discarded entirely, which is why karaoke sounded
+  // hollow and "not really working" — the mix lost all its top end.
+  const stemsMidHighFilter = ctx.createBiquadFilter();
+  stemsMidHighFilter.type = 'highpass'; stemsMidHighFilter.frequency.value = 9000; stemsMidHighFilter.Q.value = 0.7;
   const stemsMidLowGain = ctx.createGain(); stemsMidLowGain.gain.value = 1;
   const stemsMidBandGain = ctx.createGain(); stemsMidBandGain.gain.value = 1;
+  const stemsMidHighGain = ctx.createGain(); stemsMidHighGain.gain.value = 1;
 
   const stemsSideL = ctx.createGain(); stemsSideL.gain.value = 0.5;
   const stemsSideR = ctx.createGain(); stemsSideR.gain.value = -0.5;
@@ -516,12 +526,16 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   stemsMidSum.connect(stemsMidBandHigh);
   stemsMidBandHigh.connect(stemsMidBandLow);
   stemsMidBandLow.connect(stemsMidBandGain);
+  stemsMidSum.connect(stemsMidHighFilter);
+  stemsMidHighFilter.connect(stemsMidHighGain);
 
   // Mid content is identical in both output channels.
   stemsMidLowGain.connect(stemsMerger, 0, 0);
   stemsMidLowGain.connect(stemsMerger, 0, 1);
   stemsMidBandGain.connect(stemsMerger, 0, 0);
   stemsMidBandGain.connect(stemsMerger, 0, 1);
+  stemsMidHighGain.connect(stemsMerger, 0, 0);
+  stemsMidHighGain.connect(stemsMerger, 0, 1);
 
   // Side content is added to L and subtracted from R to rebuild stereo.
   stemsSideSum.connect(stemsSidePos); stemsSidePos.connect(stemsMerger, 0, 0);
@@ -583,8 +597,10 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.stemsMidLowFilter = stemsMidLowFilter;
   engine.stemsMidBandHigh = stemsMidBandHigh;
   engine.stemsMidBandLow = stemsMidBandLow;
+  engine.stemsMidHighFilter = stemsMidHighFilter;
   engine.stemsMidLowGain = stemsMidLowGain;
   engine.stemsMidBandGain = stemsMidBandGain;
+  engine.stemsMidHighGain = stemsMidHighGain;
   engine.stemsSideL = stemsSideL;
   engine.stemsSideR = stemsSideR;
   engine.stemsSideSum = stemsSideSum;
@@ -647,6 +663,8 @@ function applyStems() {
   setGain(engine.stemsMidLowGain, instrument);
   // Centered vocal band follows the vocal slider.
   setGain(engine.stemsMidBandGain, vocal);
+  // Centered air/cymbals stay with the instruments.
+  setGain(engine.stemsMidHighGain, instrument);
   // Stereo instrument bed follows the instrument slider.
   setGain(engine.stemsSidePos, instrument);
   setGain(engine.stemsSideNeg, -instrument);
