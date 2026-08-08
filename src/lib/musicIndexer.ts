@@ -592,8 +592,9 @@ export function invalidateStreamCache(artist: string, title: string) {
 export async function resolveIndexedTrack(
   artist: string,
   title: string,
-  opts: { forceRefresh?: boolean } = {},
+  opts: { forceRefresh?: boolean; background?: boolean } = {},
 ): Promise<ResolveTrackResponse> {
+  const priority: Priority = opts.background ? 'low' : 'high';
   const cacheKey = makeCacheKey(artist, title);
   if (opts.forceRefresh) {
     streamCache.delete(cacheKey);
@@ -636,7 +637,7 @@ export async function resolveIndexedTrack(
       .catch(() => null);
 
     const edgeP: Promise<ResolveTrackResponse | null> = trackResolver('music-indexer', cacheKey, resolveViaEdgeFunction(
-      artist, title, cacheKey, opts.forceRefresh === true,
+      artist, title, cacheKey, opts.forceRefresh === true, priority,
     )).catch(() => null);
 
     const racers = [dbP, saavnP, edgeP];
@@ -676,7 +677,7 @@ export async function resolveIndexedTrack(
 
     recordPerfEvent({
       event_type: 'resolve_failed',
-      severity: 'error',
+      severity: opts.background ? 'info' : 'error',
       source: 'catalog',
       track_id: cacheKey,
       latency_ms: Date.now() - startedAt,
@@ -695,7 +696,7 @@ export async function resolveIndexedTrack(
 
 export async function resolveYouTubeVideoStream(
   videoId: string,
-  opts: { forceRefresh?: boolean; title?: string; artist?: string } = {},
+  opts: { forceRefresh?: boolean; title?: string; artist?: string; background?: boolean } = {},
 ): Promise<ResolveTrackResponse> {
   const id = videoId.trim();
   if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) {
@@ -715,7 +716,7 @@ export async function resolveYouTubeVideoStream(
 
 async function resolveYouTubeVideoStreamInner(
   id: string,
-  opts: { forceRefresh?: boolean; title?: string; artist?: string },
+  opts: { forceRefresh?: boolean; title?: string; artist?: string; background?: boolean },
   lockKey: string,
 ): Promise<ResolveTrackResponse> {
 
@@ -754,13 +755,15 @@ async function resolveYouTubeVideoStreamInner(
         .catch(() => null)
     : Promise.resolve(null);
 
+  const priority: Priority = opts.background ? 'low' : 'high';
   const resolvers: Promise<ResolveTrackResponse | null>[] = [
     saavnRacer,
     trackResolver('extract-audio', id, (async () => {
-      const { data, error } = await supabase.functions.invoke('extract-audio', {
-        body: { videoId: id, forceRefresh: opts.forceRefresh === true },
-      });
-      if (error) throw error;
+      const { data, error } = await invokeGated<{
+        success?: boolean; audioUrl?: string; title?: string; artist?: string;
+        thumbnail?: string; duration?: number;
+      }>('extract-audio', { videoId: id, forceRefresh: opts.forceRefresh === true }, priority);
+      if (error) throw new Error(error.message || 'extract-audio failed');
       if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
         return {
           success: true,
@@ -779,7 +782,7 @@ async function resolveYouTubeVideoStreamInner(
         action: 'resolve-video',
         videoId: id,
         forceRefresh: opts.forceRefresh === true,
-      });
+      }, priority);
       if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
         return { ...data, videoId: id };
       }
@@ -827,7 +830,7 @@ async function resolveYouTubeVideoStreamInner(
 
   recordPerfEvent({
     event_type: 'resolve_failed',
-    severity: 'error',
+    severity: opts.background ? 'info' : 'error',
     source: 'youtube',
     track_id: id,
     latency_ms: Date.now() - ytStartedAt,
@@ -874,13 +877,13 @@ export function invalidateStreamUrl(url?: string | null) {
   invalidateYtmCachedByUrl(url);
 }
 
-async function resolveViaEdgeFunction(artist: string, title: string, cacheKey: string, forceRefresh = false): Promise<ResolveTrackResponse> {
+async function resolveViaEdgeFunction(artist: string, title: string, cacheKey: string, forceRefresh = false, priority: Priority = 'high'): Promise<ResolveTrackResponse> {
   const result = await requestIndexer<ResolveTrackResponse>({
     action: 'resolve',
     artist,
     title,
     forceRefresh,
-  });
+  }, priority);
 
   if (!result?.success || !result.streamUrl) {
     throw new Error(result?.error || 'Could not find a playable stream for this track');
@@ -901,14 +904,14 @@ async function resolveViaEdgeFunction(artist: string, title: string, cacheKey: s
 export function prefetchIndexedTrack(artist: string, title: string) {
   const cacheKey = makeCacheKey(artist, title);
   if (getCachedStream(cacheKey) || inFlightResolutions.has(cacheKey)) return;
-  void resolveIndexedTrack(artist, title).catch(() => null);
+  void resolveIndexedTrack(artist, title, { background: true }).catch(() => null);
 }
 
 export function prefetchYouTubeVideoStream(videoId?: string | null, hint?: { title?: string; artist?: string }) {
   const id = (videoId || '').trim();
   if (!/^[a-zA-Z0-9_-]{11}$/.test(id)) return;
   if (getYtmCached(id)?.url) return;
-  void resolveYouTubeVideoStream(id, hint || {}).catch(() => null);
+  void resolveYouTubeVideoStream(id, { ...(hint || {}), background: true }).catch(() => null);
 }
 
 // ── Artist directory (with real PFPs from Deezer) ──
