@@ -883,7 +883,13 @@ class ExoPlayerPlugin : Plugin() {
             svc.ensureEffectsBound(forceReapply = true)
             try { svc.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}
             svc.applyReverb(reverb)
+            // A Studio Space overrides the plain reverb voicing with its own
+            // room geometry, so Hall / Cathedral / Stadium really differ.
+            if (spaceWet >= 0) {
+                svc.applySpace(spaceRoom, spaceDamp, spaceWet.coerceIn(0, 100), spaceWidth, spacePredelay, spaceSize)
+            }
             svc.persistEffectState()
+
             call.resolve()
         }
     }
