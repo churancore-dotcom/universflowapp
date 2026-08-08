@@ -243,17 +243,18 @@ interface SpaceProfile {
   dry: number;        // recommended dry gain
 }
 
-// Wet/dry rebalanced — old values were too polite to hear. Stadium worked
-// because its predelay/decay combo is naturally aggressive; the rest need
-// real wet level to register on phone speakers/earbuds.
+// Wet is a PARALLEL send now, so dry stays near unity. The old profiles cut
+// dry to 0.70–0.88, which is why every space sounded like the song was being
+// faded down instead of placed in a room.
 const SPACE_PROFILES: Record<Exclude<StudioSpaceId, 'off'>, SpaceProfile> = {
-  vinyl:     { duration: 0.5,  decay: 3.6, predelay: 0.002, density: 0.95, damping: 0.55, wet: 0.28, dry: 0.88 },
-  studio:    { duration: 0.8,  decay: 2.8, predelay: 0.006, density: 0.9,  damping: 0.30, wet: 0.32, dry: 0.85 },
-  bedroom:   { duration: 1.2,  decay: 2.4, predelay: 0.010, density: 0.75, damping: 0.45, wet: 0.40, dry: 0.82 },
-  hall:      { duration: 2.8,  decay: 1.6, predelay: 0.028, density: 0.55, damping: 0.22, wet: 0.55, dry: 0.75 },
-  cathedral: { duration: 5.0,  decay: 1.1, predelay: 0.050, density: 0.40, damping: 0.12, wet: 0.65, dry: 0.70 },
-  stadium:   { duration: 3.8,  decay: 1.4, predelay: 0.085, density: 0.32, damping: 0.28, wet: 0.58, dry: 0.72 },
+  vinyl:     { duration: 0.5,  decay: 3.6, predelay: 0.002, density: 0.95, damping: 0.75, wet: 0.30, dry: 0.98 },
+  studio:    { duration: 0.9,  decay: 2.8, predelay: 0.006, density: 0.9,  damping: 0.35, wet: 0.34, dry: 0.98 },
+  bedroom:   { duration: 1.3,  decay: 2.4, predelay: 0.011, density: 0.75, damping: 0.60, wet: 0.42, dry: 0.97 },
+  hall:      { duration: 3.2,  decay: 1.5, predelay: 0.032, density: 0.55, damping: 0.28, wet: 0.62, dry: 0.95 },
+  cathedral: { duration: 5.6,  decay: 1.0, predelay: 0.055, density: 0.40, damping: 0.14, wet: 0.72, dry: 0.94 },
+  stadium:   { duration: 4.2,  decay: 1.3, predelay: 0.105, density: 0.32, damping: 0.40, wet: 0.68, dry: 0.94 },
 };
+
 
 let currentSpaceId: StudioSpaceId = 'off';
 let currentReverbPercent = 0;
