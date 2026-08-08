@@ -28,7 +28,7 @@ export function useTasteProfile(): TasteProfile {
 
 
   useEffect(() => {
-    if (!user) return;
+
     const refresh = () => {
       invalidateTasteProfile();
       queryClient.invalidateQueries({ queryKey: ['taste-profile'] });
