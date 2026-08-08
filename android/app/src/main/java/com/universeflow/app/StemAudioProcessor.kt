@@ -124,6 +124,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
             if (blockCounter <= 0) {
                 eqActive = equalizer.tickBlock()
                 eqHeadroom = equalizer.headroomGain()
+                reverb.tickBlock()
                 blockCounter = 64
             }
             blockCounter--
@@ -132,7 +133,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
             currentSpatialDepth += smoothingCoeff * (targetSpatialDepth - currentSpatialDepth)
             currentSurround += smoothingCoeff * (targetSurround - currentSurround)
             currentLateNight += smoothingCoeff * (targetLateNight - currentLateNight)
-            currentReverb += smoothingCoeff * (targetReverb - currentReverb)
+
             val vocal = currentVocalMix.coerceIn(0f, 1f)
             val instrument = currentInstrumentalMix.coerceIn(0f, 1f)
             val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
