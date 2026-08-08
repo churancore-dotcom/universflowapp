@@ -61,21 +61,9 @@ const SCHEMA_GRAPH = JSON.stringify({
   "@graph": [
     { "@type": "WebSite", "@id": "https://universflow.in/#website", url: "https://universflow.in/", name: "Universflow", description: "Free music streaming and download — stream, follow artists, listen offline.", potentialAction: { "@type": "SearchAction", target: "https://universflow.in/search?q={search_term_string}", "query-input": "required name=search_term_string" } },
     { "@type": "Organization", "@id": "https://universflow.in/#org", name: "Universflow", url: "https://universflow.in/", logo: "https://universflow.in/pwa-512x512.png" },
-    { "@type": "MobileApplication", name: "Universflow", operatingSystem: "ANDROID", applicationCategory: "MusicApplication", url: "https://universflow.in/get", installUrl: "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk", downloadUrl: "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk", softwareVersion: "1.0", fileSize: "24MB", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", ratingCount: "1280" } },
-    { "@type": "SoftwareApplication", name: "Universflow", operatingSystem: "Android 5.1+", applicationCategory: "MusicApplication", downloadUrl: "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk", installUrl: "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk", softwareVersion: "1.0", fileSize: "24MB", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", ratingCount: "1280" } },
   ],
 });
 
-const FAQ_SCHEMA = JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    { "@type": "Question", name: "Is Universflow really free?", acceptedAnswer: { "@type": "Answer", text: "Yes. Universflow is free to use with optional Premium upgrades. Create an account with email to start listening instantly." } },
-    { "@type": "Question", name: "Can I download songs to listen offline?", acceptedAnswer: { "@type": "Answer", text: "Yes. Tap the download icon on any song or playlist and it will be saved for offline playback inside the app." } },
-    { "@type": "Question", name: "Does Universflow work on Android and iPhone?", acceptedAnswer: { "@type": "Answer", text: "Universflow works in any modern browser and ships as a native Android app. iPhone users can install it as a home-screen web app." } },
-    { "@type": "Question", name: "How do I create a Universflow account?", acceptedAnswer: { "@type": "Answer", text: "Visit the Universflow sign-up page, enter your email and password, verify your email, and start listening." } },
-  ],
-});
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
