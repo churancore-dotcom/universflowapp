@@ -136,7 +136,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { src: "https://www.googletagmanager.com/gtag/js?id=G-KP0P1145TP", async: true },
       { children: GA_SNIPPET },
       { type: "application/ld+json", children: SCHEMA_GRAPH },
-      { type: "application/ld+json", children: FAQ_SCHEMA },
+      // FAQPage + app-install schemas live on the routes they describe (/ and /get).
     ],
   }),
   shellComponent: RootShell,
