@@ -326,10 +326,72 @@ async function tryDbCachedStream(artist: string, title: string): Promise<Resolve
   });
 }
 
-async function requestFunction<T>(functionName: string, body: Record<string, unknown>, requireSuccess = false): Promise<T> {
-  const { data, error } = await supabase.functions.invoke(functionName, {
-    body,
+// ── Edge concurrency gate ────────────────────────────────────────────────────
+// Home renders 4+ rails, each pre-warming several tracks, and every warm fans
+// out to 2 edge functions. Unthrottled that is 40+ simultaneous invokes: the
+// browser/edge drops them ("Failed to fetch"), which is exactly what shows up
+// in the monitor as a low playback-success rate and a high error rate.
+// Foreground (a real tap) always jumps ahead of background pre-warms.
+type Priority = 'high' | 'low';
+const MAX_EDGE_CONCURRENCY = 4;
+let activeEdgeCalls = 0;
+const edgeWaiters: { priority: Priority; run: () => void }[] = [];
+
+function pumpEdgeQueue() {
+  while (activeEdgeCalls < MAX_EDGE_CONCURRENCY && edgeWaiters.length) {
+    let idx = edgeWaiters.findIndex((w) => w.priority === 'high');
+    if (idx === -1) idx = 0;
+    const [next] = edgeWaiters.splice(idx, 1);
+    activeEdgeCalls += 1;
+    next.run();
+  }
+}
+
+function acquireEdgeSlot(priority: Priority): Promise<void> {
+  if (activeEdgeCalls < MAX_EDGE_CONCURRENCY) {
+    activeEdgeCalls += 1;
+    return Promise.resolve();
+  }
+  return new Promise<void>((resolve) => {
+    edgeWaiters.push({ priority, run: resolve });
   });
+}
+
+function releaseEdgeSlot() {
+  activeEdgeCalls = Math.max(0, activeEdgeCalls - 1);
+  pumpEdgeQueue();
+}
+
+async function invokeGated<T>(
+  functionName: string,
+  body: Record<string, unknown>,
+  priority: Priority,
+): Promise<{ data: T | null; error: { message?: string } | null }> {
+  await acquireEdgeSlot(priority);
+  try {
+    // One retry for pure transport failures ("Failed to fetch"): those are
+    // connection-pool casualties, not real resolver misses.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      const { data, error } = await supabase.functions.invoke(functionName, { body });
+      const transport = /failed to fetch|network|load failed/i.test(error?.message || '');
+      if (!error || !transport || attempt === 1) {
+        return { data: (data ?? null) as T | null, error: error as { message?: string } | null };
+      }
+      await new Promise((r) => setTimeout(r, 250 + Math.random() * 250));
+    }
+    return { data: null, error: { message: 'Function request failed' } };
+  } finally {
+    releaseEdgeSlot();
+  }
+}
+
+async function requestFunction<T>(
+  functionName: string,
+  body: Record<string, unknown>,
+  requireSuccess = false,
+  priority: Priority = 'high',
+): Promise<T> {
+  const { data, error } = await invokeGated<T & { success?: boolean; error?: string }>(functionName, body, priority);
 
   if (error) {
     throw new Error(error.message || 'Function request failed');
@@ -342,8 +404,8 @@ async function requestFunction<T>(functionName: string, body: Record<string, unk
   return data as T;
 }
 
-async function requestIndexer<T>(body: Record<string, unknown>): Promise<T> {
-  return requestFunction<T>('music-indexer', body, true);
+async function requestIndexer<T>(body: Record<string, unknown>, priority: Priority = 'high'): Promise<T> {
+  return requestFunction<T>('music-indexer', body, true, priority);
 }
 
 // ── Public API ──
