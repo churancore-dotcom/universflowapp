@@ -3219,7 +3219,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Loop back to start even if repeat is off when manually pressing next
       playSongAtIndex(0, queue);
     }
-  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, getNextIndex, playSongAtIndex]);
+  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, currentSong, getNextIndex, playSongAtIndex]);
 
   const prevSong = useCallback(async () => {
     if (queue.length === 0) return;
