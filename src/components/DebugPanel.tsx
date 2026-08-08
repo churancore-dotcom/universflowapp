@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, RotateCcw, Trash2, WifiOff } from 'lucide-react';
 import { clearLiveEvents, subscribeLiveEvents, type LiveEvent } from '@/lib/perfMonitor';
 
-const FAIL_TYPES = ['resolve_fail', 'resolve_failed', 'resolve_error', 'resolve_miss', 'playback_error', 'audio_error'];
+const FAIL_TYPES = ['resolve_fail', 'resolve_failed', 'resolve_error', 'resolve_miss', 'playback_error', 'audio_error', 'edge_call_error'];
 
 type Filter = 'failures' | 'all';
 
@@ -25,7 +25,7 @@ function retryOutcome(e: LiveEvent): { label: string; tone: string } | null {
   const d = (e.details ?? {}) as Record<string, unknown>;
   const attempt = typeof d['attempt'] === 'number' ? (d['attempt'] as number) : null;
   const retried = d['retried'] === true || (attempt != null && attempt > 1);
-  if (e.event_type === 'resolve_hit' || e.event_type === 'resolve_complete') {
+  if (['resolve_hit', 'resolve_complete', 'edge_call_ok'].includes(e.event_type)) {
     return retried ? { label: 'recovered after retry', tone: 'text-emerald-300' } : { label: 'first try', tone: 'text-muted-foreground' };
   }
   if (isFailure(e)) {
