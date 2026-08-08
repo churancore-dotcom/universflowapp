@@ -11,6 +11,8 @@ import { isSpamSong } from '@/pages/Search';
 import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { getCountryQueries } from '@/lib/countryQueries';
+import { useAppTrending } from '@/lib/appTrending';
+
 
 interface Props { songs?: Song[]; enabled?: boolean }
 
