@@ -61,31 +61,19 @@ const SCHEMA_GRAPH = JSON.stringify({
   "@graph": [
     { "@type": "WebSite", "@id": "https://universflow.in/#website", url: "https://universflow.in/", name: "Universflow", description: "Free music streaming and download — stream, follow artists, listen offline.", potentialAction: { "@type": "SearchAction", target: "https://universflow.in/search?q={search_term_string}", "query-input": "required name=search_term_string" } },
     { "@type": "Organization", "@id": "https://universflow.in/#org", name: "Universflow", url: "https://universflow.in/", logo: "https://universflow.in/pwa-512x512.png" },
-    { "@type": "MobileApplication", name: "Universflow", operatingSystem: "ANDROID", applicationCategory: "MusicApplication", url: "https://universflow.in/get", installUrl: "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk", downloadUrl: "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk", softwareVersion: "1.0", fileSize: "24MB", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", ratingCount: "1280" } },
-    { "@type": "SoftwareApplication", name: "Universflow", operatingSystem: "Android 5.1+", applicationCategory: "MusicApplication", downloadUrl: "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk", installUrl: "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk", softwareVersion: "1.0", fileSize: "24MB", offers: { "@type": "Offer", price: "0", priceCurrency: "USD" }, aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", ratingCount: "1280" } },
   ],
 });
 
-const FAQ_SCHEMA = JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    { "@type": "Question", name: "Is Universflow really free?", acceptedAnswer: { "@type": "Answer", text: "Yes. Universflow is free to use with optional Premium upgrades. Create an account with email to start listening instantly." } },
-    { "@type": "Question", name: "Can I download songs to listen offline?", acceptedAnswer: { "@type": "Answer", text: "Yes. Tap the download icon on any song or playlist and it will be saved for offline playback inside the app." } },
-    { "@type": "Question", name: "Does Universflow work on Android and iPhone?", acceptedAnswer: { "@type": "Answer", text: "Universflow works in any modern browser and ships as a native Android app. iPhone users can install it as a home-screen web app." } },
-    { "@type": "Question", name: "How do I create a Universflow account?", acceptedAnswer: { "@type": "Answer", text: "Visit the Universflow sign-up page, enter your email and password, verify your email, and start listening." } },
-  ],
-});
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" },
-      { title: "Universflow — Free Music App for Android (APK Download)" },
+      { title: "Universflow — Free Music Streaming App" },
       { name: "google-site-verification", content: "9i6sSAmlmRyKCJS2U4vNTHoKzSLvG4qx7bViokCa7Ik" },
-      { name: "title", content: "Universflow — Free Music App for Android (APK Download)" },
-      { name: "description", content: "Stream millions of songs free on Universflow. Build playlists, follow artists, download for offline, and enjoy an Apple Music–style player." },
+      { name: "title", content: "Universflow — Free Music Streaming App" },
+      { name: "description", content: "Universflow is a free music streaming app: play millions of songs, follow artists and download tracks for offline listening." },
       { name: "keywords", content: "free music app, music app, song app, song download app, mp3 song download app, mp3 download app, mp3 music download app, music download app, music player, free music download, free music apps, online music app, music streaming app, offline music app, music app for Android, free music app for Android, gana wala apps, mp3 gana, hindi songs app, punjabi songs app, bollywood music app, spotify alternative, jiosaavn alternative, gaana alternative, wynk alternative, snaptube alternative, Universflow, Universflow APK, Universflow download, Universflow Android app" },
       { name: "author", content: "Universflow Team" },
       { name: "creator", content: "Universflow Team" },
@@ -108,9 +96,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:site_name", content: "Universflow" },
       { property: "og:locale", content: "en_US" },
       { property: "og:locale:alternate", content: "hi_IN" },
-      { property: "og:title", content: "Universflow — Free Music Streaming, Download & Offline Player" },
-      { property: "og:description", content: "Stream millions of songs free on Universflow. Discover trending tracks, follow artists, build playlists, download songs, and listen offline." },
-      { property: "og:url", content: "https://universflow.in/" },
+      // og:title / og:description / og:url are defined per-route (see leaf head()).
+
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
       { property: "og:image:secure_url", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
       { property: "og:image:type", content: "image/webp" },
@@ -121,9 +108,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:site", content: "@UniversFlow" },
       { name: "twitter:creator", content: "@UniversFlow" },
       { name: "twitter:domain", content: "universflow.in" },
-      { name: "twitter:url", content: "https://universflow.in/" },
-      { name: "twitter:title", content: "Universflow — Free Music Streaming, Download & Offline Player" },
-      { name: "twitter:description", content: "Stream millions of songs free on Universflow. Discover trending tracks, follow artists, build playlists, download songs, and listen offline." },
+      // twitter:url / twitter:title / twitter:description are defined per-route.
+
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
       { name: "twitter:image:alt", content: "Universflow — Free music streaming and download app for Android" },
       { name: "twitter:app:name:googleplay", content: "Universflow" },
@@ -150,7 +136,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { src: "https://www.googletagmanager.com/gtag/js?id=G-KP0P1145TP", async: true },
       { children: GA_SNIPPET },
       { type: "application/ld+json", children: SCHEMA_GRAPH },
-      { type: "application/ld+json", children: FAQ_SCHEMA },
+      // FAQPage + app-install schemas live on the routes they describe (/ and /get).
     ],
   }),
   shellComponent: RootShell,
