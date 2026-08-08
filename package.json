@@ -102,13 +102,15 @@
     "glob": "^13.0.6",
     "minimatch": "^10.2.5",
     "brace-expansion": "^2.0.2",
-    "@isaacs/brace-expansion": "^5.0.1"
+    "@isaacs/brace-expansion": "^5.0.1",
+    "js-yaml": "^4.3.1"
   },
   "resolutions": {
     "@xmldom/xmldom": "^0.9.10",
     "glob": "^13.0.6",
     "minimatch": "^10.2.5",
     "brace-expansion": "^2.0.2",
-    "@isaacs/brace-expansion": "^5.0.1"
+    "@isaacs/brace-expansion": "^5.0.1",
+    "js-yaml": "^4.3.1"
   }
 }
