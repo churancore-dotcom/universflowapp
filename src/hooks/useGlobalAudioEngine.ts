@@ -106,6 +106,8 @@ export function useGlobalAudioEngine(
           virtualizerStrength: 0,
           loudnessGainMb: 0,
           reverbAmount: 0,
+          space: null,
+
           vocalMix: 100,
           instrumentalMix: 100,
           playbackSpeed: s.playbackSpeed,
