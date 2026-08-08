@@ -61,20 +61,30 @@ export function useGlobalAudioEngine(
       retryTimers = [];
     };
 
-    // Per-space NATIVE profile — Studio Spaces on APK can't use WebAudio
-    // convolution, so we simulate each acoustic environment via the
-    // AudioEffect chain: virtualizer width, bass shelf, loudness makeup,
-    // and 5-band EQ coloration offsets (in millibels, matches FALLBACK_NATIVE_BANDS).
+    // Per-space NATIVE profile. Tone/width still come from the AudioEffect
+    // chain, but the room itself is now real: `geo` drives the native
+    // RoomReverb (pre-delay, comb feedback, damping, width, size), so Hall,
+    // Cathedral, Stadium and Bedroom are distinct rooms instead of one wash.
     //                                          60Hz  230Hz 910Hz 3.6k  14k
-    const NATIVE_SPACES: Record<string, { virt: number; bass: number; loud: number; reverb: number; eqMb: number[] }> = {
-      off:       { virt: 0,    bass: 0,   loud: 0,   reverb: 0,  eqMb: [0, 0, 0, 0, 0] },
-      vinyl:     { virt: 400,  bass: 250, loud: 150, reverb: 8,  eqMb: [300, 150, 0, -300, -600] },
-      studio:    { virt: 250,  bass: 0,   loud: 100, reverb: 6,  eqMb: [0, 0, 150, 200, 100] },
-      bedroom:   { virt: 550,  bass: 150, loud: 250, reverb: 14, eqMb: [200, 50, 0, -100, -250] },
-      hall:      { virt: 900,  bass: 250, loud: 400, reverb: 28, eqMb: [350, 150, 0, 200, 400] },
-      cathedral: { virt: 1000, bass: 350, loud: 550, reverb: 42, eqMb: [500, 250, -100, 250, 550] },
-      stadium:   { virt: 1000, bass: 450, loud: 650, reverb: 34, eqMb: [600, 350, 0, 200, 350] },
+    const NATIVE_SPACES: Record<string, {
+      virt: number; bass: number; loud: number; reverb: number; eqMb: number[];
+      geo: NativeSpaceGeometry | null;
+    }> = {
+      off:       { virt: 0,    bass: 0,   loud: 0,   reverb: 0,  eqMb: [0, 0, 0, 0, 0],            geo: null },
+      // Tight, dark, almost no tail — a lacquer cut, not a room.
+      vinyl:     { virt: 400,  bass: 250, loud: 150, reverb: 8,  eqMb: [300, 150, 0, -300, -600],  geo: { room: 18, damping: 85, wet: 16, width: 45, predelayMs: 2,   size: 60 } },
+      // Dry control room: short, bright, controlled.
+      studio:    { virt: 250,  bass: 0,   loud: 100, reverb: 6,  eqMb: [0, 0, 150, 200, 100],      geo: { room: 30, damping: 40, wet: 18, width: 70, predelayMs: 6,   size: 75 } },
+      // Small soft room, early reflections close in.
+      bedroom:   { virt: 550,  bass: 150, loud: 250, reverb: 14, eqMb: [200, 50, 0, -100, -250],   geo: { room: 42, damping: 70, wet: 26, width: 65, predelayMs: 11,  size: 85 } },
+      // Concert hall: long bloom, wide, gentle damping.
+      hall:      { virt: 900,  bass: 250, loud: 400, reverb: 28, eqMb: [350, 150, 0, 200, 400],    geo: { room: 78, damping: 32, wet: 46, width: 95, predelayMs: 32,  size: 150 } },
+      // Stone cathedral: longest tail, bright stone, huge geometry.
+      cathedral: { virt: 1000, bass: 350, loud: 550, reverb: 42, eqMb: [500, 250, -100, 250, 550], geo: { room: 94, damping: 16, wet: 58, width: 100, predelayMs: 55, size: 210 } },
+      // Stadium: big slapback gap first, then a broad diffuse roar.
+      stadium:   { virt: 1000, bass: 450, loud: 650, reverb: 34, eqMb: [600, 350, 0, 200, 350],    geo: { room: 86, damping: 45, wet: 52, width: 100, predelayMs: 105, size: 190 } },
     };
+
 
     let native8DTimer: number | null = null;
     const stop8D = () => {
