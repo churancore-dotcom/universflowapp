@@ -43,7 +43,7 @@ export interface AppTrendingResult {
 
 export async function fetchAppTrending(country: string | null, hours = 48, limit = 40): Promise<AppTrendingResult> {
   const { data, error } = await supabase.rpc('app_trending_tracks', {
-    p_country: country || null,
+    p_country: country || undefined,
     p_hours: hours,
     p_limit: limit,
   });
