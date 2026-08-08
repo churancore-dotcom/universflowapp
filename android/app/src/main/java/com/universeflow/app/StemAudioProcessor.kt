@@ -63,7 +63,20 @@ class StemAudioProcessor : BaseAudioProcessor() {
         targetSpatialDepth = spatialStrength.coerceIn(0, 1000) / 1000f
         targetSurround = surroundStrength.coerceIn(0, 1000) / 1000f
         targetLateNight = lateNightGainMb.coerceIn(0, 2000) / 2000f
-        targetReverb = reverbAmount.coerceIn(0, 100) / 100f
+        // Plain reverb slider with no Studio Space: a modest small-room voicing.
+        reverb.setSpace(
+            roomPercent = 45 + reverbAmount / 3,
+            dampPercent = 45,
+            wetPercent = reverbAmount,
+            widthPercent = 80,
+            preDelayMs = 14,
+            sizePercent = 100,
+        )
+    }
+
+    /** Studio Space voicing pushed down from the app (Hall, Cathedral, ...). */
+    fun setSpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int) {
+        reverb.setSpace(room, damping, wet, width, preDelayMs, size)
     }
 
     override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
@@ -81,11 +94,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         highCoeff = dt / (rcHigh + dt)
         smoothingCoeff = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.025f)).toDouble()).toFloat()
         spatialPhaseStep = 2.0 * Math.PI * 0.12 / inputAudioFormat.sampleRate.toDouble()
-        // A cross-fed 89ms delay gives Spaces a real, device-independent room
-        // tail instead of relying on optional vendor EnvironmentalReverb.
-        reverbLeft = FloatArray(max(1, (inputAudioFormat.sampleRate * 0.089f).toInt()))
-        reverbRight = FloatArray(reverbLeft.size)
-        reverbCursor = 0
+        reverb.configure(inputAudioFormat.sampleRate)
         lowState = 0f
         highState = 0f
         equalizer.configure(inputAudioFormat.sampleRate)
@@ -99,10 +108,9 @@ class StemAudioProcessor : BaseAudioProcessor() {
         lowState = 0f
         highState = 0f
         equalizer.reset()
-        java.util.Arrays.fill(reverbLeft, 0f)
-        java.util.Arrays.fill(reverbRight, 0f)
-        reverbCursor = 0
+        reverb.reset()
     }
+
 
     override fun queueInput(inputBuffer: ByteBuffer) {
         val position = inputBuffer.position()
