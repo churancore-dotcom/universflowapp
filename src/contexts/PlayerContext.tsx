@@ -1161,12 +1161,36 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // also avoid re-adding the seed
       existing.add(seed.id);
 
+      // ID-only dedupe let the SAME song back into the queue over and over,
+      // because the same track arrives as a library UUID, a `ytm-<videoId>`,
+      // and sometimes several different videoIds (topic/audio/lyric uploads).
+      // Track a normalized title+artist fingerprint as well.
+      const fingerprint = (title?: string, artist?: string) => {
+        const clean = (v: string) => v
+          .toLowerCase()
+          .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+          .replace(/\b(official|video|audio|lyrics?|lyrical|full song|hd|4k|remaster(ed)?|visualizer|mv)\b/g, ' ')
+          .replace(/[^a-z0-9]+/g, '');
+        return `${clean(title || '')}~${clean((artist || '').split(/[,&/]|feat|ft\./)[0] || '')}`;
+      };
+      const seenPrints = new Set<string>();
+      const markSeen = (s: { title?: string; artist?: string }) => seenPrints.add(fingerprint(s.title, s.artist));
+      const isDuplicate = (s: { title?: string; artist?: string }) => {
+        const key = fingerprint(s.title, s.artist);
+        if (key === '~') return false;
+        return seenPrints.has(key);
+      };
+      queueRef.current.forEach(markSeen);
+      markSeen(seed);
+
       const pool: Song[] = [];
       const pushUnique = (rows: SongRowWithArtist[] | null) => {
         for (const r of rows || []) {
           if (!r?.id || existing.has(r.id)) continue;
           if (!r.audio_url) continue;
+          if (isDuplicate({ title: r.title, artist: r.artist ?? undefined })) continue;
           existing.add(r.id);
+          markSeen({ title: r.title, artist: r.artist ?? undefined });
           pool.push(mapSongRow(r));
           if (pool.length >= 25) break;
         }
@@ -1184,12 +1208,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (!t?.videoId) continue;
             const id = `ytm-${t.videoId}`;
             if (existing.has(id)) continue;
+            if (isDuplicate({ title: t.title, artist: t.artist })) continue;
             existing.add(id);
+            markSeen({ title: t.title, artist: t.artist });
             pool.push({
               id,
               title: t.title,
               artist: t.artist || 'Unknown',
-              cover_url: t.cover_url,
+              // Radio rows sometimes ship without a thumbnail, which is why
+              // queue rows showed an empty tile. Fall back to the canonical
+              // YouTube artwork for that videoId.
+              cover_url: t.cover_url || `https://i.ytimg.com/vi/${t.videoId}/hqdefault.jpg`,
               audio_url: t.audio_url || `yt-video:${t.videoId}`,
               duration: t.duration || undefined,
               source: 'indexed',
@@ -1200,6 +1229,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('[autoMix] ytm-radio failed', e);
         }
       }
+
 
       // 2) Taste-aware search mix — same artist / similar sound from the live
       // catalogue, so even a locally uploaded seed keeps playing forever.
