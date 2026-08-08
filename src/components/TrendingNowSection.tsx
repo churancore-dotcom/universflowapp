@@ -37,7 +37,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   }, [charts, fallbackPool, taste]);
 
   // Pre-resolve the top of the chart so the first taps are instant.
-  React.useEffect(() => { prewarmSongs(trending, 4); }, [trending]);
+  React.useEffect(() => { prewarmSongs(trending, 2); }, [trending]);
 
   if (trending.length === 0) return null;
 
