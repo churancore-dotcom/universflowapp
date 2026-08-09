@@ -1035,3 +1035,29 @@ export function subscribe(cb: (m: Mode) => void): () => void {
   cb(engine.mode);
   return () => { engine.listeners.delete(cb); };
 }
+
+/**
+ * Read-only spectrum tap for visualizers. Connected as a side-branch off the
+ * live source (never to destination), so audio routing/output is untouched.
+ * Returns null when no WebAudio graph exists (e.g. native ExoPlayer path).
+ */
+let visualAnalyser: AnalyserNode | null = null;
+let visualAnalyserCtx: AudioContext | null = null;
+
+export function getAnalyser(): AnalyserNode | null {
+  const ctx = engine.ctx;
+  const source = engine.source;
+  if (!ctx || !source) return null;
+  try {
+    if (visualAnalyser && visualAnalyserCtx === ctx) return visualAnalyser;
+    const analyser = ctx.createAnalyser();
+    analyser.fftSize = 512;
+    analyser.smoothingTimeConstant = 0.72;
+    source.connect(analyser);
+    visualAnalyser = analyser;
+    visualAnalyserCtx = ctx;
+    return analyser;
+  } catch {
+    return null;
+  }
+}
