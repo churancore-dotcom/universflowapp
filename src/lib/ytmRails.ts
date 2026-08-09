@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { getYouTubeMusicCharts, getYouTubeMusicNewReleases, searchYouTubeMusicTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import type { Song } from '@/contexts/PlayerContext';
+import { cleanRail } from '@/lib/railQuality';
+
 
 /** Convert a YTM IndexedTrack to the app's Song shape. */
 function toSong(t: { id: string; title?: string; artist?: string; album?: string; cover_url?: string; audio_url?: string; videoId?: string; duration?: number }): Song | null {
@@ -54,7 +56,7 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
 
 export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
   return useQuery({
-    queryKey: ['ytm-new-releases-v2', country, limit, hourBucket()],
+    queryKey: ['ytm-new-releases-v3', country, limit, hourBucket()],
     enabled,
     staleTime: 10 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
@@ -63,24 +65,23 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
     refetchOnReconnect: true,
     queryFn: async (): Promise<Song[]> => {
       const tracks = await getYouTubeMusicNewReleases(country, Math.max(limit, 40));
-      const seen = new Set<string>();
       const out: Song[] = [];
       for (const t of tracks) {
-        if (seen.has(t.id)) continue;
         // A release tile with no artwork or no artist is not a real release
         // card — those are the "mock looking" rows users complain about.
         if (!t.cover_url || !t.artist) continue;
-        seen.add(t.id);
         const s = toSong(t);
         if (s) out.push(s);
       }
       // YouTube returns new releases newest-first. Shuffling that is exactly
-      // what made the rail look like random old songs, so order is preserved.
-      return out.slice(0, limit);
+      // what made the rail look like random old songs, so order is preserved;
+      // cleanRail only removes junk/duplicates in place.
+      return cleanRail(out, { requireCover: true }).slice(0, limit);
     },
 
   });
 }
+
 
 /**
  * Real YouTube Music Charts (FEmusic_charts) — same data music.youtube.com/charts renders.

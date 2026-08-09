@@ -10,6 +10,7 @@ import { tasteScore } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmNewReleases } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
+import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
 
 interface Props { songs?: Song[]; enabled?: boolean }
 
@@ -20,7 +21,13 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   const { data: pool = [] } = useYtmNewReleases(country, 24, enabled);
 
   const fresh = useMemo(() => {
-    const clean = pool.filter((s) => !isSpamSong(s));
+    // The "fake/mock songs on top" were auto-generated compilations that
+    // YouTube's release feed mixes in (jukebox / nonstop / slowed+reverb /
+    // status edits). They are rejected before anything else, so the top of the
+    // rail is always a real single with real artwork.
+    const clean = diversifyByArtist(
+      cleanRail(pool.filter((s) => !isSpamSong(s)), { requireCover: true }),
+    );
     // New Releases must stay chronological (that's what "new" means). We only
     // bubble taste matches to the front, preserving recency inside each group,
     // instead of re-ranking or filtering real fresh drops out of the rail.
@@ -29,6 +36,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
     const rest = clean.filter((song) => tasteScore(song, taste) <= 0);
     return [...liked, ...rest].slice(0, 12);
   }, [pool, taste]);
+
 
 
 

@@ -12,6 +12,8 @@ import { searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import { supabase } from '@/integrations/supabase/client';
 import { isSpamSong } from '@/pages/Search';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
+
 import { rerank, topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
 
 const MadeForYouSection = memo(() => {
@@ -42,18 +44,23 @@ const MadeForYouSection = memo(() => {
   );
 
   const { data: mix = [] } = useQuery({
+    // Bug: keying on every recent id + the raw signal count re-created the key
+    // (and refetched 3 searches) after literally every play, which is why the
+    // shelf kept flickering to a different set. Key on the top seeds only and
+    // bucket the signal count so it moves when taste actually changes.
     queryKey: [
-      'ytm-made-for-you-v4',
+      'ytm-made-for-you-v5',
       user?.id ?? 'anon',
-      recentIds.join(','),
+      recentIds.slice(0, 3).join(','),
       topTasteArtists(taste, 3).join(','),
       topTasteKeywords(taste, 3).join(','),
-      taste.signalCount,
+      Math.floor(taste.signalCount / 5),
     ],
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
+    refetchInterval: 15 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
+
       let seedQueries: string[] = [];
       // Snapshot artists from local recents cover YT/audius tracks that never
       // land in stream_songs. Prefer them, then top up from stream_songs.
@@ -93,11 +100,14 @@ const MadeForYouSection = memo(() => {
       }
       if (seeds.length) {
         const uniq = [...new Set(seeds)].slice(0, 3);
-        seedQueries = uniq.map((s) => `${s} official music mix`);
+        // "… official music mix" pulled DJ mixes / jukebox compilations into a
+        // shelf that is supposed to be individual songs. Ask for songs.
+        seedQueries = uniq.map((s) => `${s} songs`);
+
       }
       if (!seedQueries.length) {
         const kw = topTasteKeywords(taste, 2);
-        if (kw.length) seedQueries = kw.map((k) => `${k} official music mix`);
+        if (kw.length) seedQueries = kw.map((k) => `${k} songs`);
       }
       if (!seedQueries.length) {
         // Rotating diverse fallback pool — no more static "india top songs".
@@ -159,15 +169,18 @@ const MadeForYouSection = memo(() => {
           .filter(([artist, weight]) => weight >= 3 && (taste.artists.get(artist) ?? 0) < weight)
           .map(([artist]) => artist),
       );
-      const fresh = out.filter((s) => {
+      const fresh = cleanRail(out, { requireCover: true }).filter((s) => {
         if (recentSet.has(s.id)) return false;
         if (recentPrints.has(`${norm(s.title)}~${norm(s.artist)}`)) return false;
         if (mutedArtists.has((s.artist || '').trim().toLowerCase())) return false;
         return true;
       });
 
-      // Taste-rank the pool so the hero is the best match, not a random pick.
-      return rerank(fresh.length >= 6 ? fresh : out, taste);
+      // Taste-rank the pool so the hero is the best match, not a random pick,
+      // then break same-artist runs so the shelf isn't one artist five times.
+      const pool = fresh.length >= 6 ? fresh : cleanRail(out, { requireCover: true });
+      return diversifyByArtist(rerank(pool, taste));
+
 
     },
   });
