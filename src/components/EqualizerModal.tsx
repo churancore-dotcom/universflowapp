@@ -365,7 +365,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               <div className="space-y-4">
                 <SectionLabel title="Sound profile" value={activePreset?.name || 'Custom'} />
                 <div className="grid grid-cols-3 gap-2">
-                  {PRESETS.slice(0, 9).map((preset) => {
+                  {PRESETS.map((preset) => {
                     const Icon = preset.icon;
                     const selected = settings.activePreset === preset.id;
                     return (
@@ -374,18 +374,19 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                         type="button"
                         onClick={() => applyPreset(preset)}
                         className={cn(
-                          'flex h-12 items-center justify-center gap-2 rounded-md border px-2 text-[11px] font-semibold transition active:scale-95',
+                          'flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 text-[11px] font-semibold transition active:scale-95',
                           selected
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border/60 bg-secondary/50 text-foreground',
+                            ? 'border-primary bg-primary text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary))]'
+                            : 'border-border/60 bg-secondary/40 text-foreground backdrop-blur-xl',
                         )}
                       >
-                        <Icon className="h-4 w-4" />
-                        <span className="max-w-full truncate px-1">{preset.name}</span>
+                        <Icon className={cn('h-4.5 w-4.5 shrink-0', selected ? '' : 'text-primary')} />
+                        <span className="w-full truncate text-center leading-none">{preset.name}</span>
                       </button>
                     );
                   })}
                 </div>
+
 
                 <ControlSlider
                   icon={Zap}
