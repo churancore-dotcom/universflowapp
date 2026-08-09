@@ -42,18 +42,23 @@ const MadeForYouSection = memo(() => {
   );
 
   const { data: mix = [] } = useQuery({
+    // Bug: keying on every recent id + the raw signal count re-created the key
+    // (and refetched 3 searches) after literally every play, which is why the
+    // shelf kept flickering to a different set. Key on the top seeds only and
+    // bucket the signal count so it moves when taste actually changes.
     queryKey: [
-      'ytm-made-for-you-v4',
+      'ytm-made-for-you-v5',
       user?.id ?? 'anon',
-      recentIds.join(','),
+      recentIds.slice(0, 3).join(','),
       topTasteArtists(taste, 3).join(','),
       topTasteKeywords(taste, 3).join(','),
-      taste.signalCount,
+      Math.floor(taste.signalCount / 5),
     ],
-    staleTime: 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
-    refetchInterval: 5 * 60 * 1000,
+    refetchInterval: 15 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
+
       let seedQueries: string[] = [];
       // Snapshot artists from local recents cover YT/audius tracks that never
       // land in stream_songs. Prefer them, then top up from stream_songs.
