@@ -303,7 +303,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     type="button"
                     onClick={reset}
                     aria-label="Reset sound"
-                    className="grid h-9 w-9 place-items-center rounded-md border border-border bg-secondary text-foreground transition active:scale-95"
+                    className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-secondary text-foreground transition active:scale-95"
                   >
                     <RotateCcw className="h-4 w-4" />
                   </button>
@@ -311,7 +311,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     type="button"
                     onClick={onClose}
                     aria-label="Close equalizer"
-                    className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground transition active:scale-95"
+                    className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground transition active:scale-95"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -326,8 +326,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
           </header>
 
           {/* ---------- Tabs ---------- */}
-          <div className="border-b border-border px-4 py-2">
-            <div className="grid grid-cols-4 gap-1 bg-secondary p-1">
+          <div className="border-b border-border px-4 py-2.5">
+            <div className="grid grid-cols-4 gap-1 rounded-xl border border-border/60 bg-secondary/60 p-1 backdrop-blur-xl">
               {VIEWS.map((item) => {
                 const Icon = item.icon;
                 const selected = view === item.id;
@@ -337,14 +337,14 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     type="button"
                     onClick={() => setView(item.id)}
                     className={cn(
-                      'relative flex h-9 items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition',
+                      'relative flex h-9 items-center justify-center gap-1.5 rounded-lg text-[11px] font-semibold transition',
                       selected ? 'text-primary-foreground' : 'text-muted-foreground active:scale-95',
                     )}
                   >
                     {selected && (
                       <motion.span
                         layoutId="eq-tab"
-                        className="absolute inset-0 rounded-md bg-primary"
+                        className="absolute inset-0 rounded-lg bg-primary shadow-[0_6px_20px_-8px_hsl(var(--primary))]"
                         transition={{ type: 'spring', stiffness: 480, damping: 38 }}
                       />
                     )}
@@ -358,13 +358,14 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
             </div>
           </div>
 
+
           {/* ---------- Body ---------- */}
           <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-4">
             {view === 'smart' && (
               <div className="space-y-4">
                 <SectionLabel title="Sound profile" value={activePreset?.name || 'Custom'} />
                 <div className="grid grid-cols-3 gap-2">
-                  {PRESETS.slice(0, 9).map((preset) => {
+                  {PRESETS.map((preset) => {
                     const Icon = preset.icon;
                     const selected = settings.activePreset === preset.id;
                     return (
@@ -373,18 +374,19 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                         type="button"
                         onClick={() => applyPreset(preset)}
                         className={cn(
-                          'flex h-12 items-center justify-center gap-2 rounded-md border px-2 text-[11px] font-semibold transition active:scale-95',
+                          'flex h-[68px] flex-col items-center justify-center gap-1.5 rounded-xl border px-1.5 text-[11px] font-semibold transition active:scale-95',
                           selected
-                            ? 'border-primary bg-primary text-primary-foreground'
-                            : 'border-border/60 bg-secondary/50 text-foreground',
+                            ? 'border-primary bg-primary text-primary-foreground shadow-[0_8px_24px_-10px_hsl(var(--primary))]'
+                            : 'border-border/60 bg-secondary/40 text-foreground backdrop-blur-xl',
                         )}
                       >
-                        <Icon className="h-4 w-4" />
-                        <span className="max-w-full truncate px-1">{preset.name}</span>
+                        <Icon className={cn('h-4.5 w-4.5 shrink-0', selected ? '' : 'text-primary')} />
+                        <span className="w-full truncate text-center leading-none">{preset.name}</span>
                       </button>
                     );
                   })}
                 </div>
+
 
                 <ControlSlider
                   icon={Zap}
@@ -436,7 +438,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                         type="button"
                         onClick={() => applyStemMode(mode)}
                         className={cn(
-                          'flex h-[88px] flex-col items-center justify-center gap-1.5 rounded-md border px-2 text-center transition active:scale-95',
+                          'flex h-[88px] flex-col items-center justify-center gap-1.5 rounded-xl border px-2 text-center transition active:scale-95',
                           selected
                             ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border/60 bg-secondary/50 text-foreground',
@@ -483,43 +485,44 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
             {view === 'manual' && (
               <div className="space-y-4">
                 <SectionLabel title="10-band EQ" value="±12 dB" />
-                <div className="rounded-md border border-border/60 bg-secondary/40 p-4">
-                  <div className="mb-2 grid grid-cols-10 gap-1 text-center text-[9px] font-semibold text-primary">
-                    {bands.map((band) => (
-                      <span key={band.frequency}>{band.gain > 0 ? '+' : ''}{band.gain}</span>
-                    ))}
-                  </div>
-                  <div className="grid h-44 grid-cols-10 gap-1">
-                    {bands.map((band, index) => (
-                      <div key={band.frequency} className="flex h-full items-center justify-center">
-                        <Slider
-                          orientation="vertical"
-                          value={[band.gain]}
-                          min={-12}
-                          max={12}
-                          step={1}
-                          onValueChange={([value]) => setBand(index, value)}
-                          aria-label={`${band.label} hertz`}
-                          className="h-full [&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-2 grid grid-cols-10 gap-1 text-center text-[9px] text-muted-foreground">
-                    {bands.map((band) => <span key={band.frequency}>{band.label}</span>)}
+                <div className="rounded-2xl border border-border/60 bg-secondary/40 p-3 backdrop-blur-xl">
+                  <div className="hide-scrollbar -mx-1 overflow-x-auto px-1">
+                    <div className="flex min-w-max items-end gap-2.5">
+                      {bands.map((band, index) => (
+                        <div key={band.frequency} className="flex w-11 shrink-0 flex-col items-center gap-2">
+                          <span className="text-[10px] font-bold text-primary">
+                            {band.gain > 0 ? '+' : ''}{band.gain}
+                          </span>
+                          <div className="flex h-48 items-center justify-center">
+                            <Slider
+                              orientation="vertical"
+                              value={[band.gain]}
+                              min={-12}
+                              max={12}
+                              step={1}
+                              onValueChange={([value]) => setBand(index, value)}
+                              aria-label={`${band.label} hertz`}
+                              className="h-full [&_[role=slider]]:h-5 [&_[role=slider]]:w-5"
+                            />
+                          </div>
+                          <span className="text-[10px] font-medium text-muted-foreground">{band.label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
-                    className="h-11 rounded-md border border-border/60 bg-secondary/50 text-sm font-semibold text-foreground transition active:scale-95"
+                    className="h-11 rounded-xl border border-border/60 bg-secondary/50 text-sm font-semibold text-foreground transition active:scale-95"
                     onClick={() => setEQSettings({ bands: BAND_DEFS.map(() => 0), bassBoost: 0, activePreset: 'custom' })}
                   >
                     Flatten
                   </button>
                   <button
                     type="button"
-                    className="h-11 rounded-md bg-primary text-sm font-semibold text-primary-foreground transition active:scale-95"
+                    className="h-11 rounded-xl bg-primary text-sm font-semibold text-primary-foreground transition active:scale-95"
                     onClick={() => {
                       const autoPreset = PRESETS.find((preset) => preset.id === 'auto');
                       if (autoPreset) applyPreset(autoPreset);
@@ -544,7 +547,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                         type="button"
                         onClick={() => setEQSettings({ studioSpace: space.id, activePreset: 'custom' })}
                         className={cn(
-                          'flex h-[60px] items-center gap-3 rounded-md border px-3 text-left transition active:scale-95',
+                          'flex h-[60px] items-center gap-3 rounded-xl border px-3 text-left transition active:scale-95',
                           selected
                             ? 'border-primary bg-primary text-primary-foreground'
                             : 'border-border/60 bg-secondary/50 text-foreground',
@@ -613,7 +616,7 @@ interface ControlSliderProps {
 }
 
 const ControlSlider = memo(({ icon: Icon, label, value, min, max, step, display, onChange }: ControlSliderProps) => (
-  <div className="rounded-md border border-border/60 bg-secondary/40 p-4">
+  <div className="rounded-2xl border border-border/60 bg-secondary/40 p-4 backdrop-blur-xl">
     <div className="mb-3 flex items-center justify-between gap-3">
       <div className="flex min-w-0 items-center gap-2">
         <Icon className="h-4 w-4 shrink-0 text-primary" />
@@ -643,9 +646,9 @@ interface ToggleRowProps {
 }
 
 const ToggleRow = memo(({ icon: Icon, label, desc, checked, onCheckedChange }: ToggleRowProps) => (
-  <div className="flex items-center justify-between gap-4 rounded-md border border-border/60 bg-secondary/40 p-4">
+  <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 bg-secondary/40 p-4 backdrop-blur-xl">
     <div className="flex min-w-0 items-center gap-3">
-      <div className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-md', checked ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+      <div className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', checked ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
