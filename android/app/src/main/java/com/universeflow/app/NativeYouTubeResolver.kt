@@ -422,6 +422,11 @@ object NativeYouTubeResolver {
      * Echo-style HEAD probe: a googlevideo URL can parse fine yet 403 on the
      * first byte range. Validating before handing it to ExoPlayer keeps the race
      * moving to the next client instead of failing playback.
+     *
+     * A 403 on a URL we had to decipher is also the ONLY signal that our
+     * signature extraction has silently rotted (a wrong-but-non-throwing
+     * signature never raises), so we report it back to PlayerJsManager which
+     * re-downloads player.js under a cooldown (zemer-cipher self-heal model).
      */
     private fun validate(url: String, userAgent: String): Boolean {
         return try {
@@ -430,11 +435,17 @@ object NativeYouTubeResolver {
                 .head()
                 .header("User-Agent", userAgent)
                 .build()
-            http.newCall(req).execute().use { it.isSuccessful }
+            http.newCall(req).execute().use { r ->
+                if (!r.isSuccessful && r.code == 403 && (url.contains("&sig=") || url.contains("&signature="))) {
+                    PlayerJsManager.onStreamRejected()
+                }
+                r.isSuccessful
+            }
         } catch (_: Throwable) {
             false
         }
     }
+
 
 
     /**
