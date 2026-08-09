@@ -326,8 +326,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
           </header>
 
           {/* ---------- Tabs ---------- */}
-          <div className="border-b border-border px-4 py-2">
-            <div className="grid grid-cols-4 gap-1 bg-secondary p-1">
+          <div className="border-b border-border px-4 py-2.5">
+            <div className="grid grid-cols-4 gap-1 rounded-xl border border-border/60 bg-secondary/60 p-1 backdrop-blur-xl">
               {VIEWS.map((item) => {
                 const Icon = item.icon;
                 const selected = view === item.id;
@@ -337,14 +337,14 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     type="button"
                     onClick={() => setView(item.id)}
                     className={cn(
-                      'relative flex h-9 items-center justify-center gap-1.5 rounded-md text-[11px] font-semibold transition',
+                      'relative flex h-9 items-center justify-center gap-1.5 rounded-lg text-[11px] font-semibold transition',
                       selected ? 'text-primary-foreground' : 'text-muted-foreground active:scale-95',
                     )}
                   >
                     {selected && (
                       <motion.span
                         layoutId="eq-tab"
-                        className="absolute inset-0 rounded-md bg-primary"
+                        className="absolute inset-0 rounded-lg bg-primary shadow-[0_6px_20px_-8px_hsl(var(--primary))]"
                         transition={{ type: 'spring', stiffness: 480, damping: 38 }}
                       />
                     )}
@@ -357,6 +357,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
               })}
             </div>
           </div>
+
 
           {/* ---------- Body ---------- */}
           <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-4">
