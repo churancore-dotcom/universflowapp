@@ -485,32 +485,33 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
             {view === 'manual' && (
               <div className="space-y-4">
                 <SectionLabel title="10-band EQ" value="±12 dB" />
-                <div className="rounded-md border border-border/60 bg-secondary/40 p-4">
-                  <div className="mb-2 grid grid-cols-10 gap-1 text-center text-[9px] font-semibold text-primary">
-                    {bands.map((band) => (
-                      <span key={band.frequency}>{band.gain > 0 ? '+' : ''}{band.gain}</span>
-                    ))}
-                  </div>
-                  <div className="grid h-44 grid-cols-10 gap-1">
-                    {bands.map((band, index) => (
-                      <div key={band.frequency} className="flex h-full items-center justify-center">
-                        <Slider
-                          orientation="vertical"
-                          value={[band.gain]}
-                          min={-12}
-                          max={12}
-                          step={1}
-                          onValueChange={([value]) => setBand(index, value)}
-                          aria-label={`${band.label} hertz`}
-                          className="h-full [&_[role=slider]]:h-4 [&_[role=slider]]:w-4"
-                        />
-                      </div>
-                    ))}
-                  </div>
-                  <div className="mt-2 grid grid-cols-10 gap-1 text-center text-[9px] text-muted-foreground">
-                    {bands.map((band) => <span key={band.frequency}>{band.label}</span>)}
+                <div className="rounded-2xl border border-border/60 bg-secondary/40 p-3 backdrop-blur-xl">
+                  <div className="hide-scrollbar -mx-1 overflow-x-auto px-1">
+                    <div className="flex min-w-max items-end gap-2.5">
+                      {bands.map((band, index) => (
+                        <div key={band.frequency} className="flex w-11 shrink-0 flex-col items-center gap-2">
+                          <span className="text-[10px] font-bold text-primary">
+                            {band.gain > 0 ? '+' : ''}{band.gain}
+                          </span>
+                          <div className="flex h-48 items-center justify-center">
+                            <Slider
+                              orientation="vertical"
+                              value={[band.gain]}
+                              min={-12}
+                              max={12}
+                              step={1}
+                              onValueChange={([value]) => setBand(index, value)}
+                              aria-label={`${band.label} hertz`}
+                              className="h-full [&_[role=slider]]:h-5 [&_[role=slider]]:w-5"
+                            />
+                          </div>
+                          <span className="text-[10px] font-medium text-muted-foreground">{band.label}</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
                 </div>
+
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
