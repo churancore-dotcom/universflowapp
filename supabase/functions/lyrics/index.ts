@@ -170,7 +170,7 @@ async function fetchLrclibAll(artist: string, title: string, duration?: number):
   const variants = buildVariants(artist, title);
   let bestPlain: { synced?: string; plain?: string } | null = null;
   for (const v of variants) {
-    const r = await withTimeout(fetchLrclibOne(v.artist, v.title, duration), 2600);
+    const r = await withTimeout(fetchLrclibOne(v.artist, v.title, duration), 4200);
     if (r?.synced) return r;
     if (r?.plain && !bestPlain) bestPlain = r;
   }
@@ -408,7 +408,7 @@ async function fetchParallelProviders(artist: string, title: string, duration?: 
   let bestPlain: ProviderLyrics | null = null;
 
   const tasks: Array<Promise<ProviderLyrics | null>> = [
-    withTimeout(fetchLrclibAll(artist, title, duration), 5000).then((r) => r ? { ...r, source: 'lrclib' as const } : null),
+    withTimeout(fetchLrclibAll(artist, title, duration), 7000).then((r) => r ? { ...r, source: 'lrclib' as const } : null),
     withTimeout(fetchKugou(artist, title, duration), 3000).then((r) => r ? { ...r, source: 'kugou' as const } : null),
     withTimeout(fetchNetease(artist, title), 3000).then((r) => r ? { ...r, source: 'netease' as const } : null),
     withTimeout(fetchQQMusic(artist, title), 3000).then((r) => r ? { ...r, source: 'qqmusic' as const } : null),
