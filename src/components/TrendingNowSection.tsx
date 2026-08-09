@@ -30,49 +30,43 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // Music Videos). UniversFlow's own play data is only a boost signal — it must
   // never *become* the chart, or the shelf shows in-house plays instead of what
   // is actually viral.
-  const { data: charts } = useYtmCharts(country, enabled);
+  const { data: charts, isLoading: chartsLoading } = useYtmCharts(country, enabled);
   const { data: appTrending } = useAppTrending(country, enabled);
   const q = getCountryQueries(country);
-  const needsFallback = enabled && (charts?.top.length ?? 0) === 0;
+  // Bug: this used to be true while the charts query was still loading, so
+  // every cold open fired a redundant search rail and could paint the search
+  // pool before the real chart arrived. Only fall back once charts resolved
+  // and genuinely came back empty.
+  const needsFallback = enabled && !chartsLoading && !!charts && charts.top.length === 0;
   const { data: fallbackPool = [] } = useYtmRail(`trending-v3-${country}`, q.trending, 36, needsFallback);
 
   const trending = useMemo(() => {
-    const seen = new Set<string>();
-    const push = (out: Song[], s: Song) => {
-      const key = `${s.title}|${s.artist}`.toLowerCase();
-      if (seen.has(key)) return;
-      seen.add(key);
-      out.push(s);
-    };
-
-    // 1) Real chart order, deduped: Top Songs → Trending → Music Videos.
-    const chartRows: Song[] = [];
+    // 1) Real chart order: Top Songs → Trending → Music Videos, quality-gated
+    // and deduped by fingerprint (the same song arrives under several ids).
     const feeds = charts?.top?.length
       ? [charts.top, charts.trending ?? [], charts.videos ?? []]
       : [fallbackPool];
-    for (const feed of feeds) {
-      for (const s of feed) {
-        if (isSpamSong(s)) continue;
-        push(chartRows, s);
-      }
-    }
+    const chartRows = cleanRail(
+      feeds.flat().filter((s) => !isSpamSong(s)),
+      { requireCover: true },
+    );
     if (!chartRows.length) return [];
 
     // 2) In-app heat as a boost only — a charting track that UniversFlow
     // listeners are also hammering right now moves up, nothing new is injected.
-    const hot = new Set(
-      (appTrending?.songs ?? []).map((s) => `${s.title}|${s.artist}`.toLowerCase()),
-    );
+    const hot = new Set((appTrending?.songs ?? []).map((s) => songFingerprint(s)));
 
-    // 3) Personalization reorders the real chart (never deletes it): taste
-    // ranking first, then the in-app heat boost applied as a stable partition.
+    // 3) Personalization reorders the real chart (never deletes it), then the
+    // in-app heat boost is applied as a stable partition, then a diversity
+    // pass stops one artist from owning the shelf.
     const ranked = rerank(chartRows, taste);
     const boosted = [
-      ...ranked.filter((s) => hot.has(`${s.title}|${s.artist}`.toLowerCase())),
-      ...ranked.filter((s) => !hot.has(`${s.title}|${s.artist}`.toLowerCase())),
+      ...ranked.filter((s) => hot.has(songFingerprint(s))),
+      ...ranked.filter((s) => !hot.has(songFingerprint(s))),
     ];
-    return boosted.slice(0, 18);
-  }, [charts, fallbackPool, appTrending, taste]);
+    return diversifyByArtist(boosted).slice(0, 18);
+  }, [charts, chartsLoading, fallbackPool, appTrending, taste]);
+
 
 
 
