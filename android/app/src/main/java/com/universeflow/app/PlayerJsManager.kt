@@ -74,7 +74,7 @@ object PlayerJsManager {
         decipherSignatureOnce(s)?.let { return it }
         // Self-heal: a rotated player.js makes our regexes miss. Re-download once
         // (rate-limited) and retry before giving up on the whole format.
-        if (touchCooldown(::lastMissRefresh.name, MISS_COOLDOWN_MS)) {
+        if (touchCooldown("miss", MISS_COOLDOWN_MS)) {
             forceRefresh("signature extraction failed")
             return decipherSignatureOnce(s)
         }
