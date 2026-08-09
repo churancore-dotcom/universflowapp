@@ -303,7 +303,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     type="button"
                     onClick={reset}
                     aria-label="Reset sound"
-                    className="grid h-9 w-9 place-items-center rounded-md border border-border bg-secondary text-foreground transition active:scale-95"
+                    className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-secondary text-foreground transition active:scale-95"
                   >
                     <RotateCcw className="h-4 w-4" />
                   </button>
@@ -311,7 +311,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                     type="button"
                     onClick={onClose}
                     aria-label="Close equalizer"
-                    className="grid h-9 w-9 place-items-center rounded-md bg-primary text-primary-foreground transition active:scale-95"
+                    className="grid h-9 w-9 place-items-center rounded-xl bg-primary text-primary-foreground transition active:scale-95"
                   >
                     <X className="h-5 w-5" />
                   </button>
@@ -648,7 +648,7 @@ interface ToggleRowProps {
 const ToggleRow = memo(({ icon: Icon, label, desc, checked, onCheckedChange }: ToggleRowProps) => (
   <div className="flex items-center justify-between gap-4 rounded-2xl border border-border/60 bg-secondary/40 p-4 backdrop-blur-xl">
     <div className="flex min-w-0 items-center gap-3">
-      <div className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-md', checked ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
+      <div className={cn('grid h-9 w-9 shrink-0 place-items-center rounded-xl', checked ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground')}>
         <Icon className="h-5 w-5" />
       </div>
       <div className="min-w-0">
