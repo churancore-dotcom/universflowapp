@@ -38,7 +38,15 @@ const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
 
   useEffect(() => {
     if (!lyrics.isSynced) return;
-    const tick = () => {
+    // The karaoke wipe repaints gradient-clipped text, which is expensive on
+    // mobile GPUs. 15fps is visually identical for a sweep and removes the
+    // per-frame text repaint that made the lyrics stage stutter.
+    let last = 0;
+    let lastPct = -1;
+    const tick = (now: number) => {
+      rafRef.current = requestAnimationFrame(tick);
+      if (document.hidden || now - last < 66) return;
+      last = now;
       const t = playerProgressStore.getEstimatedProgress();
       const idx = findActiveLine(lyrics.synced, t);
       if (activeIdxRef.current !== idx) {
@@ -50,12 +58,16 @@ const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
       const start = lyrics.synced[safeIdx]?.time ?? 0;
       const end = lyrics.synced[safeIdx + 1]?.time ?? duration ?? start + 4;
       const pct = end > start ? Math.max(0, Math.min(1, (t - start) / (end - start))) : 0;
-      stageRef.current?.style.setProperty('--lyric-progress', `${pct * 100}%`);
-      rafRef.current = requestAnimationFrame(tick);
+      const rounded = Math.round(pct * 100);
+      if (rounded !== lastPct) {
+        lastPct = rounded;
+        stageRef.current?.style.setProperty('--lyric-progress', `${rounded}%`);
+      }
     };
     rafRef.current = requestAnimationFrame(tick);
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [lyrics, duration]);
+
 
   const emotionLines = useMemo(
     () => (lyrics.isSynced ? annotateEmotions(lyrics.synced) : []),
