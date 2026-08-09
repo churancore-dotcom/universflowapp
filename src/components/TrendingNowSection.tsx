@@ -6,7 +6,7 @@ import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { prewarmSong, prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
-import { rerank, topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
+import { rerank } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
