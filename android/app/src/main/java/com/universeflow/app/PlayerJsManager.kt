@@ -258,8 +258,10 @@ object PlayerJsManager {
             } else null
         }
 
+        epochCounter += 1
         Log.d(TAG, "player.js loaded id=$playerId sts=$sts sigFn=$sigFnName nFn=$nFnName")
-        return PlayerBundle(playerId, sts, sigFnSource, sigFnName, nFnSource, nFnRefName, System.currentTimeMillis())
+        return PlayerBundle(playerId, sts, sigFnSource, sigFnName, nFnSource, nFnName, System.currentTimeMillis(), epochCounter)
+
     }
 
     private fun evalFn(src: String, fnName: String, arg: String): String? {
