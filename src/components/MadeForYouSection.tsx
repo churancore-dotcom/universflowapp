@@ -167,15 +167,18 @@ const MadeForYouSection = memo(() => {
           .filter(([artist, weight]) => weight >= 3 && (taste.artists.get(artist) ?? 0) < weight)
           .map(([artist]) => artist),
       );
-      const fresh = out.filter((s) => {
+      const fresh = cleanRail(out, { requireCover: true }).filter((s) => {
         if (recentSet.has(s.id)) return false;
         if (recentPrints.has(`${norm(s.title)}~${norm(s.artist)}`)) return false;
         if (mutedArtists.has((s.artist || '').trim().toLowerCase())) return false;
         return true;
       });
 
-      // Taste-rank the pool so the hero is the best match, not a random pick.
-      return rerank(fresh.length >= 6 ? fresh : out, taste);
+      // Taste-rank the pool so the hero is the best match, not a random pick,
+      // then break same-artist runs so the shelf isn't one artist five times.
+      const pool = fresh.length >= 6 ? fresh : cleanRail(out, { requireCover: true });
+      return diversifyByArtist(rerank(pool, taste));
+
 
     },
   });
