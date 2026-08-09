@@ -91,25 +91,13 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
         </span>
 
         <motion.button
-          className="relative w-10 h-10 rounded-lg overflow-hidden flex-shrink-0"
+          className="relative w-11 h-11 rounded-xl overflow-hidden flex-shrink-0"
           onClick={onPlay}
           whileTap={{ scale: 0.9 }}
         >
-          {/* Queue rows used to render an empty tile whenever a mix track came
-              through without artwork. Derive YouTube artwork from the id, and
-              blank out a broken URL so the gradient shows instead of a
-              browser "broken image" glyph. */}
-          {(song.cover_url || (song.id?.startsWith('ytm-') ? `https://i.ytimg.com/vi/${song.id.slice(4)}/hqdefault.jpg` : '')) ? (
-            <img
-              src={song.cover_url || `https://i.ytimg.com/vi/${song.id.slice(4)}/hqdefault.jpg`}
-              alt=""
-              loading="lazy"
-              className="w-full h-full object-cover"
-              onError={(e) => { (e.currentTarget as HTMLImageElement).style.visibility = 'hidden'; }}
-            />
-          ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/30 to-accent/30" />
-          )}
+          {/* Full artwork ladder (provider → YouTube hq/mq/default → note tile)
+              so a mix track without cover_url still shows real art. */}
+          <SongArtwork song={song} size={44} className="w-full h-full" />
 
           <div className="absolute inset-0 flex items-center justify-center bg-black/30">
             {isActive && isPlaying ? (
@@ -119,6 +107,7 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
             )}
           </div>
         </motion.button>
+
 
         <div className="flex-1 min-w-0">
           <p className={`font-medium text-sm truncate ${isActive ? 'text-primary' : ''}`}>
