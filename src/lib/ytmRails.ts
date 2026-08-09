@@ -1,6 +1,8 @@
 import { useQuery } from '@tanstack/react-query';
 import { getYouTubeMusicCharts, getYouTubeMusicNewReleases, searchYouTubeMusicTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import type { Song } from '@/contexts/PlayerContext';
+import { cleanRail } from '@/lib/railQuality';
+
 
 /** Convert a YTM IndexedTrack to the app's Song shape. */
 function toSong(t: { id: string; title?: string; artist?: string; album?: string; cover_url?: string; audio_url?: string; videoId?: string; duration?: number }): Song | null {
