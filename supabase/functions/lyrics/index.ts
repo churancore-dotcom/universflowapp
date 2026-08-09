@@ -114,35 +114,63 @@ async function fetchArtistUploadLyrics(songId?: string): Promise<ProviderLyrics 
 }
 
 // ───────── LRCLIB (primary — huge synced catalog) with variant retries ─────────
-async function fetchLrclibOne(artist: string, title: string, durationSec?: number): Promise<{ synced?: string; plain?: string } | null> {
+const LRC_UA = { 'User-Agent': 'Universflow/1.0 (https://universflow.in)' };
+
+/** Pick the closest-duration synced hit (±5s tolerance), else any synced, else plain. */
+function pickLrclib(arr: any[], durationSec?: number): { synced?: string; plain?: string } | null {
+  if (!Array.isArray(arr) || arr.length === 0) return null;
+  const syncedRows = arr.filter((x: any) => x?.syncedLyrics);
+  if (syncedRows.length && durationSec && durationSec > 0) {
+    const scored = syncedRows
+      .map((x: any) => ({ x, diff: Math.abs((Number(x?.duration) || 0) - durationSec) }))
+      .sort((a, b) => a.diff - b.diff);
+    const near = scored.find((s) => s.diff <= 5) || scored[0];
+    if (near) return { synced: near.x.syncedLyrics, plain: near.x.plainLyrics || undefined };
+  }
+  const pick = syncedRows[0] || arr.find((x: any) => x?.plainLyrics) || arr[0];
+  if (!pick) return null;
+  return { synced: pick.syncedLyrics || undefined, plain: pick.plainLyrics || undefined };
+}
+
+async function lrcJson(url: string): Promise<any | null> {
   try {
-    if (durationSec && durationSec > 0) {
-      const url = `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}&duration=${Math.round(durationSec)}`;
-      const r = await fetch(url, { headers: { 'User-Agent': 'Universflow/1.0 (https://universflow.in)' } });
-      if (r.ok) {
-        const j = await r.json();
-        if (j && (j.syncedLyrics || j.plainLyrics)) {
-          return { synced: j.syncedLyrics || undefined, plain: j.plainLyrics || undefined };
-        }
-      }
-    }
-    const sUrl = `https://lrclib.net/api/search?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`;
-    const sr = await fetch(sUrl, { headers: { 'User-Agent': 'Universflow/1.0 (https://universflow.in)' } });
-    if (!sr.ok) return null;
-    const arr = await sr.json();
-    if (!Array.isArray(arr) || arr.length === 0) return null;
-    const synced = arr.find((x: any) => x?.syncedLyrics);
-    const pick = synced || arr.find((x: any) => x?.plainLyrics) || arr[0];
-    if (!pick) return null;
-    return { synced: pick.syncedLyrics || undefined, plain: pick.plainLyrics || undefined };
+    const r = await fetch(url, { headers: LRC_UA });
+    if (!r.ok) return null;
+    return await r.json();
   } catch { return null; }
 }
+
+async function fetchLrclibOne(artist: string, title: string, durationSec?: number): Promise<{ synced?: string; plain?: string } | null> {
+  // Tier 1 — exact artist + title + duration.
+  if (durationSec && durationSec > 0) {
+    const j = await lrcJson(
+      `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}&duration=${Math.round(durationSec)}`,
+    );
+    if (j && (j.syncedLyrics || j.plainLyrics)) {
+      return { synced: j.syncedLyrics || undefined, plain: j.plainLyrics || undefined };
+    }
+  }
+  // Tier 2 — search by artist + title, closest duration wins.
+  const t2 = pickLrclib(
+    await lrcJson(`https://lrclib.net/api/search?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`),
+    durationSec,
+  );
+  if (t2?.synced) return t2;
+  // Tier 3 — title only (artist tags on LRCLIB are frequently wrong/localised).
+  const t3 = pickLrclib(await lrcJson(`https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}`), durationSec);
+  if (t3?.synced) return t3;
+  // Tier 4 — free-text combined query.
+  const t4 = pickLrclib(await lrcJson(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${title}`)}`), durationSec);
+  if (t4?.synced) return t4;
+  return t2 || t3 || t4 || null;
+}
+
 
 async function fetchLrclibAll(artist: string, title: string, duration?: number): Promise<{ synced?: string; plain?: string } | null> {
   const variants = buildVariants(artist, title);
   let bestPlain: { synced?: string; plain?: string } | null = null;
   for (const v of variants) {
-    const r = await withTimeout(fetchLrclibOne(v.artist, v.title, duration), 2600);
+    const r = await withTimeout(fetchLrclibOne(v.artist, v.title, duration), 4200);
     if (r?.synced) return r;
     if (r?.plain && !bestPlain) bestPlain = r;
   }
@@ -380,7 +408,7 @@ async function fetchParallelProviders(artist: string, title: string, duration?: 
   let bestPlain: ProviderLyrics | null = null;
 
   const tasks: Array<Promise<ProviderLyrics | null>> = [
-    withTimeout(fetchLrclibAll(artist, title, duration), 5000).then((r) => r ? { ...r, source: 'lrclib' as const } : null),
+    withTimeout(fetchLrclibAll(artist, title, duration), 7000).then((r) => r ? { ...r, source: 'lrclib' as const } : null),
     withTimeout(fetchKugou(artist, title, duration), 3000).then((r) => r ? { ...r, source: 'kugou' as const } : null),
     withTimeout(fetchNetease(artist, title), 3000).then((r) => r ? { ...r, source: 'netease' as const } : null),
     withTimeout(fetchQQMusic(artist, title), 3000).then((r) => r ? { ...r, source: 'qqmusic' as const } : null),

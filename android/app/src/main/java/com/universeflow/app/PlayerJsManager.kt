@@ -32,6 +32,11 @@ object PlayerJsManager {
     private const val PLAYER_HOST = "https://www.youtube.com"
     private const val CACHE_TTL_MS = 24L * 60L * 60L * 1000L
 
+    // Self-heal cooldowns (zemer-cipher style: two independent triggers sharing
+    // one single-flight lock so neither path can starve the other).
+    private const val REJECTION_COOLDOWN_MS = 5L * 60L * 1000L
+    private const val MISS_COOLDOWN_MS = 60L * 1000L
+
     private val http: OkHttpClient by lazy {
         OkHttpClient.Builder()
             .connectTimeout(3, TimeUnit.SECONDS)
@@ -48,20 +53,40 @@ object PlayerJsManager {
         val nFnSource: String?,
         val nFnName: String?,
         val ts: Long,
+        val epoch: Long,
     )
 
     @Volatile private var current: PlayerBundle? = null
+    @Volatile private var epochCounter = 0L
+    @Volatile private var lastRejectionRefresh = 0L
+    @Volatile private var lastMissRefresh = 0L
+    /** Set when the extracted n-function is proven ineffective this session. */
+    @Volatile private var nDisabledForSession = false
     private val nCache = ConcurrentHashMap<String, String>()
 
     /** Returns the current signature timestamp, downloading player.js if needed. */
     fun getSts(): String? = ensureBundle()?.sts
 
+    /** Current player.js identity — useful for logs and cache keys. */
+    fun currentPlayerId(): String? = current?.playerId
+
     fun decipherSignature(s: String): String? {
+        decipherSignatureOnce(s)?.let { return it }
+        // Self-heal: a rotated player.js makes our regexes miss. Re-download once
+        // (rate-limited) and retry before giving up on the whole format.
+        if (touchCooldown("miss", MISS_COOLDOWN_MS)) {
+            forceRefresh("signature extraction failed")
+            return decipherSignatureOnce(s)
+        }
+        return null
+    }
+
+    private fun decipherSignatureOnce(s: String): String? {
         val b = ensureBundle() ?: return null
         val src = b.sigFnSource ?: return null
         val name = b.sigFnName ?: return null
         return try {
-            evalFn(src, name, s)
+            evalFn(src, name, s)?.takeIf { it.isNotBlank() && it != s }
         } catch (t: Throwable) {
             Log.w(TAG, "decipherSignature failed: ${t.message}")
             null
@@ -69,6 +94,7 @@ object PlayerJsManager {
     }
 
     fun decipherNParam(n: String): String? {
+        if (nDisabledForSession) return null
         nCache[n]?.let { return it }
         val b = ensureBundle() ?: return null
         val src = b.nFnSource ?: return null
@@ -77,10 +103,19 @@ object PlayerJsManager {
             val out = evalFn(src, name, n) ?: return null
             // Defensive: some n-fn bug branches return "enhanced_except_*"
             // which means the regex misidentified the function. Treat as failure.
-            if (out.startsWith("enhanced_except_") || out == n) {
+            if (out.startsWith("enhanced_except_") || out == n || out.isBlank()) {
                 Log.w(TAG, "n-fn produced suspicious output, ignoring")
+                nMisses++
+                if (nMisses >= 3) {
+                    // Proven ineffective: stop paying Rhino cost for the rest of
+                    // the session. Callers already fall back to the un-rewritten
+                    // (possibly throttled but playable) URL.
+                    nDisabledForSession = true
+                    Log.w(TAG, "n-transform disabled for session after $nMisses misses")
+                }
                 return null
             }
+            nMisses = 0
             nCache[n] = out
             out
         } catch (t: Throwable) {
@@ -89,12 +124,52 @@ object PlayerJsManager {
         }
     }
 
+    @Volatile private var nMisses = 0
+
+    /**
+     * Call this when the CDN rejects (403) a URL we deciphered. A wrong-but-
+     * non-throwing signature is invisible to normal error handling, so a stream
+     * rejection is the only signal that our extraction has silently rotted.
+     */
+    fun onStreamRejected() {
+        if (!touchCooldown("rejection", REJECTION_COOLDOWN_MS)) return
+        forceRefresh("stream rejected by CDN")
+    }
+
+    @Synchronized
+    private fun touchCooldown(kind: String, cooldownMs: Long): Boolean {
+        val now = System.currentTimeMillis()
+        return when (kind) {
+            "rejection" -> if (now - lastRejectionRefresh < cooldownMs) false
+                else { lastRejectionRefresh = now; true }
+            else -> if (now - lastMissRefresh < cooldownMs) false
+                else { lastMissRefresh = now; true }
+        }
+    }
+
+    @Synchronized
+    private fun forceRefresh(reason: String) {
+        Log.w(TAG, "force refreshing player.js ($reason)")
+        val previousId = current?.playerId
+        current = null
+        nDisabledForSession = false
+        nMisses = 0
+        val refreshed = try { downloadAndExtract() } catch (_: Throwable) { null }
+        if (refreshed != null) {
+            current = refreshed
+            nCache.clear()
+            if (refreshed.playerId != previousId) {
+                Log.d(TAG, "player.js rotated $previousId -> ${refreshed.playerId}")
+            }
+        }
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────
 
     @Synchronized
     private fun ensureBundle(): PlayerBundle? {
         val cur = current
-        if (cur != null && System.currentTimeMillis() - cur.ts < CACHE_TTL_MS) return cur
+        if (cur != null && System.currentTimeMillis() - cur.ts < CACHE_TTL_MS && cur.epoch == epochCounter) return cur
         return try {
             val refreshed = downloadAndExtract()
             if (refreshed != null) {
@@ -107,6 +182,7 @@ object PlayerJsManager {
             cur
         }
     }
+
 
     private fun downloadAndExtract(): PlayerBundle? {
         // 1. Hit the embed/iframe page to discover the current player.js path.
@@ -182,8 +258,10 @@ object PlayerJsManager {
             } else null
         }
 
+        epochCounter += 1
         Log.d(TAG, "player.js loaded id=$playerId sts=$sts sigFn=$sigFnName nFn=$nFnName")
-        return PlayerBundle(playerId, sts, sigFnSource, sigFnName, nFnSource, nFnRefName, System.currentTimeMillis())
+        return PlayerBundle(playerId, sts, sigFnSource, sigFnName, nFnSource, nFnName, System.currentTimeMillis(), epochCounter)
+
     }
 
     private fun evalFn(src: String, fnName: String, arg: String): String? {
