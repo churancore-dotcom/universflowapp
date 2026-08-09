@@ -98,7 +98,10 @@ const MadeForYouSection = memo(() => {
       }
       if (seeds.length) {
         const uniq = [...new Set(seeds)].slice(0, 3);
-        seedQueries = uniq.map((s) => `${s} official music mix`);
+        // "… official music mix" pulled DJ mixes / jukebox compilations into a
+        // shelf that is supposed to be individual songs. Ask for songs.
+        seedQueries = uniq.map((s) => `${s} songs`);
+
       }
       if (!seedQueries.length) {
         const kw = topTasteKeywords(taste, 2);
