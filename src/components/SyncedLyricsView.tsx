@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { memo, useEffect, useMemo, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Music2 } from 'lucide-react';
 import { fetchLyrics, findActiveLine, type LyricsResult } from '@/lib/lyrics';
-import { usePlayerProgress } from '@/lib/playerProgressStore';
-import { annotateEmotions, dominantEmotion, EMOTION_STYLES, type Emotion } from '@/lib/lyricEmotion';
+import { playerProgressStore } from '@/lib/playerProgressStore';
+import { annotateEmotions, dominantEmotion, EMOTION_STYLES, type Emotion, type EmotionLine } from '@/lib/lyricEmotion';
 import EmotionVisualizer from './EmotionVisualizer';
 
 interface Props {
@@ -19,17 +19,45 @@ const EMPTY: LyricsResult = {
   synced: [], plain: null, source: null, hasLyrics: false, isSynced: false,
 };
 
+/**
+ * One lyric row. Memoized on its own visual state so a line-change repaints two
+ * rows instead of re-styling the whole song — that full-list restyle on every
+ * 250ms progress tick is what made the lyrics view stutter.
+ */
+const LyricRow = memo(({ line, state }: { line: EmotionLine; state: 'active' | 'past' | 'future' }) => {
+  const active = state === 'active';
+  const shadow = EMOTION_STYLES[line.emotion].colors[0];
+  return (
+    <p
+      data-active={active || undefined}
+      className="leading-tight tracking-tight font-bold transition-[color,transform,opacity] duration-500 ease-out py-1.5 will-change-transform"
+      style={{
+        fontSize: active ? 26 : 22,
+        color: active
+          ? 'rgba(255,255,255,0.98)'
+          : state === 'past' ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.42)',
+        transform: active ? 'scale(1)' : 'scale(0.97)',
+        textShadow: active ? `0 2px 26px ${shadow}66` : 'none',
+      }}
+    >
+      {line.text || '♪'}
+    </p>
+  );
+});
+LyricRow.displayName = 'LyricRow';
+
 const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Props) => {
   const [lyrics, setLyrics] = useState<LyricsResult>(EMPTY);
   const [loading, setLoading] = useState(true);
-  const { progress, playing } = usePlayerProgress();
+  const [activeIdx, setActiveIdx] = useState(-1);
+  const [playing, setPlaying] = useState(() => playerProgressStore.getPlaying());
   const scrollerRef = useRef<HTMLDivElement>(null);
-  const activeRef = useRef<HTMLParagraphElement>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
     setLyrics(EMPTY);
+    setActiveIdx(-1);
     fetchLyrics(artist, title, duration, songId).then((r) => {
       if (!cancelled) { setLyrics(r); setLoading(false); }
     });
@@ -42,10 +70,23 @@ const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Prop
     [lyrics],
   );
 
-  const activeIdx = useMemo(
-    () => (lyrics.isSynced ? findActiveLine(lyrics.synced, progress) : -1),
-    [lyrics, progress],
-  );
+  // Poll the progress store cheaply and only commit state when the *line index*
+  // changes, so React work is proportional to lyric lines, not to audio ticks.
+  useEffect(() => {
+    const lines = lyrics.isSynced ? lyrics.synced : [];
+    const tick = () => {
+      const next = lines.length
+        ? findActiveLine(lines, playerProgressStore.getEstimatedProgress())
+        : -1;
+      setActiveIdx((prev) => (prev === next ? prev : next));
+      const isPlaying = playerProgressStore.getPlaying();
+      setPlaying((prev) => (prev === isPlaying ? prev : isPlaying));
+    };
+    tick();
+    const id = setInterval(tick, 250);
+    const unsub = playerProgressStore.subscribe(tick);
+    return () => { clearInterval(id); unsub(); };
+  }, [lyrics]);
 
   const songMood = useMemo<Emotion>(
     () => (emotionLines.length ? dominantEmotion(emotionLines) : 'neutral'),
@@ -56,13 +97,21 @@ const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Prop
     ? (emotionLines[activeIdx]?.emotion ?? songMood)
     : songMood;
 
-  // Auto-scroll the active line into view (centered)
+  // Auto-scroll the active line into view (centered) without smooth-scroll
+  // thrash: one rAF-aligned scrollTop write per line change.
   useEffect(() => {
-    if (activeIdx < 0 || !activeRef.current || !scrollerRef.current) return;
-    const el = activeRef.current;
+    if (activeIdx < 0) return;
     const container = scrollerRef.current;
-    const target = el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2;
-    container.scrollTo({ top: target, behavior: 'smooth' });
+    if (!container) return;
+    const raf = requestAnimationFrame(() => {
+      const el = container.querySelector<HTMLElement>('[data-active]');
+      if (!el) return;
+      container.scrollTo({
+        top: el.offsetTop - container.clientHeight / 2 + el.clientHeight / 2,
+        behavior: 'smooth',
+      });
+    });
+    return () => cancelAnimationFrame(raf);
   }, [activeIdx]);
 
   const wrapper = bare
@@ -129,7 +178,7 @@ const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Prop
         <MoodBadge />
         <div
           ref={scrollerRef}
-          className="relative h-full overflow-y-auto px-6 scroll-smooth"
+          className="relative h-full overflow-y-auto px-6"
           style={{
             scrollbarWidth: 'none',
             WebkitMaskImage: 'linear-gradient(180deg, transparent 0%, #000 18%, #000 82%, transparent 100%)',
@@ -137,29 +186,13 @@ const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Prop
           }}
         >
           <div className="py-[40%]">
-            {emotionLines.map((line, i) => {
-              const active = i === activeIdx;
-              const past = i < activeIdx;
-              const lineStyle = EMOTION_STYLES[line.emotion];
-              return (
-                <p
-                  key={i}
-                  ref={active ? activeRef : undefined}
-                  className="leading-tight tracking-tight font-bold transition-all duration-500 ease-out py-1.5"
-                  style={{
-                    fontSize: active ? 26 : 22,
-                    color: active
-                      ? 'rgba(255,255,255,0.98)'
-                      : past ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.42)',
-                    transform: active ? 'translateY(0) scale(1)' : 'translateY(0) scale(0.97)',
-                    filter: active ? 'blur(0px)' : 'blur(0.4px)',
-                    textShadow: active ? `0 2px 26px ${lineStyle.colors[0]}66` : 'none',
-                  }}
-                >
-                  {line.text || '♪'}
-                </p>
-              );
-            })}
+            {emotionLines.map((line, i) => (
+              <LyricRow
+                key={i}
+                line={line}
+                state={i === activeIdx ? 'active' : i < activeIdx ? 'past' : 'future'}
+              />
+            ))}
           </div>
         </div>
       </div>
