@@ -105,7 +105,7 @@ const MadeForYouSection = memo(() => {
       }
       if (!seedQueries.length) {
         const kw = topTasteKeywords(taste, 2);
-        if (kw.length) seedQueries = kw.map((k) => `${k} official music mix`);
+        if (kw.length) seedQueries = kw.map((k) => `${k} songs`);
       }
       if (!seedQueries.length) {
         // Rotating diverse fallback pool — no more static "india top songs".
