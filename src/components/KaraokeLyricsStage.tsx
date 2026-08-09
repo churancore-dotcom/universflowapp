@@ -1,7 +1,9 @@
-import { useEffect, useRef, useState, type CSSProperties } from 'react';
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { fetchLyrics, findActiveLine, type LyricsResult, type LyricLine } from '@/lib/lyrics';
-import { playerProgressStore } from '@/lib/playerProgressStore';
+import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
+import { annotateEmotions, dominantEmotion, EMOTION_STYLES, type Emotion } from '@/lib/lyricEmotion';
+import EmotionVisualizer from './EmotionVisualizer';
 
 interface Props {
   artist: string;
@@ -20,6 +22,7 @@ const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
   const rafRef = useRef<number | null>(null);
   const activeIdxRef = useRef(-1);
   const stageRef = useRef<HTMLDivElement | null>(null);
+  const { playing } = usePlayerProgress();
 
   // Fetch lyrics whenever song changes
   useEffect(() => {
@@ -54,6 +57,18 @@ const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
     return () => { if (rafRef.current) cancelAnimationFrame(rafRef.current); };
   }, [lyrics, duration]);
 
+  const emotionLines = useMemo(
+    () => (lyrics.isSynced ? annotateEmotions(lyrics.synced) : []),
+    [lyrics],
+  );
+  const songMood = useMemo<Emotion>(
+    () => (emotionLines.length ? dominantEmotion(emotionLines) : 'neutral'),
+    [emotionLines],
+  );
+  const activeEmotion: Emotion = activeIdx >= 0
+    ? (emotionLines[activeIdx]?.emotion ?? songMood)
+    : songMood;
+
   if (loading) {
     return (
       <div className="h-full w-full flex items-center justify-center px-8">
@@ -79,7 +94,7 @@ const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
           className="text-[27px] leading-tight font-black tracking-normal"
           style={{ color: 'hsl(var(--foreground) / 0.76)' }}
         >
-          No synced lyrics found
+          Lyrics not available
         </motion.div>
       </div>
     );
@@ -103,7 +118,8 @@ const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
 
   return (
     <div ref={stageRef} className="relative h-full w-full" style={{ '--lyric-progress': '0%' } as CSSProperties}>
-      <KaraokeView lines={lyrics.synced} activeIdx={activeIdx} />
+      <EmotionVisualizer emotion={activeEmotion} playing={playing} />
+      <KaraokeView lines={lyrics.synced} activeIdx={activeIdx} accent={EMOTION_STYLES[activeEmotion].colors[0]} />
     </div>
   );
 };
@@ -113,7 +129,7 @@ const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
 const LINE_GAP = 88;
 const WINDOW = 3;
 
-const KaraokeView = ({ lines, activeIdx }: { lines: LyricLine[]; activeIdx: number }) => {
+const KaraokeView = ({ lines, activeIdx, accent }: { lines: LyricLine[]; activeIdx: number; accent: string }) => {
   const focusIdx = Math.max(0, activeIdx);
   const start = Math.max(0, focusIdx - WINDOW);
   const end = Math.min(lines.length - 1, focusIdx + WINDOW);
@@ -167,7 +183,7 @@ const KaraokeView = ({ lines, activeIdx }: { lines: LyricLine[]; activeIdx: numb
                     WebkitBackgroundClip: 'text',
                     backgroundClip: 'text',
                     color: 'transparent',
-                    textShadow: '0 8px 34px hsl(var(--primary) / 0.42)',
+                    textShadow: `0 8px 34px ${accent}6b`,
                   }}
                 >
                   {line.text || '♪'}
