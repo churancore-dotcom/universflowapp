@@ -2,8 +2,10 @@ import React, { memo, useCallback, useState } from 'react';
 import { motion, AnimatePresence, Reorder, useMotionValue, useTransform, useDragControls, PanInfo } from 'framer-motion';
 import { X, GripVertical, Play, Pause, Trash2 } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
+import SongArtwork from './SongArtwork';
 import { iosSpring } from '@/lib/animations';
 import { triggerHaptic } from '@/hooks/useHaptics';
+
 interface QueueDrawerProps {
   isOpen: boolean;
   onClose: () => void;
