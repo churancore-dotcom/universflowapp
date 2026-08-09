@@ -12,6 +12,8 @@ import { searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import { supabase } from '@/integrations/supabase/client';
 import { isSpamSong } from '@/pages/Search';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
+
 import { rerank, topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
 
 const MadeForYouSection = memo(() => {
