@@ -43,7 +43,7 @@ const Support = () => {
         }}
       />
       <motion.div
-        className="ethereal-page relative min-h-screen pb-44 overflow-hidden"
+        className="ethereal-page relative min-h-dvh pb-44 overflow-hidden"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.3 }}
       >
         {/* Static rose ambient glow (no animation — perf) */}
@@ -142,7 +142,7 @@ const Support = () => {
               initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
               transition={{ ...iosSpring, delay: 0.1 }}
             >
-              <h3 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-2 px-1">
+              <h3 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
                 Premium
               </h3>
               <div
@@ -196,7 +196,7 @@ const Support = () => {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ ...iosSpring, delay: 0.15 }}
           >
-            <h3 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-2 px-1">
+            <h3 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1">
               Need Help?
             </h3>
             <motion.button
@@ -230,7 +230,7 @@ const Support = () => {
             initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
             transition={{ ...iosSpring, delay: 0.2 }}
           >
-            <h3 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground/80 mb-2 px-1 flex items-center gap-1.5">
+            <h3 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground mb-2 px-1 flex items-center gap-1.5">
               <Star className="w-3.5 h-3.5" style={{ color: ROSE }} fill={ROSE} />
               Our Supporters
             </h3>

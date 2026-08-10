@@ -117,7 +117,7 @@ const Offline = memo(function Offline() {
       description="Play your downloaded songs without internet. Your offline Univers Flow library, ready when you are."
       keywords="offline player, downloaded songs, Univers Flow offline library"
     />
-    <div className="ethereal-page min-h-screen flex flex-col pb-40 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
+    <div className="ethereal-page min-h-dvh flex flex-col pb-40 overflow-y-auto overflow-x-hidden" style={{ WebkitOverflowScrolling: 'touch' }}>
       {/* Header — rose-ember hero to match the rest of the app */}
       <header className="sticky top-0 z-40 px-3 pt-3 pb-3 bg-background/80 backdrop-blur-xl safe-area-pt">
         <div className="flex items-start gap-2">

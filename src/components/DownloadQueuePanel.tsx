@@ -86,6 +86,7 @@ const DownloadQueuePanel = () => {
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Hide download queue"
               className="h-8 w-8"
               onClick={(e) => {
                 e.stopPropagation();

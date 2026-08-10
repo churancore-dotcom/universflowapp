@@ -81,7 +81,7 @@ const DownloadsPage = memo(function DownloadsPage() {
         keywords="offline music, music downloads, Univers Flow offline"
       />
       <motion.div
-        className="ethereal-page min-h-screen pb-44 relative overflow-hidden"
+        className="ethereal-page min-h-dvh pb-44 relative overflow-hidden"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
       >
         {/* Header */}

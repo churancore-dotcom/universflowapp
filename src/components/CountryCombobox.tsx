@@ -94,6 +94,7 @@ export function CountryCombobox({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search country or +code…"
+              aria-label="Search country or dial code"
               className="flex-1 h-8 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
             />
           </div>

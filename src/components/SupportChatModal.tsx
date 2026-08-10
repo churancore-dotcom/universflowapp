@@ -206,6 +206,7 @@ const SupportChatModal = ({ isOpen, onClose }: Props) => {
                   onChange={(e) => setDraft(e.target.value)}
                   onKeyDown={onKey}
                   placeholder="Type your message…"
+                  aria-label="Message"
                   maxLength={2000}
                   className="flex-1 h-11 px-4 rounded-2xl bg-muted/40 border border-border/50 text-sm focus:outline-none focus:border-primary/60"
                 />

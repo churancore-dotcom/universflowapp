@@ -104,7 +104,7 @@ const OfflinePlayerShell = memo(function OfflinePlayerShell() {
 
   return (
     <div
-      className="min-h-screen bg-background flex flex-col pb-40 overflow-y-auto overflow-x-hidden"
+      className="min-h-dvh bg-background flex flex-col pb-40 overflow-y-auto overflow-x-hidden"
       style={{ WebkitOverflowScrolling: 'touch' }}
     >
       {/* Ambient gradient */}
@@ -217,6 +217,7 @@ const OfflinePlayerShell = memo(function OfflinePlayerShell() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search your vault"
+              aria-label="Search downloaded songs"
               className="w-full h-11 pl-11 pr-4 rounded-2xl bg-white/[0.04] border border-white/[0.06] text-sm placeholder:text-muted-foreground focus:outline-none focus:border-primary/40 transition-colors"
             />
           </div>

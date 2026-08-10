@@ -223,7 +223,7 @@ const ManageArtists = () => {
                   </div>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button>
+                      <Button variant="ghost" size="icon" aria-label="Artist actions" className="h-8 w-8"><MoreVertical className="w-4 h-4" /></Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="glass border-white/10">
                       <DropdownMenuItem onClick={() => openDetails(a)}><ExternalLink className="w-4 h-4 mr-2" /> View Details</DropdownMenuItem>

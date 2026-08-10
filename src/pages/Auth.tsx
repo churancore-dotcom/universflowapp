@@ -136,7 +136,7 @@ const Auth = () => {
 
   return (
     <FadeTransition>
-      <div className="min-h-[100dvh] bg-background text-foreground flex flex-col items-center justify-center px-6 py-8 relative overflow-y-auto">
+      <main className="min-h-[100dvh] bg-background text-foreground flex flex-col items-center justify-center px-6 py-8 relative overflow-y-auto">
         <SEOHead
           title="Sign in — Universflow"
           description="Sign in or create your Universflow account to stream music, build playlists, and listen offline."
@@ -216,7 +216,7 @@ const Auth = () => {
                     layoutId="activeAuthTab"
                     className="absolute inset-0 rounded-full"
                     style={{
-                      background: '#FF2D55',
+                      background: 'hsl(var(--primary-strong))',
                       boxShadow: '0 6px 18px hsl(340 100% 45% / 0.4)',
                     }}
                     transition={{ type: 'spring', stiffness: 600, damping: 38, mass: 0.5 }}
@@ -374,7 +374,7 @@ const Auth = () => {
         <p className="relative z-10 text-[10px] tracking-[0.22em] uppercase text-muted-foreground/50 mt-8">
           Universflow · Built for music lovers
         </p>
-      </div>
+      </main>
       <ForgotPasswordModal
         isOpen={forgotOpen}
         onClose={() => setForgotOpen(false)}

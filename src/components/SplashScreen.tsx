@@ -37,6 +37,8 @@ const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete
   return (
     <div
       ref={ref}
+      role="status"
+      aria-label="Loading Universflow"
       className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-black pointer-events-none"
     >
       <div className="flex flex-col items-center justify-center">

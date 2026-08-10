@@ -152,7 +152,7 @@ const PlaylistDetail = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
+      <div className="min-h-dvh bg-black flex items-center justify-center">
         <motion.div
           className="w-10 h-10 rounded-full border-2 border-primary border-t-transparent"
           animate={{ rotate: 360 }}
@@ -164,7 +164,7 @@ const PlaylistDetail = () => {
 
   if (!playlist) {
     return (
-      <div className="min-h-screen bg-black flex flex-col items-center justify-center">
+      <div className="min-h-dvh bg-black flex flex-col items-center justify-center">
         <Music className="w-16 h-16 text-muted-foreground/50 mb-4" />
         <p className="text-muted-foreground">Playlist not found</p>
         <Button
@@ -181,7 +181,7 @@ const PlaylistDetail = () => {
   return (
     <TabTransition>
       <motion.div 
-        className="ethereal-page min-h-screen pb-44"
+        className="ethereal-page min-h-dvh pb-44"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
       >

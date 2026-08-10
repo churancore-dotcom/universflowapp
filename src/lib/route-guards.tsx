@@ -14,7 +14,7 @@ import NotFound from '@/pages/NotFound';
 const Home = lazy(() => import('@/pages/Home'));
 const GetApp = lazy(() => import('@/pages/GetApp'));
 
-export const LazyFallback = () => <div className="min-h-screen bg-background" />;
+export const LazyFallback = () => <div className="min-h-dvh bg-background" />;
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, emailVerified } = useAuth();
