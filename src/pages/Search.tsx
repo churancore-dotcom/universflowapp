@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from '@/lib/router-compat';
 import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
