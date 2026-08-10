@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from '@/lib/router-compat';
 import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -660,36 +660,39 @@ const Search = () => {
               </button>
             )}
 
-            {/* Live autocomplete dropdown (YT Music suggestions) */}
-            <AnimatePresence>
-              {isFocused && suggestActive && suggestions.length > 0 && (
-                <motion.div
-                  initial={{ opacity: 0, y: -4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.14 }}
-                  className="absolute left-0 right-0 top-full mt-2 z-40 rounded-2xl overflow-hidden"
-                  style={{
-                    background: 'hsl(var(--card))',
-                    border: '1px solid rgba(255,255,255,0.08)',
-                    boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-                  }}
-                >
-                  {suggestions.map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onMouseDown={(e) => e.preventDefault()}
-                      onClick={() => { setQuery(s); setSuggestActive(false); }}
-                      className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-white/5 active:bg-white/10 transition-colors"
-                    >
-                      <SearchIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate">{s}</span>
-                    </button>
-                  ))}
-                </motion.div>
-              )}
-            </AnimatePresence>
+            {/* Live autocomplete dropdown (YT Music suggestions).
+                No exit animation / AnimatePresence here on purpose: framer
+                removes exiting nodes itself, and while a sibling list is
+                re-rendering that races React and throws
+                "removeChild: node is not a child of this node", which blanked
+                the whole Search screen behind the error boundary. */}
+            {isFocused && suggestActive && suggestions.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -4 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.14 }}
+                className="absolute left-0 right-0 top-full mt-2 z-40 rounded-2xl overflow-hidden"
+                style={{
+                  background: 'hsl(var(--card))',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
+                }}
+              >
+                {suggestions.map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => { setQuery(s); setSuggestActive(false); }}
+                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-white/5 active:bg-white/10 transition-colors"
+                  >
+                    <SearchIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate">{s}</span>
+                  </button>
+                ))}
+              </motion.div>
+            )}
+
           </div>
 
           {/* Source tabs */}
@@ -721,10 +724,10 @@ const Search = () => {
 
         {/* Content */}
         <main ref={scrollRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-32 relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <AnimatePresence mode="wait">
-            {!query && (
-              <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+          {!query && (
+            <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}>
+
 
                 {/* Recently Played (song-based history, Spotify-style) */}
                 {searchHistory.length > 0 && (
@@ -812,9 +815,9 @@ const Search = () => {
                 )}
 
 
-              </motion.div>
-            )}
-          </AnimatePresence>
+            </motion.div>
+          )}
+
 
           {/* Results */}
           {searching ? <SearchSkeleton /> : (
