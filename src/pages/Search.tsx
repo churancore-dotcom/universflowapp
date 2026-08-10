@@ -815,9 +815,9 @@ const Search = () => {
                 )}
 
 
-              </motion.div>
-            )}
-          </AnimatePresence>
+            </motion.div>
+          )}
+
 
           {/* Results */}
           {searching ? <SearchSkeleton /> : (
