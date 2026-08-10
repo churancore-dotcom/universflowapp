@@ -80,13 +80,15 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
         onDragEnd={handleDragEnd}
       >
         {/* Drag handle — long-press or hold to reorder vertically */}
-        <div
+        <button
+          type="button"
           className="p-1 -ml-1 touch-none cursor-grab active:cursor-grabbing"
           onPointerDown={(e) => { triggerHaptic('selection'); dragControls.start(e); }}
-          aria-label="Reorder"
+          aria-label={`Reorder ${song.title}`}
         >
           <GripVertical className="w-5 h-5 text-muted-foreground/60 flex-shrink-0" />
-        </div>
+        </button>
+
         
         <span className="w-6 text-center text-sm text-muted-foreground flex-shrink-0">
           {index + 1}
