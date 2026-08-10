@@ -93,7 +93,7 @@ const PlaylistDetail = () => {
     }));
     setQueue(songsForQueue);
     const offlineUrl = getDownloadedUrl(songs[0].id);
-    playSong(songsForQueue[0], offlineUrl, songsForQueue);
+    playSong(songsForQueue[0], offlineUrl, songsForQueue, { curated: true });
   };
 
   const handleShufflePlay = () => {
@@ -110,12 +110,12 @@ const PlaylistDetail = () => {
     }));
     setQueue(songsForQueue);
     const offlineUrl = getDownloadedUrl(shuffled[0].id);
-    playSong(songsForQueue[0], offlineUrl, songsForQueue);
+    playSong(songsForQueue[0], offlineUrl, songsForQueue, { curated: true });
   };
 
   const handlePlaySong = (song: PlaylistSong) => {
     const offlineUrl = getDownloadedUrl(song.id);
-    playSong(song, offlineUrl, songs);
+    playSong(song, offlineUrl, songs, { curated: true });
   };
 
   const handleRemoveSong = async (playlistSongId: string) => {
