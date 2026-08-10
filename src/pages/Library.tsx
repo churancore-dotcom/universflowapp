@@ -163,7 +163,7 @@ const Library = () => {
   const handlePlaySong = (song: Song) => {
     const offlineUrl = getDownloadedUrl(song.id);
     const activeQueue = activeTab === 'downloads' ? downloads : likedSongs;
-    playSong(song, offlineUrl, activeQueue.length > 0 ? activeQueue : [song]);
+    playSong(song, offlineUrl, activeQueue.length > 0 ? activeQueue : [song], { curated: true });
   };
 
   const SongRow = ({ song, index }: { song: Song; index: number }) => {
