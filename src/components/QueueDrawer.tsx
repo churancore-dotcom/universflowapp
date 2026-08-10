@@ -178,15 +178,28 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
           exit={{ y: '100%' }}
           transition={iosSpring}
           onClick={(e) => e.stopPropagation()}
+          role="dialog"
+          aria-modal="true"
+          aria-label="Up Next queue"
         >
           {/* Handle */}
           <div className="flex-shrink-0 pt-3 pb-4">
             <div className="w-9 h-1 rounded-full bg-white/30 mx-auto" />
           </div>
 
+          {/* Live announcement of queue size / current track for screen readers */}
+          <div aria-live="polite" aria-atomic="true" role="status" className="sr-only">
+            {queue.length === 0
+              ? 'Queue is empty'
+              : `${queue.length} song${queue.length !== 1 ? 's' : ''} in queue${
+                  currentSong ? `. Now playing ${currentSong.title}` : ''
+                }`}
+          </div>
+
           {/* Header */}
           <div className="flex-shrink-0 flex items-center justify-between px-6 pb-4">
             <h2 className="text-xl font-bold">Up Next</h2>
+
             <div className="flex items-center gap-2">
               {queue.length > 0 && (
                 <motion.button
