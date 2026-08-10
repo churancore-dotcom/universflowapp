@@ -724,10 +724,10 @@ const Search = () => {
 
         {/* Content */}
         <main ref={scrollRef} className="flex-1 overflow-y-auto px-4 pt-4 pb-32 relative z-10" style={{ WebkitOverflowScrolling: 'touch' }}>
-          <AnimatePresence mode="wait">
-            {!query && (
-              <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0 }} transition={{ duration: 0.3 }}>
+          {!query && (
+            <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}>
+
 
                 {/* Recently Played (song-based history, Spotify-style) */}
                 {searchHistory.length > 0 && (
