@@ -2027,9 +2027,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else if (activeRepeat === 'off' && activeQueue.length > 0) {
         // End of queue — fire YouTube-style endless mix: pull more songs
         // (same artist → genre/mood → trending) and continue playing.
+        // Curated queues (playlist / liked / downloads) simply end instead.
+        if (curatedQueueRef.current) {
+          wasPlayingRef.current = false;
+          setIsPlaying(false);
+          setProgress(0);
+          return;
+        }
         const seed = activeQueue[activeIndex] || currentSongRef.current;
         extendQueueWithMix(seed).then((added) => {
           if (added.length > 0) {
+
             // Append happened via setQueueState; jump to the first new track.
             const newQueue = [...queueRef.current];
             const targetIdx = newQueue.findIndex((s) => s.id === added[0].id);
