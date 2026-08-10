@@ -1,6 +1,8 @@
 import { memo, lazy, Suspense } from 'react';
 import { useLocation } from '@/lib/router-compat';
 import MiniPlayer from './MiniPlayer';
+import PlaybackAnnouncer from './PlaybackAnnouncer';
+
 
 const FullscreenPlayer = lazy(() => import('./FullscreenPlayer'));
 
