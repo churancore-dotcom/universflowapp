@@ -3005,13 +3005,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, 30000);
   }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent]);
 
-  const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
+  const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[], options?: { curated?: boolean }) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium
     // checks must never block the audio pipeline.
+    curatedQueueRef.current = options?.curated === true;
     setShowPrerollAd(false);
     setPendingSong(null);
     playActualSong(song, offlineUrl, songsQueue);
   }, [playActualSong]);
+
 
   // NOTE: We intentionally do NOT auto-play the last song on APK launch.
   // The queue, currentSong, currentIndex, and progress are already restored
