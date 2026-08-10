@@ -23,21 +23,31 @@ interface Props {
 function candidatesFor(song: Props['song'], size: number): string[] {
   const out: string[] = [];
   const cover = song.cover_url || '';
+  const dpr = typeof window !== 'undefined' ? Math.min(3, Math.max(1, window.devicePixelRatio || 1)) : 2;
   if (cover) {
     if (cover.includes('googleusercontent.com')) {
-      const px = Math.max(120, Math.min(600, Math.round(size * 2)));
+      // Ask for a genuinely high-res crop (never smaller than 240px) so a 44px
+      // tile stays sharp on 3x screens instead of upscaling a thumbnail.
+      const px = Math.max(240, Math.min(720, Math.round(size * dpr * 2)));
       out.push(cover.replace(/=w\d+-h\d+[^&]*/i, `=w${px}-h${px}-l90-rj`));
+    }
+    if (/i\.ytimg\.com\/vi\//.test(cover)) {
+      // Upgrade any low-res YouTube thumbnail already stored on the row.
+      out.push(cover.replace(/\/(default|mqdefault|sddefault|hq720)\.jpg/, '/hqdefault.jpg'));
     }
     out.push(cover);
   }
   const vid = videoIdOf(song);
   if (vid) {
+    // Highest-quality YouTube stills first; each 404 falls through to the next.
+    out.push(`https://i.ytimg.com/vi/${vid}/sddefault.jpg`);
     out.push(`https://i.ytimg.com/vi/${vid}/hqdefault.jpg`);
     out.push(`https://i.ytimg.com/vi/${vid}/mqdefault.jpg`);
     out.push(`https://i.ytimg.com/vi/${vid}/default.jpg`);
   }
   return [...new Set(out.filter(Boolean))];
 }
+
 
 const SongArtwork = memo(({ song, className, size = 44, alt }: Props) => {
   const sources = useMemo(() => candidatesFor(song, size), [song.cover_url, song.id, song.audio_url, size]);
@@ -50,6 +60,13 @@ const SongArtwork = memo(({ song, className, size = 44, alt }: Props) => {
 
   return (
     <div className={cn('relative overflow-hidden bg-gradient-to-br from-primary/25 to-accent/25', className)}>
+      {/* Neutral placeholder while the real art decodes, so a row never looks
+          like a smeared/blurred tile. */}
+      {!loaded && (
+        <div className="absolute inset-0 flex items-center justify-center">
+          <Music2 className="w-1/2 h-1/2 text-foreground/30" />
+        </div>
+      )}
       {src ? (
         <img
           src={src}
@@ -58,17 +75,24 @@ const SongArtwork = memo(({ song, className, size = 44, alt }: Props) => {
           decoding="async"
           referrerPolicy="no-referrer"
           draggable={false}
-          className={cn('w-full h-full object-cover transition-opacity duration-200', loaded ? 'opacity-100' : 'opacity-0')}
-          onLoad={() => setLoaded(true)}
+          className={cn('relative w-full h-full object-cover transition-opacity duration-200', loaded ? 'opacity-100' : 'opacity-0')}
+          onLoad={(e) => {
+            // YouTube serves a 120x90 grey "no thumbnail" bitmap instead of a
+            // 404; upscaling it is exactly the blur users reported. Fall
+            // through to the next candidate when a better one exists.
+            const img = e.currentTarget;
+            if (img.naturalWidth > 0 && img.naturalWidth <= 130 && index < sources.length - 1) {
+              setIndex((i) => i + 1);
+              return;
+            }
+            setLoaded(true);
+          }}
           onError={() => setIndex((i) => i + 1)}
         />
-      ) : (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <Music2 className="w-1/2 h-1/2 text-foreground/35" />
-        </div>
-      )}
+      ) : null}
     </div>
   );
+
 });
 
 SongArtwork.displayName = 'SongArtwork';

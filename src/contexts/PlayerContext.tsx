@@ -120,7 +120,7 @@ interface PlayerContextType {
   audioElement: HTMLAudioElement | null;
   showPrerollAd: boolean;
   adType: 'start' | 'end';
-  playSong: (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => void;
+  playSong: (song: Song, offlineUrl?: string | null, songsQueue?: Song[], options?: { curated?: boolean }) => void;
   togglePlay: () => void;
   pause: () => void;
   play: () => void;
@@ -527,6 +527,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // recommendations forever.
   const autoMixInFlightRef = useRef(false);
   const autoMixSeenRef = useRef<Set<string>>(new Set());
+  // True when the current queue is an explicit user collection (playlist,
+  // liked songs, downloads). Those queues must play exactly what the user
+  // chose — never top up with algorithmic "radio" tracks.
+  const curatedQueueRef = useRef(false);
+
   const pendingNativeRestoreRef = useRef<SavedPlayerState | null>(null);
   const nativeRestoreAttemptedRef = useRef(false);
   const currentSongRef = useRef<Song | null>(null);
@@ -1338,7 +1343,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // current song finishes — no gap, infinite playback.
   useEffect(() => {
     if (repeat !== 'off') return;
+    // A playlist / liked-songs / downloads queue plays only its own songs.
+    if (curatedQueueRef.current) return;
     if (!isAutoplayEnabled()) return;
+
     if (queue.length === 0) return;
     const remaining = queue.length - currentIndex - 1;
     if (remaining > 3) return;
@@ -2019,9 +2027,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       } else if (activeRepeat === 'off' && activeQueue.length > 0) {
         // End of queue — fire YouTube-style endless mix: pull more songs
         // (same artist → genre/mood → trending) and continue playing.
+        // Curated queues (playlist / liked / downloads) simply end instead.
+        if (curatedQueueRef.current) {
+          wasPlayingRef.current = false;
+          setIsPlaying(false);
+          setProgress(0);
+          return;
+        }
         const seed = activeQueue[activeIndex] || currentSongRef.current;
         extendQueueWithMix(seed).then((added) => {
           if (added.length > 0) {
+
             // Append happened via setQueueState; jump to the first new track.
             const newQueue = [...queueRef.current];
             const targetIdx = newQueue.findIndex((s) => s.id === added[0].id);
@@ -2989,13 +3005,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }, 30000);
   }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent]);
 
-  const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
+  const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[], options?: { curated?: boolean }) => {
     // Spotify-like behavior: a tap must start playback immediately. Ads/premium
     // checks must never block the audio pipeline.
+    curatedQueueRef.current = options?.curated === true;
     setShowPrerollAd(false);
     setPendingSong(null);
     playActualSong(song, offlineUrl, songsQueue);
   }, [playActualSong]);
+
 
   // NOTE: We intentionally do NOT auto-play the last song on APK launch.
   // The queue, currentSong, currentIndex, and progress are already restored

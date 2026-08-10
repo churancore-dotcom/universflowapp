@@ -80,13 +80,15 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
         onDragEnd={handleDragEnd}
       >
         {/* Drag handle — long-press or hold to reorder vertically */}
-        <div
+        <button
+          type="button"
           className="p-1 -ml-1 touch-none cursor-grab active:cursor-grabbing"
           onPointerDown={(e) => { triggerHaptic('selection'); dragControls.start(e); }}
-          aria-label="Reorder"
+          aria-label={`Reorder ${song.title}`}
         >
           <GripVertical className="w-5 h-5 text-muted-foreground/60 flex-shrink-0" />
-        </div>
+        </button>
+
         
         <span className="w-6 text-center text-sm text-muted-foreground flex-shrink-0">
           {index + 1}
@@ -99,17 +101,19 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
           aria-label={isActive && isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
         >
 
-          {/* Full artwork ladder (provider → YouTube hq/mq/default → note tile)
+          {/* Full artwork ladder (provider → YouTube sd/hq/mq → note tile)
               so a mix track without cover_url still shows real art. */}
-          <SongArtwork song={song} size={44} className="w-full h-full" />
+          <SongArtwork song={song} size={56} className="w-full h-full" />
 
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          {/* Keep the overlay light so the cover stays clearly visible. */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
             {isActive && isPlaying ? (
-              <Pause className="w-4 h-4 text-white" fill="white" />
+              <Pause className="w-4 h-4 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" fill="white" />
             ) : (
-              <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+              <Play className="w-4 h-4 text-white ml-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" fill="white" />
             )}
           </div>
+
         </motion.button>
 
 
@@ -218,6 +222,7 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
                 className="p-2 rounded-full bg-white/10"
                 onClick={onClose}
                 whileTap={{ scale: 0.9 }}
+                aria-label="Close queue"
               >
                 <X className="w-5 h-5" />
               </motion.button>
