@@ -222,6 +222,7 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
                 className="p-2 rounded-full bg-white/10"
                 onClick={onClose}
                 whileTap={{ scale: 0.9 }}
+                aria-label="Close queue"
               >
                 <X className="w-5 h-5" />
               </motion.button>
