@@ -32,7 +32,9 @@ const GlobalPlayerLayer = memo(function GlobalPlayerLayer() {
   return (
     <>
       <MiniPlayer />
+      <PlaybackAnnouncer />
       <Suspense fallback={null}>
+
         <FullscreenPlayer />
       </Suspense>
     </>
