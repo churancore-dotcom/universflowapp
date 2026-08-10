@@ -99,17 +99,19 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
           aria-label={isActive && isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
         >
 
-          {/* Full artwork ladder (provider → YouTube hq/mq/default → note tile)
+          {/* Full artwork ladder (provider → YouTube sd/hq/mq → note tile)
               so a mix track without cover_url still shows real art. */}
-          <SongArtwork song={song} size={44} className="w-full h-full" />
+          <SongArtwork song={song} size={56} className="w-full h-full" />
 
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          {/* Keep the overlay light so the cover stays clearly visible. */}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
             {isActive && isPlaying ? (
-              <Pause className="w-4 h-4 text-white" fill="white" />
+              <Pause className="w-4 h-4 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" fill="white" />
             ) : (
-              <Play className="w-4 h-4 text-white ml-0.5" fill="white" />
+              <Play className="w-4 h-4 text-white ml-0.5 drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" fill="white" />
             )}
           </div>
+
         </motion.button>
 
 
