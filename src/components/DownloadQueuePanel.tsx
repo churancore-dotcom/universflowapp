@@ -76,10 +76,11 @@ const DownloadQueuePanel = () => {
             </div>
             <div>
               <p className="font-semibold text-foreground text-sm">Download Queue</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-muted-foreground" aria-live="polite" aria-atomic="true" role="status">
                 {isProcessingQueue ? 'Downloading...' : `${totalInQueue} song${totalInQueue !== 1 ? 's' : ''} waiting`}
               </p>
             </div>
+
           </div>
           
           <div className="flex items-center gap-2">
