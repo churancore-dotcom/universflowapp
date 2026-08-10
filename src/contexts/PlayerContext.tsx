@@ -120,7 +120,7 @@ interface PlayerContextType {
   audioElement: HTMLAudioElement | null;
   showPrerollAd: boolean;
   adType: 'start' | 'end';
-  playSong: (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => void;
+  playSong: (song: Song, offlineUrl?: string | null, songsQueue?: Song[], options?: { curated?: boolean }) => void;
   togglePlay: () => void;
   pause: () => void;
   play: () => void;
