@@ -1,5 +1,4 @@
 import { forwardRef, useEffect, useRef, useState } from 'react';
-import { motion } from 'framer-motion';
 import appLogo from '@/assets/app-logo.webp';
 
 interface SplashScreenProps {
@@ -7,9 +6,8 @@ interface SplashScreenProps {
 }
 
 /**
- * SplashScreen — clean logo reveal that shares a layout transition with the
- * Auth page logo (layoutId="uf-brand-logo" / "uf-brand-wordmark"). When the
- * splash unmounts, the logo morphs smoothly into the Auth screen logo.
+ * SplashScreen — a short, self-contained logo reveal. The entire route tree
+ * remains mounted beneath it, so this overlay must unmount synchronously.
  */
 const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete }, ref) => {
   const doneRef = useRef(false);
@@ -36,23 +34,15 @@ const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete
   }, []);
 
   const visible = phase !== 'in';
-  const ease = [0.22, 1, 0.36, 1] as const;
-
   return (
-    <motion.div
+    <div
       ref={ref}
       className="fixed inset-0 z-50 flex h-[100dvh] w-full flex-col items-center justify-center overflow-hidden bg-black pointer-events-none"
-      initial={{ opacity: 1 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.2, ease }}
     >
       <div className="flex flex-col items-center justify-center">
-        <motion.div
-          layoutId="uf-brand-logo"
+        <div
           className="h-40 w-40 rounded-full overflow-hidden"
           style={{ opacity: visible ? 1 : 0 }}
-          transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.7 }}
         >
           <img
             src={appLogo}
@@ -65,9 +55,8 @@ const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete
             className="h-full w-full object-cover"
             draggable={false}
           />
-        </motion.div>
-        <motion.div
-          layoutId="uf-brand-wordmark"
+        </div>
+        <div
           className="mt-8 text-white"
           style={{
             fontSize: 30,
@@ -75,12 +64,11 @@ const SplashScreen = forwardRef<HTMLDivElement, SplashScreenProps>(({ onComplete
             fontWeight: 700,
             opacity: visible ? 1 : 0,
           }}
-          transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.7 }}
         >
           UNIVERS FLOW
-        </motion.div>
+        </div>
       </div>
-    </motion.div>
+    </div>
   );
 });
 

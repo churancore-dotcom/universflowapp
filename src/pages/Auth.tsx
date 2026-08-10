@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useNavigate } from '@/lib/router-compat';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
@@ -161,7 +161,6 @@ const Auth = () => {
           {/* Logo + wordmark — shares layoutId with SplashScreen for a seamless morph */}
           <div className="flex flex-col items-center mb-7">
             <motion.div
-              layoutId="uf-brand-logo"
               className="relative"
               transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.7 }}
             >
@@ -185,7 +184,6 @@ const Auth = () => {
             </motion.div>
 
             <motion.h1
-              layoutId="uf-brand-wordmark"
               className="mt-6 text-[38px] leading-none font-display tracking-wide text-foreground"
               transition={{ type: 'spring', stiffness: 260, damping: 32, mass: 0.7 }}
             >
@@ -229,8 +227,7 @@ const Auth = () => {
             ))}
           </div>
 
-          <AnimatePresence mode="popLayout" initial={false} custom={isLogin}>
-            {mode !== 'artist' && (
+          {mode !== 'artist' && (
               <motion.form
                 key={mode}
                 custom={isLogin}
@@ -247,13 +244,11 @@ const Auth = () => {
               exit="exit"
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
             >
-              <AnimatePresence initial={false} mode="popLayout">
-                {!isLogin && (
+              {!isLogin && (
                   <motion.div
                     key="username"
                     initial={{ opacity: 0, height: 0, y: -4 }}
                     animate={{ opacity: 1, height: 'auto', y: 0 }}
-                    exit={{ opacity: 0, height: 0, y: -4 }}
                     transition={{ duration: 0.22 }}
                     className="overflow-hidden"
                   >
@@ -277,8 +272,7 @@ const Auth = () => {
                       />
                     </div>
                   </motion.div>
-                )}
-              </AnimatePresence>
+              )}
 
               <div>
                 <label className="block text-[10.5px] uppercase tracking-[0.18em] font-semibold text-muted-foreground/70 mb-1.5 pl-1">
@@ -375,7 +369,6 @@ const Auth = () => {
               )}
             </motion.form>
           )}
-          </AnimatePresence>
         </motion.div>
 
         <p className="relative z-10 text-[10px] tracking-[0.22em] uppercase text-muted-foreground/50 mt-8">

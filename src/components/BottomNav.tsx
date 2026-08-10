@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, memo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { Headphones, Search, Library, User } from 'lucide-react';
 import { useLocation, useNavigate } from '@/lib/router-compat';
 import { useRouter } from '@tanstack/react-router';
@@ -81,8 +81,7 @@ const BottomNav = memo(function BottomNav() {
   }, [navigate]);
 
   return (
-    <AnimatePresence>
-      <motion.nav
+    <motion.nav
         aria-label="Primary"
         className="fixed left-0 right-0 z-50 pointer-events-none flex justify-center"
         style={{
@@ -165,27 +164,23 @@ const BottomNav = memo(function BottomNav() {
                     }`}
                     strokeWidth={isActive ? 2.2 : 1.9}
                   />
-                  <AnimatePresence initial={false}>
-                    {isActive && (
-                      <motion.span
-                        key="label"
-                        initial={{ width: 0, opacity: 0 }}
-                        animate={{ width: 'auto', opacity: 1 }}
-                        exit={{ width: 0, opacity: 0 }}
-                        transition={{ duration: 0.22, ease: [0.32, 0.72, 0, 1] }}
-                        className="overflow-hidden whitespace-nowrap text-[13px] font-semibold text-white tracking-tight"
-                      >
-                        {item.label}
-                      </motion.span>
-                    )}
-                  </AnimatePresence>
+                  {isActive && (
+                    <motion.span
+                      key="label"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ duration: 0.16 }}
+                      className="overflow-hidden whitespace-nowrap text-[13px] font-semibold text-white tracking-tight"
+                    >
+                      {item.label}
+                    </motion.span>
+                  )}
                 </div>
               </motion.button>
             );
           })}
         </div>
-      </motion.nav>
-    </AnimatePresence>
+    </motion.nav>
   );
 });
 

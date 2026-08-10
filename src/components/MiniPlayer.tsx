@@ -1,5 +1,5 @@
 import { memo, useCallback, useState, useEffect, useRef } from 'react';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { motion, PanInfo } from 'framer-motion';
 // NOTE: This component is now mounted ONCE at App level via GlobalPlayerLayer
 // to prevent flicker on route changes. Do not re-mount it inside individual pages.
 import { Play, Pause, SkipForward, SkipBack, X } from 'lucide-react';
@@ -221,43 +221,38 @@ const MiniPlayer = memo(function MiniPlayer() {
               className="relative w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden shadow-lg bg-muted"
               transition={{ type: 'spring', stiffness: 380, damping: 34 }}
             >
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div
-                  key={currentSong.id}
-                  className="absolute inset-0 w-full h-full"
-                  variants={albumArtVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                >
-                  {currentSong.cover_url ? (
-                    <img
-                      src={currentSong.cover_url}
-                      alt={currentSong.title}
-                      className="w-full h-full object-cover"
-                      loading="lazy"
-                      draggable={false}
-                    />
-                  ) : (
-                    <div className="w-full h-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
-                      <span className="text-white text-lg">♪</span>
-                    </div>
-                  )}
-                </motion.div>
-              </AnimatePresence>
+              <motion.div
+                key={currentSong.id}
+                className="absolute inset-0 w-full h-full"
+                variants={albumArtVariants}
+                initial="initial"
+                animate="animate"
+              >
+                {currentSong.cover_url ? (
+                  <img
+                    src={currentSong.cover_url}
+                    alt={currentSong.title}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-rose-500 to-pink-600 flex items-center justify-center">
+                    <span className="text-white text-lg">♪</span>
+                  </div>
+                )}
+              </motion.div>
             </motion.div>
             
             {/* Song info with crossfade */}
             <div className="flex-1 min-w-0 pr-0 relative min-h-[2.5rem] flex flex-col justify-center">
-              <AnimatePresence mode="popLayout" initial={false}>
-                <motion.div
-                  key={currentSong.id + '-mini-info'}
-                  variants={songInfoVariants}
-                  initial="initial"
-                  animate="animate"
-                  exit="exit"
-                  className="absolute inset-0 flex flex-col justify-center"
-                >
+              <motion.div
+                key={currentSong.id + '-mini-info'}
+                variants={songInfoVariants}
+                initial="initial"
+                animate="animate"
+                className="absolute inset-0 flex flex-col justify-center"
+              >
                     <p
                     className="font-bold text-[14px] text-foreground leading-tight pr-1"
                     style={{
@@ -272,8 +267,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                   <p className="text-[12px] text-muted-foreground truncate mt-0.5 pr-1">
                     {currentSong.artist} · EQ {eqLabel.toUpperCase()}
                   </p>
-                </motion.div>
-              </AnimatePresence>
+              </motion.div>
             </div>
 
             {/* Controls with play/pause animation */}
@@ -294,21 +288,18 @@ const MiniPlayer = memo(function MiniPlayer() {
                 whileTap={{ scale: 0.85 }}
                 transition={{ type: "spring", stiffness: 500, damping: 20 }}
               >
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={isPlaying ? 'pause' : 'play'}
-                    initial={{ scale: 0.5, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    exit={{ scale: 0.5, opacity: 0 }}
-                    transition={{ duration: 0.1 }}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-6 h-6 text-foreground" fill="currentColor" />
-                    ) : (
-                      <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
-                    )}
-                  </motion.div>
-                </AnimatePresence>
+                <motion.div
+                  key={isPlaying ? 'pause' : 'play'}
+                  initial={{ scale: 0.75, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.1 }}
+                >
+                  {isPlaying ? (
+                    <Pause className="w-6 h-6 text-foreground" fill="currentColor" />
+                  ) : (
+                    <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
+                  )}
+                </motion.div>
               </motion.button>
               
               <motion.button
