@@ -124,9 +124,11 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
           className="p-2 rounded-full hover:bg-destructive/20 text-muted-foreground hover:text-destructive transition-colors"
           onClick={onRemove}
           whileTap={{ scale: 0.85 }}
+          aria-label={`Remove ${song.title} from queue`}
         >
           <Trash2 className="w-4 h-4" />
         </motion.button>
+
       </motion.div>
     </Reorder.Item>
   );
