@@ -49,12 +49,14 @@ const ChangePasswordModal = ({ isOpen, onClose }: Props) => {
             <input
               type="password" value={pw} onChange={(e) => setPw(e.target.value)}
               placeholder="New password"
+              aria-label="New password"
               className="w-full mb-2 rounded-2xl bg-white/[0.06] border border-white/10 px-4 py-3 text-sm outline-none"
               autoComplete="new-password"
             />
             <input
               type="password" value={pw2} onChange={(e) => setPw2(e.target.value)}
               placeholder="Confirm new password"
+              aria-label="Confirm new password"
               className="w-full mb-4 rounded-2xl bg-white/[0.06] border border-white/10 px-4 py-3 text-sm outline-none"
               autoComplete="new-password"
             />

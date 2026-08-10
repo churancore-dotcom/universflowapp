@@ -86,6 +86,7 @@ const ResetPassword = () => {
                   type={show ? 'text' : 'password'}
                   value={pw} onChange={(e) => setPw(e.target.value)}
                   placeholder="New password"
+                  aria-label="New password"
                   autoComplete="new-password"
                   minLength={8}
                   required
@@ -102,6 +103,7 @@ const ResetPassword = () => {
                   type={show ? 'text' : 'password'}
                   value={pw2} onChange={(e) => setPw2(e.target.value)}
                   placeholder="Confirm new password"
+                  aria-label="Confirm new password"
                   autoComplete="new-password"
                   minLength={8}
                   required

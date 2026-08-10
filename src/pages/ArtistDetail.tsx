@@ -110,7 +110,7 @@ const ArtistDetail = () => {
 
   return (
     <TabTransition>
-      <div className="ethereal-page min-h-screen pb-52">
+      <div className="ethereal-page min-h-dvh pb-52">
         {artist && (
           <SEOHead
             title={`${artist.name} — Songs, Albums & Bio | Univers Flow`}

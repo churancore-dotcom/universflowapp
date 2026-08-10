@@ -66,11 +66,11 @@ const AdminPanel = () => {
     }
   };
 
-  if (isLoading || isAdmin === null) return <div className="min-h-screen bg-background" />;
+  if (isLoading || isAdmin === null) return <div className="min-h-dvh bg-background" />;
   if (!isAdmin) return <Navigate to="/" replace />;
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-4 md:p-6">
+    <div className="min-h-dvh bg-background text-foreground p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
         <header className="mb-6">
           <h1 className="text-2xl font-semibold">Admin Console</h1>

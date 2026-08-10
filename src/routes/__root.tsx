@@ -38,7 +38,6 @@ const OfflineGate = lazy(() => import("@/components/OfflineGate"));
 const Toaster = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 const DownloadQueuePanel = lazy(() => import("@/components/DownloadQueuePanel"));
 const PWAInstallBanner = lazy(() => import("@/components/PWAInstallBanner"));
-const StructuredData = lazy(() => import("@/components/StructuredData"));
 
 if (typeof window !== "undefined") {
   void import("@/lib/themeBoot");
@@ -213,7 +212,7 @@ const PostAuthGate = () => {
   );
 };
 
-const LazyFallback = () => <div className="min-h-screen bg-background" />;
+const LazyFallback = () => <div className="min-h-dvh bg-background" />;
 
 const AppContent = () => {
   const [showSplash, setShowSplash] = useState(true);
@@ -228,9 +227,6 @@ const AppContent = () => {
   return (
     <MobileShell>
       <Suspense fallback={null}>
-        <StructuredData />
-      </Suspense>
-      <Suspense fallback={null}>
         <Toaster />
       </Suspense>
       <NavDirectionProvider>
@@ -238,9 +234,9 @@ const AppContent = () => {
           <OfflineGate />
         </Suspense>
         <Suspense fallback={<LazyFallback />}>
-          <main id="main-content" style={{ display: 'contents' }}>
+          <div id="main-content" style={{ display: 'contents' }}>
             <Outlet />
-          </main>
+          </div>
         </Suspense>
       </NavDirectionProvider>
       {/* Visual cover only — never interactive, and unmounted (not just faded)

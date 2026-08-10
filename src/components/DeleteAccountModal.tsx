@@ -63,6 +63,7 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
             <input
               value={confirm} onChange={(e) => setConfirm(e.target.value)}
               placeholder="DELETE"
+              aria-label="Type DELETE to confirm account deletion"
               className="w-full mb-4 rounded-2xl bg-white/[0.06] border border-white/10 px-4 py-3 text-sm outline-none font-mono"
             />
             <button

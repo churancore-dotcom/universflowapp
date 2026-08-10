@@ -438,6 +438,7 @@ const Announcements = () => {
                       <Button
                         variant="ghost"
                         size="icon"
+                        aria-label="Delete announcement"
                         onClick={() => deleteAnnouncement(announcement.id)}
                         className="text-destructive hover:text-destructive"
                       >

@@ -225,7 +225,7 @@ const PremiumPage = memo(function PremiumPage() {
         ]}
       />
       <motion.div
-        className="ethereal-page min-h-screen pb-44 relative overflow-hidden text-foreground"
+        className="ethereal-page min-h-dvh pb-44 relative overflow-hidden text-foreground"
         initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ duration: 0.25 }}
       >
         {/* Static rose glow — anchored top, single blur, perf-safe */}
@@ -389,7 +389,7 @@ const PremiumPage = memo(function PremiumPage() {
                         {f.isNew && (
                           <span
                             className="text-[9px] font-bold tracking-[0.12em] uppercase px-1.5 py-0.5 rounded"
-                            style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
+                            style={{ background: 'hsl(var(--primary-strong))', color: 'hsl(var(--primary-foreground))' }}
                           >
                             New
                           </span>
@@ -418,6 +418,8 @@ const PremiumPage = memo(function PremiumPage() {
           <motion.div
             initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
             transition={{ ...iosSpring, delay: 0.15 }}
+            role="region"
+            aria-label="Selected plan checkout"
             className="fixed bottom-[68px] left-0 right-0 z-40 px-4 pb-2 pointer-events-none"
             style={{ paddingBottom: 'max(8px, env(safe-area-inset-bottom))' }}
           >
@@ -505,7 +507,7 @@ const PlanCard = memo(function PlanCard({
     >
       {recommended && (
         <div
-          className="absolute -top-2 right-4 px-2 py-0.5 rounded-full text-[9px] tracking-[0.15em] uppercase z-10 bg-primary text-primary-foreground font-bold"
+          className="absolute -top-2 right-4 px-2 py-0.5 rounded-full text-[9px] tracking-[0.15em] uppercase z-10 bg-primary-strong text-primary-foreground font-bold"
         >
           Popular
         </div>
@@ -736,6 +738,7 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
               value={utr}
               onChange={e => setUtr(e.target.value.replace(/\D/g, '').slice(0, 12))}
               placeholder="123456789012"
+              aria-label="UPI transaction ID"
               autoComplete="off"
               maxLength={12}
               className="w-full px-4 py-4 rounded-3xl text-[18px] font-mono tracking-[0.2em] mb-2 bg-transparent outline-none text-center"
@@ -816,7 +819,7 @@ const FeatureDetailSheet = memo(function FeatureDetailSheet({ feature, onClose }
               {feature.isNew && (
                 <span
                   className="text-[9px] font-bold tracking-[0.12em] uppercase px-1.5 py-0.5 rounded"
-                  style={{ background: 'hsl(var(--primary))', color: 'hsl(var(--primary-foreground))' }}
+                  style={{ background: 'hsl(var(--primary-strong))', color: 'hsl(var(--primary-foreground))' }}
                 >
                   New
                 </span>
