@@ -304,7 +304,7 @@ const PremiumPage = memo(function PremiumPage() {
               )}
               <button
                 onClick={handleUpgrade}
-                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold bg-primary text-primary-foreground"
+                className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold bg-primary-strong text-primary-foreground"
               >
                 Extend membership
               </button>
@@ -444,7 +444,7 @@ const PremiumPage = memo(function PremiumPage() {
               <motion.button
                 onClick={handleUpgrade}
                 whileTap={{ scale: 0.96 }}
-                className="px-6 py-3.5 rounded-xl text-[15px] font-bold bg-primary text-primary-foreground flex items-center gap-2"
+                className="px-6 py-3.5 rounded-xl text-[15px] font-bold bg-primary-strong text-primary-foreground flex items-center gap-2"
                 style={{ boxShadow: '0 10px 30px -8px hsl(var(--primary) / 0.5)' }}
               >
                 Subscribe
