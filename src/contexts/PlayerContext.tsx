@@ -527,6 +527,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // recommendations forever.
   const autoMixInFlightRef = useRef(false);
   const autoMixSeenRef = useRef<Set<string>>(new Set());
+  // True when the current queue is an explicit user collection (playlist,
+  // liked songs, downloads). Those queues must play exactly what the user
+  // chose — never top up with algorithmic "radio" tracks.
+  const curatedQueueRef = useRef(false);
+
   const pendingNativeRestoreRef = useRef<SavedPlayerState | null>(null);
   const nativeRestoreAttemptedRef = useRef(false);
   const currentSongRef = useRef<Song | null>(null);
