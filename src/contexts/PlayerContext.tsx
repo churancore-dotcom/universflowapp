@@ -1343,7 +1343,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // current song finishes — no gap, infinite playback.
   useEffect(() => {
     if (repeat !== 'off') return;
+    // A playlist / liked-songs / downloads queue plays only its own songs.
+    if (curatedQueueRef.current) return;
     if (!isAutoplayEnabled()) return;
+
     if (queue.length === 0) return;
     const remaining = queue.length - currentIndex - 1;
     if (remaining > 3) return;
