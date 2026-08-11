@@ -1545,15 +1545,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }),
       ));
     }
+    // On the APK we WANT the real YouTube stream, so the cloud/Saavn candidate
+    // gets a head-start penalty: without it, a fast Saavn match beats on-device
+    // InnerTube every time and users hear a cover/remix instead of the track
+    // they picked. If InnerTube wins first the delayed candidate is ignored.
+    const cloudDelayMs = isNativePlayerAvailable() && (videoId && !opts.skipNativeFastPath) ? 1800 : 0;
     candidates.push(playable(
-      resolveAudioUrl(song, { forceRefresh: true, skipNative: true })
+      (cloudDelayMs
+        ? new Promise<void>((resolve) => window.setTimeout(resolve, cloudDelayMs))
+        : Promise.resolve()
+      ).then(() => resolveAudioUrl(song, { forceRefresh: true, skipNative: true }))
         .then((url) => url ? buildNativeExoPlayerUrl(url) : null),
     ));
 
     if (candidates.length > 0) {
       const resolved = await Promise.race([
         ...candidates,
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 6200)),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), isNativePlayerAvailable() ? 8500 : 6200)),
       ]);
       if (resolved) return resolved;
     }
