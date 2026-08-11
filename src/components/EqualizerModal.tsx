@@ -41,7 +41,6 @@ import { getEQSettings, isEqActive, setEQSettings, useEQSettings, type EQSetting
 import { isNativePlayerAvailable } from '@/lib/nativePlayer';
 import { cn } from '@/lib/utils';
 import { useEngineState } from '@/hooks/useGlobalAudioEngine';
-import { usePremium } from '@/hooks/usePremium';
 
 interface EqualizerModalProps {
   isOpen: boolean;
@@ -188,7 +187,7 @@ function formatSpeed(speed: number) {
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { currentSong } = usePlayer();
-  const { isPremium, isLoading: premiumLoading } = usePremium();
+
   const engineMode = useEngineState();
   const settings = useEQSettings();
   const [view, setView] = useState<EqView>('smart');

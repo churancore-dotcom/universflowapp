@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { getEQSettings, setEQSettings } from '@/lib/eqSettings';
-import { getRuntimePremium } from '@/lib/premiumState';
-import { usePremium } from '@/hooks/usePremium';
 
 // Same catalog as EqualizerModal — kept small so the hook is standalone.
 // If the modal preset list changes, mirror the ids/bands here.
