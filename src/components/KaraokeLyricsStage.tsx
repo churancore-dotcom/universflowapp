@@ -130,7 +130,12 @@ const KaraokeLyricsStage = ({ artist, title, duration }: Props) => {
 
   return (
     <div ref={stageRef} className="relative h-full w-full" style={{ '--lyric-progress': '0%' } as CSSProperties}>
-      <EmotionVisualizer emotion={activeEmotion} playing={playing} />
+      <EmotionVisualizer
+        emotion={activeEmotion}
+        playing={playing}
+        confidence={activeIdx >= 0 ? (emotionLines[activeIdx]?.confidence ?? 0.5) : 0.5}
+      />
+
       <KaraokeView lines={lyrics.synced} activeIdx={activeIdx} accent={EMOTION_STYLES[activeEmotion].colors[0]} />
     </div>
   );

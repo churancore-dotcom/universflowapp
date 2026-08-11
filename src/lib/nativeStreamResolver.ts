@@ -19,7 +19,7 @@ const INNERTUBE_URL = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=fa
 const ANDROID_VR_CTX = {
   client: {
     clientName: 'ANDROID_VR',
-    clientVersion: '1.60.19',
+    clientVersion: '1.61.48',
     deviceMake: 'Oculus',
     deviceModel: 'Quest 3',
     androidSdkVersion: 32,
@@ -27,21 +27,21 @@ const ANDROID_VR_CTX = {
     osVersion: '12L',
     hl: 'en',
     gl: 'US',
-    userAgent: 'com.google.android.apps.youtube.vr.oculus/1.60.19 (Linux; U; Android 12L) gzip',
+    userAgent: 'com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip',
   },
 };
 
 const IOS_CTX = {
   client: {
     clientName: 'IOS',
-    clientVersion: '20.10.4',
+    clientVersion: '21.03.2',
     deviceMake: 'Apple',
     deviceModel: 'iPhone16,2',
     osName: 'iPhone',
-    osVersion: '18.3.2.22D82',
+    osVersion: '18.7.2.22H124',
     hl: 'en',
     gl: 'US',
-    userAgent: 'com.google.ios.youtube/20.10.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X)',
+    userAgent: 'com.google.ios.youtube/21.03.2 (iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X)',
   },
 };
 
@@ -75,7 +75,11 @@ async function fetchPlayer(videoId: string, ctx: { client: Record<string, unknow
         'Content-Type': 'application/json',
         'User-Agent': ctx.client.userAgent,
         Origin: 'https://www.youtube.com',
-        'X-Goog-Api-Format-Version': '2',
+        // NOTE: `X-Goog-Api-Format-Version: 2` is deliberately NOT sent. It makes
+        // YouTube's edge answer with SABR-only streamingData (no adaptiveFormats),
+        // which ExoPlayer cannot play — the exact bug the Kotlin resolver documents.
+        'X-YouTube-Client-Name': ctx.client.clientName === 'IOS' ? '5' : '28',
+        'X-YouTube-Client-Version': String(ctx.client.clientVersion),
       },
       data: {
         context: ctx,

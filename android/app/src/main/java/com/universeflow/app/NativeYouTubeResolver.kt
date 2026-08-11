@@ -153,6 +153,9 @@ object NativeYouTubeResolver {
             if (visitorData == null) {
                 try { fetchVisitorData() } catch (_: Throwable) {}
             }
+            // Compile player.js now so the FIRST tap doesn't pay for it.
+            try { PlayerJsManager.prewarm() } catch (_: Throwable) {}
+
         }.start()
     }
 
@@ -367,12 +370,17 @@ object NativeYouTubeResolver {
             if (status != null && status != "OK") return null
             val streamingData = json.optJSONObject("streamingData") ?: return null
             val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
-            // Try adaptive audio first, but only accept a URL the CDN actually
-            // serves — a parseable-yet-403 URL used to kill playback silently.
+            // Adaptive audio first. The HEAD probe is only worth its round-trip
+            // for URLs we had to decipher — a wrong signature is silent and the
+            // probe is the only way to catch it. Plain `url=` formats from the
+            // mobile clients are served as-is, so probing them just added
+            // ~150-400ms of dead air to every single play. Skip it there.
             pickBestAudio(adaptive, ctx.name)?.let {
-                if (validate(it.first, ctx.userAgent)) return it
+                val needsProbe = it.first.contains("&sig=") || it.first.contains("&signature=")
+                if (!needsProbe || validate(it.first, ctx.userAgent)) return it
                 Log.d(TAG, "adaptive URL rejected by CDN for ${ctx.name}")
             }
+
             // Fallback: progressive `formats` list (combined AV muxed) — better
             // than silence when YouTube ships SABR-only adaptive for this edge.
             // ExoPlayer will demux the audio track from the muxed stream.
