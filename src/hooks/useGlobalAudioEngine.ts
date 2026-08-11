@@ -211,7 +211,15 @@ export function useGlobalAudioEngine(
 
 
     const doReapply = () => {
-      const s = getEQSettings();
+      const saved = getEQSettings();
+      // Studio effects are a Premium entitlement. Free users keep clean,
+      // flat playback: no bands, no space, no stems, normal speed.
+      const premium = getRuntimePremium();
+      const s = premium
+        ? saved
+        : { ...saved, bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0, reverb: 0,
+            spatialAudio: false, studioSpace: 'off' as const, lateNight: false,
+            headphoneSurround: false, vocalMix: 100, instrumentalMix: 100, playbackSpeed: 1 };
 
       // Always honor playback rate — native <audio> property, no graph needed.
       audioElement.playbackRate = s.playbackSpeed;

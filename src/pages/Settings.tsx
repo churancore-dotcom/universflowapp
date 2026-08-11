@@ -535,7 +535,7 @@ const Settings = () => {
               label="Equalizer & Effects"
               sub="Studio presets, 10-band EQ & effects"
               chevron
-              onClick={() => setShowEq(true)}
+              onClick={() => { if (!isPremium) { setShowEqPremium(true); return; } setShowEq(true); }}
             />
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>

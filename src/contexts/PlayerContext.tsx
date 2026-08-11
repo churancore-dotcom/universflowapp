@@ -1426,14 +1426,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             // uses the phone's residential IP and returns a direct googlevideo
             // URL in ~300-600ms — no Supabase round-trip, no datacenter-IP
             // block. This is the Echo Music / NewPipe approach.
-            const tryNative = async (): Promise<string | null> => {
+            const tryNative = async (budgetMs: number): Promise<string | null> => {
               if (opts.skipNative || !isNativePlayerAvailable()) return null;
               try {
                 const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
                 const { getStreamBitrateCap } = await import('@/lib/userPrefs');
                 const native = await Promise.race([
                   resolveYouTubeStreamOnDevice(videoId, { bitrateCap: getStreamBitrateCap() }),
-                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 1500)),
+                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), budgetMs)),
                 ]);
                 if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
                   markNativeResolvedStreamUrl(native.streamUrl, videoId);
@@ -1443,13 +1443,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               return null;
             };
 
-            const firstNative = await tryNative();
+            // On the APK, on-device InnerTube is the ONLY path that reliably
+            // returns real YouTube audio (residential IP + local cipher
+            // deciphering). Cold start has to fetch and compile player.js, which
+            // takes longer than the old 1.5s cap — that cap was silently killing
+            // YouTube on Android and dumping every track onto the Saavn
+            // fallback. Give it a real budget, and retry once (player.js is
+            // cached by then, so the retry is fast).
+            const nativeBudgetMs = isNativePlayerAvailable() ? 5500 : 1500;
+            const firstNative = await tryNative(nativeBudgetMs);
             if (firstNative) return firstNative;
 
-
-
             // FALLBACK: Supabase edge resolver + stream-proxy (web users, or
-            // when on-device resolution failed twice for this particular videoId).
+            // when on-device resolution failed for this particular videoId).
             try {
               if (forceRefresh) invalidateYouTubeStream(videoId);
               const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh, title: song.title, artist: song.artist });
@@ -1457,6 +1463,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 return resolved.streamUrl;
               }
             } catch { /* fall through to indexed track lookup */ }
+
+            // SECOND on-device pass: the edge chain is datacenter-IP blocked, so
+            // when it also fails the device is still the best shot. player.js is
+            // warm now, so this attempt is typically sub-second.
+            if (isNativePlayerAvailable()) {
+              const secondNative = await tryNative(4000);
+              if (secondNative) return secondNative;
+            }
           }
         }
         if (song.artist && song.title) {
@@ -1531,15 +1545,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }),
       ));
     }
+    // On the APK we WANT the real YouTube stream, so the cloud/Saavn candidate
+    // gets a head-start penalty: without it, a fast Saavn match beats on-device
+    // InnerTube every time and users hear a cover/remix instead of the track
+    // they picked. If InnerTube wins first the delayed candidate is ignored.
+    const cloudDelayMs = isNativePlayerAvailable() && (videoId && !opts.skipNativeFastPath) ? 1800 : 0;
     candidates.push(playable(
-      resolveAudioUrl(song, { forceRefresh: true, skipNative: true })
+      (cloudDelayMs
+        ? new Promise<void>((resolve) => window.setTimeout(resolve, cloudDelayMs))
+        : Promise.resolve()
+      ).then(() => resolveAudioUrl(song, { forceRefresh: true, skipNative: true }))
         .then((url) => url ? buildNativeExoPlayerUrl(url) : null),
     ));
 
     if (candidates.length > 0) {
       const resolved = await Promise.race([
         ...candidates,
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 6200)),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), isNativePlayerAvailable() ? 8500 : 6200)),
       ]);
       if (resolved) return resolved;
     }
