@@ -88,6 +88,7 @@ const CORS_HEADERS: Record<string, string> = {
 // In-memory map is kept as a hot cache to dampen DB writes within the same
 // instance during a burst, and to short-circuit clearly abusive callers.
 const RATE_LIMIT_MAX = 240;          // 240 reqs/min/IP — generous for seek + range bursts
+const RATE_LIMIT_SOFT = 90;          // below this, skip the shared DB counter entirely
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const ipHits = new Map<string, number[]>();
 
