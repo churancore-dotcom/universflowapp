@@ -244,7 +244,9 @@ const Home = () => {
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
             <h1 className="font-display text-[30px] leading-none tracking-[0.08em] text-primary truncate">
               UNIVERSFLOW
+              <span className="sr-only"> — Your Personal Music Feed</span>
             </h1>
+
             <motion.button
               onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
               aria-label="Open profile"

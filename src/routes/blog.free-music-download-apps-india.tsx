@@ -10,6 +10,7 @@ export const Route = createFileRoute("/blog/free-music-download-apps-india")({
         "A practical look at the best free music download apps in India for 2026 — offline support, audio quality, data use and pricing.",
       path: "/blog/free-music-download-apps-india",
       type: "article",
+      datePublished: "2026-06-10",
     }),
   component: BlogFreeMusicDownloadAppsIndia,
 });

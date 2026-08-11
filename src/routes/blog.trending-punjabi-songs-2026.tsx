@@ -10,6 +10,7 @@ export const Route = createFileRoute("/blog/trending-punjabi-songs-2026")({
         "The Punjabi songs everyone is playing in 2026. Stream the trending list free on Universflow or save tracks for offline listening.",
       path: "/blog/trending-punjabi-songs-2026",
       type: "article",
+      datePublished: "2026-06-14",
     }),
   component: BlogTrendingPunjabiSongs2026,
 });

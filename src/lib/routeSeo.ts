@@ -8,14 +8,51 @@ interface RouteSeoInput {
   description: string;
   path: string;
   type?: string;
+  /** ISO date (YYYY-MM-DD) — emits Article JSON-LD when provided */
+  datePublished?: string;
+  dateModified?: string;
+  author?: string;
 }
 
 /**
  * Builds per-route head() meta + canonical so each page ships unique
  * title/description/og/twitter tags in the initial HTML.
  */
-export function routeSeo({ title, description, path, type = "website" }: RouteSeoInput) {
+export function routeSeo({
+  title,
+  description,
+  path,
+  type = "website",
+  datePublished,
+  dateModified,
+  author = "Universflow Editorial",
+}: RouteSeoInput) {
   const url = `${SITE_ORIGIN}${path}`;
+  const scripts = datePublished
+    ? [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "Article",
+            headline: title,
+            description,
+            datePublished,
+            dateModified: dateModified ?? datePublished,
+            author: { "@type": "Organization", name: author },
+            publisher: {
+              "@type": "Organization",
+              name: "Universflow",
+              url: SITE_ORIGIN,
+            },
+            image: SOCIAL_IMAGE,
+            mainEntityOfPage: { "@type": "WebPage", "@id": url },
+            url,
+          }),
+        },
+      ]
+    : undefined;
+
   return {
     meta: [
       { title },
@@ -25,13 +62,17 @@ export function routeSeo({ title, description, path, type = "website" }: RouteSe
       { property: "og:title", content: title },
       { property: "og:description", content: description },
       { property: "og:url", content: url },
+      { property: "og:image", content: SOCIAL_IMAGE },
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: description },
       { name: "twitter:url", content: url },
+      { name: "twitter:image", content: SOCIAL_IMAGE },
     ],
     links: [{ rel: "canonical", href: url }],
+    ...(scripts ? { scripts } : {}),
   };
 }
+
 
 export const FAQ_SCHEMA = JSON.stringify({
   "@context": "https://schema.org",

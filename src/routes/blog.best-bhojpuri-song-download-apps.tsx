@@ -10,6 +10,7 @@ export const Route = createFileRoute("/blog/best-bhojpuri-song-download-apps")({
         "Compare the best apps for Bhojpuri song downloads in 2026, including offline playback, audio quality and free listening options.",
       path: "/blog/best-bhojpuri-song-download-apps",
       type: "article",
+      datePublished: "2026-07-18",
     }),
   component: BlogBhojpuriSongDownload,
 });
