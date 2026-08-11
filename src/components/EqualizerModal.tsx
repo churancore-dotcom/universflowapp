@@ -218,17 +218,13 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
         ? engineMode === 'unsupported' ? 'Saved — this stream blocks effects' : 'Linking audio…'
         : 'Ready';
 
+  // The studio engine is free for everyone — no entitlement gate.
   useEffect(() => {
-    if (!isOpen || premiumLoading || isPremium) return;
-    toast.error('Equalizer is a Premium feature');
-    onClose();
-  }, [isOpen, premiumLoading, isPremium, onClose]);
-
-  useEffect(() => {
-    if (!isOpen || premiumLoading || !isPremium) return;
+    if (!isOpen) return;
     engineResume();
     window.dispatchEvent(new CustomEvent('uf-eq-changed', { detail: getEQSettings() }));
-  }, [isOpen, premiumLoading, isPremium]);
+  }, [isOpen]);
+
 
   const applyPreset = useCallback((preset: Preset) => {
     const target = preset.id === 'auto'
