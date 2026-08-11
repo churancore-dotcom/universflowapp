@@ -18,6 +18,7 @@ function trackResolver<T extends { success?: boolean; streamUrl?: string } | nul
   return promise.then(
     (result) => {
       const ok = !!result?.streamUrl;
+      noteSourceResult(source, ok);
       recordPerfEvent({
         event_type: ok ? 'resolve_hit' : 'resolve_miss',
         severity: 'info',
@@ -28,6 +29,7 @@ function trackResolver<T extends { success?: boolean; streamUrl?: string } | nul
       return result;
     },
     (err) => {
+      noteSourceResult(source, false);
       recordPerfEvent({
         event_type: 'resolve_error',
         severity: 'warn',
