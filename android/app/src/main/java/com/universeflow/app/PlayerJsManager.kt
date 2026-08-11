@@ -164,7 +164,25 @@ object PlayerJsManager {
         }
     }
 
+    /**
+     * Download + compile player.js in the background at app launch.
+     *
+     * Cold-start playback used to pay this cost (~1.5-3s: embed page fetch,
+     * player.js download, Rhino compile) inside the very first resolve, which is
+     * exactly why the first tap after opening the app felt dead. Doing it while
+     * the user is still looking at the home feed makes the first play as fast as
+     * every later one.
+     */
+    fun prewarm() {
+        if (current != null) return
+        Thread {
+            try { ensureBundle() } catch (_: Throwable) { /* best effort */ }
+        }.apply { priority = Thread.MIN_PRIORITY; isDaemon = true }.start()
+    }
+
     // ── Internal ──────────────────────────────────────────────────────────
+
+
 
     @Synchronized
     private fun ensureBundle(): PlayerBundle? {
