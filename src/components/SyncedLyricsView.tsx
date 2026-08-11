@@ -27,23 +27,28 @@ const EMPTY: LyricsResult = {
 const LyricRow = memo(({ line, state }: { line: EmotionLine; state: 'active' | 'past' | 'future' }) => {
   const active = state === 'active';
   const shadow = EMOTION_STYLES[line.emotion].colors[0];
+  // The active line lifts, sharpens and glows in its own mood colour; neighbours
+  // sit back with a touch of blur so the eye locks onto the sung line.
   return (
     <p
       data-active={active || undefined}
-      className="leading-tight tracking-tight font-bold transition-[color,transform,opacity] duration-500 ease-out py-1.5 will-change-transform"
+      className="leading-tight tracking-tight font-bold py-1.5 will-change-transform"
       style={{
-        fontSize: active ? 26 : 22,
+        fontSize: active ? 27 : 22,
         color: active
           ? 'rgba(255,255,255,0.98)'
-          : state === 'past' ? 'rgba(255,255,255,0.28)' : 'rgba(255,255,255,0.42)',
-        transform: active ? 'scale(1)' : 'scale(0.97)',
-        textShadow: active ? `0 2px 26px ${shadow}66` : 'none',
+          : state === 'past' ? 'rgba(255,255,255,0.26)' : 'rgba(255,255,255,0.44)',
+        transform: active ? 'translateY(0) scale(1)' : 'translateY(2px) scale(0.965)',
+        filter: active ? 'blur(0px)' : 'blur(0.7px)',
+        textShadow: active ? `0 2px 30px ${shadow}70, 0 0 2px ${shadow}40` : 'none',
+        transition: 'color 420ms ease-out, transform 520ms cubic-bezier(.22,1,.36,1), filter 420ms ease-out, font-size 380ms cubic-bezier(.22,1,.36,1), text-shadow 420ms ease-out',
       }}
     >
       {line.text || '♪'}
     </p>
   );
 });
+
 LyricRow.displayName = 'LyricRow';
 
 const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Props) => {
