@@ -183,7 +183,7 @@ const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Prop
   if (lyrics.isSynced) {
     return (
       <div className={wrapper}>
-        <EmotionVisualizer emotion={activeEmotion} playing={playing} />
+        <EmotionVisualizer emotion={activeEmotion} playing={playing} confidence={activeConfidence} />
         <MoodBadge />
         <div
           ref={scrollerRef}
