@@ -10,6 +10,7 @@ export const Route = createFileRoute("/blog/universflow-vs-jiosaavn-vs-gaana")({
         "How Universflow compares with JioSaavn and Gaana on free listening, offline downloads, audio quality, equalizer features and app size.",
       path: "/blog/universflow-vs-jiosaavn-vs-gaana",
       type: "article",
+      datePublished: "2026-06-11",
     }),
   component: BlogUniversflowVsJiosaavnVsGaana,
 });
