@@ -243,16 +243,21 @@ async function getYouTubeMusicCharts(gl: string): Promise<Record<'top' | 'trendi
   const country = chartsCountryOrGlobal(gl);
   const out: Record<'top' | 'trending' | 'videos', SearchResult[]> = { top: [], trending: [], videos: [] };
 
+  // `params` is the same selector blob music.youtube.com/charts sends; without
+  // it YouTube sometimes returns a stripped shelf list with no chart tiles.
+  const CHARTS_PARAMS = 'ggMGCgQIgAQ%3D';
   let json = await ytMusicBrowse('FEmusic_charts', country, {
+    params: CHARTS_PARAMS,
     formData: { selectedValues: [country] },
   });
   let cards = json ? extractChartPlaylistCards(json) : [];
   // Region has no chart tiles → fall back to the Global chart so the rails
   // are never empty (that's what produced "no real trending songs").
   if (!cards.length && country !== 'ZZ') {
-    json = await ytMusicBrowse('FEmusic_charts', 'ZZ', { formData: { selectedValues: ['ZZ'] } });
+    json = await ytMusicBrowse('FEmusic_charts', 'ZZ', { params: CHARTS_PARAMS, formData: { selectedValues: ['ZZ'] } });
     cards = json ? extractChartPlaylistCards(json) : [];
   }
+
   if (!cards.length) return out;
 
   const pick = (re: RegExp, exclude: string[] = []) =>
