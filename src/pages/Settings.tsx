@@ -712,7 +712,7 @@ const Settings = () => {
 
         <BottomNav />
         <SupportChatModal isOpen={showSupport} onClose={() => setShowSupport(false)} />
-        {isPremium && <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />}
+        {<EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />}
         {showEqPremium && (
           <PremiumLockOverlay
             title="Studio Equalizer"

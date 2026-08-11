@@ -105,12 +105,8 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
 
   const handleOpenEqualizer = useCallback(() => {
     triggerHaptic('selection');
-    if (!isPremium) {
-      setShowEqPremium(true);
-      return;
-    }
     setShowEqualizer(true);
-  }, [isPremium, navigate]);
+  }, []);
 
   const vibeSuggestions = useMemo(() => {
     if (!currentSong) return [];
@@ -536,7 +532,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
       {showShareModal && <SocialShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} song={currentSong} />}
       {showPlaylistModal && <AddToPlaylistModal isOpen={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} song={currentSong} onCreateNew={() => { setShowPlaylistModal(false); setShowCreatePlaylist(true); }} />}
       {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} initialSong={currentSong} onCreated={() => setShowCreatePlaylist(false)} />}
-      {showEqualizer && isPremium && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
+      {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
       {showEqPremium && (
         <PremiumLockOverlay
           title="Studio Equalizer"

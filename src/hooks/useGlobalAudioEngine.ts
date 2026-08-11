@@ -96,7 +96,7 @@ export function useGlobalAudioEngine(
     const applyNativeSnapshot = async (s: ReturnType<typeof getEQSettings>, revision: number) => {
       if (revision !== nativeApplyRevision) return;
       if (!isNativePlayerAvailable()) return;
-      if (!getRuntimePremium() || !hasWebAudioEffects(s)) {
+      if (!hasWebAudioEffects(s)) {
         stop8D();
         await applyNativeAudioEffects({
           enabled: false,
@@ -220,7 +220,7 @@ export function useGlobalAudioEngine(
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.
       pushNative(s);
 
-      const needsWebAudio = getRuntimePremium() && hasWebAudioEffects(s);
+      const needsWebAudio = hasWebAudioEffects(s);
 
       // Android APK audible playback is ExoPlayer. Attaching WebAudio to the
       // muted WebView shadow cannot affect what users hear, and it can also
