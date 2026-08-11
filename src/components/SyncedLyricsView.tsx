@@ -101,6 +101,10 @@ const SyncedLyricsView = ({ songId, artist, title, duration, bare = true }: Prop
   const activeEmotion: Emotion = activeIdx >= 0
     ? (emotionLines[activeIdx]?.emotion ?? songMood)
     : songMood;
+  const activeConfidence = activeIdx >= 0
+    ? (emotionLines[activeIdx]?.confidence ?? 0.5)
+    : 0.5;
+
 
   // Auto-scroll the active line into view (centered) without smooth-scroll
   // thrash: one rAF-aligned scrollTop write per line change.
