@@ -76,7 +76,8 @@ export function useAutoEQ() {
   const { currentSong } = usePlayer();
 
   useEffect(() => {
-    // Auto EQ is free for everyone — no entitlement gate.
+    // Auto EQ follows the same Premium entitlement as the studio equalizer.
+    if (!getRuntimePremium()) return;
     const settings = getEQSettings();
     if (settings.activePreset !== 'auto') return;
     const id = pickAutoPresetId(currentSong);

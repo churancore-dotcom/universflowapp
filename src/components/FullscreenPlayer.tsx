@@ -105,8 +105,10 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
 
   const handleOpenEqualizer = useCallback(() => {
     triggerHaptic('selection');
+    // Studio EQ is a Premium feature.
+    if (!isPremium) { setShowEqPremium(true); return; }
     setShowEqualizer(true);
-  }, []);
+  }, [isPremium]);
 
   const vibeSuggestions = useMemo(() => {
     if (!currentSong) return [];
