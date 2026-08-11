@@ -217,6 +217,11 @@ function isCorsSafe(el: HTMLAudioElement): boolean {
   try {
     const u = new URL(src, window.location.href);
     if (u.origin === window.location.origin) return true;
+    // A cross-origin media resource is only usable by WebAudio when the element
+    // itself requested it with CORS. Without crossorigin="anonymous" the graph
+    // still builds but outputs SILENCE — that is exactly the "EQ is dead on web"
+    // symptom. Treat it as unsafe so we keep direct, audible playback instead.
+    if (el.crossOrigin !== 'anonymous' && el.crossOrigin !== 'use-credentials') return false;
     if (u.pathname.includes('/functions/v1/stream-proxy')) return true;
     if (u.pathname.includes('/functions/v1/music-indexer') && u.searchParams.has('audio')) return true;
     if (u.hostname.endsWith('supabase.co')) return true;

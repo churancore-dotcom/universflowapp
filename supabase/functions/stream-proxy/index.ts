@@ -88,6 +88,7 @@ const CORS_HEADERS: Record<string, string> = {
 // In-memory map is kept as a hot cache to dampen DB writes within the same
 // instance during a burst, and to short-circuit clearly abusive callers.
 const RATE_LIMIT_MAX = 240;          // 240 reqs/min/IP — generous for seek + range bursts
+const RATE_LIMIT_SOFT = 90;          // below this, skip the shared DB counter entirely
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const ipHits = new Map<string, number[]>();
 
@@ -120,7 +121,15 @@ async function checkRate(ip: string): Promise<boolean> {
   // Local fast-fail before touching DB
   if (hits.length > RATE_LIMIT_MAX) return false;
 
+  // PERFORMANCE: a browser/ExoPlayer issues many byte-range requests per song,
+  // and the shared DB counter used to run on EVERY one of them — an extra
+  // round trip in front of the first audio byte, i.e. seconds of "loading"
+  // before playback. Normal listening traffic is nowhere near the limit, so
+  // only consult the shared counter once a caller looks genuinely bursty.
+  if (hits.length < RATE_LIMIT_SOFT) return true;
+
   if (!SUPABASE_URL || !SERVICE_ROLE) return true; // fail-open if misconfigured
+
   try {
     const ipHash = await hashIp(ip);
     const res = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_increment_ip_rate_limit`, {
