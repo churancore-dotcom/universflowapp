@@ -153,6 +153,9 @@ object NativeYouTubeResolver {
             if (visitorData == null) {
                 try { fetchVisitorData() } catch (_: Throwable) {}
             }
+            // Compile player.js now so the FIRST tap doesn't pay for it.
+            try { PlayerJsManager.prewarm() } catch (_: Throwable) {}
+
         }.start()
     }
 
