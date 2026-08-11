@@ -41,6 +41,36 @@ function trackResolver<T extends { success?: boolean; streamUrl?: string } | nul
   );
 }
 
+/**
+ * CIRCUIT BREAKER — when a resolver source is hard-down (e.g. the YouTube
+ * extractor being IP-blocked from the datacenter) every play attempt otherwise
+ * keeps a slow racer alive for its full timeout and burns the invoke gate.
+ * After 3 consecutive failures we skip that source for 3 minutes so the fast
+ * sources (JioSaavn / caches) decide playback immediately.
+ */
+const breaker = new Map<string, { fails: number; openUntil: number }>();
+const BREAKER_TRIP = 3;
+const BREAKER_OPEN_MS = 3 * 60 * 1000;
+
+function isSourceDown(source: string): boolean {
+  const state = breaker.get(source);
+  return !!state && state.openUntil > Date.now();
+}
+
+function noteSourceResult(source: string, ok: boolean) {
+  if (ok) {
+    breaker.delete(source);
+    return;
+  }
+  const state = breaker.get(source) || { fails: 0, openUntil: 0 };
+  state.fails += 1;
+  if (state.fails >= BREAKER_TRIP) {
+    state.openUntil = Date.now() + BREAKER_OPEN_MS;
+    state.fails = 0;
+  }
+  breaker.set(source, state);
+}
+
 
 export interface IndexedTrack {
   id: string;
