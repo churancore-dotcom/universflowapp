@@ -264,11 +264,12 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
     // Phone-resolved URLs are excluded earlier by isNativeResolvedStreamUrl().
     if (parsed.hostname.endsWith('googlevideo.com')) return true;
 
-    // Always proxy external streams. This keeps the first byte CORS-clean, so
-    // the WebAudio/EQ graph can attach instantly when the user enables effects
-    // later; otherwise one raw load can permanently taint the element for that
-    // song and make the equalizer look dead.
-    return true;
+    // Everything else (JioSaavn CDN, artist uploads, Drive/Dropbox) plays fine
+    // straight from its own CDN. Sending those through the edge proxy added a
+    // second network hop to EVERY range request, which is what made songs take
+    // seconds to start on both Web and the APK. Proxy them ONLY when the EQ
+    // graph is actually running and needs a CORS-clean response.
+    return isEqProcessingEnabled();
   } catch {
     return false;
   }
