@@ -264,7 +264,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     });
   }, []);
 
-  if (!mounted || !isOpen || premiumLoading || !isPremium) return null;
+  if (!mounted || !isOpen) return null;
 
   return createPortal(
     <AnimatePresence>
