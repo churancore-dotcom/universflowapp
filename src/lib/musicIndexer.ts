@@ -18,6 +18,7 @@ function trackResolver<T extends { success?: boolean; streamUrl?: string } | nul
   return promise.then(
     (result) => {
       const ok = !!result?.streamUrl;
+      noteSourceResult(source, ok);
       recordPerfEvent({
         event_type: ok ? 'resolve_hit' : 'resolve_miss',
         severity: 'info',
@@ -28,6 +29,7 @@ function trackResolver<T extends { success?: boolean; streamUrl?: string } | nul
       return result;
     },
     (err) => {
+      noteSourceResult(source, false);
       recordPerfEvent({
         event_type: 'resolve_error',
         severity: 'warn',
@@ -39,6 +41,36 @@ function trackResolver<T extends { success?: boolean; streamUrl?: string } | nul
       throw err;
     },
   );
+}
+
+/**
+ * CIRCUIT BREAKER — when a resolver source is hard-down (e.g. the YouTube
+ * extractor being IP-blocked from the datacenter) every play attempt otherwise
+ * keeps a slow racer alive for its full timeout and burns the invoke gate.
+ * After 3 consecutive failures we skip that source for 3 minutes so the fast
+ * sources (JioSaavn / caches) decide playback immediately.
+ */
+const breaker = new Map<string, { fails: number; openUntil: number }>();
+const BREAKER_TRIP = 3;
+const BREAKER_OPEN_MS = 3 * 60 * 1000;
+
+function isSourceDown(source: string): boolean {
+  const state = breaker.get(source);
+  return !!state && state.openUntil > Date.now();
+}
+
+function noteSourceResult(source: string, ok: boolean) {
+  if (ok) {
+    breaker.delete(source);
+    return;
+  }
+  const state = breaker.get(source) || { fails: 0, openUntil: 0 };
+  state.fails += 1;
+  if (state.fails >= BREAKER_TRIP) {
+    state.openUntil = Date.now() + BREAKER_OPEN_MS;
+    state.fails = 0;
+  }
+  breaker.set(source, state);
 }
 
 
@@ -648,7 +680,9 @@ export async function resolveIndexedTrack(
       } as ResolveTrackResponse) : null))
       .catch(() => null);
 
-    const edgeP: Promise<ResolveTrackResponse | null> = trackResolver('music-indexer', cacheKey, resolveViaEdgeFunction(
+    const edgeP: Promise<ResolveTrackResponse | null> = isSourceDown('music-indexer')
+      ? Promise.resolve(null)
+      : trackResolver('music-indexer', cacheKey, resolveViaEdgeFunction(
       artist, title, cacheKey, opts.forceRefresh === true, priority,
     )).catch(() => null);
 
@@ -720,7 +754,11 @@ export async function resolveYouTubeVideoStream(
   // the last one to finish overwrites the cache — that is how a listener ends up
   // hearing the wrong track. One lock key per (videoId, forceRefresh).
   const lockKey = `yt:${id}:${opts.forceRefresh === true ? 'force' : 'cached'}`;
-  if (!opts.forceRefresh && isInFailureCooldown(lockKey) && !getYtmCached(id)?.url) {
+  // A YouTube-side cooldown must NOT block playback: JioSaavn is a fully
+  // independent source and is usually the one that actually works. Only give up
+  // early when we have no title/artist to search with.
+  if (!opts.forceRefresh && isInFailureCooldown(lockKey) && !getYtmCached(id)?.url
+      && !opts.title && !opts.artist) {
     return { success: false, error: 'No audio stream available' };
   }
   return withRequestLock(lockKey, () => resolveYouTubeVideoStreamInner(id, opts, lockKey));
@@ -770,7 +808,7 @@ async function resolveYouTubeVideoStreamInner(
   const priority: Priority = opts.background ? 'low' : 'high';
   const resolvers: Promise<ResolveTrackResponse | null>[] = [
     saavnRacer,
-    trackResolver('extract-audio', id, (async () => {
+    isSourceDown('extract-audio') ? Promise.resolve(null) : trackResolver('extract-audio', id, (async () => {
       const { data, error } = await invokeGated<{
         success?: boolean; audioUrl?: string; title?: string; artist?: string;
         thumbnail?: string; duration?: number;
@@ -789,7 +827,7 @@ async function resolveYouTubeVideoStreamInner(
       }
       return null;
     })()).catch(() => null),
-    trackResolver('innertube', id, (async () => {
+    isSourceDown('innertube') ? Promise.resolve(null) : trackResolver('innertube', id, (async () => {
       const data = await requestIndexer<ResolveTrackResponse>({
         action: 'resolve-video',
         videoId: id,
@@ -819,7 +857,7 @@ async function resolveYouTubeVideoStreamInner(
       }
     };
     resolvers.forEach((resolver) => resolver.then(done).catch(() => done(null)));
-  }), 9000, null);
+  }), 6500, null);
 
 
   if (winner?.streamUrl) {

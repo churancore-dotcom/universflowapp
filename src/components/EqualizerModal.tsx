@@ -41,7 +41,6 @@ import { getEQSettings, isEqActive, setEQSettings, useEQSettings, type EQSetting
 import { isNativePlayerAvailable } from '@/lib/nativePlayer';
 import { cn } from '@/lib/utils';
 import { useEngineState } from '@/hooks/useGlobalAudioEngine';
-import { usePremium } from '@/hooks/usePremium';
 
 interface EqualizerModalProps {
   isOpen: boolean;
@@ -188,7 +187,7 @@ function formatSpeed(speed: number) {
 
 const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { currentSong } = usePlayer();
-  const { isPremium, isLoading: premiumLoading } = usePremium();
+
   const engineMode = useEngineState();
   const settings = useEQSettings();
   const [view, setView] = useState<EqView>('smart');
@@ -218,17 +217,13 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
         ? engineMode === 'unsupported' ? 'Saved — this stream blocks effects' : 'Linking audio…'
         : 'Ready';
 
+  // The studio engine is free for everyone — no entitlement gate.
   useEffect(() => {
-    if (!isOpen || premiumLoading || isPremium) return;
-    toast.error('Equalizer is a Premium feature');
-    onClose();
-  }, [isOpen, premiumLoading, isPremium, onClose]);
-
-  useEffect(() => {
-    if (!isOpen || premiumLoading || !isPremium) return;
+    if (!isOpen) return;
     engineResume();
     window.dispatchEvent(new CustomEvent('uf-eq-changed', { detail: getEQSettings() }));
-  }, [isOpen, premiumLoading, isPremium]);
+  }, [isOpen]);
+
 
   const applyPreset = useCallback((preset: Preset) => {
     const target = preset.id === 'auto'
@@ -268,7 +263,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     });
   }, []);
 
-  if (!mounted || !isOpen || premiumLoading || !isPremium) return null;
+  if (!mounted || !isOpen) return null;
 
   return createPortal(
     <AnimatePresence>

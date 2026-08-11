@@ -533,15 +533,9 @@ const Settings = () => {
             <Row
               icon={<Sliders className="w-4 h-4" />}
               label="Equalizer & Effects"
-              sub={isPremium ? 'Studio presets & 10-band EQ' : 'Premium studio presets & effects'}
+              sub="Studio presets, 10-band EQ & effects"
               chevron
-              onClick={() => {
-                if (!isPremium) {
-                  setShowEqPremium(true);
-                  return;
-                }
-                setShowEq(true);
-              }}
+              onClick={() => setShowEq(true)}
             />
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
@@ -712,7 +706,7 @@ const Settings = () => {
 
         <BottomNav />
         <SupportChatModal isOpen={showSupport} onClose={() => setShowSupport(false)} />
-        {isPremium && <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />}
+        {showEq && <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />}
         {showEqPremium && (
           <PremiumLockOverlay
             title="Studio Equalizer"

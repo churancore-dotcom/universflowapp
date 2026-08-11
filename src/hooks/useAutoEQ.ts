@@ -1,8 +1,6 @@
 import { useEffect } from 'react';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { getEQSettings, setEQSettings } from '@/lib/eqSettings';
-import { getRuntimePremium } from '@/lib/premiumState';
-import { usePremium } from '@/hooks/usePremium';
 
 // Same catalog as EqualizerModal — kept small so the hook is standalone.
 // If the modal preset list changes, mirror the ids/bands here.
@@ -76,12 +74,9 @@ function pickAutoPresetId(song: { title?: string; artist?: string; album?: strin
  */
 export function useAutoEQ() {
   const { currentSong } = usePlayer();
-  const { isPremium, isLoading: premiumLoading } = usePremium();
 
   useEffect(() => {
-    // Re-run when entitlement finishes loading so Auto EQ is not skipped on
-    // the first song of a cold-started premium session.
-    if (premiumLoading || !isPremium || !getRuntimePremium()) return;
+    // Auto EQ is free for everyone — no entitlement gate.
     const settings = getEQSettings();
     if (settings.activePreset !== 'auto') return;
     const id = pickAutoPresetId(currentSong);
@@ -97,5 +92,6 @@ export function useAutoEQ() {
       playbackSpeed: 1,
       activePreset: 'auto',
     });
-  }, [currentSong?.id, isPremium, premiumLoading]);
+  }, [currentSong?.id]);
 }
+
