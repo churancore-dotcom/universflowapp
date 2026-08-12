@@ -1,103 +1,51 @@
-# Spotify-for-Artists Style Access System
+# Audit findings first, then targeted fixes
 
-Rebuild artist onboarding to match how Spotify accepts artists — not a raw signup form, but a **claim-based access system** with roles, invites, and team management.
+## 1. Audit: what is actually wrong with "Made For You"
 
-## What Spotify actually does (verified)
+`MadeForYouSection` (src/components/MadeForYouSection.tsx) does exist and is genuinely per-user: it seeds YouTube Music searches from `topTasteArtists`/`topTasteKeywords` (built in `feedPersonalizer.ts` from 30 days of `song_play_events`, liked songs, followed artists, and local recents), removes recently played, mutes heavily-skipped artists, reranks and diversifies. So the engine is real — it is **not** a fake shelf. Four concrete defects:
 
-1. **Claim your profile** — Artists don't "sign up as artist". They claim an existing artist profile that's already on Spotify (indexed from their released music). If no profile exists, they upload via a distributor first.
-2. **Verify identity** — Prove ownership via social/streaming link or distributor.
-3. **Invite team** — Once approved, the artist can invite Managers, Admins, Editors, Viewers, Analysts to their dashboard with role-based permissions.
-4. **Label access** — Labels/distributors get org-level access spanning multiple artists.
-5. **Access requests** — Pending/approved/revoked flows for every team seat.
+1. **Broken seed query (silent DB error).** It calls `stream_songs.select('artist,title').in('id', recentIds)`. `stream_songs` has no `id` column (its key is `track_id`), so that request errors, `data` is null, and that whole seed source is silently dropped. Only the local-recents + taste seeds survive.
+2. **Signed-out and first-session users get the generic pool.** `recentEntries` is gated on `user?.id`, while the anonymous taste profile reads recents under the `anon` key. Cold visitors therefore always land on the rotating "top hits / viral songs" fallback queries — the same rows for everyone, which is exactly the "not personalized" complaint.
+3. **It depends entirely on an authenticated edge call.** `searchYouTubeMusicTracks` → `yt-music-search`, which requires a valid JWT (verified live: anonymous calls return `401 Invalid authentication`). For signed-out visitors the section renders nothing at all.
+4. **No country awareness.** The cold-start fallback pool mixes Bollywood/Punjabi queries into every region's feed regardless of the listener's country.
 
-## What we'll build (Univers Flow versions)
+## 2. Audit: why trending looks like one country for everyone
 
-### 1. `/artist` — Access Hub (rebuild)
-Three big cards, Spotify-style:
-- **Claim your artist profile** → `/artist/claim` (already exists — polish)
-- **I'm on a team** → `/artist/team/join` (accept invite via code/link)
-- **I'm a label / distributor** → `/artist/label/access` (multi-artist org access)
+`TrendingNowSection` asks `useYtmCharts(country)`; `useUserCountry()` starts as `''` on every cold open, so the first fetch is the Global (`ZZ`) chart, and only re-fetches once geo resolves. When YT returns no chart tiles, or when the edge call 401s (signed-out), the component falls back to a **keyword search** using `getCountryQueries(country).trending`. With country still empty that is the string `global top songs this week official music …` — a plain YouTube search, which returns whatever YouTube's search ranking gives (heavily India/Bollywood weighted for this app's traffic). That fallback, not the real chart, is what users are seeing.
 
-Kills the current "signup as artist" framing.
+Meanwhile the app already has a genuine per-country chart source that nobody on Home reads: the `chart_tracks` table, refreshed today at 06:00 UTC by the `chart-aggregator` cron, with 20 countries + GLOBAL across `trending` / `viral` / `latest` chart types, and an anon-readable SELECT policy (verified).
 
-### 2. `/artist/team` — Team Management (new)
-Owner/Admin view of their artist profile team:
-- List members with role + status (active/pending/revoked)
-- Invite by email → generates one-time invite code + link
-- Change role, revoke access
-- Roles: **Owner**, **Admin**, **Editor**, **Analyst**, **Viewer**
+## 3. Fixes to make (no rebuilds)
 
-Permissions matrix:
-```text
-                Owner  Admin  Editor  Analyst  Viewer
-Upload/edit songs  ✓     ✓      ✓       ·        ·
-Edit profile       ✓     ✓      ✓       ·        ·
-Request payouts    ✓     ✓      ·       ·        ·
-View analytics     ✓     ✓      ✓       ✓        ✓
-Invite team        ✓     ✓      ·       ·        ·
-Transfer ownership ✓     ·      ·       ·        ·
-```
+**Country resolution (`src/hooks/useUserCountry.ts`)**
+- Persist the resolved country in `localStorage` (not just `sessionStorage`) so cold opens start with the last known real country instead of `''`.
+- Keep priority: profile `country_code` → `geo-detect` edge (IP) → locale region → Global.
 
-### 3. `/artist/team/join?code=XXX` — Accept Invite (new)
-- Signed-out users are routed through auth first, code preserved
-- Shows artist name, inviter, role being granted
-- Accept → membership becomes active
-- Decline → invite marked declined
+**Trending (`src/components/TrendingNowSection.tsx`, small helper in `src/lib/appTrending.ts` or a new `src/lib/countryCharts.ts`)**
+- Replace the keyword-search fallback with `chart_tracks` for the resolved country (`trending`, then `viral`, then GLOBAL), preserving `rank`. This works signed-out and is real chart data, not search noise.
+- Keep the existing order of precedence: real YTM chart → `chart_tracks` for the country → GLOBAL `chart_tracks`. Keyword search is dropped entirely.
+- Keep the existing in-app heat boost, taste rerank, and artist diversification untouched.
+- Show a quiet country label under the heading (e.g. "Top in Brazil" / "Top worldwide") so it is verifiable that the right chart is being served.
 
-### 4. `/artist/label/access` — Label Access (new)
-- Request label-level access covering multiple artist profiles
-- Fields: label name, roster (artist stage names), proof (distributor dashboard URL, label website)
-- Goes into admin review queue
+**Made For You (`src/components/MadeForYouSection.tsx`)**
+- Fix the `stream_songs` seed query to filter on `track_id` instead of the nonexistent `id`.
+- Read local recents with the same key the taste profile uses, so signed-out listeners' device history seeds the shelf.
+- Replace the hardcoded genre fallback pool with country-aware seeds from `getCountryQueries(country)` plus `chart_tracks` rows for the listener's country, so the cold-start state is real regional music instead of a static list.
+- When the YTM search path returns nothing (signed-out 401), fall back to `chart_tracks` reranked by the existing taste profile — the shelf then still personalizes ordering instead of disappearing.
+- No new tables, no new edge functions, no parallel recommender.
 
-### 5. `/admin/artist-access` — Admin queue (new)
-- Unified review of claims + label access requests
-- Approve/reject with note
+## 4. UI pass (only after 1–3 verified)
 
-## Database (new tables)
+Targeted, not a redesign — the Trending poster carousel and the bottom nav pill already match the brief. Limited to:
+- "Made For You" hero card: add the depth treatment the Trending hero already has (blurred artwork bleed, gradient scrim, subtle glass border) so the two heroes read as one design language.
+- Add the country/label chip and skeleton shimmer states so the rails don't pop in bare.
+- No changes to navigation, theme tokens, or other sections.
 
-```text
-artist_team_members
-  id, artist_profile_id, user_id, role, status, invited_by,
-  invited_at, joined_at, revoked_at
+## Verification
+- Query `chart_tracks` per country and confirm the rendered Trending rows match the stored chart for that country.
+- Load Home in the preview with a forced country override and confirm rows differ per country and that the section renders while signed out.
+- Confirm the `stream_songs` seed query returns rows instead of an error.
 
-artist_team_invites
-  id, artist_profile_id, email, role, code (unique),
-  invited_by, expires_at, status (pending|accepted|declined|expired|revoked)
-
-label_access_requests
-  id, user_id, label_name, roster jsonb, proof_url,
-  status, admin_note, reviewed_by, reviewed_at
-```
-
-RLS + GRANTs following the standard pattern. Owner auto-created when a claim is approved. `has_artist_access(user_id, artist_profile_id, min_role)` security-definer function drives all permission checks.
-
-## Migration of existing behavior
-
-- Current "artist owner = `artist_profiles.user_id`" stays as the Owner row in `artist_team_members` (auto-backfilled).
-- All existing artist RPCs (`request_artist_payout`, upload, edit) gated through `has_artist_access(..., 'editor'|'admin')`.
-- The old `/artist/apply` flow stays as an option under Claim, for artists who don't have a profile indexed yet.
-
-## Files touched
-
-New:
-- `src/pages/artist/AccessHub.tsx` (replaces current onboarding hub)
-- `src/pages/artist/TeamManagement.tsx`
-- `src/pages/artist/JoinTeam.tsx`
-- `src/pages/artist/LabelAccess.tsx`
-- `src/pages/admin/ArtistAccessQueue.tsx`
-- Migration for 3 tables + `has_artist_access` fn + owner backfill
-
-Edited:
-- `src/App.tsx` routes
-- `src/pages/artist/ArtistLayout.tsx` — Team nav item for Owner/Admin
-- `src/pages/artist/Onboarding.tsx` → redirects to new AccessHub
-
-## Out of scope (this pass)
-
-- Email delivery for invites (link + code shown in UI; email pipe can plug in later via existing `send-system-push`)
-- 2FA on ownership transfer
-- Bulk CSV roster import for labels
-
-## Confirmation
-
-This is a large, multi-file rebuild of the artist access model. Approve and I'll ship it in one pass — migration, pages, routes, permission gating.
+## Technical notes
+- `yt-music-search` requires a JWT (`verify_jwt`), so every fallback added here must be a direct table read via the anon-readable `chart_tracks` policy.
+- `chart_tracks` has no `listeners`/`plays` columns; listener counts continue to come from the `app_trending_tracks` RPC where needed.
