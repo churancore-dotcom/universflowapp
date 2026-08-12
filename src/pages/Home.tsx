@@ -340,7 +340,7 @@ const Home = () => {
                   social proof leads for a stranger, and the new-release rail is
                   only promoted inside the Friday–Sunday window. Every rail
                   self-hides with no real data, so nothing renders empty. */}
-              <div className="space-y-8">
+              <div className="space-y-10">
                 {isOffline ? (
                   allSongs.length > 0 && (
                     <div className="px-5"><AllSongsSection songs={allSongs} /></div>
