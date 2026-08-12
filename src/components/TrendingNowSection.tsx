@@ -92,7 +92,10 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
         </div>
         <div>
           <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Trending Now</h2>
-          <p className="text-[10px] text-muted-foreground/55 font-semibold">Hot right now, tuned to your taste</p>
+          <p className="text-[10px] text-muted-foreground/55 font-semibold">
+            Top in {countryLabel(servedCountry)}, tuned to your taste
+          </p>
+
         </div>
       </div>
 
