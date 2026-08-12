@@ -22,6 +22,7 @@ import { Route as DownloadsRouteImport } from './routes/downloads'
 import { Route as GetRouteImport } from './routes/get'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as OfflinePlayerRouteImport } from './routes/offline-player'
 import { Route as PremiumRouteImport } from './routes/premium'
@@ -33,6 +34,8 @@ import { Route as SubscriptionRouteImport } from './routes/subscription'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WelcomeRouteImport } from './routes/welcome'
+import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as ASlugRouteImport } from './routes/a.$slug'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as AdminAdsRouteImport } from './routes/admin/ads'
@@ -85,6 +88,7 @@ import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
 import { Route as PlaylistIdRouteImport } from './routes/playlist.$id'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AdminArtistApplicationsStatusRouteImport } from './routes/admin/artist-applications_.$status'
 import { Route as ArtistLabelAccessRouteImport } from './routes/artist.label.access'
 import { Route as ArtistStudioIndexRouteImport } from './routes/artist/studio/index'
@@ -166,6 +170,11 @@ const LibraryRoute = LibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const OfflineRoute = OfflineRouteImport.update({
   id: '/offline',
   path: '/offline',
@@ -221,6 +230,18 @@ const WelcomeRoute = WelcomeRouteImport.update({
   path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ASlugRoute = ASlugRouteImport.update({
   id: '/a/$slug',
   path: '/a/$slug',
@@ -486,6 +507,12 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AdminArtistApplicationsStatusRoute =
   AdminArtistApplicationsStatusRouteImport.update({
     id: '/artist-applications_/$status',
@@ -579,6 +606,7 @@ export interface FileRoutesByFullPath {
   '/get': typeof GetRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
+  '/mcp': typeof McpRoute
   '/offline': typeof OfflineRoute
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
@@ -591,6 +619,8 @@ export interface FileRoutesByFullPath {
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
   '/artist/studio': typeof ArtistStudioRouteRouteWithChildren
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/a/$slug': typeof ASlugRoute
   '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -642,6 +672,7 @@ export interface FileRoutesByFullPath {
   '/playlist/$id': typeof PlaylistIdRoute
   '/admin/': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications/$status': typeof AdminArtistApplicationsStatusRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
@@ -671,6 +702,7 @@ export interface FileRoutesByTo {
   '/get': typeof GetRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
+  '/mcp': typeof McpRoute
   '/offline': typeof OfflineRoute
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
@@ -682,6 +714,8 @@ export interface FileRoutesByTo {
   '/support': typeof SupportRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/a/$slug': typeof ASlugRoute
   '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -733,6 +767,7 @@ export interface FileRoutesByTo {
   '/playlist/$id': typeof PlaylistIdRoute
   '/admin': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications/$status': typeof AdminArtistApplicationsStatusRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
@@ -764,6 +799,7 @@ export interface FileRoutesById {
   '/get': typeof GetRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
+  '/mcp': typeof McpRoute
   '/offline': typeof OfflineRoute
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
@@ -776,6 +812,8 @@ export interface FileRoutesById {
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
   '/artist/studio': typeof ArtistStudioRouteRouteWithChildren
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/a/$slug': typeof ASlugRoute
   '/admin/ads': typeof AdminAdsRoute
   '/admin/analytics': typeof AdminAnalyticsRoute
@@ -827,6 +865,7 @@ export interface FileRoutesById {
   '/playlist/$id': typeof PlaylistIdRoute
   '/admin/': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications_/$status': typeof AdminArtistApplicationsStatusRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
@@ -859,6 +898,7 @@ export interface FileRouteTypes {
     | '/get'
     | '/home'
     | '/library'
+    | '/mcp'
     | '/offline'
     | '/offline-player'
     | '/premium'
@@ -871,6 +911,8 @@ export interface FileRouteTypes {
     | '/verify'
     | '/welcome'
     | '/artist/studio'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/a/$slug'
     | '/admin/ads'
     | '/admin/analytics'
@@ -922,6 +964,7 @@ export interface FileRouteTypes {
     | '/playlist/$id'
     | '/admin/'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications/$status'
     | '/artist/label/access'
     | '/artist/studio/activity'
@@ -951,6 +994,7 @@ export interface FileRouteTypes {
     | '/get'
     | '/home'
     | '/library'
+    | '/mcp'
     | '/offline'
     | '/offline-player'
     | '/premium'
@@ -962,6 +1006,8 @@ export interface FileRouteTypes {
     | '/support'
     | '/verify'
     | '/welcome'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/a/$slug'
     | '/admin/ads'
     | '/admin/analytics'
@@ -1013,6 +1059,7 @@ export interface FileRouteTypes {
     | '/playlist/$id'
     | '/admin'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications/$status'
     | '/artist/label/access'
     | '/artist/studio/activity'
@@ -1043,6 +1090,7 @@ export interface FileRouteTypes {
     | '/get'
     | '/home'
     | '/library'
+    | '/mcp'
     | '/offline'
     | '/offline-player'
     | '/premium'
@@ -1055,6 +1103,8 @@ export interface FileRouteTypes {
     | '/verify'
     | '/welcome'
     | '/artist/studio'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/a/$slug'
     | '/admin/ads'
     | '/admin/analytics'
@@ -1106,6 +1156,7 @@ export interface FileRouteTypes {
     | '/playlist/$id'
     | '/admin/'
     | '/.lovable/oauth/consent'
+    | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications_/$status'
     | '/artist/label/access'
     | '/artist/studio/activity'
@@ -1137,6 +1188,7 @@ export interface RootRouteChildren {
   GetRoute: typeof GetRoute
   HomeRoute: typeof HomeRoute
   LibraryRoute: typeof LibraryRoute
+  McpRoute: typeof McpRoute
   OfflineRoute: typeof OfflineRoute
   OfflinePlayerRoute: typeof OfflinePlayerRoute
   PremiumRoute: typeof PremiumRoute
@@ -1149,6 +1201,8 @@ export interface RootRouteChildren {
   VerifyRoute: typeof VerifyRoute
   WelcomeRoute: typeof WelcomeRoute
   ArtistStudioRouteRoute: typeof ArtistStudioRouteRouteWithChildren
+  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   ASlugRoute: typeof ASlugRoute
   ArtistArtistIdRoute: typeof ArtistArtistIdRoute
   ArtistApplyRoute: typeof ArtistApplyRoute
@@ -1167,6 +1221,7 @@ export interface RootRouteChildren {
   LegalTermsRoute: typeof LegalTermsRoute
   PlaylistIdRoute: typeof PlaylistIdRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
+  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ArtistLabelAccessRoute: typeof ArtistLabelAccessRoute
   ArtistTeamJoinRoute: typeof ArtistTeamJoinRoute
 }
@@ -1264,6 +1319,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/offline': {
       id: '/offline'
       path: '/offline'
@@ -1339,6 +1401,20 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/list-tools': {
+      id: '/.mcp/list-tools'
+      path: '/.mcp/list-tools'
+      fullPath: '/.mcp/list-tools'
+      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/a/$slug': {
@@ -1705,6 +1781,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/artist-applications_/$status': {
       id: '/admin/artist-applications_/$status'
       path: '/artist-applications/$status'
@@ -1938,6 +2021,7 @@ const rootRouteChildren: RootRouteChildren = {
   GetRoute: GetRoute,
   HomeRoute: HomeRoute,
   LibraryRoute: LibraryRoute,
+  McpRoute: McpRoute,
   OfflineRoute: OfflineRoute,
   OfflinePlayerRoute: OfflinePlayerRoute,
   PremiumRoute: PremiumRoute,
@@ -1950,6 +2034,9 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyRoute: VerifyRoute,
   WelcomeRoute: WelcomeRoute,
   ArtistStudioRouteRoute: ArtistStudioRouteRouteWithChildren,
+  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
   ASlugRoute: ASlugRoute,
   ArtistArtistIdRoute: ArtistArtistIdRoute,
   ArtistApplyRoute: ArtistApplyRoute,
@@ -1968,6 +2055,7 @@ const rootRouteChildren: RootRouteChildren = {
   LegalTermsRoute: LegalTermsRoute,
   PlaylistIdRoute: PlaylistIdRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
+  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ArtistLabelAccessRoute: ArtistLabelAccessRoute,
   ArtistTeamJoinRoute: ArtistTeamJoinRoute,
 }

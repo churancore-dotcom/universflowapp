@@ -1,4 +1,5 @@
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
+import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
 // The Capacitor APK has no server: it loads a static HTML file from inside the
 // APK. A hand-written HTML shell cannot boot TanStack Start (its client entry
@@ -8,6 +9,7 @@ import { defineConfig } from "@lovable.dev/vite-tanstack-config";
 const isNativeBuild = process.env.NATIVE_BUILD === "1";
 
 export default defineConfig({
+  plugins: [mcpPlugin()],
   // Nitro's cloudflare output renames the server entry, which breaks the
   // prerender preview server used to emit the SPA shell. The APK never runs a
   // server, so skip nitro for native builds.
