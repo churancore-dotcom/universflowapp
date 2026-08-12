@@ -216,7 +216,9 @@ const MadeForYouSection = memo(() => {
       <div className="flex items-end justify-between mb-3 px-1">
         <div>
           <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Made For You</h2>
-          <p className="text-[11px] text-muted-foreground/55 font-semibold mt-0.5">Based on your listening</p>
+          <p className="text-[11px] text-muted-foreground/55 font-semibold mt-0.5">
+            {taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
+          </p>
         </div>
       </div>
 
@@ -224,21 +226,31 @@ const MadeForYouSection = memo(() => {
         whileTap={{ scale: 0.985 }}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-3xl border border-white/[0.06] bg-card p-4"
+        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-[30px] neu p-4"
       >
+        {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
+        {hero.cover_url && (
+          <OptimizedImage
+            src={hero.cover_url}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover scale-125 blur-3xl opacity-50"
+          />
+        )}
         {hero.cover_url && (
           <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover opacity-80" eager />
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/95 to-card/35" />
+        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/25 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/[0.08]" />
         <div className="relative z-10 max-w-[62%]">
-          <span className="inline-flex bg-primary text-primary-foreground px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.18em] mb-5">For You</span>
+          <span className="inline-flex bg-primary text-primary-foreground px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.18em] mb-5 shadow-[0_6px_18px_-6px_hsl(var(--primary))]">For You</span>
           <h3 className="text-[25px] leading-[1] text-foreground font-extrabold tracking-tight mb-2 line-clamp-2">{hero.title}</h3>
           <p className="text-[12px] text-muted-foreground truncate font-semibold mb-4">{hero.artist}</p>
-          <div className="w-9 h-9 rounded-full bg-foreground flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-foreground flex items-center justify-center flex-shrink-0 shadow-lg">
             <Play className="w-4 h-4 text-background ml-0.5" fill="currentColor" />
           </div>
         </div>
       </motion.button>
+
 
       <div className="mt-2 rounded-3xl border border-white/[0.06] bg-card/60 overflow-hidden">
         {rest.map((song, idx) => {
