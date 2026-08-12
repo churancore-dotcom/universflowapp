@@ -46,10 +46,10 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, fresh); };
 
   return (
-    <section className="mb-2 pt-2">
+    <section className="pt-5">
       <div className="flex items-end justify-between mb-4">
-        <h2 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">New Releases</h2>
-        <span className="text-[10px] text-muted-foreground font-bold tracking-[0.2em] uppercase">All releases</span>
+        <h2 className="font-display text-[28px] tracking-[0.04em] text-foreground uppercase">New Releases</h2>
+        <span className="text-xs text-muted-foreground font-bold tracking-[0.2em] uppercase">All releases</span>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
@@ -64,7 +64,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
             transition={{ delay: 0.03 + idx * 0.03 }}
             className={`min-w-0 text-left ${idx % 2 === 1 ? 'pt-6' : ''}`}
           >
-            <div className="aspect-square rounded-2xl overflow-hidden bg-card mb-2 relative">
+            <div className="aspect-square rounded-[28px] overflow-hidden bg-card mb-2 relative neu">
               {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
               {idx === 0 && (
                 <span className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
@@ -73,7 +73,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
               )}
             </div>
             <p className="font-display text-lg leading-tight uppercase text-foreground truncate">{song.title}</p>
-            <p className="text-[11px] text-muted-foreground truncate font-medium">{song.artist}</p>
+            <p className="text-xs text-muted-foreground truncate font-medium">{song.artist}</p>
           </motion.button>
         ))}
       </div>

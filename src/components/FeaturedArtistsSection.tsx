@@ -103,14 +103,14 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
   if (artists.length === 0) return null;
 
   return (
-    <section className="mb-2 pt-4">
-      <div className="flex items-end justify-between mb-3 px-1">
+    <section className="pt-5">
+      <div className="flex items-end justify-between mb-4 px-1">
         <div>
-          <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Trending Artists</h2>
-          <p className="text-[10px] text-muted-foreground/55 font-semibold mt-0.5">Artists leading the charts right now</p>
+          <h2 className="font-display text-[28px] tracking-[0.04em] uppercase text-foreground">Trending Artists</h2>
+          <p className="text-xs text-muted-foreground/70 font-semibold mt-0.5">Artists leading the charts right now</p>
         </div>
         <motion.button
-          className="flex items-center gap-0.5 text-[11px] font-semibold text-primary"
+          className="flex items-center gap-0.5 text-xs font-semibold text-primary"
           onClick={() => { triggerHaptic('selection'); navigate('/artists'); }}
           whileTap={{ scale: 0.95 }}
         >
@@ -129,7 +129,7 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
           >
             <button
               onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(artist.name)}`); }}
-              className="relative block w-[148px] h-[196px] rounded-[28px] overflow-hidden neu text-left"
+              className="relative block w-[148px] h-[196px] rounded-[28px] overflow-hidden neu text-left neu-press"
             >
               {artist.image ? (
                 <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />

@@ -242,7 +242,7 @@ const Home = () => {
         {/* ====== HEADER ====== */}
         <header className="flex-shrink-0 z-30 px-5 pt-5 pb-3 safe-area-pt">
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-            <h1 className="font-display text-[30px] leading-none tracking-[0.08em] text-primary truncate">
+            <h1 className="font-display text-[32px] leading-none tracking-[0.06em] text-primary truncate">
               UNIVERSFLOW
               <span className="sr-only"> — Your Personal Music Feed</span>
             </h1>
@@ -250,7 +250,7 @@ const Home = () => {
             <motion.button
               onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
               aria-label="Open profile"
-              className="w-10 h-10 shrink-0 rounded-full overflow-hidden border border-border/60 bg-card flex items-center justify-center"
+              className="w-10 h-10 shrink-0 rounded-full overflow-hidden border border-border/60 bg-card flex items-center justify-center neu-press"
               whileTap={{ scale: 0.94 }}
             >
               {userAvatar ? (
@@ -289,19 +289,19 @@ const Home = () => {
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="px-5"
                 >
-                  <div className="flex items-end justify-between mb-3">
-                    <h2 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">
+                  <div className="flex items-end justify-between mb-4">
+                    <h2 className="font-display text-[28px] tracking-[0.04em] text-foreground uppercase">
                       {heroContextLabel(signals, !!currentSong)}
                     </h2>
                     <button
                       onClick={shuffleAll}
-                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground"
+                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground"
                     >
                       <Shuffle className="w-3.5 h-3.5" /> Shuffle
                     </button>
                   </div>
 
-                  <div className="relative rounded-[28px] overflow-hidden aspect-[4/5] bg-card">
+                  <div className="relative rounded-[28px] overflow-hidden aspect-[4/5] bg-card neu">
                     {heroSong.cover_url ? (
                       <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
                     ) : (
@@ -322,7 +322,7 @@ const Home = () => {
                     <button
                       onClick={playHero}
                       aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                      className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                      className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg neu-press"
                     >
                       {heroIsCurrent && isPlaying
                         ? <Pause className="w-6 h-6 fill-primary-foreground text-primary-foreground" />
@@ -340,7 +340,7 @@ const Home = () => {
                   social proof leads for a stranger, and the new-release rail is
                   only promoted inside the Friday–Sunday window. Every rail
                   self-hides with no real data, so nothing renders empty. */}
-              <div className="space-y-8">
+              <div className="space-y-10">
                 {isOffline ? (
                   allSongs.length > 0 && (
                     <div className="px-5"><AllSongsSection songs={allSongs} /></div>
