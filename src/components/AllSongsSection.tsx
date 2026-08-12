@@ -69,7 +69,7 @@ const SongRow = memo(({ song, index, songs }: { song: Song; index: number; songs
       </div>
 
       {/* Album art */}
-      <div className="relative w-[52px] h-[52px] rounded-xl overflow-hidden flex-shrink-0"
+      <div className="relative w-[52px] h-[52px] rounded-[14px] overflow-hidden flex-shrink-0"
         style={{
           boxShadow: isCurrentSong
             ? '0 4px 16px hsl(var(--primary) / 0.3)'
