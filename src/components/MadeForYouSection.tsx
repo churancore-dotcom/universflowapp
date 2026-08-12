@@ -13,6 +13,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { isSpamSong } from '@/pages/Search';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
+import { useUserCountry } from '@/hooks/useUserCountry';
+import { getCountryQueries } from '@/lib/countryQueries';
+import { fetchCountryCharts } from '@/lib/countryCharts';
 
 import { rerank, topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
 
@@ -20,7 +23,9 @@ const MadeForYouSection = memo(() => {
   const { user } = useAuth();
   const { playSong, currentSong } = usePlayer();
   const taste = useTasteProfile();
+  const country = useUserCountry();
   const [recentVersion, setRecentVersion] = useState(0);
+
 
   useEffect(() => {
     const refresh = () => setRecentVersion((value) => value + 1);
@@ -34,10 +39,14 @@ const MadeForYouSection = memo(() => {
     };
   }, []);
 
-  const recentEntries = useMemo(() => {
-    if (!user?.id) return [] as ReturnType<typeof readLocalRecent>;
-    return readLocalRecent(user.id).slice(0, 20);
-  }, [user?.id, recentVersion]);
+  // Signed-out listeners keep their history under the `anon` key (same key the
+  // taste profile reads). Gating this on user?.id is what made every cold /
+  // signed-out visitor fall through to the generic pool.
+  const recentEntries = useMemo(
+    () => readLocalRecent(user?.id ?? null).slice(0, 20),
+    [user?.id, recentVersion],
+  );
+
   const recentIds = useMemo(
     () => recentEntries.map((r) => r.song_id).filter(Boolean),
     [recentEntries],
@@ -49,7 +58,9 @@ const MadeForYouSection = memo(() => {
     // shelf kept flickering to a different set. Key on the top seeds only and
     // bucket the signal count so it moves when taste actually changes.
     queryKey: [
-      'ytm-made-for-you-v5',
+      'ytm-made-for-you-v6',
+      (country || 'GLOBAL').toUpperCase(),
+
       user?.id ?? 'anon',
       recentIds.slice(0, 3).join(','),
       topTasteArtists(taste, 3).join(','),
@@ -85,12 +96,13 @@ const MadeForYouSection = memo(() => {
         );
       }
       if (recentIds.length) {
-        const { data: rows } = await (supabase as unknown as {
-          from: (t: string) => { select: (c: string) => { in: (col: string, vals: string[]) => { limit: (n: number) => Promise<{ data: Array<{ artist: string | null; title: string | null }> | null }> } } };
-        })
+        // `stream_songs` is keyed by track_id — filtering on a nonexistent `id`
+        // column made this request error out, so this whole seed source was
+        // silently dropped.
+        const { data: rows } = await supabase
           .from('stream_songs')
           .select('artist, title')
-          .in('id', recentIds)
+          .in('track_id', recentIds)
           .limit(5);
         seeds.push(
           ...(rows ?? [])
@@ -110,25 +122,18 @@ const MadeForYouSection = memo(() => {
         if (kw.length) seedQueries = kw.map((k) => `${k} songs`);
       }
       if (!seedQueries.length) {
-        // Rotating diverse fallback pool — no more static "india top songs".
-        const currentYear = new Date().getFullYear();
-        const POOL = [
-          `top hits ${currentYear} official`,
-          `new music this week official`,
-          `viral songs ${currentYear}`,
-          `indie pop mix ${currentYear}`,
-          `hip hop hits ${currentYear}`,
-          `chill songs official mix`,
-          `latest bollywood hits ${currentYear}`,
-          `punjabi hits ${currentYear}`,
-          `rnb slow jams ${currentYear}`,
-          `edm dance hits ${currentYear}`,
-        ];
-        // Rotate only the cold-start fallback. Once listening/like/follow
-        // signals exist, the listener's real taste controls these queries.
-        const start = Math.floor(Date.now() / (60 * 60 * 1000)) % POOL.length;
-        seedQueries = [POOL[start], POOL[(start + 3) % POOL.length], POOL[(start + 7) % POOL.length]];
+        // Cold start: seed from the listener's OWN market chart instead of a
+        // static genre list that mixed Bollywood into every region.
+        const chart = await fetchCountryCharts(country, 30).catch(() => null);
+        const chartSeeds = (chart?.songs ?? [])
+          .slice(0, 12)
+          .map((s) => (s.artist || '').trim())
+          .filter(Boolean);
+        const uniqueChartSeeds = [...new Set(chartSeeds)].slice(0, 2);
+        const q = getCountryQueries(country);
+        seedQueries = [...uniqueChartSeeds.map((a) => `${a} songs`), q.trending, q.fresh].slice(0, 3);
       }
+
 
       const perQuery = Math.max(8, Math.ceil(24 / seedQueries.length));
       const settled = await Promise.allSettled(seedQueries.map((q) => searchYouTubeMusicTracks(q, perQuery)));
@@ -154,6 +159,20 @@ const MadeForYouSection = memo(() => {
         }
         if (out.length >= 18) break;
       }
+      // The YTM search path needs a session (the edge function verifies JWTs),
+      // so signed-out listeners used to get an empty shelf. Fall back to the
+      // aggregated chart table and let the taste profile order it — the shelf
+      // still personalizes instead of disappearing.
+      if (!out.length) {
+        const chart = await fetchCountryCharts(country, 40).catch(() => null);
+        for (const song of chart?.songs ?? []) {
+          if (seen.has(song.id) || isSpamSong(song)) continue;
+          seen.add(song.id);
+          out.push(song);
+          if (out.length >= 18) break;
+        }
+      }
+
       // Don't recommend what they just finished playing — by id AND by
       // title/artist, because the same song reaches us under several ids.
       const norm = (v?: string | null) => (v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
@@ -197,7 +216,9 @@ const MadeForYouSection = memo(() => {
       <div className="flex items-end justify-between mb-3 px-1">
         <div>
           <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Made For You</h2>
-          <p className="text-[11px] text-muted-foreground/55 font-semibold mt-0.5">Based on your listening</p>
+          <p className="text-[11px] text-muted-foreground/55 font-semibold mt-0.5">
+            {taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
+          </p>
         </div>
       </div>
 
@@ -205,21 +226,31 @@ const MadeForYouSection = memo(() => {
         whileTap={{ scale: 0.985 }}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-3xl border border-white/[0.06] bg-card p-4"
+        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-[30px] neu p-4"
       >
+        {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
+        {hero.cover_url && (
+          <OptimizedImage
+            src={hero.cover_url}
+            alt=""
+            className="absolute inset-0 w-full h-full object-cover scale-125 blur-3xl opacity-50"
+          />
+        )}
         {hero.cover_url && (
           <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover opacity-80" eager />
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/95 to-card/35" />
+        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/25 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/[0.08]" />
         <div className="relative z-10 max-w-[62%]">
-          <span className="inline-flex bg-primary text-primary-foreground px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.18em] mb-5">For You</span>
+          <span className="inline-flex bg-primary text-primary-foreground px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.18em] mb-5 shadow-[0_6px_18px_-6px_hsl(var(--primary))]">For You</span>
           <h3 className="text-[25px] leading-[1] text-foreground font-extrabold tracking-tight mb-2 line-clamp-2">{hero.title}</h3>
           <p className="text-[12px] text-muted-foreground truncate font-semibold mb-4">{hero.artist}</p>
-          <div className="w-9 h-9 rounded-full bg-foreground flex items-center justify-center flex-shrink-0">
+          <div className="w-9 h-9 rounded-full bg-foreground flex items-center justify-center flex-shrink-0 shadow-lg">
             <Play className="w-4 h-4 text-background ml-0.5" fill="currentColor" />
           </div>
         </div>
       </motion.button>
+
 
       <div className="mt-2 rounded-3xl border border-white/[0.06] bg-card/60 overflow-hidden">
         {rest.map((song, idx) => {

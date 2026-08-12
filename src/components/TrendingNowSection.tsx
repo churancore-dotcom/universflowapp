@@ -8,9 +8,9 @@ import { prewarmSong, prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { rerank } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
-import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
+import { useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
-import { getCountryQueries } from '@/lib/countryQueries';
+import { useCountryCharts, countryLabel } from '@/lib/countryCharts';
 import { useAppTrending } from '@/lib/appTrending';
 import { cleanRail, diversifyByArtist, songFingerprint } from '@/lib/railQuality';
 
@@ -34,13 +34,14 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // is actually viral.
   const { data: charts, isLoading: chartsLoading } = useYtmCharts(country, enabled);
   const { data: appTrending } = useAppTrending(country, enabled);
-  const q = getCountryQueries(country);
-  // Bug: this used to be true while the charts query was still loading, so
-  // every cold open fired a redundant search rail and could paint the search
-  // pool before the real chart arrived. Only fall back once charts resolved
-  // and genuinely came back empty.
+  // Fallback is the aggregated per-country chart table (Apple / iTunes /
+  // Last.fm / Deezer, refreshed hourly by cron), NOT a keyword search — a
+  // search for "top songs this week" is not a chart and skewed every market
+  // toward the same rows. This path also works while signed out.
   const needsFallback = enabled && !chartsLoading && !!charts && charts.top.length === 0;
-  const { data: fallbackPool = [] } = useYtmRail(`trending-v3-${country}`, q.trending, 36, needsFallback);
+  const { data: countryChart } = useCountryCharts(country, needsFallback);
+  const fallbackPool = countryChart?.songs ?? [];
+  const servedCountry = charts?.top?.length ? (charts.country || country) : (countryChart?.country ?? country);
 
   const trending = useMemo(() => {
     // 1) Real chart order: Top Songs → Trending → Music Videos, quality-gated
@@ -73,6 +74,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
 
 
 
+
   // Pre-resolve the top of the chart so the first taps are instant.
   React.useEffect(() => { prewarmSongs(trending, 2); }, [trending]);
 
@@ -90,7 +92,10 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
         </div>
         <div>
           <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Trending Now</h2>
-          <p className="text-[10px] text-muted-foreground/55 font-semibold">Hot right now, tuned to your taste</p>
+          <p className="text-[10px] text-muted-foreground/55 font-semibold">
+            Top in {countryLabel(servedCountry)}, tuned to your taste
+          </p>
+
         </div>
       </div>
 

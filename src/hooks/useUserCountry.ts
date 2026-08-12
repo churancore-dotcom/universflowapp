@@ -7,6 +7,10 @@ import { useAuth } from '@/contexts/AuthContext';
 import { detectCountrySilently } from '@/lib/geoCountry';
 
 const SESSION_KEY = 'uf-feed-country';
+// Persisted across launches: a cold open must not start on the Global feed for
+// a listener whose real market we already know — that first paint is what made
+// trending look like the same market for everybody.
+const PERSIST_KEY = 'uf-feed-country.v1';
 
 export function useUserCountry(): string {
   const { user } = useAuth();
@@ -14,9 +18,12 @@ export function useUserCountry(): string {
     try {
       const cached = sessionStorage.getItem(SESSION_KEY);
       if (cached && /^[A-Z]{2}$/.test(cached)) return cached;
+      const stored = localStorage.getItem(PERSIST_KEY);
+      if (stored && /^[A-Z]{2}$/.test(stored)) return stored;
     } catch {}
     return '';
   });
+
 
   useEffect(() => {
     let cancelled = false;
@@ -46,9 +53,17 @@ export function useUserCountry(): string {
       if (cancelled) return;
       const final = cc || '';
       if (final) {
-        try { sessionStorage.setItem(SESSION_KEY, final); } catch { /* noop */ }
+        try {
+          sessionStorage.setItem(SESSION_KEY, final);
+          localStorage.setItem(PERSIST_KEY, final);
+        } catch { /* noop */ }
+        setCountry(final);
+        return;
       }
-      setCountry(final);
+      // Detection failed this launch — keep the last known real market rather
+      // than dropping the whole feed back to Global.
+      setCountry((prev) => prev);
+
     })();
     return () => { cancelled = true; };
   }, [user?.id]);
