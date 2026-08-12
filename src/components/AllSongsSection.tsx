@@ -39,15 +39,11 @@ const SongRow = memo(({ song, index, songs }: { song: Song; index: number; songs
   return (
     <div
       onClick={handleClick}
-      className={`flex items-center gap-3.5 px-3 py-3 rounded-[28px] active:scale-[0.98] transition-all cursor-pointer ${
+      className={`flex items-center gap-3.5 px-3 py-3 rounded-[28px] transition-all cursor-pointer neu-press ${
         isCurrentSong
-          ? ''
-          : 'active:bg-white/[0.03]'
+          ? 'bg-primary/[0.08] ring-1 ring-primary/20'
+          : ''
       }`}
-      style={isCurrentSong ? {
-        background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.05))',
-        border: '0.5px solid hsl(var(--primary) / 0.2)',
-      } : undefined}
     >
       {/* Rank / Playing indicator */}
       <div className="w-6 text-center flex-shrink-0">
@@ -138,14 +134,9 @@ const CompactGridCard = memo(({ song, index, songs }: { song: Song; index: numbe
     >
       {/* Album art */}
       <div
-        className={`relative aspect-square rounded-[28px] overflow-hidden mb-2 neu ${
+        className={`relative aspect-square rounded-[28px] overflow-hidden mb-2 neu neu-press ${
           isCurrentSong ? 'ring-2 ring-primary/80' : ''
         }`}
-        style={{
-          boxShadow: isCurrentSong
-            ? '0 8px 24px -4px hsl(var(--primary) / 0.4), 0 2px 8px rgba(0,0,0,0.3)'
-            : '0 4px 16px -4px rgba(0, 0, 0, 0.4)',
-        }}
       >
         {song.cover_url ? (
           <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full" eager={index < 9} />
@@ -161,10 +152,7 @@ const CompactGridCard = memo(({ song, index, songs }: { song: Song; index: numbe
         {/* Play overlay on active */}
         {isCurrentSong && (
           <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-            <div
-              className="w-9 h-9 rounded-full flex items-center justify-center"
-              style={{ background: 'hsl(var(--primary))', boxShadow: '0 3px 16px hsl(var(--primary) / 0.5)' }}
-            >
+            <div className="w-9 h-9 rounded-full flex items-center justify-center bg-primary shadow-lg">
               {isPlaying ? (
                 <div className="flex items-end gap-[2.5px] h-3.5">
                   {[0, 1, 2].map((i) => (
@@ -222,19 +210,13 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
   }, []);
 
   return (
-    <section className="pt-5">
-      <div
-        className="rounded-[28px] p-4 neu"
-        style={{
-          background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
-          border: '0.5px solid rgba(255,255,255,0.08)',
-        }}
-      >
+    <section>
+      <div className="rounded-[28px] p-4 neu">
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-[18px] font-bold tracking-tight text-foreground">All Songs</h2>
-            <p className="text-xs text-muted-foreground/50 mt-0.5 font-medium tracking-wide">
+            <h2 className="font-display text-[28px] leading-none tracking-[0.04em] uppercase text-foreground">All Songs</h2>
+            <p className="text-xs text-muted-foreground/70 mt-0.5 font-semibold">
               {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
             </p>
           </div>
@@ -289,12 +271,7 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
         {songs.length > displayCount && (
           <motion.button
             onClick={toggleShowAll}
-            className="w-full mt-4 py-3 rounded-[28px] text-[13px] font-bold active:scale-[0.98] transition-transform"
-            style={{
-              background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.06))',
-              border: '0.5px solid hsl(var(--primary) / 0.15)',
-              color: 'hsl(var(--primary))',
-            }}
+            className="w-full mt-4 py-3 rounded-[28px] text-[13px] font-bold active:scale-[0.98] transition-transform neu-accent"
             whileTap={{ scale: 0.97 }}
           >
             {showAll ? 'Show Less' : 'Show All'}
