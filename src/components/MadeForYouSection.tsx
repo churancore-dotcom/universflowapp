@@ -13,6 +13,9 @@ import { supabase } from '@/integrations/supabase/client';
 import { isSpamSong } from '@/pages/Search';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
+import { useUserCountry } from '@/hooks/useUserCountry';
+import { getCountryQueries } from '@/lib/countryQueries';
+import { fetchCountryCharts } from '@/lib/countryCharts';
 
 import { rerank, topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
 
@@ -20,7 +23,9 @@ const MadeForYouSection = memo(() => {
   const { user } = useAuth();
   const { playSong, currentSong } = usePlayer();
   const taste = useTasteProfile();
+  const country = useUserCountry();
   const [recentVersion, setRecentVersion] = useState(0);
+
 
   useEffect(() => {
     const refresh = () => setRecentVersion((value) => value + 1);
