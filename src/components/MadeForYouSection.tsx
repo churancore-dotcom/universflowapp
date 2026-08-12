@@ -159,6 +159,20 @@ const MadeForYouSection = memo(() => {
         }
         if (out.length >= 18) break;
       }
+      // The YTM search path needs a session (the edge function verifies JWTs),
+      // so signed-out listeners used to get an empty shelf. Fall back to the
+      // aggregated chart table and let the taste profile order it — the shelf
+      // still personalizes instead of disappearing.
+      if (!out.length) {
+        const chart = await fetchCountryCharts(country, 40).catch(() => null);
+        for (const song of chart?.songs ?? []) {
+          if (seen.has(song.id) || isSpamSong(song)) continue;
+          seen.add(song.id);
+          out.push(song);
+          if (out.length >= 18) break;
+        }
+      }
+
       // Don't recommend what they just finished playing — by id AND by
       // title/artist, because the same song reaches us under several ids.
       const norm = (v?: string | null) => (v || '').toLowerCase().replace(/[^a-z0-9]+/g, '');
