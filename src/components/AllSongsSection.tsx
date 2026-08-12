@@ -138,7 +138,7 @@ const CompactGridCard = memo(({ song, index, songs }: { song: Song; index: numbe
     >
       {/* Album art */}
       <div
-        className={`relative aspect-square rounded-3xl overflow-hidden mb-2 ${
+        className={`relative aspect-square rounded-[28px] overflow-hidden mb-2 neu ${
           isCurrentSong ? 'ring-2 ring-primary/80' : ''
         }`}
         style={{
