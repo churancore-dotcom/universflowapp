@@ -1,57 +1,98 @@
 import { defineTool } from "@lovable.dev/mcp-js";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { sanitizeSearchText, supabaseAnon } from "../supabase";
+
+type Track = {
+  title: string;
+  artist: string;
+  cover_url: string | null;
+  source: string;
+  duration?: number | null;
+  chart_rank?: number | null;
+};
 
 export default defineTool({
   name: "search_tracks",
   title: "Search tracks",
-  description: "Search the Univers Flow catalog for songs by title, artist, or album.",
+  description:
+    "Search Univers Flow for songs by title or artist. Covers artist-uploaded releases and the live chart catalog.",
   inputSchema: {
-    query: z.string().min(1).describe("Search text (title, artist, or album)."),
+    query: z.string().min(1).describe("Search text (song title or artist name)."),
     limit: z.number().int().min(1).max(50).optional().describe("Max results, default 10."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
   handler: async ({ query, limit }) => {
-    const url = process.env.SUPABASE_URL!;
-    const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY!;
-    const supabase = createClient(url, key, { auth: { persistSession: false } });
-
+    const supabase = supabaseAnon();
     const n = limit ?? 10;
-
-    // Strip PostgREST filter metacharacters to prevent .or() filter injection.
-    // Users can only search on plain alphanumeric text, spaces, and a small set
-    // of safe punctuation (& - ' .). Everything else (commas, parens, %, wildcards,
-    // colons, quotes, backslashes) is removed so the raw query can never break out
-    // of the ilike operand into arbitrary PostgREST filter conditions.
-    const sanitized = String(query)
-      .replace(/[^\p{L}\p{N}\s\-'&.]/gu, " ")
-      .replace(/\s+/g, " ")
-      .trim()
-      .slice(0, 80);
+    const sanitized = sanitizeSearchText(query);
 
     if (!sanitized) {
-      return {
-        content: [{ type: "text", text: "No matches." }],
-        structuredContent: { results: [] },
-      };
+      return { content: [{ type: "text", text: "No matches." }], structuredContent: { results: [] } };
     }
 
     const pattern = `%${sanitized}%`;
-    const { data, error } = await supabase
-      .from("songs")
-      .select("id, title, artist, album, cover_url, duration")
-      .or(`title.ilike.${pattern},artist.ilike.${pattern},album.ilike.${pattern}`)
-      .limit(n);
 
-    if (error) {
-      return { content: [{ type: "text", text: `Search failed: ${error.message}` }], isError: true };
+    // Artist-uploaded releases first (Univers Flow originals), then the chart catalog.
+    const [uploads, charts] = await Promise.all([
+      supabase
+        .from("artist_songs")
+        .select("id, title, cover_url, duration, play_count, artist_profiles(stage_name)")
+        .eq("status", "live")
+        .ilike("title", pattern)
+        .order("play_count", { ascending: false })
+        .limit(n),
+      supabase
+        .from("chart_tracks")
+        .select("title, artist, cover_url, rank, chart_type, country_code")
+        .or(`title.ilike.${pattern},artist.ilike.${pattern}`)
+        .order("rank", { ascending: true })
+        .limit(n),
+    ]);
+
+    if (uploads.error && charts.error) {
+      return {
+        content: [{ type: "text", text: `Search failed: ${charts.error.message}` }],
+        isError: true,
+      };
     }
 
+    const results: Track[] = [];
+    for (const row of uploads.data ?? []) {
+      const profile = (row as { artist_profiles?: { stage_name?: string } | { stage_name?: string }[] })
+        .artist_profiles;
+      const stage = Array.isArray(profile) ? profile[0]?.stage_name : profile?.stage_name;
+      results.push({
+        title: row.title,
+        artist: stage ?? "Univers Flow artist",
+        cover_url: row.cover_url,
+        duration: row.duration,
+        source: "universflow_artist",
+      });
+    }
 
-    const rows = data ?? [];
+    const seen = new Set(results.map((r) => `${r.title.toLowerCase()}|${r.artist.toLowerCase()}`));
+    for (const row of charts.data ?? []) {
+      const key = `${row.title.toLowerCase()}|${row.artist.toLowerCase()}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      results.push({
+        title: row.title,
+        artist: row.artist,
+        cover_url: row.cover_url,
+        chart_rank: row.rank,
+        source: "chart",
+      });
+    }
+
+    const trimmed = results.slice(0, n);
     return {
-      content: [{ type: "text", text: rows.length ? JSON.stringify(rows, null, 2) : "No matches." }],
-      structuredContent: { results: rows },
+      content: [
+        {
+          type: "text",
+          text: trimmed.length ? JSON.stringify(trimmed, null, 2) : `No matches for "${sanitized}".`,
+        },
+      ],
+      structuredContent: { results: trimmed },
     };
   },
 });
