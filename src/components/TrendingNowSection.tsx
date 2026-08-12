@@ -12,7 +12,7 @@ import { useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { useCountryCharts, countryLabel } from '@/lib/countryCharts';
 import { useAppTrending } from '@/lib/appTrending';
-import { cleanRail, diversifyByArtist, songFingerprint } from '@/lib/railQuality';
+import { cleanRail, diversifyByArtist, songFingerprint, claimRailSongs } from '@/lib/railQuality';
 
 
 
@@ -74,6 +74,10 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
 
 
 
+
+  // Trending owns these fingerprints: lower-priority rails (New Releases)
+  // subtract them so the same regional hit never appears twice on Home.
+  React.useEffect(() => { claimRailSongs('trending', trending); }, [trending]);
 
   // Pre-resolve the top of the chart so the first taps are instant.
   React.useEffect(() => { prewarmSongs(trending, 2); }, [trending]);
