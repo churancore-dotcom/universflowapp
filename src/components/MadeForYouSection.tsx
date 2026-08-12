@@ -89,12 +89,13 @@ const MadeForYouSection = memo(() => {
         );
       }
       if (recentIds.length) {
-        const { data: rows } = await (supabase as unknown as {
-          from: (t: string) => { select: (c: string) => { in: (col: string, vals: string[]) => { limit: (n: number) => Promise<{ data: Array<{ artist: string | null; title: string | null }> | null }> } } };
-        })
+        // `stream_songs` is keyed by track_id — filtering on a nonexistent `id`
+        // column made this request error out, so this whole seed source was
+        // silently dropped.
+        const { data: rows } = await supabase
           .from('stream_songs')
           .select('artist, title')
-          .in('id', recentIds)
+          .in('track_id', recentIds)
           .limit(5);
         seeds.push(
           ...(rows ?? [])
@@ -114,25 +115,18 @@ const MadeForYouSection = memo(() => {
         if (kw.length) seedQueries = kw.map((k) => `${k} songs`);
       }
       if (!seedQueries.length) {
-        // Rotating diverse fallback pool — no more static "india top songs".
-        const currentYear = new Date().getFullYear();
-        const POOL = [
-          `top hits ${currentYear} official`,
-          `new music this week official`,
-          `viral songs ${currentYear}`,
-          `indie pop mix ${currentYear}`,
-          `hip hop hits ${currentYear}`,
-          `chill songs official mix`,
-          `latest bollywood hits ${currentYear}`,
-          `punjabi hits ${currentYear}`,
-          `rnb slow jams ${currentYear}`,
-          `edm dance hits ${currentYear}`,
-        ];
-        // Rotate only the cold-start fallback. Once listening/like/follow
-        // signals exist, the listener's real taste controls these queries.
-        const start = Math.floor(Date.now() / (60 * 60 * 1000)) % POOL.length;
-        seedQueries = [POOL[start], POOL[(start + 3) % POOL.length], POOL[(start + 7) % POOL.length]];
+        // Cold start: seed from the listener's OWN market chart instead of a
+        // static genre list that mixed Bollywood into every region.
+        const chart = await fetchCountryCharts(country, 30).catch(() => null);
+        const chartSeeds = (chart?.songs ?? [])
+          .slice(0, 12)
+          .map((s) => (s.artist || '').trim())
+          .filter(Boolean);
+        const uniqueChartSeeds = [...new Set(chartSeeds)].slice(0, 2);
+        const q = getCountryQueries(country);
+        seedQueries = [...uniqueChartSeeds.map((a) => `${a} songs`), q.trending, q.fresh].slice(0, 3);
       }
+
 
       const perQuery = Math.max(8, Math.ceil(24 / seedQueries.length));
       const settled = await Promise.allSettled(seedQueries.map((q) => searchYouTubeMusicTracks(q, perQuery)));
