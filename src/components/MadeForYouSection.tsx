@@ -212,7 +212,7 @@ const MadeForYouSection = memo(() => {
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, mix); };
 
   return (
-    <section className="pt-5">
+    <section>
       <div className="flex items-end justify-between mb-4 px-1">
         <div>
           <h2 className="font-display text-[28px] tracking-[0.04em] uppercase text-foreground">Made For You</h2>
@@ -226,7 +226,7 @@ const MadeForYouSection = memo(() => {
         whileTap={{ scale: 0.985 }}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-[28px] neu p-4 neu-press"
+        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-[28px] neu p-4"
       >
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
         {hero.cover_url && (
@@ -252,7 +252,7 @@ const MadeForYouSection = memo(() => {
       </motion.button>
 
 
-      <div className="mt-3 rounded-[28px] border border-white/[0.06] bg-card/60 overflow-hidden neu-sm">
+      <div className="mt-3 rounded-[28px] overflow-hidden neu-sm">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (

@@ -103,7 +103,7 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
   if (artists.length === 0) return null;
 
   return (
-    <section className="pt-5">
+    <section>
       <div className="flex items-end justify-between mb-4 px-1">
         <div>
           <h2 className="font-display text-[28px] tracking-[0.04em] uppercase text-foreground">Trending Artists</h2>
