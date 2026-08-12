@@ -222,9 +222,9 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
   }, []);
 
   return (
-    <section className="mb-2">
+    <section className="pt-5">
       <div
-        className="rounded-3xl p-4"
+        className="rounded-[28px] p-4 neu"
         style={{
           background: 'linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.02) 100%)',
           border: '0.5px solid rgba(255,255,255,0.08)',
@@ -233,8 +233,8 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="text-[16px] font-bold tracking-tight text-foreground">All Songs</h2>
-            <p className="text-[11px] text-muted-foreground/40 mt-0.5 font-medium tracking-wide">
+            <h2 className="text-[18px] font-bold tracking-tight text-foreground">All Songs</h2>
+            <p className="text-xs text-muted-foreground/50 mt-0.5 font-medium tracking-wide">
               {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
             </p>
           </div>
@@ -289,7 +289,7 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
         {songs.length > displayCount && (
           <motion.button
             onClick={toggleShowAll}
-            className="w-full mt-4 py-3 rounded-3xl text-[13px] font-bold active:scale-[0.98] transition-transform"
+            className="w-full mt-4 py-3 rounded-[28px] text-[13px] font-bold active:scale-[0.98] transition-transform"
             style={{
               background: 'linear-gradient(135deg, hsl(var(--primary) / 0.12), hsl(var(--primary) / 0.06))',
               border: '0.5px solid hsl(var(--primary) / 0.15)',
