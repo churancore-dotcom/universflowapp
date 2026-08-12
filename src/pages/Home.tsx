@@ -280,7 +280,7 @@ const Home = () => {
           ) : isOffline && songs.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="space-y-8">
+            <div className="space-y-10">
               {/* ====== HERO — artwork-dominant bento tile ====== */}
               {heroSong && (
                 <motion.section
@@ -310,7 +310,7 @@ const Home = () => {
                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-transparent" />
 
                     <div className="absolute bottom-0 left-0 right-0 p-6 pr-24">
-                      <span className="inline-block px-2 py-0.5 rounded-sm bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-[0.14em] mb-2">
+                      <span className="inline-block px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-[0.14em] mb-2">
                         {heroIsCurrent && isPlaying ? 'Now playing' : 'Start here'}
                       </span>
                       <h3 className="font-display text-4xl leading-none uppercase text-foreground line-clamp-2">

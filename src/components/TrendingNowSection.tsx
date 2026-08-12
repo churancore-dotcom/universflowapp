@@ -85,7 +85,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const rest = trending.slice(1);
 
   return (
-    <section className="pt-5">
+    <section>
       <div className="flex items-center gap-2 mb-4 px-1">
         <div className="w-7 h-7 rounded-2xl neu-inset flex items-center justify-center">
           <Flame className="w-3.5 h-3.5 text-primary" />
@@ -104,7 +104,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
         whileTap={{ scale: 0.98 }}
         onClick={() => play(lead)}
         {...prewarmIntentProps(lead)}
-        className="relative w-full h-[188px] rounded-[28px] overflow-hidden text-left neu neu-press"
+        className="relative w-full h-[188px] rounded-[28px] overflow-hidden text-left neu"
       >
         {lead.cover_url && (
           <OptimizedImage src={lead.cover_url} alt={lead.title} className="absolute inset-0 w-full h-full object-cover" eager />

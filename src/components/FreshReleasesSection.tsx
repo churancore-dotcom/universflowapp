@@ -46,7 +46,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, fresh); };
 
   return (
-    <section className="pt-5">
+    <section>
       <div className="flex items-end justify-between mb-4">
         <h2 className="font-display text-[28px] tracking-[0.04em] text-foreground uppercase">New Releases</h2>
         <span className="text-xs text-muted-foreground font-bold tracking-[0.2em] uppercase">All releases</span>
