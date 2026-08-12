@@ -1,6 +1,6 @@
 import { defineTool } from "@lovable.dev/mcp-js";
-import { createClient } from "@supabase/supabase-js";
 import { z } from "zod";
+import { supabaseAnon } from "../supabase";
 
 export default defineTool({
   name: "get_trending",
@@ -8,17 +8,26 @@ export default defineTool({
   description: "Return the current Univers Flow trending chart tracks.",
   inputSchema: {
     limit: z.number().int().min(1).max(50).optional().describe("Max tracks, default 20."),
+    chart: z
+      .enum(["trending", "viral"])
+      .optional()
+      .describe("Chart type, default 'trending'."),
+    country: z
+      .string()
+      .regex(/^[A-Za-z]{2}$|^GLOBAL$/i)
+      .optional()
+      .describe("ISO-3166 country code or GLOBAL (default)."),
   },
   annotations: { readOnlyHint: true, idempotentHint: true, openWorldHint: false },
-  handler: async ({ limit }) => {
-    const url = process.env.SUPABASE_URL!;
-    const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY!;
-    const supabase = createClient(url, key, { auth: { persistSession: false } });
-
+  handler: async ({ limit, chart, country }) => {
+    const supabase = supabaseAnon();
     const n = limit ?? 20;
+
     const { data, error } = await supabase
       .from("chart_tracks")
-      .select("rank, title, artist, cover_url, listeners")
+      .select("rank, title, artist, cover_url, chart_type, country_code, source, fetched_at")
+      .eq("chart_type", chart ?? "trending")
+      .eq("country_code", (country ?? "GLOBAL").toUpperCase())
       .order("rank", { ascending: true })
       .limit(n);
 
