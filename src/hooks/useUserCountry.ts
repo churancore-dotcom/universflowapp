@@ -53,9 +53,17 @@ export function useUserCountry(): string {
       if (cancelled) return;
       const final = cc || '';
       if (final) {
-        try { sessionStorage.setItem(SESSION_KEY, final); } catch { /* noop */ }
+        try {
+          sessionStorage.setItem(SESSION_KEY, final);
+          localStorage.setItem(PERSIST_KEY, final);
+        } catch { /* noop */ }
+        setCountry(final);
+        return;
       }
-      setCountry(final);
+      // Detection failed this launch — keep the last known real market rather
+      // than dropping the whole feed back to Global.
+      setCountry((prev) => prev);
+
     })();
     return () => { cancelled = true; };
   }, [user?.id]);
