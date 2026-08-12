@@ -212,11 +212,11 @@ const MadeForYouSection = memo(() => {
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, mix); };
 
   return (
-    <section className="mb-2 pt-4">
-      <div className="flex items-end justify-between mb-3 px-1">
+    <section className="pt-5">
+      <div className="flex items-end justify-between mb-4 px-1">
         <div>
-          <h2 className="font-display text-2xl tracking-[0.06em] uppercase text-foreground">Made For You</h2>
-          <p className="text-[11px] text-muted-foreground/55 font-semibold mt-0.5">
+          <h2 className="font-display text-[28px] tracking-[0.04em] uppercase text-foreground">Made For You</h2>
+          <p className="text-xs text-muted-foreground/70 font-semibold mt-0.5">
             {taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
           </p>
         </div>
@@ -226,7 +226,7 @@ const MadeForYouSection = memo(() => {
         whileTap={{ scale: 0.985 }}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-[30px] neu p-4"
+        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-[28px] neu p-4 neu-press"
       >
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
         {hero.cover_url && (
@@ -240,7 +240,7 @@ const MadeForYouSection = memo(() => {
           <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover opacity-80" eager />
         )}
         <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/25 backdrop-blur-[2px]" />
-        <div className="absolute inset-0 rounded-[30px] ring-1 ring-inset ring-white/[0.08]" />
+        <div className="absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/[0.08]" />
         <div className="relative z-10 max-w-[62%]">
           <span className="inline-flex bg-primary text-primary-foreground px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.18em] mb-5 shadow-[0_6px_18px_-6px_hsl(var(--primary))]">For You</span>
           <h3 className="text-[25px] leading-[1] text-foreground font-extrabold tracking-tight mb-2 line-clamp-2">{hero.title}</h3>
@@ -252,16 +252,16 @@ const MadeForYouSection = memo(() => {
       </motion.button>
 
 
-      <div className="mt-2 rounded-3xl border border-white/[0.06] bg-card/60 overflow-hidden">
+      <div className="mt-3 rounded-[28px] border border-white/[0.06] bg-card/60 overflow-hidden neu-sm">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
-            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-3 py-2.5 border-b border-white/[0.05] last:border-0 text-left active:bg-white/[0.04]">
+            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-3 py-2.5 border-b border-white/[0.05] last:border-0 text-left active:bg-white/[0.04] transition-colors">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums w-6">{String(idx + 2).padStart(2, '0')}.</span>
                 <div className="min-w-0">
                   <p className={`text-[13px] font-bold truncate leading-tight ${isPlaying ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
-                  <p className="text-[10.5px] text-muted-foreground/65 truncate mt-0.5 font-medium">{song.artist}</p>
+                  <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5 font-medium">{song.artist}</p>
                 </div>
               </div>
               {song.duration ? <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums">{Math.floor(song.duration / 60)}:{String(Math.floor(song.duration % 60)).padStart(2, '0')}</span> : null}
