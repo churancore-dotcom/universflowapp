@@ -19,7 +19,7 @@
       {
         "name": "search_tracks",
         "title": "Search tracks",
-        "description": "Search the Univers Flow catalog for songs by title, artist, or album.",
+        "description": "Search Univers Flow for songs by title or artist. Covers artist-uploaded releases and the live chart catalog.",
         "annotations": {
           "readOnlyHint": true,
           "idempotentHint": true,
@@ -31,7 +31,7 @@
             "query": {
               "type": "string",
               "minLength": 1,
-              "description": "Search text (title, artist, or album)."
+              "description": "Search text (song title or artist name)."
             },
             "limit": {
               "type": "integer",
