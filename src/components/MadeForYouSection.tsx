@@ -34,10 +34,14 @@ const MadeForYouSection = memo(() => {
     };
   }, []);
 
-  const recentEntries = useMemo(() => {
-    if (!user?.id) return [] as ReturnType<typeof readLocalRecent>;
-    return readLocalRecent(user.id).slice(0, 20);
-  }, [user?.id, recentVersion]);
+  // Signed-out listeners keep their history under the `anon` key (same key the
+  // taste profile reads). Gating this on user?.id is what made every cold /
+  // signed-out visitor fall through to the generic pool.
+  const recentEntries = useMemo(
+    () => readLocalRecent(user?.id ?? null).slice(0, 20),
+    [user?.id, recentVersion],
+  );
+
   const recentIds = useMemo(
     () => recentEntries.map((r) => r.song_id).filter(Boolean),
     [recentEntries],
