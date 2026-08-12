@@ -39,7 +39,7 @@ const SongRow = memo(({ song, index, songs }: { song: Song; index: number; songs
   return (
     <div
       onClick={handleClick}
-      className={`flex items-center gap-3.5 px-3 py-3 rounded-3xl active:scale-[0.98] transition-all cursor-pointer ${
+      className={`flex items-center gap-3.5 px-3 py-3 rounded-[28px] active:scale-[0.98] transition-all cursor-pointer ${
         isCurrentSong
           ? ''
           : 'active:bg-white/[0.03]'
