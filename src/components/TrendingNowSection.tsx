@@ -8,9 +8,9 @@ import { prewarmSong, prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { rerank } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
-import { useYtmRail, useYtmCharts } from '@/lib/ytmRails';
+import { useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
-import { getCountryQueries } from '@/lib/countryQueries';
+import { useCountryCharts, countryLabel } from '@/lib/countryCharts';
 import { useAppTrending } from '@/lib/appTrending';
 import { cleanRail, diversifyByArtist, songFingerprint } from '@/lib/railQuality';
 
@@ -34,13 +34,14 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // is actually viral.
   const { data: charts, isLoading: chartsLoading } = useYtmCharts(country, enabled);
   const { data: appTrending } = useAppTrending(country, enabled);
-  const q = getCountryQueries(country);
-  // Bug: this used to be true while the charts query was still loading, so
-  // every cold open fired a redundant search rail and could paint the search
-  // pool before the real chart arrived. Only fall back once charts resolved
-  // and genuinely came back empty.
+  // Fallback is the aggregated per-country chart table (Apple / iTunes /
+  // Last.fm / Deezer, refreshed hourly by cron), NOT a keyword search — a
+  // search for "top songs this week" is not a chart and skewed every market
+  // toward the same rows. This path also works while signed out.
   const needsFallback = enabled && !chartsLoading && !!charts && charts.top.length === 0;
-  const { data: fallbackPool = [] } = useYtmRail(`trending-v3-${country}`, q.trending, 36, needsFallback);
+  const { data: countryChart } = useCountryCharts(country, needsFallback);
+  const fallbackPool = countryChart?.songs ?? [];
+  const servedCountry = charts?.top?.length ? (charts.country || country) : (countryChart?.country ?? country);
 
   const trending = useMemo(() => {
     // 1) Real chart order: Top Songs → Trending → Music Videos, quality-gated
@@ -68,6 +69,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     ];
     return diversifyByArtist(boosted).slice(0, 18);
   }, [charts, chartsLoading, fallbackPool, appTrending, taste]);
+
 
 
 
