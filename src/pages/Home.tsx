@@ -289,19 +289,19 @@ const Home = () => {
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="px-5"
                 >
-                  <div className="flex items-end justify-between mb-3">
-                    <h2 className="font-display text-2xl tracking-[0.06em] text-foreground uppercase">
+                  <div className="flex items-end justify-between mb-4">
+                    <h2 className="font-display text-[28px] tracking-[0.04em] text-foreground uppercase">
                       {heroContextLabel(signals, !!currentSong)}
                     </h2>
                     <button
                       onClick={shuffleAll}
-                      className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-muted-foreground"
+                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground"
                     >
                       <Shuffle className="w-3.5 h-3.5" /> Shuffle
                     </button>
                   </div>
 
-                  <div className="relative rounded-[28px] overflow-hidden aspect-[4/5] bg-card">
+                  <div className="relative rounded-[28px] overflow-hidden aspect-[4/5] bg-card neu">
                     {heroSong.cover_url ? (
                       <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
                     ) : (
@@ -322,7 +322,7 @@ const Home = () => {
                     <button
                       onClick={playHero}
                       aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                      className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg active:scale-90 transition-transform"
+                      className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg neu-press"
                     >
                       {heroIsCurrent && isPlaying
                         ? <Pause className="w-6 h-6 fill-primary-foreground text-primary-foreground" />
