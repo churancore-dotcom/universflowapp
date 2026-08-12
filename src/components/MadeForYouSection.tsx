@@ -58,7 +58,9 @@ const MadeForYouSection = memo(() => {
     // shelf kept flickering to a different set. Key on the top seeds only and
     // bucket the signal count so it moves when taste actually changes.
     queryKey: [
-      'ytm-made-for-you-v5',
+      'ytm-made-for-you-v6',
+      (country || 'GLOBAL').toUpperCase(),
+
       user?.id ?? 'anon',
       recentIds.slice(0, 3).join(','),
       topTasteArtists(taste, 3).join(','),
