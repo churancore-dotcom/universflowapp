@@ -60,7 +60,7 @@ var trending_default = defineTool2({
     const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
     const supabase = createClient2(url, key, { auth: { persistSession: false } });
     const n = limit ?? 20;
-    const { data, error } = await supabase.from("chart_tracks").select("rank, title, artist, cover_url, listeners").order("rank", { ascending: true }).limit(n);
+    const { data, error } = await supabase.from("chart_tracks").select("rank, title, artist, cover_url, chart_type, country_code, source, metadata, fetched_at").order("rank", { ascending: true }).limit(n);
     if (error) {
       return { content: [{ type: "text", text: `Chart lookup failed: ${error.message}` }], isError: true };
     }
@@ -88,7 +88,7 @@ var get_artist_default = defineTool3({
     const url = process.env.SUPABASE_URL;
     const key = process.env.SUPABASE_PUBLISHABLE_KEY || process.env.SUPABASE_ANON_KEY;
     const supabase = createClient3(url, key, { auth: { persistSession: false } });
-    const { data, error } = await supabase.from("artist_profiles").select("stage_name, bio, avatar_url, follower_count, music_platform_url, verified").ilike("stage_name", name).limit(1).maybeSingle();
+    const { data, error } = await supabase.from("artist_profiles").select("stage_name, bio, avatar_url, total_followers, total_likes, total_plays, music_platform_url, is_verified").ilike("stage_name", name).limit(1).maybeSingle();
     if (error) {
       return { content: [{ type: "text", text: `Lookup failed: ${error.message}` }], isError: true };
     }
