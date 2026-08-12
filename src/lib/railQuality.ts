@@ -7,6 +7,7 @@
  * reverb re-uploads, karaoke, ringtone rips). Those look like filler because
  * they are filler, so they are rejected here for every editorial rail.
  */
+import { useSyncExternalStore } from 'react';
 import type { Song } from '@/contexts/PlayerContext';
 
 const JUNK_TITLE = [
@@ -116,4 +117,46 @@ export function diversifyByArtist<T extends { artist?: string | null }>(items: T
     }
   }
   return [...out, ...held];
+}
+
+// ─── Cross-rail claim registry ───
+// Home rails all draw from the same per-country YouTube Music feeds, so a
+// regional hit legitimately appears in BOTH the chart feed and the new-release
+// feed. Without a shared claim the listener sees the identical song twice on one
+// screen, which reads as "the app keeps showing me the same track". Each rail
+// claims the fingerprints it renders; lower-priority rails subtract them.
+const railClaims = new Map<string, Set<string>>();
+const claimListeners = new Set<() => void>();
+let claimVersion = 0;
+
+function claimSnapshot() { return claimVersion; }
+
+function subscribeClaims(cb: () => void) {
+  claimListeners.add(cb);
+  return () => { claimListeners.delete(cb); };
+}
+
+/** Register the fingerprints a rail is currently rendering. */
+export function claimRailSongs(rail: string, songs: Array<{ title?: string | null; artist?: string | null }>) {
+  const next = new Set(songs.map((s) => songFingerprint(s)).filter((fp) => fp !== '~'));
+  const prev = railClaims.get(rail);
+  if (prev && prev.size === next.size && [...next].every((fp) => prev.has(fp))) return;
+  railClaims.set(rail, next);
+  claimVersion += 1;
+  claimListeners.forEach((cb) => cb());
+}
+
+/** Fingerprints claimed by other rails (everything except `exceptRail`). */
+export function claimedByOtherRails(exceptRail: string): Set<string> {
+  const out = new Set<string>();
+  for (const [rail, fps] of railClaims) {
+    if (rail === exceptRail) continue;
+    fps.forEach((fp) => out.add(fp));
+  }
+  return out;
+}
+
+/** React binding: re-renders a rail when another rail's claim changes. */
+export function useRailClaimVersion(): number {
+  return useSyncExternalStore(subscribeClaims, claimSnapshot, claimSnapshot);
 }

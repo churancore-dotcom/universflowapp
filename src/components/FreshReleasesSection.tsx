@@ -10,7 +10,7 @@ import { tasteScore } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmNewReleases } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
-import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
+import { cleanRail, diversifyByArtist, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 
 interface Props { songs?: Song[]; enabled?: boolean }
 
@@ -19,14 +19,24 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   const taste = useTasteProfile();
   const country = useUserCountry();
   const { data: pool = [] } = useYtmNewReleases(country, 24, enabled);
+  // Re-run the memo when another rail (Trending) changes what it claims.
+  const claimVersion = useRailClaimVersion();
 
   const fresh = useMemo(() => {
     // The "fake/mock songs on top" were auto-generated compilations that
     // YouTube's release feed mixes in (jukebox / nonstop / slowed+reverb /
     // status edits). They are rejected before anything else, so the top of the
     // rail is always a real single with real artwork.
+    // New Releases and Trending read the same per-country YouTube feeds, so a
+    // charting regional single legitimately lands in both. Anything Trending is
+    // already showing is dropped here — that duplication is what made Home look
+    // like it kept repeating the same songs.
+    const claimed = claimedByOtherRails('fresh');
     const clean = diversifyByArtist(
-      cleanRail(pool.filter((s) => !isSpamSong(s)), { requireCover: true }),
+      cleanRail(
+        pool.filter((s) => !isSpamSong(s) && !claimed.has(songFingerprint(s))),
+        { requireCover: true },
+      ),
     );
     // New Releases must stay chronological (that's what "new" means). We only
     // bubble taste matches to the front, preserving recency inside each group,
@@ -35,11 +45,12 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
     const liked = clean.filter((song) => tasteScore(song, taste) > 0);
     const rest = clean.filter((song) => tasteScore(song, taste) <= 0);
     return [...liked, ...rest].slice(0, 12);
-  }, [pool, taste]);
+  }, [pool, taste, claimVersion]);
 
 
 
 
+  React.useEffect(() => { claimRailSongs('fresh', fresh); }, [fresh]);
   React.useEffect(() => { prewarmSongs(fresh, 2); }, [fresh]);
 
   if (fresh.length === 0) return null;
