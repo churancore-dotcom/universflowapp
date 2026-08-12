@@ -7,6 +7,7 @@
  * reverb re-uploads, karaoke, ringtone rips). Those look like filler because
  * they are filler, so they are rejected here for every editorial rail.
  */
+import { useSyncExternalStore } from 'react';
 import type { Song } from '@/contexts/PlayerContext';
 
 const JUNK_TITLE = [
