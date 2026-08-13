@@ -703,10 +703,17 @@ serve(async (req) => {
 
     const merged: Array<SearchResult & { _score?: number; _kind: 'song' | 'video' }> = [];
     const seen = new Set<string>();
-    for (const [pass, list] of [['songs', songs], ['videos', videos], ['videos', all]] as const) {
+    for (const [pass, list, shelf] of [['songs', songs, 'songs'], ['videos', videos, 'videos'], ['videos', all, 'all']] as const) {
       for (let i = 0; i < list.length; i++) {
         const r = list[i];
         if (seen.has(r.videoId)) continue;
+        // Non-music uploads (race edits, podcasts, comedy clips) are never songs.
+        if (looksNonMusic(r.title, r.artist, cleanQuery)) continue;
+        // The unfiltered "all" shelf is the main leak of non-music content:
+        // only accept entries YouTube itself tags as a music entity there.
+        if (shelf === 'all' && !r.musicVideoType) continue;
+        // Anything outside a plausible track length is not a song.
+        if (r.duration && (r.duration < 45 || r.duration > 900)) continue;
         const score = relevanceScore(r, cleanQuery, i, pass);
         if (score < 0) continue;
         seen.add(r.videoId);
