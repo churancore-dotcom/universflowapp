@@ -134,6 +134,19 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
       })
       .filter((item) => item.score >= 4)
       .sort((a, b) => b.score - a.score)
+      // Dedupe by track fingerprint — the queue can hold the same recording
+      // several times (different ids/sources), which showed up as the same
+      // chip repeated three times in a row.
+      .filter((item, _i, _all) => {
+        const fp = `${item.song.title} ${item.song.artist}`
+          .toLowerCase()
+          .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
+          .replace(/[^a-z0-9]+/g, ' ')
+          .trim();
+        if (seenVibes.has(fp)) return false;
+        seenVibes.add(fp);
+        return true;
+      })
       .slice(0, 8)
       .map((item) => item.song);
   }, [currentSong, queue]);
