@@ -428,7 +428,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   whileTap={{ scale: 0.8, x: -4 }}
                   aria-label="Previous track"
                 >
-                  <SkipBack className="w-9 h-9 text-white" fill="white" />
+                  <SkipBack className="w-9 h-9 text-foreground" fill="currentColor" />
                 </motion.button>
                 
                 <motion.button 
@@ -460,7 +460,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   whileTap={{ scale: 0.8, x: 4 }}
                   aria-label="Next track"
                 >
-                  <SkipForward className="w-9 h-9 text-white" fill="white" />
+                  <SkipForward className="w-9 h-9 text-foreground" fill="currentColor" />
                 </motion.button>
 
                 <motion.button 
