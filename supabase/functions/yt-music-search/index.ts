@@ -78,6 +78,30 @@ function looksHardSpam(title: string, author: string, q: string) {
   return false;
 }
 
+/**
+ * Non-music guard. YT Music's unfiltered ("all") shelf happily returns F1 race
+ * edits, podcast clips and comedy uploads — none of which belong in a music
+ * search. Anything matching these shapes is dropped unless the user explicitly
+ * asked for it in the query.
+ */
+const NON_MUSIC = [
+  /\b(podcast|episode|interview|talk\s*show|stand[\s-]?up|standup|comedy|sketch|skit|roast)\b/i,
+  /\b(highlights?|grand\s*prix|formula\s*1|\bf1\b|race\s*(recap|review)|match|goals?|cricket|football|nba|nfl|wwe|ipl)\b/i,
+  /(?<!radio\s)(?<!club\s)(?<!extended\s)(?<!special\s)(?<!clean\s)(?<!dirty\s)\bedits?\b/i,
+  /\b(amv|montage|fan\s*cam|fancam|4k\s*edit|cinematic)\b/i,
+  /\b(trailer|teaser|movie\s*clip|full\s*movie|web\s*series|documentary|scene\b)/i,
+  /\b(gameplay|walkthrough|unboxing|review|reaction|vlog|tutorial|how\s*to|motivation(al)?|speech|seminar|leadership|business|mindset|success)\b/i,
+  /\b(asmr|meditation|white\s*noise|sleep\s*sounds?|study\s*with\s*me|rain\s*sounds?)\b/i,
+  /\b(news|breaking|q\s*&\s*a|explained|analysis)\b/i,
+];
+function looksNonMusic(title: string, author: string, q: string) {
+  const hay = `${title} ${author}`;
+  const qn = q.toLowerCase();
+  return NON_MUSIC.some((p) => p.test(hay) && !p.test(qn));
+}
+
+
+
 function relevanceScore(r: SearchResult, q: string, index: number, pass: 'songs' | 'videos') {
   const tokens = normalize(q).split(' ').filter((t) => t.length > 1 && !['song', 'songs', 'music', 'official', 'video', 'audio'].includes(t));
   const title = normalize(r.title);
