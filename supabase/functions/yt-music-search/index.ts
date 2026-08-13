@@ -78,6 +78,30 @@ function looksHardSpam(title: string, author: string, q: string) {
   return false;
 }
 
+/**
+ * Non-music guard. YT Music's unfiltered ("all") shelf happily returns F1 race
+ * edits, podcast clips and comedy uploads — none of which belong in a music
+ * search. Anything matching these shapes is dropped unless the user explicitly
+ * asked for it in the query.
+ */
+const NON_MUSIC = [
+  /\b(podcast|episode|interview|talk\s*show|stand[\s-]?up|standup|comedy|sketch|skit|roast)\b/i,
+  /\b(highlights?|grand\s*prix|formula\s*1|\bf1\b|race\s*(recap|review)|match|goals?|cricket|football|nba|nfl|wwe|ipl)\b/i,
+  /(?<!radio\s)(?<!club\s)(?<!extended\s)(?<!special\s)(?<!clean\s)(?<!dirty\s)\bedits?\b/i,
+  /\b(amv|montage|fan\s*cam|fancam|4k\s*edit|cinematic)\b/i,
+  /\b(trailer|teaser|movie\s*clip|full\s*movie|web\s*series|documentary|scene\b)/i,
+  /\b(gameplay|walkthrough|unboxing|review|reaction|vlog|tutorial|how\s*to|motivation(al)?|speech|seminar|leadership|business|mindset|success)\b/i,
+  /\b(asmr|meditation|white\s*noise|sleep\s*sounds?|study\s*with\s*me|rain\s*sounds?)\b/i,
+  /\b(news|breaking|q\s*&\s*a|explained|analysis)\b/i,
+];
+function looksNonMusic(title: string, author: string, q: string) {
+  const hay = `${title} ${author}`;
+  const qn = q.toLowerCase();
+  return NON_MUSIC.some((p) => p.test(hay) && !p.test(qn));
+}
+
+
+
 function relevanceScore(r: SearchResult, q: string, index: number, pass: 'songs' | 'videos') {
   const tokens = normalize(q).split(' ').filter((t) => t.length > 1 && !['song', 'songs', 'music', 'official', 'video', 'audio'].includes(t));
   const title = normalize(r.title);
@@ -679,10 +703,17 @@ serve(async (req) => {
 
     const merged: Array<SearchResult & { _score?: number; _kind: 'song' | 'video' }> = [];
     const seen = new Set<string>();
-    for (const [pass, list] of [['songs', songs], ['videos', videos], ['videos', all]] as const) {
+    for (const [pass, list, shelf] of [['songs', songs, 'songs'], ['videos', videos, 'videos'], ['videos', all, 'all']] as const) {
       for (let i = 0; i < list.length; i++) {
         const r = list[i];
         if (seen.has(r.videoId)) continue;
+        // Non-music uploads (race edits, podcasts, comedy clips) are never songs.
+        if (looksNonMusic(r.title, r.artist, cleanQuery)) continue;
+        // The unfiltered "all" shelf is the main leak of non-music content:
+        // only accept entries YouTube itself tags as a music entity there.
+        if (shelf === 'all' && !r.musicVideoType) continue;
+        // Anything outside a plausible track length is not a song.
+        if (r.duration && (r.duration < 45 || r.duration > 900)) continue;
         const score = relevanceScore(r, cleanQuery, i, pass);
         if (score < 0) continue;
         seen.add(r.videoId);
