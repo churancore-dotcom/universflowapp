@@ -116,20 +116,66 @@ async function fetchArtistUploadLyrics(songId?: string): Promise<ProviderLyrics 
 // ───────── LRCLIB (primary — huge synced catalog) with variant retries ─────────
 const LRC_UA = { 'User-Agent': 'Universflow/1.0 (https://universflow.in)' };
 
-/** Pick the closest-duration synced hit (±5s tolerance), else any synced, else plain. */
-function pickLrclib(arr: any[], durationSec?: number): { synced?: string; plain?: string } | null {
+/**
+ * Match verification — a lyrics row is only usable when BOTH the track title
+ * and the artist credit line up with what is actually playing. Wrong lyrics are
+ * worse than no lyrics, so anything we cannot verify is discarded.
+ */
+function normKey(s: string): string {
+  return clean(String(s || '')).toLowerCase()
+    .replace(/[’'`´]/g, '')
+    .replace(/[^a-z0-9\u4e00-\u9fff\u3040-\u30ff\uac00-\ud7af ]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+function tokensOf(s: string): string[] { return normKey(s).split(' ').filter(Boolean); }
+
+export function titleMatches(want: string, got: string): boolean {
+  const a = normKey(want), b = normKey(got);
+  if (!a || !b) return false;
+  if (a === b) return true;
+  const at = tokensOf(a), bt = tokensOf(b);
+  if (!at.length || !bt.length) return false;
+  const overlap = at.filter((t) => bt.includes(t)).length;
+  const ratio = overlap / Math.max(at.length, bt.length);
+  // Allow a suffix/prefix difference (e.g. "Self Aware" vs "Self Aware (Demo)")
+  // but never a merely-similar title.
+  if (a.includes(b) || b.includes(a)) return ratio >= 0.6;
+  return ratio >= 0.9;
+}
+
+export function artistMatches(want: string, got: string): boolean {
+  const g = normKey(got);
+  if (!want || !g || g.length < 2) return false;
+  const wants = splitArtists(want).map(normKey).filter((w) => w.length >= 2);
+  return wants.some((w) => g === w || g.includes(w) || w.includes(g));
+}
+
+/** Pick the best verified synced hit; unverified rows are rejected outright. */
+function pickLrclib(arr: any[], wantArtist: string, wantTitle: string, durationSec?: number): { synced?: string; plain?: string } | null {
   if (!Array.isArray(arr) || arr.length === 0) return null;
-  const syncedRows = arr.filter((x: any) => x?.syncedLyrics);
-  if (syncedRows.length && durationSec && durationSec > 0) {
-    const scored = syncedRows
-      .map((x: any) => ({ x, diff: Math.abs((Number(x?.duration) || 0) - durationSec) }))
-      .sort((a, b) => a.diff - b.diff);
-    const near = scored.find((s) => s.diff <= 5) || scored[0];
-    if (near) return { synced: near.x.syncedLyrics, plain: near.x.plainLyrics || undefined };
+  const verified = arr.filter((x: any) => {
+    if (!titleMatches(wantTitle, x?.trackName || '')) return false;
+    if (artistMatches(wantArtist, x?.artistName || '')) return true;
+    // No artist confirmation: only accept on a near-exact duration match.
+    const d = Number(x?.duration) || 0;
+    return !!durationSec && durationSec > 0 && d > 0 && Math.abs(d - durationSec) <= 2;
+  });
+  if (!verified.length) return null;
+
+  const syncedRows = verified.filter((x: any) => x?.syncedLyrics);
+  if (syncedRows.length) {
+    if (durationSec && durationSec > 0) {
+      const scored = syncedRows
+        .map((x: any) => ({ x, diff: Math.abs((Number(x?.duration) || 0) - durationSec) }))
+        .sort((a, b) => a.diff - b.diff);
+      const near = scored.find((s) => s.diff <= 5) || scored[0];
+      if (near) return { synced: near.x.syncedLyrics, plain: near.x.plainLyrics || undefined };
+    }
+    return { synced: syncedRows[0].syncedLyrics, plain: syncedRows[0].plainLyrics || undefined };
   }
-  const pick = syncedRows[0] || arr.find((x: any) => x?.plainLyrics) || arr[0];
-  if (!pick) return null;
-  return { synced: pick.syncedLyrics || undefined, plain: pick.plainLyrics || undefined };
+  const plainRow = verified.find((x: any) => x?.plainLyrics);
+  return plainRow ? { plain: plainRow.plainLyrics } : null;
 }
 
 async function lrcJson(url: string): Promise<any | null> {
@@ -141,29 +187,31 @@ async function lrcJson(url: string): Promise<any | null> {
 }
 
 async function fetchLrclibOne(artist: string, title: string, durationSec?: number): Promise<{ synced?: string; plain?: string } | null> {
-  // Tier 1 — exact artist + title + duration.
+  if (!artist || !title) return null;
+  // Tier 1 — exact artist + title + duration (LRCLIB does the matching).
   if (durationSec && durationSec > 0) {
     const j = await lrcJson(
       `https://lrclib.net/api/get?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}&duration=${Math.round(durationSec)}`,
     );
-    if (j && (j.syncedLyrics || j.plainLyrics)) {
+    if (j && (j.syncedLyrics || j.plainLyrics) && titleMatches(title, j.trackName || title)) {
       return { synced: j.syncedLyrics || undefined, plain: j.plainLyrics || undefined };
     }
   }
-  // Tier 2 — search by artist + title, closest duration wins.
+  // Tier 2 — search by artist + title, verified locally, closest duration wins.
   const t2 = pickLrclib(
     await lrcJson(`https://lrclib.net/api/search?artist_name=${encodeURIComponent(artist)}&track_name=${encodeURIComponent(title)}`),
-    durationSec,
+    artist, title, durationSec,
   );
   if (t2?.synced) return t2;
-  // Tier 3 — title only (artist tags on LRCLIB are frequently wrong/localised).
-  const t3 = pickLrclib(await lrcJson(`https://lrclib.net/api/search?track_name=${encodeURIComponent(title)}`), durationSec);
+  // Tier 3 — free-text combined query, still verified against artist + title.
+  const t3 = pickLrclib(
+    await lrcJson(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${title}`)}`),
+    artist, title, durationSec,
+  );
   if (t3?.synced) return t3;
-  // Tier 4 — free-text combined query.
-  const t4 = pickLrclib(await lrcJson(`https://lrclib.net/api/search?q=${encodeURIComponent(`${artist} ${title}`)}`), durationSec);
-  if (t4?.synced) return t4;
-  return t2 || t3 || t4 || null;
+  return t2 || t3 || null;
 }
+
 
 
 async function fetchLrclibAll(artist: string, title: string, duration?: number): Promise<{ synced?: string; plain?: string } | null> {
