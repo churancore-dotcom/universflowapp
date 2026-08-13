@@ -97,6 +97,8 @@ const Home = () => {
   const { downloads } = useDownloads();
   const queryClient = useQueryClient();
   const country = useUserCountry();
+  // Re-pick the hero when a rail claims/releases fingerprints.
+  const claimVersion = useRailClaimVersion();
 
   // Artist users land on their Studio dashboard, not the listener home.
   // We only auto-route once per session so they can browse later if they wish.
