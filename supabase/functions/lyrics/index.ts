@@ -291,8 +291,12 @@ async function fetchQQMusic(artist: string, title: string): Promise<{ synced?: s
     });
     if (!search.ok) return null;
     const raw = await search.text();
-    const j = JSON.parse(raw.replace(/^callback\(|\)$/g, ''));
-    const song = j?.data?.song?.list?.[0];
+    const list = Array.isArray(j?.data?.song?.list) ? j.data.song.list : [];
+    const song = list.find((s: any) => {
+      const singers = Array.isArray(s?.singer) ? s.singer.map((x: any) => String(x?.name || '')) : [];
+      return titleMatches(title, s?.songname || s?.songorig || '')
+        && singers.some((n: string) => artistMatches(artist, n));
+    });
     if (!song?.songmid) return null;
     const lr = await fetch(`https://c.y.qq.com/lyric/fcgi-bin/fcg_query_lyric_new.fcg?songmid=${encodeURIComponent(song.songmid)}&format=json&nobase64=1`, {
       headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://y.qq.com/' },
