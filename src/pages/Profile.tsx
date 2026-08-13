@@ -327,7 +327,7 @@ const Profile = () => {
             {/* ============ STATS ============ */}
             {profileSettled && user && listenStats.totalPlays > 0 && (
               <section className="neu rounded-[28px] p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground/70 mb-4 px-1">Listening</p>
+                <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-4 px-1">Listening</h2>
                 <div className="grid grid-cols-3 gap-3">
                   <Dial value={fmt(listenStats.minutes)} label="Minutes" />
                   <Dial value={fmt(listenStats.totalPlays)} label="Plays" />
@@ -341,7 +341,7 @@ const Profile = () => {
             {recentSongs.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground/70">Recently played</h2>
+                  <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none">Recently<br/>played</h2>
                   <button onClick={() => navigate('/library')} className="neu-sm neu-press px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
                     Library
                   </button>
@@ -355,9 +355,9 @@ const Profile = () => {
                       aria-label={`Play ${song.title}`}
                     >
                       <div className="neu neu-press rounded-3xl p-2">
-                        <div className="neu-inset w-full aspect-square rounded-2xl overflow-hidden">
+                        <div className="neu-inset w-full aspect-square rounded-[14px] overflow-hidden">
                           {song.cover_url ? (
-                            <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
+                            <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover rounded-[14px]" loading="lazy" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center"><Music2 className="w-6 h-6 text-muted-foreground/60" /></div>
                           )}
@@ -373,7 +373,7 @@ const Profile = () => {
 
             {/* ============ LIBRARY ============ */}
             <section>
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground/70 mb-4">Your library</h2>
+              <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-4">Your library</h2>
               <div className="space-y-3">
                 <Key icon={<Heart className="w-[18px] h-[18px] text-primary" fill="currentColor" />}
                   label="Liked Songs"
@@ -409,7 +409,7 @@ const Profile = () => {
 
             {/* ============ ACCOUNT ============ */}
             <section>
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground/70 mb-4">Account</h2>
+              <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-4">Account</h2>
               <div className="space-y-3">
                 {profileSettled && isAdmin && (
                   <Key icon={<Shield className="w-[18px] h-[18px] text-primary" />} label="Admin Panel"

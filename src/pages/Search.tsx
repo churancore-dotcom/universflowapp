@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from '@/lib/router-compat';
-import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2, UserSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { prewarmSong } from '@/lib/instantPlay';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
@@ -781,7 +781,7 @@ const Search = () => {
                                 }
                               }}
                             >
-                              <div className="w-11 h-11 rounded-xl overflow-hidden flex-shrink-0 bg-muted">
+                              <div className="w-11 h-11 rounded-[14px] overflow-hidden flex-shrink-0 bg-muted">
                                 {entry.cover_url ? (
                                   <img src={entry.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />
                                 ) : (
@@ -826,7 +826,8 @@ const Search = () => {
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={libraryResults.length > 0 ? 'mt-6' : ''}>
                   <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 flex items-center gap-2">
                     <Music className="w-4 h-4 text-primary" />
-                    Songs · {displayedIndexedResults.length}{hasMoreLocal || loadingMore ? '+' : ''} results
+                    Songs
+                    <span className="text-[11px] font-bold tracking-[0.18em] text-muted-foreground">{displayedIndexedResults.length}{hasMoreLocal || loadingMore ? '+' : ''}</span>
                   </h2>
                   <VirtualList<IndexedTrack>
                     items={displayedIndexedResults}
@@ -843,7 +844,7 @@ const Search = () => {
                           onClick={() => !isResolving && handlePlayIndexed(track)}
                           onPointerDown={() => prewarmSong({ id: track.id, title: track.title, artist: track.artist, videoId: track.videoId, audio_url: track.audio_url })}
                         >
-                          <div className={`relative w-12 h-12 rounded-xl overflow-hidden flex-shrink-0 ${isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'}`}>
+                          <div className={`relative w-12 h-12 rounded-[14px] overflow-hidden flex-shrink-0 ${isActive ? 'shadow-lg shadow-primary/20' : 'shadow-md'}`}>
                             {track.cover_url ? (
                               <img src={track.cover_url} alt={`${track.title} cover art`} className="w-full h-full object-cover" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
                             ) : (
@@ -926,9 +927,17 @@ const Search = () => {
               )}
 
               {source === 'artists' && !searching && query.length > 1 && artistResults.length === 0 && (
-                <div className="text-center py-8">
-                  <p className="text-muted-foreground text-sm">No matching artists</p>
-                  <p className="text-muted-foreground/60 text-xs mt-1">Try searching the artist's exact name</p>
+                <div className="flex flex-col items-center text-center py-12 px-6">
+                  <div className="neu-inset w-20 h-20 rounded-[28px] flex items-center justify-center mb-4">
+                    <UserSearch className="w-8 h-8 text-muted-foreground" aria-hidden />
+                  </div>
+                  <h3 className="font-display text-[22px] font-black uppercase tracking-[0.04em] leading-none">No artists found</h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground max-w-[260px]">We couldn't find an artist matching "{query}". Artist names work best spelled exactly.</p>
+                  <button
+                    onClick={() => setSource('songs')}
+                    className="neu-accent neu-press mt-5 px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-[0.18em]">
+                    Search songs instead
+                  </button>
                 </div>
               )}
 
@@ -936,12 +945,24 @@ const Search = () => {
 
               {/* No results */}
               {source === 'songs' && query.length > 1 && !searching && libraryResults.length === 0 && displayedIndexedResults.length === 0 && (
-                <div className="text-center py-8">
-                  <div className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-                    style={{ background: 'hsl(var(--foreground) / 0.05)', border: '1px solid hsl(var(--foreground) / 0.05)' }}>
-                    <Music className="w-7 h-7 text-muted-foreground/50" />
+                <div className="flex flex-col items-center text-center py-12 px-6">
+                  <div className="neu-inset w-20 h-20 rounded-[28px] flex items-center justify-center mb-4">
+                    <Music className="w-8 h-8 text-muted-foreground" aria-hidden />
                   </div>
-                  <p className="text-muted-foreground text-sm">No results found</p>
+                  <h3 className="font-display text-[22px] font-black uppercase tracking-[0.04em] leading-none">Nothing here yet</h3>
+                  <p className="mt-2 text-[13px] text-muted-foreground max-w-[260px]">No tracks matched "{query}". Try a shorter title, or look for the artist instead.</p>
+                  <div className="flex items-center gap-2 mt-5">
+                    <button
+                      onClick={() => setSource('artists')}
+                      className="neu-accent neu-press px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-[0.18em]">
+                      Find the artist
+                    </button>
+                    <button
+                      onClick={() => setQuery('')}
+                      className="neu-sm neu-press px-5 py-2.5 rounded-full text-[11px] font-black uppercase tracking-[0.18em] text-muted-foreground">
+                      Clear
+                    </button>
+                  </div>
                 </div>
               )}
             </>
