@@ -52,15 +52,15 @@ const VolumeSlider = memo(function VolumeSlider({
 }) {
   return (
     <div className="flex items-center gap-2 w-full px-1">
-      <VolumeX className="w-4 h-4 text-white/40 flex-shrink-0" />
+      <VolumeX className="w-4 h-4 text-muted-foreground/80 flex-shrink-0" />
       <Slider 
         value={[value * 100]} 
         max={100} 
         step={1} 
         onValueChange={([v]) => onChange(v / 100)} 
-        className="flex-1 [&_[role=slider]]:w-4 [&_[role=slider]]:h-4 [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-[3px] [&_[data-radix-slider-track]]:bg-white/20 [&_[data-radix-slider-range]]:bg-rose-500" 
+        className="flex-1 [&_[role=slider]]:w-4 [&_[role=slider]]:h-4 [&_[role=slider]]:bg-foreground [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-[3px] [&_[data-radix-slider-track]]:bg-foreground/20 [&_[data-radix-slider-range]]:bg-primary" 
       />
-      <Volume2 className="w-4 h-4 text-white/40 flex-shrink-0" />
+      <Volume2 className="w-4 h-4 text-muted-foreground/80 flex-shrink-0" />
     </div>
   );
 });
@@ -222,7 +222,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           <div className="relative flex flex-col h-full px-5 pt-2 pb-3 overflow-hidden">
             {/* Drag indicator */}
             <div className="flex justify-center mb-1 flex-shrink-0">
-              <div className="w-9 h-1 rounded-full bg-white/40" />
+              <div className="w-9 h-1 rounded-full bg-foreground/40" />
             </div>
 
             {/* Header */}
@@ -232,17 +232,17 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 onClick={() => { triggerHaptic('impactLight'); setExpanded(false); }}
                 aria-label="Close fullscreen player"
               >
-                <ChevronDown className="w-6 h-6 text-white/80" />
+                <ChevronDown className="w-6 h-6 text-foreground" />
               </button>
               
               <div className="text-center flex-1 px-2 min-w-0">
-                <p className="text-[10px] font-medium uppercase tracking-wider text-white/50">Now Playing · EQ {eqLabel.toUpperCase()}</p>
-                <p className="text-xs font-semibold text-white/90 truncate">{currentSong.album || 'Library'}</p>
+                <p className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Now Playing · EQ {eqLabel.toUpperCase()}</p>
+                <p className="text-xs font-semibold text-foreground truncate">{currentSong.album || 'Library'}</p>
               </div>
               
               <div className="flex items-center gap-1 -mr-2">
                 <button
-                  className={`w-10 h-10 flex items-center justify-center active:scale-90 transition-transform rounded-full ${showLyrics ? 'bg-rose-500/20 text-rose-300' : 'text-white/80'}`}
+                  className={`w-10 h-10 flex items-center justify-center active:scale-90 transition-transform rounded-full ${showLyrics ? 'bg-primary/20 text-primary' : 'text-foreground'}`}
                   onClick={() => { triggerHaptic('impactLight'); setShowLyrics((v) => !v); }}
                   aria-label={showLyrics ? 'Hide lyrics' : 'Show lyrics'}
                 >
@@ -253,7 +253,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   onClick={() => { triggerHaptic('impactLight'); setShowQueue(true); }}
                   aria-label="Open queue"
                 >
-                  <ListOrdered className="w-5 h-5 text-white/80" />
+                  <ListOrdered className="w-5 h-5 text-foreground" />
                 </button>
               </div>
             </div>
@@ -319,7 +319,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                         />
                       ) : (
                         <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                          <div className="text-white/60 text-5xl">♪</div>
+                          <div className="text-muted-foreground text-5xl">♪</div>
                         </div>
                       )}
                     </motion.div>
@@ -332,7 +332,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
             {/* Controls Section - fixed at bottom */}
             <div className="flex-shrink-0 space-y-2 mt-2">
               {/* Title and Artist */}
-              <div className="relative overflow-hidden flex items-start justify-between gap-3 rounded-3xl px-3 py-3 uf-rose-gradient">
+              <div className="relative overflow-hidden flex items-start justify-between gap-3 rounded-[28px] px-4 py-3.5 uf-rose-gradient">
                 {currentSong.cover_url && (
                   <img
                     src={currentSong.cover_url}
@@ -352,7 +352,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                     exit="exit"
                   >
                     <h2
-                      className="text-[24px] font-display tracking-wide text-black leading-none"
+                      className="text-[24px] font-display tracking-wide text-primary-foreground leading-none"
                       style={{
                         display: '-webkit-box',
                         WebkitLineClamp: 2,
@@ -363,7 +363,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                       {currentSong.title}
                     </h2>
                     <button 
-                      className="text-sm text-black/65 font-bold block active:opacity-70 mt-1 text-left" 
+                      className="text-sm text-primary-foreground/80 font-bold block active:opacity-70 mt-1 text-left" 
                       style={{
                         display: '-webkit-box',
                         WebkitLineClamp: 2,
@@ -402,9 +402,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   step={0.1} 
                   onValueChange={([value]) => setDragProgress(value)}
                   onValueCommit={([value]) => { seek(value); setDragProgress(null); }}
-                  className="[&_[role=slider]]:w-[18px] [&_[role=slider]]:h-[18px] [&_[role=slider]]:bg-white [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-[5px] [&_[data-radix-slider-track]]:bg-white/15 [&_[data-radix-slider-range]]:bg-rose-500" 
+                  className="[&_[role=slider]]:w-[18px] [&_[role=slider]]:h-[18px] [&_[role=slider]]:bg-foreground [&_[role=slider]]:border-0 [&_[data-radix-slider-track]]:h-[5px] [&_[data-radix-slider-track]]:bg-foreground/15 [&_[data-radix-slider-range]]:bg-primary" 
                 />
-                <div className="flex justify-between mt-1.5 text-[11px] font-semibold text-white/50 tabular-nums">
+                <div className="flex justify-between mt-1.5 text-[11px] font-semibold text-muted-foreground tabular-nums">
                   <span>{formatTime(safeProgress)}</span>
                   <span>-{formatTime(Math.max(0, timeRemaining))}</span>
                 </div>
@@ -413,7 +413,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               {/* Main Controls */}
               <div className="flex items-center justify-center gap-5">
                 <motion.button 
-                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${shuffle ? 'text-rose-400 bg-rose-500/15' : 'text-white/50'}`} 
+                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${shuffle ? 'text-primary bg-primary/15' : 'text-muted-foreground'}`} 
                   onClick={() => { triggerHaptic('impactLight'); toggleShuffle(); }}
                   whileTap={{ scale: 0.85 }}
                   aria-label={shuffle ? 'Disable shuffle' : 'Enable shuffle'}
@@ -428,11 +428,11 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   whileTap={{ scale: 0.8, x: -4 }}
                   aria-label="Previous track"
                 >
-                  <SkipBack className="w-9 h-9 text-white" fill="white" />
+                  <SkipBack className="w-9 h-9 text-foreground" fill="currentColor" />
                 </motion.button>
                 
                 <motion.button 
-                  className="w-[74px] h-[74px] rounded-full bg-white flex items-center justify-center shadow-xl"
+                  className="w-[74px] h-[74px] rounded-full bg-foreground flex items-center justify-center shadow-xl"
                   onClick={() => { triggerHaptic('impactHeavy'); togglePlay(); }}
                   whileTap={{ scale: 0.9 }}
                   aria-label={isPlaying ? 'Pause' : 'Play'}
@@ -446,9 +446,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                       transition={{ duration: 0.15 }}
                     >
                       {isPlaying ? (
-                        <Pause className="w-9 h-9 text-black" fill="black" />
+                        <Pause className="w-9 h-9 text-primary-foreground" fill="currentColor" />
                       ) : (
-                        <Play className="w-9 h-9 text-black ml-1" fill="black" />
+                        <Play className="w-9 h-9 text-primary-foreground ml-1" fill="currentColor" />
                       )}
                     </motion.div>
                   </AnimatePresence>
@@ -460,11 +460,11 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   whileTap={{ scale: 0.8, x: 4 }}
                   aria-label="Next track"
                 >
-                  <SkipForward className="w-9 h-9 text-white" fill="white" />
+                  <SkipForward className="w-9 h-9 text-foreground" fill="currentColor" />
                 </motion.button>
 
                 <motion.button 
-                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${repeat !== 'off' ? 'text-rose-400 bg-rose-500/15' : 'text-white/50'}`} 
+                  className={`w-11 h-11 flex items-center justify-center rounded-full transition-colors ${repeat !== 'off' ? 'text-primary bg-primary/15' : 'text-muted-foreground'}`} 
                   onClick={() => { triggerHaptic('impactLight'); toggleRepeat(); }}
                   whileTap={{ scale: 0.85 }}
                   aria-label={`Repeat mode: ${repeat}`}
@@ -478,23 +478,23 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
 
               {vibeSuggestions.length > 0 && (
                 <div className="flex items-center gap-2 -mx-1 px-1 overflow-x-auto hide-scrollbar">
-                  <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-[0.18em] text-white/40 pr-1">{suggestionsLabel}</span>
+                  <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80 pr-1">{suggestionsLabel}</span>
                   {vibeSuggestions.map((song) => (
                     <button
                       key={song.id}
                       type="button"
                       onClick={() => { triggerHaptic('selection'); playSong(song, undefined, queue); }}
-                      className="group flex items-center gap-2 flex-shrink-0 rounded-full bg-white/5 hover:bg-white/10 pl-1 pr-3 py-1 active:scale-[0.96] transition-all max-w-[180px]"
+                      className="group flex items-center gap-2 flex-shrink-0 rounded-full bg-foreground/5 hover:bg-foreground/10 pl-1 pr-3 py-1 active:scale-[0.96] transition-all max-w-[180px]"
                       aria-label={`Play ${song.title}`}
                     >
-                      <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-foreground/10">
                         {song.cover_url ? (
                           <img src={song.cover_url} alt="" className="h-full w-full object-cover" loading="lazy" />
                         ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[10px] text-white/30">♪</div>
+                          <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground/70">♪</div>
                         )}
                       </div>
-                      <span className="truncate text-[11px] font-medium text-white/85">{song.title}</span>
+                      <span className="truncate text-[11px] font-medium text-foreground">{song.title}</span>
                     </button>
                   ))}
                 </div>
@@ -509,20 +509,20 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={() => { triggerHaptic('selection'); setShowShareModal(true); }}
                 >
-                  <Share2 className="w-[18px] h-[18px] text-white/60" />
+                  <Share2 className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={handleOpenEqualizer}
                   aria-label="Equalizer"
                 >
-                  <Sliders className="w-[18px] h-[18px] text-white/60" />
+                  <Sliders className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={() => { triggerHaptic('selection'); setShowPlaylistModal(true); }}
                 >
-                  <ListMusic className="w-[18px] h-[18px] text-white/60" />
+                  <ListMusic className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
               </div>
 

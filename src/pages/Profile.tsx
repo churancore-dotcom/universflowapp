@@ -226,7 +226,7 @@ const Profile = () => {
           {/* ============ HEADER ============ */}
           <header className="px-5 pt-4 flex items-center justify-between">
             <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-white/35">Univers Flow</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/70">Univers Flow</p>
               <p className="font-display text-[20px] leading-tight tracking-wide">PROFILE</p>
             </div>
             <button
@@ -234,7 +234,7 @@ const Profile = () => {
               aria-label="Settings"
               className="neu-sm neu-press w-11 h-11 rounded-2xl flex items-center justify-center"
             >
-              <Settings className="w-[18px] h-[18px] text-white/70" />
+              <Settings className="w-[18px] h-[18px] text-muted-foreground" />
             </button>
           </header>
 
@@ -273,7 +273,7 @@ const Profile = () => {
                     </button>
                     <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }}
                       aria-label="Cancel" className="neu-sm neu-press w-11 h-11 rounded-2xl flex items-center justify-center shrink-0">
-                      <X className="w-4 h-4 text-white/60" />
+                      <X className="w-4 h-4 text-muted-foreground" />
                     </button>
                   </div>
                 ) : (
@@ -284,13 +284,13 @@ const Profile = () => {
                     {canChangeUsername && (
                       <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username"
                         className="neu-sm neu-press w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
-                        <Edit2 className="w-3 h-3 text-white/60" />
+                        <Edit2 className="w-3 h-3 text-muted-foreground" />
                       </button>
                     )}
                   </div>
                 )}
                 {user?.email && (
-                  <p className="mt-1.5 text-[11.5px] text-white/40 truncate">{user.email}</p>
+                  <p className="mt-1.5 text-[11.5px] text-muted-foreground/80 truncate">{user.email}</p>
                 )}
               </div>
 
@@ -302,7 +302,7 @@ const Profile = () => {
                       <Crown className="w-3 h-3" /> Premium
                     </span>
                   ) : (
-                    <span className="neu-inset inline-flex items-center px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-white/45">
+                    <span className="neu-inset inline-flex items-center px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
                       Free
                     </span>
                   )}
@@ -312,7 +312,7 @@ const Profile = () => {
                     </span>
                   )}
                   {memberSinceLabel && (
-                    <span className="neu-inset inline-flex items-center px-3 py-1.5 rounded-full text-[10.5px] font-semibold text-white/45">
+                    <span className="neu-inset inline-flex items-center px-3 py-1.5 rounded-full text-[10.5px] font-semibold text-muted-foreground/80">
                       {memberSinceLabel}
                     </span>
                   )}
@@ -327,7 +327,7 @@ const Profile = () => {
             {/* ============ STATS ============ */}
             {profileSettled && user && listenStats.totalPlays > 0 && (
               <section className="neu rounded-[28px] p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/35 mb-4 px-1">Listening</p>
+                <p className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground/70 mb-4 px-1">Listening</p>
                 <div className="grid grid-cols-3 gap-3">
                   <Dial value={fmt(listenStats.minutes)} label="Minutes" />
                   <Dial value={fmt(listenStats.totalPlays)} label="Plays" />
@@ -341,8 +341,8 @@ const Profile = () => {
             {recentSongs.length > 0 && (
               <section>
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/35">Recently played</h2>
-                  <button onClick={() => navigate('/library')} className="neu-sm neu-press px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-white/55">
+                  <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground/70">Recently played</h2>
+                  <button onClick={() => navigate('/library')} className="neu-sm neu-press px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
                     Library
                   </button>
                 </div>
@@ -359,12 +359,12 @@ const Profile = () => {
                           {song.cover_url ? (
                             <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover rounded-2xl" loading="lazy" />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center"><Music2 className="w-6 h-6 text-white/20" /></div>
+                            <div className="w-full h-full flex items-center justify-center"><Music2 className="w-6 h-6 text-muted-foreground/60" /></div>
                           )}
                         </div>
                       </div>
-                      <p className="mt-2.5 px-1 text-[12px] font-semibold text-white/85 truncate leading-tight">{song.title}</p>
-                      <p className="px-1 text-[11px] text-white/35 truncate">{song.artist}</p>
+                      <p className="mt-2.5 px-1 text-[12px] font-semibold text-foreground truncate leading-tight">{song.title}</p>
+                      <p className="px-1 text-[11px] text-muted-foreground/70 truncate">{song.artist}</p>
                     </button>
                   ))}
                 </div>
@@ -373,17 +373,17 @@ const Profile = () => {
 
             {/* ============ LIBRARY ============ */}
             <section>
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/35 mb-4">Your library</h2>
+              <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground/70 mb-4">Your library</h2>
               <div className="space-y-3">
                 <Key icon={<Heart className="w-[18px] h-[18px] text-primary" fill="currentColor" />}
                   label="Liked Songs"
                   hint={profileSettled ? `${stats.likedSongs} ${stats.likedSongs === 1 ? 'song' : 'songs'}` : '—'}
                   onClick={() => navigate('/library?tab=liked')} />
-                <Key icon={<ListMusic className="w-[18px] h-[18px] text-white/70" />}
+                <Key icon={<ListMusic className="w-[18px] h-[18px] text-muted-foreground" />}
                   label="Playlists"
                   hint={profileSettled ? `${stats.playlists} ${stats.playlists === 1 ? 'playlist' : 'playlists'}` : '—'}
                   onClick={() => navigate('/library?tab=playlists')} />
-                <Key icon={<Download className="w-[18px] h-[18px] text-white/70" />}
+                <Key icon={<Download className="w-[18px] h-[18px] text-muted-foreground" />}
                   label="Downloads"
                   hint={profileSettled ? `${stats.downloads} offline` : '—'}
                   onClick={() => navigate('/downloads')} />
@@ -401,15 +401,15 @@ const Profile = () => {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="font-display text-[17px] tracking-wide">GO PREMIUM</p>
-                  <p className="text-[11.5px] text-white/45 mt-0.5">Ad-free · Offline · Studio EQ · Lossless</p>
+                  <p className="text-[11.5px] text-muted-foreground/80 mt-0.5">Ad-free · Offline · Studio EQ · Lossless</p>
                 </div>
-                <ChevronRight className="w-4 h-4 text-white/25" />
+                <ChevronRight className="w-4 h-4 text-muted-foreground/60" />
               </button>
             )}
 
             {/* ============ ACCOUNT ============ */}
             <section>
-              <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-white/35 mb-4">Account</h2>
+              <h2 className="text-[10px] font-bold uppercase tracking-[0.28em] text-muted-foreground/70 mb-4">Account</h2>
               <div className="space-y-3">
                 {profileSettled && isAdmin && (
                   <Key icon={<Shield className="w-[18px] h-[18px] text-primary" />} label="Admin Panel"
@@ -426,7 +426,7 @@ const Profile = () => {
               </div>
             </section>
 
-            <p className="text-center text-[9.5px] uppercase tracking-[0.35em] text-white/20 pt-2 pb-1">
+            <p className="text-center text-[9.5px] uppercase tracking-[0.35em] text-muted-foreground/60 pt-2 pb-1">
               Univers Flow
             </p>
           </div>
@@ -442,7 +442,7 @@ function Dial({ value, label }: { value: string; label: string }) {
   return (
     <div className="neu-inset rounded-2xl px-3 py-4 text-center">
       <p className="font-display font-bold text-[22px] leading-none tracking-wide">{value}</p>
-      <p className="mt-2 text-[9.5px] uppercase tracking-[0.2em] text-white/35 font-bold">{label}</p>
+      <p className="mt-2 text-[9.5px] uppercase tracking-[0.2em] text-muted-foreground/70 font-bold">{label}</p>
     </div>
   );
 }
@@ -455,9 +455,9 @@ function Key({ icon, label, hint, onClick }:
       <div className="neu-inset w-11 h-11 rounded-2xl flex items-center justify-center shrink-0">{icon}</div>
       <div className="flex-1 min-w-0">
         <p className="text-[14px] font-semibold leading-none">{label}</p>
-        {hint && <p className="text-[11px] text-white/35 mt-1.5 truncate">{hint}</p>}
+        {hint && <p className="text-[11px] text-muted-foreground/70 mt-1.5 truncate">{hint}</p>}
       </div>
-      <ChevronRight className="w-4 h-4 text-white/20" />
+      <ChevronRight className="w-4 h-4 text-muted-foreground/60" />
     </button>
   );
 }
