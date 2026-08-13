@@ -266,12 +266,11 @@ async function fetchNetease(artist: string, title: string): Promise<{ synced?: s
     const sj = await search.json();
     const songs = sj?.result?.songs;
     if (!Array.isArray(songs) || songs.length === 0) return null;
-    const tN = clean(title).toLowerCase(); const aN = clean(artist).toLowerCase();
+    // Require BOTH title and artist to line up — no "first result" fallback.
     const pick = songs.find((s: any) => {
-      const st = String(s?.name || '').toLowerCase();
-      const sa = Array.isArray(s?.artists) ? s.artists.map((a: any) => String(a?.name || '').toLowerCase()).join(' ') : '';
-      return st.includes(tN.slice(0, 18)) || (tN.includes(st) && sa.includes(aN.slice(0, 12)));
-    }) || songs[0];
+      const sa = Array.isArray(s?.artists) ? s.artists.map((a: any) => String(a?.name || '')) : [];
+      return titleMatches(title, s?.name || '') && sa.some((n: string) => artistMatches(artist, n));
+    });
     if (!pick?.id) return null;
     const lr = await fetch(`https://music.163.com/api/song/lyric?id=${encodeURIComponent(String(pick.id))}&lv=1&kv=1&tv=-1`, {
       headers: { 'User-Agent': 'Mozilla/5.0', Referer: 'https://music.163.com/' },
