@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from '@/lib/router-compat';
-import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2 } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2, UserSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { prewarmSong } from '@/lib/instantPlay';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
