@@ -291,6 +291,7 @@ async function fetchQQMusic(artist: string, title: string): Promise<{ synced?: s
     });
     if (!search.ok) return null;
     const raw = await search.text();
+    const j = JSON.parse(raw.replace(/^callback\(|\)$/g, ''));
     const list = Array.isArray(j?.data?.song?.list) ? j.data.song.list : [];
     const song = list.find((s: any) => {
       const singers = Array.isArray(s?.singer) ? s.singer.map((x: any) => String(x?.name || '')) : [];
