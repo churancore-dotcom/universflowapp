@@ -213,10 +213,10 @@ const MadeForYouSection = memo(() => {
 
   return (
     <section>
-      <div className="flex items-end justify-between mb-4 px-1">
+      <div className="flex items-end justify-between mb-5 px-1">
         <div>
-          <h2 className="font-display text-[28px] tracking-[0.04em] uppercase text-foreground">Made For You</h2>
-          <p className="text-xs text-muted-foreground/70 font-semibold mt-0.5">
+          <h2 className="font-display text-[32px] leading-[0.95] tracking-[0.02em] uppercase text-foreground font-black">Made For You</h2>
+          <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground/60 mt-1">
             {taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
           </p>
         </div>
@@ -226,7 +226,7 @@ const MadeForYouSection = memo(() => {
         whileTap={{ scale: 0.985 }}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[150px] overflow-hidden text-left rounded-[28px] neu p-4"
+        className="relative w-full min-h-[164px] overflow-hidden text-left rounded-[28px] neu neu-press p-5"
       >
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
         {hero.cover_url && (
@@ -252,11 +252,11 @@ const MadeForYouSection = memo(() => {
       </motion.button>
 
 
-      <div className="mt-3 rounded-[28px] overflow-hidden neu-sm">
+      <div className="mt-4 rounded-[28px] overflow-hidden neu-sm">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
-            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-3 py-2.5 border-b border-white/[0.05] last:border-0 text-left active:bg-white/[0.04] transition-colors">
+            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-5 py-3.5 border-b border-white/[0.05] last:border-0 text-left active:bg-white/[0.04] transition-colors">
               <div className="flex items-center gap-3 min-w-0">
                 <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums w-6">{String(idx + 2).padStart(2, '0')}.</span>
                 <div className="min-w-0">

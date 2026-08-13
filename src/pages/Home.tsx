@@ -307,13 +307,13 @@ const Home = () => {
                   transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
                   className="px-5"
                 >
-                  <div className="flex items-end justify-between mb-4">
-                    <h2 className="font-display text-[28px] tracking-[0.04em] text-foreground uppercase">
+                  <div className="flex items-end justify-between mb-5 px-1">
+                    <h2 className="font-display text-[32px] leading-[0.95] tracking-[0.02em] uppercase text-foreground font-black">
                       {heroContextLabel(signals, !!currentSong)}
                     </h2>
                     <button
                       onClick={shuffleAll}
-                      className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-[0.2em] text-muted-foreground"
+                      className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground/60 pb-1"
                     >
                       <Shuffle className="w-3.5 h-3.5" /> Shuffle
                     </button>
