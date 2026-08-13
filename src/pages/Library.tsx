@@ -344,7 +344,7 @@ const Library = () => {
                     {artists.map((artist: LibraryArtist, i: number) => (
                       <motion.div
                         key={artist.name}
-                        className="relative flex flex-col items-center p-3 rounded-2xl"
+                        className="relative flex flex-col items-center p-3 rounded-[28px]"
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: i * 0.05 }}

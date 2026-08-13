@@ -751,7 +751,7 @@ const Search = () => {
                             key={entry.id}
                             initial={{ opacity: 0, y: 4 }}
                             animate={{ opacity: 1, y: 0 }}
-                            className={`flex items-center gap-3 px-2 py-2 rounded-3xl active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'bg-card/40 active:bg-foreground/5'}`}
+                            className={`flex items-center gap-3 px-2 py-2 rounded-[28px] active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'bg-card/40 active:bg-foreground/5'}`}
                           >
                             <button
                               className="flex items-center gap-3 flex-1 min-w-0 text-left"
@@ -839,7 +839,7 @@ const Search = () => {
                       const isResolving = resolvingId === track.id;
                       return (
                         <div
-                          className={`flex items-center gap-3 px-3 py-2.5 rounded-3xl cursor-pointer active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'bg-card/40 active:bg-foreground/5'} ${isResolving ? 'opacity-60' : ''}`}
+                          className={`flex items-center gap-3 px-3 py-2.5 rounded-[28px] cursor-pointer active:scale-[0.98] transition-all ${isActive ? 'bg-primary/10' : 'bg-card/40 active:bg-foreground/5'} ${isResolving ? 'opacity-60' : ''}`}
                           onClick={() => !isResolving && handlePlayIndexed(track)}
                           onPointerDown={() => prewarmSong({ id: track.id, title: track.title, artist: track.artist, videoId: track.videoId, audio_url: track.audio_url })}
                         >
@@ -903,7 +903,7 @@ const Search = () => {
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ delay: i * 0.03, duration: 0.25 }}
-                        className="relative aspect-square overflow-hidden rounded-2xl text-left active:scale-[0.97] transition-transform bg-card border border-border"
+                        className="relative aspect-square overflow-hidden rounded-[28px] text-left active:scale-[0.97] transition-transform bg-card border border-border"
                       >
                         <img
                           src={a.image_url}
