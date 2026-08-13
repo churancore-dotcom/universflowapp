@@ -213,7 +213,7 @@
   }
 
   .uf-rose-gradient {
-    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(18 100% 82%) 100%);
+    background: linear-gradient(135deg, hsl(var(--primary)) 0%, hsl(var(--primary) / 0.72) 100%);
     box-shadow: 0 12px 40px -10px hsl(var(--primary) / 0.45);
   }
 
