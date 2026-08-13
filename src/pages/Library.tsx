@@ -182,8 +182,8 @@ const Library = () => {
           <div
             className="w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
             style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '0.5px solid rgba(255,255,255,0.06)',
+              background: 'hsl(var(--foreground) / 0.05)',
+              border: '1px solid hsl(var(--foreground) / 0.05)',
             }}
           >
             {song.cover_url ? (
@@ -219,7 +219,7 @@ const Library = () => {
     <div className="text-center py-10">
       <div
         className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-        style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.06)' }}
+        style={{ background: 'hsl(var(--foreground) / 0.05)', border: '1px solid hsl(var(--foreground) / 0.05)' }}
       >
         <Icon className="w-7 h-7 text-muted-foreground/40" />
       </div>
@@ -275,7 +275,7 @@ const Library = () => {
           <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setSearchParams({ tab: value }); }} className="flex-1 flex flex-col overflow-hidden">
             {/* Tabs — bento surface */}
             <TabsList
-              className="w-full h-12 p-1 mb-3 rounded-3xl grid grid-cols-4 flex-shrink-0 bg-card border border-white/5"
+              className="w-full h-12 p-1 mb-3 rounded-3xl grid grid-cols-4 flex-shrink-0 bg-card border border-border"
             >
               {[
                 { value: 'liked', icon: Heart, label: 'Liked' },
@@ -327,7 +327,7 @@ const Library = () => {
                   <div className="text-center py-10">
                     <div
                       className="w-16 h-16 rounded-2xl mx-auto mb-3 flex items-center justify-center"
-                      style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.06)' }}
+                      style={{ background: 'hsl(var(--foreground) / 0.05)', border: '1px solid hsl(var(--foreground) / 0.05)' }}
                     >
                       <User className="w-7 h-7 text-muted-foreground/40" />
                     </div>
@@ -349,8 +349,8 @@ const Library = () => {
                         animate={{ opacity: 1, scale: 1 }}
                         transition={{ delay: i * 0.05 }}
                         style={{
-                          background: 'rgba(255,255,255,0.03)',
-                          border: '0.5px solid rgba(255,255,255,0.06)',
+                          background: 'hsl(var(--foreground) / 0.05)',
+                          border: '1px solid hsl(var(--foreground) / 0.05)',
                         }}
                       >
                         <button
@@ -361,7 +361,7 @@ const Library = () => {
                             className="w-16 h-16 rounded-full flex items-center justify-center overflow-hidden mb-2"
                             style={{
                               background: 'linear-gradient(135deg, hsl(var(--primary) / 0.2), hsl(var(--accent) / 0.2))',
-                              border: '1.5px solid rgba(255,255,255,0.08)',
+                              border: '1.5px solid hsl(var(--foreground) / 0.05)',
                             }}
                           >
                             {artist.photoUrl ? (
@@ -403,8 +403,8 @@ const Library = () => {
                     <div
                       className="flex items-center justify-between p-3.5 rounded-xl"
                       style={{
-                        background: 'rgba(255,255,255,0.03)',
-                        border: '0.5px solid rgba(255,255,255,0.06)',
+                        background: 'hsl(var(--foreground) / 0.05)',
+                        border: '1px solid hsl(var(--foreground) / 0.05)',
                       }}
                     >
                       <div>
@@ -442,7 +442,7 @@ const Library = () => {
                         >
                           <button className="flex-1 flex items-center gap-2.5 text-left" onClick={() => handlePlaySong(song)}>
                             <div className="relative w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden"
-                              style={{ background: 'rgba(255,255,255,0.04)', border: '0.5px solid rgba(255,255,255,0.06)' }}
+                              style={{ background: 'hsl(var(--foreground) / 0.05)', border: '1px solid hsl(var(--foreground) / 0.05)' }}
                             >
                               {song.cover_url ? <img src={song.cover_url} alt={`${song.title} cover art`} className="w-full h-full object-cover" /> : <Music className="w-4 h-4 text-muted-foreground" />}
                               <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center">
@@ -470,8 +470,8 @@ const Library = () => {
                   <motion.button
                     className="w-full flex items-center gap-3 p-3.5 rounded-xl"
                     style={{
-                      background: 'rgba(255,255,255,0.03)',
-                      border: '0.5px solid rgba(255,255,255,0.06)',
+                      background: 'hsl(var(--foreground) / 0.05)',
+                      border: '1px solid hsl(var(--foreground) / 0.05)',
                     }}
                     onClick={() => setShowCreatePlaylist(true)}
                     whileTap={{ scale: 0.97 }}
