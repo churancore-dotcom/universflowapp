@@ -733,7 +733,7 @@ const Search = () => {
                 {searchHistory.length > 0 && (
                   <div className="mb-4">
                     <div className="flex items-center justify-between mb-2">
-                      <h2 className="text-sm font-bold flex items-center gap-1.5">
+                      <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none flex items-center gap-2">
                         <Clock className="w-4 h-4 text-muted-foreground" /> Recently Played
                       </h2>
                       <button
@@ -824,7 +824,7 @@ const Search = () => {
             <>
               {source === 'songs' && displayedIndexedResults.length > 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={libraryResults.length > 0 ? 'mt-6' : ''}>
-                  <h2 className="text-sm font-bold mb-3 flex items-center gap-1.5">
+                  <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 flex items-center gap-2">
                     <Music className="w-4 h-4 text-primary" />
                     Songs · {displayedIndexedResults.length}{hasMoreLocal || loadingMore ? '+' : ''} results
                   </h2>
@@ -890,7 +890,7 @@ const Search = () => {
               {/* Artists tab — grid of real artist profiles */}
               {source === 'artists' && artistResults.length > 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
-                  <h2 className="text-sm font-bold mb-3 flex items-center gap-1.5">
+                  <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 flex items-center gap-2">
                     <Radio className="w-4 h-4 text-primary" />
                     Artists · {artistResults.length}
                   </h2>
