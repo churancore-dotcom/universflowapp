@@ -180,7 +180,7 @@ const Library = () => {
       >
         <button className="flex-1 flex items-center gap-2.5 text-left min-w-0" onClick={() => handlePlaySong(song)}>
           <div
-            className="w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden flex-shrink-0"
+            className="w-11 h-11 rounded-[14px] flex items-center justify-center overflow-hidden flex-shrink-0"
             style={{
               background: 'hsl(var(--foreground) / 0.05)',
               border: '1px solid hsl(var(--foreground) / 0.05)',
@@ -290,7 +290,7 @@ const Library = () => {
                     key={tab.value}
                     value={tab.value}
                     disabled={disabled}
-                    className={`h-full rounded-2xl gap-1 text-[10px] font-bold data-[state=active]:bg-primary data-[state=active]:text-background flex flex-col items-center justify-center py-0.5 transition-all ${disabled ? 'opacity-30 pointer-events-none' : ''}`}
+                    className={`h-full rounded-2xl gap-1 text-[11px] font-bold tracking-wide data-[state=active]:bg-primary data-[state=active]:text-background flex flex-col items-center justify-center py-0.5 transition-all ${disabled ? 'opacity-30 pointer-events-none' : ''}`}
                   >
                     <Icon className="w-3.5 h-3.5" />
                     <span>{tab.label}</span>
@@ -302,7 +302,7 @@ const Library = () => {
             {/* Content — scrollable */}
             <div ref={scrollRef} className="flex-1 overflow-y-auto pb-32" style={{ WebkitOverflowScrolling: 'touch' }}>
               <TabsContent value="liked" className="mt-0 h-full">
-                <h2 className="sr-only">Liked Songs</h2>
+                <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 px-1">Liked Songs</h2>
                 {loading ? (
                   <LibrarySkeleton />
                 ) : likedSongs.length === 0 ? (
@@ -320,7 +320,7 @@ const Library = () => {
               </TabsContent>
 
               <TabsContent value="artists" className="mt-0">
-                <h2 className="sr-only">Followed Artists</h2>
+                <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 px-1">Followed Artists</h2>
                 {loading ? (
                   <LibraryArtistsSkeleton />
                 ) : artists.length === 0 ? (
@@ -386,7 +386,7 @@ const Library = () => {
               </TabsContent>
 
               <TabsContent value="downloads" className="mt-0">
-                <h2 className="sr-only">Saved Downloads</h2>
+                <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 px-1">Saved Downloads</h2>
                 {downloads.length === 0 ? (
                   <div className="space-y-3">
                     <EmptyState icon={CloudOff} text="No downloads yet" />
@@ -441,7 +441,7 @@ const Library = () => {
                           }}
                         >
                           <button className="flex-1 flex items-center gap-2.5 text-left" onClick={() => handlePlaySong(song)}>
-                            <div className="relative w-11 h-11 rounded-xl flex items-center justify-center overflow-hidden"
+                            <div className="relative w-11 h-11 rounded-[14px] flex items-center justify-center overflow-hidden"
                               style={{ background: 'hsl(var(--foreground) / 0.05)', border: '1px solid hsl(var(--foreground) / 0.05)' }}
                             >
                               {song.cover_url ? <img src={song.cover_url} alt={`${song.title} cover art`} className="w-full h-full object-cover" /> : <Music className="w-4 h-4 text-muted-foreground" />}
@@ -465,7 +465,7 @@ const Library = () => {
               </TabsContent>
 
               <TabsContent value="playlists" className="mt-0">
-                <h2 className="sr-only">Your Playlists</h2>
+                <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 px-1">Your Playlists</h2>
                 <div className="mb-3">
                   <motion.button
                     className="w-full flex items-center gap-3 p-3.5 rounded-xl"
@@ -477,7 +477,7 @@ const Library = () => {
                     whileTap={{ scale: 0.97 }}
                   >
                     <div
-                      className="w-11 h-11 rounded-xl flex items-center justify-center flex-shrink-0"
+                      className="w-11 h-11 rounded-[14px] flex items-center justify-center flex-shrink-0"
                       style={{ background: 'hsl(var(--primary) / 0.15)' }}
                     >
                       <Plus className="w-5 h-5 text-primary" />
@@ -508,7 +508,7 @@ const Library = () => {
                             coverUrl={playlist.cover_url}
                             coverUrls={(playlist as LibraryPlaylist & { cover_urls?: string[] }).cover_urls}
                             className="w-11 h-11 flex-shrink-0"
-                            rounded="rounded-xl"
+                            rounded="rounded-[14px]"
                             iconClassName="w-4 h-4 text-muted-foreground"
                           />
                           <div className="flex-1 min-w-0">
