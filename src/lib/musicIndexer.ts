@@ -483,8 +483,10 @@ export async function searchYouTubeMusicTracks(query: string, limit = 50): Promi
   });
 }
 
-export async function getYouTubeMusicNewReleases(country = 'US', limit = 24): Promise<IndexedTrack[]> {
-  const cc = /^[A-Z]{2}$/.test(country.toUpperCase()) ? country.toUpperCase() : 'US';
+export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Promise<IndexedTrack[]> {
+  // No detected country must fall back to the GLOBAL feed ('ZZ'), never the US
+  // (or any other single market) chart — this app ships worldwide.
+  const cc = /^[A-Z]{2}$/.test((country || '').toUpperCase()) ? country.toUpperCase() : 'ZZ';
   // Short in-memory cache (15 min) — no localStorage persistence, so fresh
   // drops actually appear when YT ships them instead of being pinned for days.
   const key = `youtube-new-releases-v2:${cc}:${limit}`;
