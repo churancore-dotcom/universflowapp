@@ -26,6 +26,8 @@ import PullToRefreshIndicator from '@/components/PullToRefresh';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { isSpamSong } from '@/pages/Search';
+import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 
 // Simple empty state
 const EmptyState = memo(() => (
@@ -95,6 +97,8 @@ const Home = () => {
   const { downloads } = useDownloads();
   const queryClient = useQueryClient();
   const country = useUserCountry();
+  // Re-pick the hero when a rail claims/releases fingerprints.
+  const claimVersion = useRailClaimVersion();
 
   // Artist users land on their Studio dashboard, not the listener home.
   // We only auto-route once per session so they can browse later if they wish.
@@ -189,10 +193,24 @@ const Home = () => {
     return typeof metadata.avatar_url === 'string' ? metadata.avatar_url : undefined;
   }, [user]);
 
+  // The hero read from the raw chart pool, so it showed whatever the country
+  // feed returned first — including junk uploads and, worse, the exact track
+  // Trending/New Releases were already showing (the repeated-song complaint).
+  // It now uses the same quality gate and the same cross-rail claim registry
+  // as every other shelf.
   const heroSong = useMemo(() => {
     if (currentSong) return currentSong;
-    return allSongs.find((s) => s.cover_url) || allSongs[0];
-  }, [currentSong, allSongs]);
+    const claimed = claimedByOtherRails('hero');
+    const clean = cleanRail(allSongs.filter((s) => !isSpamSong(s)), { requireCover: true });
+    return (
+      clean.find((s) => !claimed.has(songFingerprint(s)))
+      || clean[0]
+      || allSongs.find((s) => s.cover_url)
+      || allSongs[0]
+    );
+  }, [currentSong, allSongs, claimVersion]);
+
+  useEffect(() => { if (heroSong) claimRailSongs('hero', [heroSong]); }, [heroSong]);
 
   // When the hero IS the current track, the button must not restart it or
   // replace the live queue — it toggles playback like any player control.
