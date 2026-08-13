@@ -26,6 +26,8 @@ import PullToRefreshIndicator from '@/components/PullToRefresh';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { isSpamSong } from '@/pages/Search';
+import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 
 // Simple empty state
 const EmptyState = memo(() => (
