@@ -513,7 +513,8 @@ async function fetchWithFallbacks(
   ];
   if (primaryArtist && primaryArtist !== artist) variants.push({ artist: primaryArtist, title });
   if (stripped && stripped !== clean(title)) variants.push({ artist: primaryArtist, title: stripped });
-  if (stripped || title) variants.push({ artist: '', title: stripped || clean(title) });
+  // NOTE: no artist-less variant — a title-only lookup is exactly how another
+  // song's lyrics used to end up on screen.
 
   for (let i = 0; i < variants.length; i++) {
     const v = variants[i];
