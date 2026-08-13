@@ -236,7 +236,11 @@ async function fetchKugou(artist: string, title: string, durationSec?: number): 
     const sr = await fetch(searchUrl.toString(), { headers: { 'User-Agent': 'Mozilla/5.0', Accept: 'application/json' } });
     if (!sr.ok) return null;
     const sj = await sr.json();
-    const cand = sj?.candidates?.[0];
+    const cands = Array.isArray(sj?.candidates) ? sj.candidates : [];
+    // Only accept a candidate whose song + singer actually match the track.
+    const cand = cands.find((c: any) =>
+      titleMatches(title, c?.song || '') && artistMatches(artist, c?.singer || ''),
+    );
     if (!cand?.id || !cand?.accesskey) return null;
     const dlUrl = new URL('https://lyrics.kugou.com/download');
     dlUrl.searchParams.set('ver', '1'); dlUrl.searchParams.set('client', 'pc');
