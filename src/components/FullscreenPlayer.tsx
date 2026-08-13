@@ -112,6 +112,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
 
   const vibeSuggestions = useMemo(() => {
     if (!currentSong) return [];
+    const seenVibes = new Set<string>();
     const currentMood = currentSong.mood?.toLowerCase().trim();
     const currentGenre = currentSong.genre?.toLowerCase().trim();
     const currentArtist = currentSong.artist.toLowerCase().trim();
