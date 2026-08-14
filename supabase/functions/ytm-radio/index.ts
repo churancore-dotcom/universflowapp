@@ -106,6 +106,31 @@ function fingerprint(t: RadioTrack): string {
   return `${norm(t.title)}|${norm(t.artist)}`;
 }
 
+/**
+ * Same songs-only gate yt-music-search applies. Radio/autoplay was the last
+ * surface that could still inject non-music (podcast episodes, sports
+ * highlights, "edits", motivational clips) into the Same Vibe queue, because
+ * YT Music's automix happily mixes them in when the seed is a video.
+ */
+const NON_MUSIC = [
+  /\b(podcast|episode|interview|talk\s*show|stand[\s-]?up|standup|comedy|sketch|skit|roast)\b/i,
+  /\b(highlights?|grand\s*prix|formula\s*1|\bf1\b|race\s*(recap|review)|match|goals?|cricket|football|nba|nfl|wwe|ipl)\b/i,
+  /(?<!radio\s)(?<!club\s)(?<!extended\s)(?<!special\s)(?<!clean\s)(?<!dirty\s)\bedits?\b/i,
+  /\b(amv|montage|fan\s*cam|fancam|4k\s*edit|cinematic)\b/i,
+  /\b(trailer|teaser|movie\s*clip|full\s*movie|web\s*series|documentary|scene\b)/i,
+  /\b(gameplay|walkthrough|unboxing|review|reaction|vlog|tutorial|how\s*to|motivation(al)?|speech|seminar|leadership|business|mindset|success)\b/i,
+  /\b(asmr|meditation|white\s*noise|sleep\s*sounds?|study\s*with\s*me|rain\s*sounds?)\b/i,
+  /\b(news|breaking|q\s*&\s*a|explained|analysis)\b/i,
+  /\b(jukebox|non\s*stop|mashup|medley|full\s*album|karaoke|ringtone)\b/i,
+];
+function isMusicTrack(t: RadioTrack): boolean {
+  const hay = `${t.title} ${t.artist}`;
+  if (NON_MUSIC.some((p) => p.test(hay))) return false;
+  // A radio row that runs under 45s or past 15min is a clip or a compilation.
+  if (t.duration && (t.duration < 45 || t.duration > 900)) return false;
+  return true;
+}
+
 async function fetchRadio(videoId: string): Promise<RadioTrack[]> {
   const out: RadioTrack[] = [];
   const seenIds = new Set<string>([videoId]);
