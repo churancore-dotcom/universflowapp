@@ -151,6 +151,70 @@ export function artistMatches(want: string, got: string): boolean {
   return wants.some((w) => g === w || g.includes(w) || w.includes(g));
 }
 
+// ───────── YouTube Music lyrics (exact videoId, no fuzzy matching) ─────────
+// Port of ytmusicapi's get_lyrics flow: `next` on the videoId exposes a Lyrics
+// tab whose browseId resolves to the lyrics YouTube Music itself shows for that
+// exact recording. Because it is keyed by videoId there is no title/artist
+// guessing involved, so it can never serve another song's lyrics.
+const YTM_HEADERS = {
+  'Content-Type': 'application/json',
+  'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0 Safari/537.36',
+  'X-Goog-AuthUser': '0',
+  'X-Origin': 'https://music.youtube.com',
+  Origin: 'https://music.youtube.com',
+  Referer: 'https://music.youtube.com/',
+};
+const YTM_CONTEXT = {
+  client: { clientName: 'WEB_REMIX', clientVersion: '1.20241218.01.00', hl: 'en', gl: 'US' },
+};
+
+/** `ytm-<videoId>` / `yt-video:<videoId>` / raw id → videoId. */
+function extractVideoId(...candidates: Array<string | undefined>): string | null {
+  for (const c of candidates) {
+    const raw = String(c || '').trim();
+    if (!raw) continue;
+    const m = raw.match(/^(?:ytm-|yt-video:|ytv-)?([A-Za-z0-9_-]{11})$/);
+    if (m) return m[1];
+  }
+  return null;
+}
+
+async function fetchYtMusicLyrics(videoId: string): Promise<{ plain?: string } | null> {
+  try {
+    const nextResp = await fetch('https://music.youtube.com/youtubei/v1/next?prettyPrint=false', {
+      method: 'POST',
+      headers: YTM_HEADERS,
+      body: JSON.stringify({ context: YTM_CONTEXT, videoId, isAudioOnly: true }),
+    });
+    if (!nextResp.ok) return null;
+    const nextJson = await nextResp.json();
+    const tabs =
+      nextJson?.contents?.singleColumnMusicWatchNextResultsRenderer?.tabbedRenderer
+        ?.watchNextTabbedResultsRenderer?.tabs || [];
+    let browseId: string | undefined;
+    for (const tab of tabs) {
+      const r = tab?.tabRenderer;
+      const title = String(r?.title || '');
+      const id = r?.endpoint?.browseEndpoint?.browseId;
+      if (/lyric/i.test(title) && typeof id === 'string') { browseId = id; break; }
+    }
+    if (!browseId) return null;
+
+    const browseResp = await fetch('https://music.youtube.com/youtubei/v1/browse?prettyPrint=false', {
+      method: 'POST',
+      headers: YTM_HEADERS,
+      body: JSON.stringify({ context: YTM_CONTEXT, browseId }),
+    });
+    if (!browseResp.ok) return null;
+    const browseJson = await browseResp.json();
+    const section = browseJson?.contents?.sectionListRenderer?.contents?.[0];
+    const runs = section?.musicDescriptionShelfRenderer?.description?.runs || [];
+    const plain = runs.map((r: any) => String(r?.text || '')).join('').trim();
+    if (!plain || plain.length < 15) return null;
+    return { plain };
+  } catch { return null; }
+}
+
 /** Pick the best verified synced hit; unverified rows are rejected outright. */
 function pickLrclib(arr: any[], wantArtist: string, wantTitle: string, durationSec?: number): { synced?: string; plain?: string } | null {
   if (!Array.isArray(arr) || arr.length === 0) return null;
