@@ -10,6 +10,7 @@ import { tasteScore } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmNewReleases } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
+import { RailSkeleton } from './PageSkeletons';
 import { cleanRail, diversifyByArtist, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 
 interface Props { songs?: Song[]; enabled?: boolean }
@@ -18,7 +19,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   const { playSong } = usePlayer();
   const taste = useTasteProfile();
   const country = useUserCountry();
-  const { data: pool = [] } = useYtmNewReleases(country, 24, enabled);
+  const { data: pool = [], isLoading } = useYtmNewReleases(country, 24, enabled);
   // Re-run the memo when another rail (Trending) changes what it claims.
   const claimVersion = useRailClaimVersion();
 
@@ -51,9 +52,9 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
 
   React.useEffect(() => { claimRailSongs('fresh', fresh); }, [fresh]);
-  React.useEffect(() => { prewarmSongs(fresh, 2); }, [fresh]);
+  React.useEffect(() => { prewarmSongs(fresh, 4); }, [fresh]);
 
-  if (fresh.length === 0) return null;
+  if (fresh.length === 0) return enabled && isLoading ? <RailSkeleton layout="grid" title="w-52" /> : null;
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, fresh); };
 
   return (
