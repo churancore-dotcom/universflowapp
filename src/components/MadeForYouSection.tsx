@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useQuery } from '@tanstack/react-query';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
+import { RailSkeleton } from './PageSkeletons';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
@@ -52,7 +53,7 @@ const MadeForYouSection = memo(() => {
     [recentEntries],
   );
 
-  const { data: mix = [] } = useQuery({
+  const { data: mix = [], isLoading } = useQuery({
     // Bug: keying on every recent id + the raw signal count re-created the key
     // (and refetched 3 searches) after literally every play, which is why the
     // shelf kept flickering to a different set. Key on the top seeds only and
@@ -204,9 +205,9 @@ const MadeForYouSection = memo(() => {
     },
   });
 
-  React.useEffect(() => { prewarmSongs(mix, 2); }, [mix]);
+  React.useEffect(() => { prewarmSongs(mix, 4); }, [mix]);
 
-  if (!mix.length) return null;
+  if (!mix.length) return isLoading ? <RailSkeleton layout="mix" title="w-48" /> : null;
   const hero = mix[0];
   const rest = mix.slice(1, 5);
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, mix); };

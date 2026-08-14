@@ -12,6 +12,7 @@ import { useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { useCountryCharts, countryLabel } from '@/lib/countryCharts';
 import { useAppTrending } from '@/lib/appTrending';
+import { RailSkeleton } from './PageSkeletons';
 import { cleanRail, diversifyByArtist, songFingerprint, claimRailSongs } from '@/lib/railQuality';
 
 
@@ -80,9 +81,13 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   React.useEffect(() => { claimRailSongs('trending', trending); }, [trending]);
 
   // Pre-resolve the top of the chart so the first taps are instant.
-  React.useEffect(() => { prewarmSongs(trending, 2); }, [trending]);
+  React.useEffect(() => { prewarmSongs(trending, 4); }, [trending]);
 
-  if (trending.length === 0) return null;
+  // Never render nothing while the chart query is in flight — that is what made
+  // Home look frozen. Skeleton mirrors the real poster layout.
+  if (trending.length === 0) {
+    return enabled && (chartsLoading || (needsFallback && !countryChart)) ? <RailSkeleton layout="poster" /> : null;
+  }
 
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, trending); };
   const lead = trending[0];

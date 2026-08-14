@@ -1,5 +1,6 @@
-import React, { memo, useState, useRef, useEffect } from 'react';
+import React, { memo, useState, useRef, useEffect, useMemo } from 'react';
 import { cn } from '@/lib/utils';
+import { artworkCandidates } from '@/lib/artworkUrl';
 
 interface OptimizedImageProps {
   src: string | undefined;
@@ -8,16 +9,6 @@ interface OptimizedImageProps {
   placeholderClassName?: string;
   eager?: boolean; // Skip lazy loading for above-the-fold content
   onLoad?: () => void;
-}
-
-function upgradeArtworkUrl(url?: string) {
-  if (!url) return url;
-  if (url.includes('googleusercontent.com')) {
-    return url.replace(/=w\d+-h\d+[^&]*/i, '=w544-h544-l90-rj');
-  }
-  return url
-    .replace(/\/default\.jpg/i, '/hqdefault.jpg')
-    .replace(/\/mqdefault\.jpg/i, '/hqdefault.jpg');
 }
 
 const OptimizedImage = memo(({ 
@@ -33,6 +24,12 @@ const OptimizedImage = memo(({
   const [hasError, setHasError] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Bar-free candidates, best quality first. A missing `maxresdefault` 404s, so
+  // onError walks down the list instead of showing the error tile.
+  const candidates = useMemo(() => artworkCandidates(src), [src]);
+  const [candidateIndex, setCandidateIndex] = useState(0);
+  useEffect(() => { setCandidateIndex(0); setIsLoaded(false); setHasError(false); }, [candidates.join('|')]);
 
   // Use Intersection Observer for lazy loading
   useEffect(() => {
@@ -65,6 +62,10 @@ const OptimizedImage = memo(({
   };
 
   const handleError = () => {
+    if (candidateIndex < candidates.length - 1) {
+      setCandidateIndex((i) => i + 1);
+      return;
+    }
     setHasError(true);
     setIsLoaded(true);
   };
@@ -105,10 +106,12 @@ const OptimizedImage = memo(({
         return (
         <img
           ref={imgRef}
-          src={upgradeArtworkUrl(src)}
+          src={candidates[candidateIndex] ?? src}
           alt={safeAlt}
           className={cn(
-            "w-full h-full object-cover transition-opacity duration-300",
+            // Absolute fill so the artwork always covers the card box exactly,
+            // whatever the source image's aspect ratio is.
+            "absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-300",
             isLoaded ? "opacity-100" : "opacity-0"
           )}
           loading={eager ? "eager" : "lazy"}
