@@ -606,6 +606,7 @@ Deno.serve(async (req) => {
     const title = String(body?.title || '').trim();
     const duration = Number(body?.duration) || undefined;
     const songId = String(body?.songId || '').trim() || undefined;
+    const videoId = extractVideoId(body?.videoId, songId, body?.audioUrl);
 
     if (!artist || !title) {
       return new Response(JSON.stringify({ success: false, error: 'artist and title required' } satisfies LyricsResponse), {
@@ -625,10 +626,17 @@ Deno.serve(async (req) => {
     let attempt = 0;
     let provider: ProviderLyrics | null = artistLyrics;
     if (!provider) {
-      const res = await fetchWithFallbacks(artist, title, duration);
-      provider = res.provider;
+      // Exact-videoId lyrics race the matched providers: a verified *synced*
+      // hit still wins (better UX), otherwise YouTube Music's own lyrics for
+      // this exact recording beat any text/plain match.
+      const ytmTask = videoId
+        ? withTimeout(fetchYtMusicLyrics(videoId), 4000).then((r) => (r ? { ...r, source: 'ytmusic' as const } : null))
+        : Promise.resolve(null);
+      const [res, ytm] = await Promise.all([fetchWithFallbacks(artist, title, duration), ytmTask]);
+      provider = res.provider?.synced ? res.provider : (ytm || res.provider);
       attempt = res.attempt;
     }
+
 
     const payload: LyricsResponse = {
       success: true,
