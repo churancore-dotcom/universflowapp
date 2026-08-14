@@ -24,6 +24,7 @@ import { hydratePlaylistCoverUrls, loadLibrarySongs } from '@/lib/streamSongs';
 import { getUserArtistPrefs, unfollowArtist } from '@/lib/userArtistPrefs';
 import { Heart as HeartIcon } from 'lucide-react';
 import { toast } from 'sonner';
+import { prewarmIntentProps } from '@/lib/instantPlay';
 
 const formatBytes = (bytes: number) => {
   if (bytes === 0) return '0 B';
@@ -178,7 +179,11 @@ const Library = () => {
           background: isActive ? 'hsl(var(--primary) / 0.08)' : 'transparent',
         }}
       >
-        <button className="flex-1 flex items-center gap-2.5 text-left min-w-0" onClick={() => handlePlaySong(song)}>
+        <button
+          className="flex-1 flex items-center gap-2.5 text-left min-w-0"
+          onClick={() => handlePlaySong(song)}
+          {...prewarmIntentProps(song)}
+        >
           <div
             className="w-11 h-11 rounded-[14px] flex items-center justify-center overflow-hidden flex-shrink-0"
             style={{
@@ -440,7 +445,7 @@ const Library = () => {
                             background: currentSong?.id === song.id ? 'hsl(var(--primary) / 0.08)' : 'transparent',
                           }}
                         >
-                          <button className="flex-1 flex items-center gap-2.5 text-left" onClick={() => handlePlaySong(song)}>
+                          <button className="flex-1 flex items-center gap-2.5 text-left" onClick={() => handlePlaySong(song)} {...prewarmIntentProps(song)}>
                             <div className="relative w-11 h-11 rounded-[14px] flex items-center justify-center overflow-hidden"
                               style={{ background: 'hsl(var(--foreground) / 0.05)', border: '1px solid hsl(var(--foreground) / 0.05)' }}
                             >
