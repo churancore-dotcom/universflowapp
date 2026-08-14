@@ -148,8 +148,10 @@ export const HomeSkeleton = memo(() => (
  *  - grid:   2-column artwork grid (New Releases)
  *  - mix:    hero panel + stacked rows (Made For You)
  */
+type RailSkeletonProps = { layout?: 'poster' | 'grid' | 'mix'; title?: string };
+
 export const RailSkeleton = memo(
-  ({ layout = 'poster', title = 'w-40' }: { layout?: 'poster' | 'grid' | 'mix'; title?: string }) => (
+  ({ layout = 'poster', title = 'w-40' }: RailSkeletonProps) => (
     <section style={{ animation: 'fade-in 0.32s ease-out both' }}>
       <div className="flex items-end justify-between mb-5 px-1">
         <div className="space-y-2">
