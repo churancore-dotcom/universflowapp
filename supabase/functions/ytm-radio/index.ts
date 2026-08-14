@@ -75,35 +75,88 @@ function* walkPanel(node: any): Generator<any> {
   }
 }
 
+/** Any continuation token in a watch-panel response (radio or plain next). */
+function findContinuation(node: any): string | null {
+  if (!node || typeof node !== 'object') return null;
+  if (Array.isArray(node)) {
+    for (const c of node) { const f = findContinuation(c); if (f) return f; }
+    return null;
+  }
+  const direct =
+    node?.nextRadioContinuationData?.continuation ||
+    node?.nextContinuationData?.continuation;
+  if (typeof direct === 'string' && direct) return direct;
+  for (const k of Object.keys(node)) {
+    const v = (node as any)[k];
+    if (v && typeof v === 'object') { const f = findContinuation(v); if (f) return f; }
+  }
+  return null;
+}
+
+/** Fingerprint used on top of videoId: the same recording is re-uploaded under
+ *  several ids, which is how the queue ended up showing one track 3x. */
+function fingerprint(t: RadioTrack): string {
+  const norm = (s: string) =>
+    s.toLowerCase()
+      .replace(/[\(\[][^\)\]]*[\)\]]/g, '')
+      .replace(/\s*[-–—]\s*(official|lyrics?|audio|video|visualizer|mv).*$/i, '')
+      .replace(/[^a-z0-9\u4e00-\u9fff ]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+  return `${norm(t.title)}|${norm(t.artist)}`;
+}
+
 async function fetchRadio(videoId: string): Promise<RadioTrack[]> {
-  // RDAMVM<id> = official "Mix" radio playlist YT Music auto-builds for any video.
-  const resp = await fetch('https://music.youtube.com/youtubei/v1/next?prettyPrint=false', {
-    method: 'POST',
-    headers: YTM_HEADERS,
-    body: JSON.stringify({
-      context: YTM_CONTEXT,
-      videoId,
-      playlistId: `RDAMVM${videoId}`,
-      isAudioOnly: true,
-      tunerSettingValue: 'AUTOMIX_SETTING_NORMAL',
-    }),
-  });
-  if (!resp.ok) {
-    console.warn('ytm-radio next failed', resp.status);
-    return [];
-  }
-  const json = await resp.json();
   const out: RadioTrack[] = [];
-  const seen = new Set<string>();
-  for (const item of walkPanel(json)) {
-    const t = extractFromWatchItem(item);
-    if (!t) continue;
-    if (t.videoId === videoId) continue;
-    if (seen.has(t.videoId)) continue;
-    seen.add(t.videoId);
-    out.push(t);
+  const seenIds = new Set<string>([videoId]);
+  const seenPrints = new Set<string>();
+
+  const collect = (json: any) => {
+    for (const item of walkPanel(json)) {
+      const t = extractFromWatchItem(item);
+      if (!t) continue;
+      if (seenIds.has(t.videoId)) continue;
+      const fp = fingerprint(t);
+      if (fp !== '|' && seenPrints.has(fp)) continue;
+      seenIds.add(t.videoId);
+      seenPrints.add(fp);
+      out.push(t);
+      if (out.length >= 40) return;
+    }
+  };
+
+  // RDAMVM<id> = official "Mix" radio playlist YT Music auto-builds for any video.
+  const basePayload = {
+    context: YTM_CONTEXT,
+    videoId,
+    playlistId: `RDAMVM${videoId}`,
+    isAudioOnly: true,
+    tunerSettingValue: 'AUTOMIX_SETTING_NORMAL',
+  };
+
+  let continuation: string | null = null;
+  // Page 0 plus up to 2 continuation pages (ytmusicapi's watch-playlist paging);
+  // one page alone often returns a short, repetitive queue.
+  for (let page = 0; page < 3; page++) {
+    const url = continuation
+      ? `https://music.youtube.com/youtubei/v1/next?prettyPrint=false&ctoken=${encodeURIComponent(continuation)}&continuation=${encodeURIComponent(continuation)}&type=next`
+      : 'https://music.youtube.com/youtubei/v1/next?prettyPrint=false';
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: YTM_HEADERS,
+      body: JSON.stringify(continuation ? { context: YTM_CONTEXT } : basePayload),
+    });
+    if (!resp.ok) {
+      console.warn('ytm-radio next failed', resp.status, 'page', page);
+      break;
+    }
+    const json = await resp.json();
+    collect(json);
     if (out.length >= 40) break;
+    continuation = findContinuation(json);
+    if (!continuation) break;
   }
+
   return out;
 }
 
