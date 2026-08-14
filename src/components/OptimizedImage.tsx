@@ -62,6 +62,10 @@ const OptimizedImage = memo(({
   };
 
   const handleError = () => {
+    if (candidateIndex < candidates.length - 1) {
+      setCandidateIndex((i) => i + 1);
+      return;
+    }
     setHasError(true);
     setIsLoaded(true);
   };
