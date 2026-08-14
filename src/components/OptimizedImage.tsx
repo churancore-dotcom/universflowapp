@@ -106,10 +106,12 @@ const OptimizedImage = memo(({
         return (
         <img
           ref={imgRef}
-          src={upgradeArtworkUrl(src)}
+          src={candidates[candidateIndex] ?? src}
           alt={safeAlt}
           className={cn(
-            "w-full h-full object-cover transition-opacity duration-300",
+            // Absolute fill so the artwork always covers the card box exactly,
+            // whatever the source image's aspect ratio is.
+            "absolute inset-0 w-full h-full object-cover object-center transition-opacity duration-300",
             isLoaded ? "opacity-100" : "opacity-0"
           )}
           loading={eager ? "eager" : "lazy"}
