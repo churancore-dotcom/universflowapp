@@ -1369,6 +1369,90 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
 
 
 
+// ── JioSaavn direct resolve (a source we control) ──
+// Every YouTube-derived source (Invidious / Piped / Cobalt) is a free public
+// mirror; when that fleet degrades (403/502/CAPTCHA walls) playback died for
+// every track. JioSaavn serves CORS-clean CDN audio from our own worker, so we
+// try it first and only fall back to the mirror race when it cannot match.
+const SAAVN_API = 'https://jiosaavn-api.universflow.workers.dev';
+
+const saavnClean = (v = '') =>
+  v.replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#039;/g, "'")
+    .toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+
+function saavnArtists(song: any): string {
+  const primary = song?.artists?.primary;
+  if (Array.isArray(primary) && primary.length) {
+    return primary.map((a: any) => a?.name).filter(Boolean).join(', ');
+  }
+  if (typeof song?.primaryArtists === 'string') return song.primaryArtists;
+  return song?.artist || '';
+}
+
+function saavnAudio(song: any): string | undefined {
+  const dl = song?.downloadUrl;
+  if (typeof dl === 'string') return dl;
+  if (Array.isArray(dl)) {
+    const hi = dl.find((u: any) => u?.quality === '320kbps')
+      || dl.find((u: any) => u?.quality === '160kbps')
+      || dl[dl.length - 1];
+    return hi?.url || hi?.link;
+  }
+  return undefined;
+}
+
+function saavnImage(song: any): string | undefined {
+  const img = song?.image;
+  if (typeof img === 'string') return img;
+  if (Array.isArray(img)) {
+    const last = img[img.length - 1];
+    return last?.url || last?.link;
+  }
+  return undefined;
+}
+
+/** Title must match; artist must overlap unless the title is an exact hit. */
+function saavnConfident(song: any, title: string, artist: string): boolean {
+  const st = saavnClean(song?.name || song?.title || '');
+  const sa = saavnClean(saavnArtists(song));
+  const wt = saavnClean(title);
+  const wa = saavnClean(artist);
+  if (!st || !wt) return false;
+  const titleExact = st === wt;
+  const titleLoose = titleExact || st.includes(wt) || wt.includes(st);
+  if (!titleLoose) return false;
+  if (!wa || !sa) return titleLoose;
+  const artistOverlap = sa.includes(wa) || wa.includes(sa)
+    || wa.split(' ').some((tok) => tok.length > 2 && sa.includes(tok));
+  return artistOverlap || titleExact;
+}
+
+async function resolveViaSaavn(
+  artist: string,
+  title: string,
+): Promise<{ streamUrl: string; duration?: number; cover_url?: string } | null> {
+  const query = [title, artist].filter(Boolean).join(' ').trim();
+  if (query.length < 2) return null;
+  try {
+    const data = await fetchJson(
+      `${SAAVN_API}/api/search/songs?query=${encodeURIComponent(query)}&limit=8`,
+      5000,
+    ) as any;
+    const results: any[] = Array.isArray(data?.data?.results) ? data.data.results : [];
+    for (const song of results) {
+      if (!saavnConfident(song, title, artist)) continue;
+      const url = saavnAudio(song);
+      if (!url || !isAllowedAudioProxyUrl(url)) continue;
+      const duration = Number(song?.duration) || undefined;
+      console.log(`[resolve] ✓ ${artist} - ${title} via jiosaavn (${song?.id})`);
+      return { streamUrl: url, duration, cover_url: saavnImage(song) };
+    }
+  } catch (e) {
+    console.warn('[resolve] jiosaavn failed:', (e as Error).message);
+  }
+  return null;
+}
+
 async function resolveStream(artist: string, title: string, forceRefresh = false): Promise<ResolveResult> {
   const ck = `resolve:${artist}:${title}`;
   const cached = getCached<ResolveResult>(ck);
