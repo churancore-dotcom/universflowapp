@@ -1473,6 +1473,25 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
     return result;
   }
 
+  // ── Source we control, tried first ──
+  const saavn = await resolveViaSaavn(artist, title);
+  if (saavn?.streamUrl) {
+    const result: ResolveResult = {
+      success: true,
+      streamUrl: saavn.streamUrl,
+      duration: saavn.duration,
+      title, artist,
+      cover_url: saavn.cover_url,
+    };
+    setCached(ck, result, 45 * 60 * 1000);
+    void writeDbCachedStream(artist, title, {
+      streamUrl: result.streamUrl!,
+      duration: result.duration,
+      cover_url: result.cover_url,
+    });
+    return result;
+  }
+
   await refreshInstances();
 
   console.log(`[resolve] searching for: ${artist} - ${title}`);
