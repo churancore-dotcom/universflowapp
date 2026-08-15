@@ -60,7 +60,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   return (
     <section>
       <div className="flex items-end justify-between mb-5 px-1">
-        <h2 className="font-display text-[32px] leading-[0.95] tracking-[0.02em] uppercase text-foreground font-black">New Releases</h2>
+        <h2 className="uf-shelf-title">New Releases</h2>
         <span className="text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground/60 pb-1">All releases</span>
       </div>
 
@@ -73,10 +73,10 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
             whileTap={{ scale: 0.96 }}
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.03 + idx * 0.03 }}
-            className={`min-w-0 text-left neu-press rounded-[28px] ${idx % 2 === 1 ? 'pt-6' : ''}`}
+            transition={{ type: 'spring', stiffness: 120, damping: 18, delay: 0.03 + idx * 0.05 }}
+            className={`min-w-0 text-left ${idx === 0 ? 'col-span-2' : ''} ${idx % 2 === 0 && idx > 0 ? 'pt-6' : ''}`}
           >
-            <div className="aspect-square rounded-[28px] overflow-hidden bg-card mb-3 relative neu">
+            <div className={`overflow-hidden mb-3 relative uf-tile ${idx === 0 ? 'aspect-[16/10]' : 'aspect-square'}`}>
               {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
               {idx === 0 && (
                 <span className="absolute bottom-2 right-2 w-8 h-8 rounded-full bg-primary flex items-center justify-center">
