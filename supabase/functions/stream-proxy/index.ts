@@ -169,10 +169,18 @@ function isAllowed(target: string): boolean {
 
 async function fetchAllowedTarget(target: string, req: Request, range: string | null, redirects = 0): Promise<Response> {
   if (!isAllowed(target)) throw new Error('Redirect target not allowed');
+  // googlevideo signed URLs reject range-less GETs from datacenter IPs with 403.
+  // Sending an open-ended Range keeps semantics identical for clients that did
+  // not ask for one, while satisfying the CDN's expectation of a ranged read.
+  let effectiveRange = range;
+  try {
+    const host = new URL(target).hostname.toLowerCase();
+    if (!effectiveRange && host.endsWith('.googlevideo.com')) effectiveRange = 'bytes=0-';
+  } catch { /* ignore */ }
   const upstream = await fetch(target, {
     method: req.method,
     headers: {
-      ...(range ? { range } : {}),
+      ...(effectiveRange ? { range: effectiveRange } : {}),
       'user-agent': 'Mozilla/5.0 (UniversFlow Stream Proxy)',
       accept: '*/*',
     },
@@ -180,6 +188,7 @@ async function fetchAllowedTarget(target: string, req: Request, range: string | 
     // allowlisted mirrors redirecting the edge runtime to internal/cloud IPs.
     redirect: 'manual',
   });
+
 
   if (upstream.status >= 300 && upstream.status < 400) {
     // Signed music CDN URLs (especially googlevideo / JioSaavn CDNs) can bounce
