@@ -1554,7 +1554,12 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
     return fallback;
   }
 
-  return { success: false, error: 'All stream sources are currently unavailable', fallback: true };
+  return {
+    success: false,
+    error: 'This track is temporarily unavailable — tap play again to retry',
+    fallback: true,
+    retryable: true,
+  };
 }
 
 // ── HTTP handler ──
