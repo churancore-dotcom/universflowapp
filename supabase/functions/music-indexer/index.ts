@@ -1012,7 +1012,89 @@ function extractVideoId(c: unknown) {
   return w?.[1];
 }
 
+// ── Match confidence ────────────────────────────────────────────────────────
+// Same standard as the JioSaavn matcher: the candidate's title must really be
+// the requested title, AND the artist must be evidenced in either the video
+// title or the uploading channel. Without this a loose search score could win
+// the race and we'd confidently play the wrong recording.
+function strongTitleArtistMatch(item: Record<string, unknown>, artist: string, title: string): boolean {
+  const iTitle = normalizeText(String(item.title || ''));
+  const iArtist = normalizeText(String(item.author || item.uploaderName || item.uploader || ''));
+  const wTitle = normalizeText(title);
+  const wArtist = normalizeText(artist);
+  if (!iTitle || !wTitle) return false;
+
+  const titleHit = iTitle.includes(wTitle) || wTitle.includes(iTitle);
+  if (!titleHit) {
+    // Allow "title (feat. X)" / "title - topic" style variance, but demand that
+    // nearly every meaningful word of the requested title is present.
+    const words = wTitle.split(' ').filter((w) => w.length > 2);
+    if (!words.length) return false;
+    const hits = words.filter((w) => iTitle.includes(w)).length;
+    if (hits / words.length < 0.85) return false;
+  }
+
+  if (!wArtist) return true;
+  const haystack = `${iTitle} ${iArtist}`;
+  if (haystack.includes(wArtist)) return true;
+  const aWords = wArtist.split(' ').filter((w) => w.length > 2);
+  if (!aWords.length) return false;
+  return aWords.filter((w) => haystack.includes(w)).length / aWords.length >= 0.6;
+}
+
 // ── Search: parallel race across healthy instances ──
+
+/**
+ * Mirror-free candidate discovery via YouTube Music's own InnerTube search
+ * (WEB_REMIX, songs-only params). Works without an API key and without any
+ * third-party instance, so search survives the same outage the resolver does.
+ */
+async function innerTubeSearchCandidates(artist: string, title: string): Promise<Record<string, unknown>[]> {
+  const query = `${artist} ${title}`.trim();
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Origin': 'https://music.youtube.com',
+        'X-YouTube-Client-Name': '67',
+        'X-YouTube-Client-Version': '1.20240101.01.00',
+      },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' } },
+        query,
+        // songs-only search filter (public InnerTube param)
+        params: 'EgWKAQIIAWoKEAoQCRADEAQQBQ%3D%3D',
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const raw = await res.text();
+    const out: Record<string, unknown>[] = [];
+    const seen = new Set<string>();
+    // musicResponsiveListItemRenderer blobs are deeply nested and versioned;
+    // pull ids in document order (relevance order) and score them by the
+    // surrounding text window rather than walking a fragile renderer tree.
+    for (const m of raw.matchAll(/"videoId":"([\w-]{11})"/g)) {
+      const vid = m[1];
+      if (seen.has(vid)) continue;
+      seen.add(vid);
+      const window = raw.slice(Math.max(0, (m.index ?? 0) - 4000), (m.index ?? 0) + 2000);
+      const texts = [...window.matchAll(/"text":"((?:[^"\\]|\\.){2,120})"/g)].map((x) => x[1]);
+      const itemTitle = texts.find((s) => !/^\s*[•·]\s*$/.test(s)) || '';
+      out.push({ videoId: vid, title: itemTitle, author: texts.slice(1, 4).join(' '), _source: 'innertube-music' });
+      if (out.length >= 6) break;
+    }
+    return out;
+  } catch (e) {
+    console.warn('[search] innertube music search failed:', (e as Error).message);
+    return [];
+  }
+}
 
 async function searchForCandidates(artist: string, title: string): Promise<Record<string, unknown>[]> {
   const query = `${artist} ${title} audio`;
@@ -1026,9 +1108,18 @@ async function searchForCandidates(artist: string, title: string): Promise<Recor
     candidates.push(item);
   };
 
+  // Mirror-free source first: YouTube Music InnerTube songs search.
+  for (const item of await innerTubeSearchCandidates(artist, title)) {
+    if (!strongTitleArtistMatch(item, artist, title)) continue;
+    if (isBadVideoCandidate(item, artist, title)) continue;
+    addCandidate(item);
+  }
+  if (candidates.length >= 3) return candidates.slice(0, 8);
+
   // Try Piped first (generally more reliable). Do not globally skip recently
   // failed instances here — one region/video failure should not limit playback.
   const pipedInstances = getPipedInstances().slice(0, 8);
+
   const pipedResults = await Promise.allSettled(
     pipedInstances.map(async (inst) => {
       try {
@@ -1308,18 +1399,165 @@ async function resolveViaCobalt(videoId: string): Promise<{ streamUrl: string } 
   return null;
 }
 
-// NOTE on direct YouTube Innertube /player extraction:
-// We tested ANDROID_VR, TVHTML5_SIMPLY_EMBEDDED_PLAYER, and IOS clients from
-// the edge runtime. ALL of them get blocked with either "LOGIN_REQUIRED — Sign
-// in to confirm you're not a bot" or "FAILED_PRECONDITION" because Supabase
-// edge functions run on Cloudflare/Deno datacenter IPs that YouTube flags.
-// Bypassing this requires either a PoToken solver (needs a real browser
-// WebView) or a residential proxy — neither is feasible in a stateless edge
-// function. We rely on third-party Piped/Invidious instances which use
-// residential or dedicated IPs YouTube does not block.
+// ── Direct InnerTube (no API key, no third-party mirror) ─────────────────────
+// Re-tested 2026-08: the old note here claimed every client is bot-blocked from
+// edge IPs. That was only half true. ANDROID_VR / ANDROID_MUSIC / ANDROID_CREATOR
+// do return LOGIN_REQUIRED, but the IOS client (client id 5) still returns
+// playable `adaptiveFormats` with plain `url=` values. The earlier verdict came
+// from probing those URLs with a bare GET/HEAD, which googlevideo answers with
+// 403 — they only serve with a Range header. With `range: bytes=0-1` the exact
+// same URLs return 206 audio/mp4.
+//
+// The signed URL is issued against the requester (edge) IP, so we hand the
+// client a stream-proxy URL rather than the raw googlevideo URL: the proxy
+// fetches from the same edge network and also adds CORS + Range semantics.
+const INNERTUBE_PLAYER = 'https://www.youtube.com/youtubei/v1/player?prettyPrint=false';
+
+type ItClient = { name: string; id: string; version: string; ua: string; client: Record<string, unknown> };
+
+const IT_CLIENTS: ItClient[] = [
+  {
+    name: 'IOS', id: '5', version: '21.03.2',
+    ua: 'com.google.ios.youtube/21.03.2 (iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X)',
+    client: {
+      clientName: 'IOS', clientVersion: '21.03.2', deviceMake: 'Apple',
+      deviceModel: 'iPhone16,2', osName: 'iPhone', osVersion: '18.7.2.22H124', hl: 'en', gl: 'US',
+    },
+  },
+  {
+    name: 'IOS_MUSIC', id: '26', version: '8.28.2',
+    ua: 'com.google.ios.youtubemusic/8.28.2 (iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X)',
+    client: {
+      clientName: 'IOS_MUSIC', clientVersion: '8.28.2', deviceMake: 'Apple',
+      deviceModel: 'iPhone16,2', osName: 'iPhone', osVersion: '18.7.2.22H124', hl: 'en', gl: 'US',
+    },
+  },
+  {
+    name: 'ANDROID_VR', id: '28', version: '1.61.48',
+    ua: 'com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip',
+    client: {
+      clientName: 'ANDROID_VR', clientVersion: '1.61.48', deviceMake: 'Oculus',
+      deviceModel: 'Quest 3', androidSdkVersion: 32, osName: 'Android', osVersion: '12L', hl: 'en', gl: 'US',
+    },
+  },
+];
+
+let itVisitorData: string | null = null;
+let itVisitorAt = 0;
+async function getVisitorData(): Promise<string | null> {
+  if (itVisitorData && Date.now() - itVisitorAt < 6 * 60 * 60 * 1000) return itVisitorData;
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch('https://www.youtube.com/sw.js_data', {
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36' },
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    const body = await res.text();
+    const m = body.match(/"([A-Za-z0-9_%\-]{40,})"/);
+    if (m?.[1]) { itVisitorData = m[1]; itVisitorAt = Date.now(); }
+  } catch { /* visitorData is optional */ }
+  return itVisitorData;
+}
+
+function proxiedStreamUrl(raw: string): string {
+  const base = (Deno.env.get('SUPABASE_URL') || '').replace(/\/$/, '');
+  if (!base) return raw;
+  return `${base}/functions/v1/stream-proxy?u=${encodeURIComponent(raw)}`;
+}
+
+/** Pick the best ORIGINAL-language audio format that ships a plain `url=`. */
+function pickInnerTubeAudio(streamingData: Record<string, any> | undefined): { url: string; itag: number } | null {
+  const lists = [streamingData?.adaptiveFormats, streamingData?.formats].filter(Array.isArray) as any[][];
+  let best: { url: string; itag: number } | null = null;
+  let bestScore = -1;
+  for (const list of lists) {
+    for (const f of list) {
+      const url = typeof f?.url === 'string' ? f.url : '';
+      if (!url) continue;                        // ciphered formats need player.js; skip
+      const mime = String(f?.mimeType || '');
+      const isAudio = mime.startsWith('audio/');
+      const track = f?.audioTrack;
+      const isOriginal = !track || track?.audioIsDefault === true || String(track?.id || '').includes('.original');
+      if (!isOriginal) continue;                 // never hand back a dubbed track
+      const score = (isAudio ? 1_000_000 : 0) + Number(f?.bitrate || 0) + (mime.includes('webm') ? 10240 : 0);
+      if (score > bestScore) { best = { url, itag: Number(f?.itag || 0) }; bestScore = score; }
+    }
+    if (best) break;                             // prefer adaptive over muxed
+  }
+  return best;
+}
+
+async function innerTubeAttempt(videoId: string, c: ItClient, visitor: string | null) {
+  const client = visitor ? { ...c.client, visitorData: visitor } : c.client;
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 5000);
+  try {
+    const res = await fetch(INNERTUBE_PLAYER, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': c.ua,
+        'Origin': 'https://www.youtube.com',
+        'X-YouTube-Client-Name': c.id,
+        'X-YouTube-Client-Version': c.version,
+        ...(visitor ? { 'X-Goog-Visitor-Id': visitor } : {}),
+      },
+      body: JSON.stringify({
+        context: { client },
+        videoId,
+        contentCheckOk: true,
+        racyCheckOk: true,
+        playbackContext: { contentPlaybackContext: { html5Preference: 'HTML5_PREF_WANTS' } },
+      }),
+      signal: ctrl.signal,
+    });
+    if (!res.ok) throw new Error(`innertube ${c.name}: HTTP ${res.status}`);
+    const data = await res.json() as Record<string, any>;
+    const status = data?.playabilityStatus?.status;
+    if (status && status !== 'OK') throw new Error(`innertube ${c.name}: ${status}`);
+    const picked = pickInnerTubeAudio(data?.streamingData);
+    if (!picked) throw new Error(`innertube ${c.name}: no plain-url audio (sabr=${Boolean(data?.streamingData?.serverAbrStreamingUrl)})`);
+    if (!isAllowedAudioProxyUrl(picked.url)) throw new Error(`innertube ${c.name}: host not allowed`);
+    // googlevideo 403s bare requests — probe exactly how the player will read it.
+    if (!(await probePlayableStream(picked.url, 5000))) throw new Error(`innertube ${c.name}: url not playable`);
+    const seconds = Number(data?.videoDetails?.lengthSeconds || 0) || undefined;
+    return {
+      streamUrl: proxiedStreamUrl(picked.url),
+      duration: seconds,
+      src: `innertube:${c.name}`,
+      itag: picked.itag,
+    };
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+/** Primary YouTube path: direct InnerTube /player, no mirror, no API key. */
+async function resolveViaInnerTube(videoId: string): Promise<{ streamUrl: string; duration?: number; src: string } | null> {
+  if (!/^[\w-]{11}$/.test(videoId)) return null;
+  const visitor = await getVisitorData();
+  try {
+    const winner = await Promise.any(IT_CLIENTS.map((c) => innerTubeAttempt(videoId, c, visitor)));
+    console.log(`[resolve] ✓ ${videoId} via ${winner.src} itag=${winner.itag}`);
+    return { streamUrl: winner.streamUrl, duration: winner.duration, src: winner.src };
+  } catch (e) {
+    const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.join(' | ');
+    console.warn(`[resolve] innertube failed for ${videoId}: ${msgs}`);
+    return null;
+  }
+}
 
 async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
   const t0 = Date.now();
+
+  // 1) Direct InnerTube — no third-party dependency. Only fall through to the
+  //    public mirror fleet when YouTube itself refuses us.
+  const direct = await resolveViaInnerTube(videoId);
+  if (direct?.streamUrl) return { streamUrl: direct.streamUrl, duration: direct.duration };
+
+
 
   // Skip the pre-flight /stats & /healthcheck probes — they blocked ALL
   // instances when their status endpoints were rate-limited even though
@@ -1365,7 +1603,7 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
     return { streamUrl: winner.streamUrl, duration: winner.duration };
   } catch (e) {
     const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.slice(0, 3).join(', ');
-    console.warn(`[resolve] all sources failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
+    console.warn(`[resolve] mirror fleet failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
     return null;
   }
 }
@@ -1538,8 +1776,19 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
     return result;
   } catch { /* fall through to iframe fallback */ }
 
+  // ── MONITORING SIGNAL ──────────────────────────────────────────────────────
+  // Every source is exhausted here: JioSaavn matcher, direct InnerTube, and the
+  // Invidious/Piped/Cobalt mirror fleet. This single grep-able line is the alert
+  // we watch for; if it starts appearing at volume, playback is broken app-wide
+  // and we know before a user reports it.
+  console.error(
+    `[resolve][ALERT] ALL_SOURCES_FAILED artist="${artist}" title="${title}" ` +
+    `candidates=${candidates.length} tried=${shortlist.join(',')} ` +
+    `sources=jiosaavn,innertube,mirrors at=${new Date().toISOString()}`,
+  );
 
   // YouTube IFrame fallback — guaranteed playback even when no audio host is reachable
+
   if (firstVideoId) {
     const fallback: ResolveResult = {
       success: true,
