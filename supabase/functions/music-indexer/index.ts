@@ -318,7 +318,9 @@ function getInvidiousInstances(): string[] {
 const failedUntil = new Map<string, number>(); // instance → timestamp
 
 function markFailed(instance: string) {
-  failedUntil.set(instance, Date.now() + 2 * 60 * 1000); // skip for 2 min
+  // 45s, not 2 min: most of these failures are transient rate-limits, and a
+  // long lockout shrank the race pool to nothing during a mirror-wide wobble.
+  failedUntil.set(instance, Date.now() + 45 * 1000);
 }
 function isHealthy(instance: string): boolean {
   const until = failedUntil.get(instance);
@@ -1324,8 +1326,8 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
   // across every instance not in the short-lived failedUntil cache and let
   // the fastest real response win. Cobalt joins the same race so we don't
   // pay a serial fallback wait.
-  const invPool = getInvidiousInstances().filter(isHealthy).slice(0, 8);
-  const pipedPool = getPipedInstances().filter(isHealthy).slice(0, 8);
+  const invPool = getInvidiousInstances().filter(isHealthy).slice(0, 12);
+  const pipedPool = getPipedInstances().filter(isHealthy).slice(0, 12);
 
   const attempts: Promise<{ streamUrl: string; duration?: number; src: string }>[] = [
     ...invPool.map(async (inst) => {
