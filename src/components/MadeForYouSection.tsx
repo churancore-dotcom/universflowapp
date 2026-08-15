@@ -216,7 +216,7 @@ const MadeForYouSection = memo(() => {
     <section>
       <div className="flex items-end justify-between mb-5 px-1">
         <div>
-          <h2 className="font-display text-[32px] leading-[0.95] tracking-[0.02em] uppercase text-foreground font-black">Made For You</h2>
+          <h2 className="uf-shelf-title">Made For You</h2>
           <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground/60 mt-1">
             {taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
           </p>
@@ -227,7 +227,7 @@ const MadeForYouSection = memo(() => {
         whileTap={{ scale: 0.985 }}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[164px] overflow-hidden text-left rounded-[28px] neu neu-press p-5"
+        className="relative w-full min-h-[184px] overflow-hidden text-left uf-tile p-5"
       >
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
         {hero.cover_url && (

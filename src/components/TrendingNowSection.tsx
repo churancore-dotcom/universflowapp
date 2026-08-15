@@ -100,7 +100,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
           <Flame className="w-3.5 h-3.5 text-primary" />
         </div>
         <div>
-          <h2 className="font-display text-[32px] leading-[0.95] tracking-[0.02em] uppercase text-foreground font-black">Trending Now</h2>
+          <h2 className="uf-shelf-title">Trending Now</h2>
           <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground/60 mt-1">
             Top in {countryLabel(servedCountry)}, tuned to your taste
           </p>
@@ -113,7 +113,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
         whileTap={{ scale: 0.98 }}
         onClick={() => play(lead)}
         {...prewarmIntentProps(lead)}
-        className="relative w-full h-[196px] rounded-[28px] overflow-hidden text-left neu neu-press"
+        className="relative w-full h-[228px] text-left uf-tile"
       >
         {lead.cover_url && (
           <OptimizedImage src={lead.cover_url} alt={lead.title} className="absolute inset-0 w-full h-full object-cover" eager />
@@ -134,7 +134,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
       </motion.button>
 
       {/* Ranked poster carousel */}
-      <div className="flex gap-3 overflow-x-auto hide-scrollbar snap-x snap-mandatory mt-4 -mx-1 px-1 pb-1">
+      <div className="uf-rail mt-4 -mx-1 px-1 pb-2">
         {rest.map((song, idx) => {
           const active = currentSong?.id === song.id;
           return (
@@ -143,9 +143,9 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
               onClick={() => play(song)}
               {...prewarmIntentProps(song)}
               whileTap={{ scale: 0.95 }}
-              className="snap-start shrink-0 w-[124px] text-left neu-press rounded-[28px]"
+              className={`shrink-0 text-left ${idx % 4 === 0 ? "w-[168px]" : "w-[124px]"}`}
             >
-              <div className="relative w-[124px] h-[124px] rounded-[28px] overflow-hidden neu">
+              <div className={`relative uf-tile ${idx % 4 === 0 ? "w-[168px] h-[168px]" : "w-[124px] h-[124px]"}`}>
                 {song.cover_url && (
                   <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
                 )}

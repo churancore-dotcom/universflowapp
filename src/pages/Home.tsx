@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
-import { motion } from 'framer-motion';
+import { motion, useScroll, useTransform } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
@@ -232,6 +232,12 @@ const Home = () => {
     playSong(song, null, (queue || allSongs).slice(0, 40));
   }, [playSong, allSongs]);
 
+  // Cheap scroll parallax for the hero artwork (transform-only, GPU friendly).
+  const scrollRef = React.useRef<HTMLElement | null>(null);
+  const { scrollY } = useScroll({ container: scrollRef as React.RefObject<HTMLElement> });
+  const heroY = useTransform(scrollY, [0, 500], [0, 110]);
+  const heroScale = useTransform(scrollY, [0, 500], [1, 1.12]);
+
   const shuffleAll = useCallback(() => {
     const pool = allSongs.filter((s) => s.cover_url);
     if (pool.length === 0) return;
@@ -283,6 +289,7 @@ const Home = () => {
 
         {/* Scrollable content area */}
         <main
+          ref={scrollRef}
           className="flex-1 overflow-y-auto overflow-x-hidden pb-40 relative z-10"
           style={{ WebkitOverflowScrolling: 'touch' }}
           {...pullToRefresh.handlers}
@@ -302,50 +309,60 @@ const Home = () => {
               {/* ====== HERO — artwork-dominant bento tile ====== */}
               {heroSong && (
                 <motion.section
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  className="px-5"
+                  initial={{ opacity: 0, y: 24, scale: 0.98 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  transition={{ type: 'spring', stiffness: 120, damping: 18, mass: 0.9 }}
+                  className="relative"
                 >
-                  <div className="flex items-end justify-between mb-5 px-1">
-                    <h2 className="font-display text-[32px] leading-[0.95] tracking-[0.02em] uppercase text-foreground font-black">
+                  <div className="flex items-end justify-between mb-4 px-5">
+                    <h2 className="uf-shelf-title">
                       {heroContextLabel(signals, !!currentSong)}
                     </h2>
-                    <button
-                      onClick={shuffleAll}
-                      className="flex items-center gap-1.5 text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground/60 pb-1"
-                    >
+                    <button onClick={shuffleAll} className="flex items-center gap-1.5 uf-eyebrow pb-1">
                       <Shuffle className="w-3.5 h-3.5" /> Shuffle
                     </button>
                   </div>
 
-                  <div className="relative rounded-[28px] overflow-hidden aspect-[4/5] bg-card neu">
-                    {heroSong.cover_url ? (
-                      <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center"><Music className="w-10 h-10 text-muted-foreground" /></div>
-                    )}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/35 to-transparent" />
+                  {/* Full-bleed cinematic hero */}
+                  <div className="relative w-full h-[74vh] min-h-[420px] max-h-[620px] overflow-hidden uf-hero-depth">
+                    <motion.div className="absolute inset-0 will-change-transform" style={{ y: heroY, scale: heroScale }}>
+                      {heroSong.cover_url ? (
+                        <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
+                      ) : (
+                        <div className="absolute inset-0 flex items-center justify-center bg-card"><Music className="w-10 h-10 text-muted-foreground" /></div>
+                      )}
+                    </motion.div>
 
-                    <div className="absolute bottom-0 left-0 right-0 p-6 pr-24">
-                      <span className="inline-block px-2 py-0.5 rounded-full bg-primary text-primary-foreground text-[10px] font-bold uppercase tracking-[0.14em] mb-2">
+                    {/* Layered scrim: deep bottom fade + rose bloom + top vignette */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+                    <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_10%_100%,hsl(var(--primary)/0.35)_0%,transparent_65%)]" />
+                    <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-background/85 to-transparent" />
+
+                    <div className="absolute bottom-0 left-0 right-0 p-5 pb-8">
+                      <span className="inline-block px-2.5 py-1 rounded-full uf-glow-action text-[10px] font-black uppercase tracking-[0.18em] mb-3">
                         {heroIsCurrent && isPlaying ? 'Now playing' : 'Start here'}
                       </span>
-                      <h3 className="font-display text-4xl leading-none uppercase text-foreground line-clamp-2">
+                      <h3
+                        className="font-display uppercase text-foreground line-clamp-3"
+                        style={{ fontSize: 'clamp(44px, 15vw, 76px)', lineHeight: 0.84, textShadow: '0 18px 50px rgba(0,0,0,0.65)' }}
+                      >
                         {heroSong.title}
                       </h3>
-                      <p className="text-muted-foreground text-base font-medium mt-1 truncate">{heroSong.artist}</p>
+                      <div className="flex items-center justify-between gap-4 mt-3">
+                        <p className="text-foreground/70 text-[15px] font-semibold truncate">{heroSong.artist}</p>
+                        <motion.button
+                          onClick={playHero}
+                          whileTap={{ scale: 0.9 }}
+                          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
+                          aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
+                          className="w-16 h-16 shrink-0 rounded-full uf-glow-action flex items-center justify-center"
+                        >
+                          {heroIsCurrent && isPlaying
+                            ? <Pause className="w-7 h-7 fill-current" />
+                            : <Play className="w-7 h-7 fill-current ml-0.5" />}
+                        </motion.button>
+                      </div>
                     </div>
-
-                    <button
-                      onClick={playHero}
-                      aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                      className="absolute bottom-6 right-6 w-14 h-14 rounded-full bg-primary flex items-center justify-center shadow-lg neu-press"
-                    >
-                      {heroIsCurrent && isPlaying
-                        ? <Pause className="w-6 h-6 fill-primary-foreground text-primary-foreground" />
-                        : <Play className="w-6 h-6 fill-primary-foreground text-primary-foreground ml-0.5" />}
-                    </button>
                   </div>
                 </motion.section>
               )}
@@ -364,13 +381,29 @@ const Home = () => {
                     <div className="px-5"><AllSongsSection songs={allSongs} /></div>
                   )
                 ) : (
-                  railOrder.map((rail) => {
+                  railOrder.map((rail, railIdx) => {
+                    const aura =
+                      rail === 'trending' ? 'uf-aura uf-aura-hot'
+                      : rail === 'mix' ? 'uf-aura uf-aura-cool'
+                      : rail === 'fresh' ? 'uf-aura uf-aura-deep'
+                      : 'uf-aura';
                     const body =
                       rail === 'mix' ? <MadeForYouSection />
                       : rail === 'trending' ? <TrendingNowSection songs={allSongs} enabled={homeReady} />
                       : rail === 'fresh' ? <FreshReleasesSection songs={allSongs} enabled={homeReady} />
                       : <FeaturedArtistsSection songs={allSongs} />;
-                    return <div key={rail} className="px-5">{body}</div>;
+                    return (
+                      <motion.div
+                        key={rail}
+                        className={`px-5 ${aura}`}
+                        initial={{ opacity: 0, y: 28 }}
+                        whileInView={{ opacity: 1, y: 0 }}
+                        viewport={{ once: true, margin: '-60px' }}
+                        transition={{ type: 'spring', stiffness: 110, damping: 18, delay: 0.04 * railIdx }}
+                      >
+                        {body}
+                      </motion.div>
+                    );
                   })
                 )}
               </div>
