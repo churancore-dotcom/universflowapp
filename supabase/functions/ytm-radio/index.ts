@@ -140,6 +140,7 @@ async function fetchRadio(videoId: string): Promise<RadioTrack[]> {
     for (const item of walkPanel(json)) {
       const t = extractFromWatchItem(item);
       if (!t) continue;
+      if (!isMusicTrack(t)) continue;
       if (seenIds.has(t.videoId)) continue;
       const fp = fingerprint(t);
       if (fp !== '|' && seenPrints.has(fp)) continue;
