@@ -1206,7 +1206,7 @@ async function searchForCandidates(artist: string, title: string): Promise<Recor
     if (r.status === 'fulfilled' && Array.isArray(r.value)) {
       const ranked = r.value
         .map((item: any) => ({ item, score: scoreVideo(item, artist, title) }))
-        .filter((e: any) => e.item.videoId && e.score > -8 && !isBadVideoCandidate(e.item, artist, title))
+        .filter((e: any) => e.item.videoId && e.score > -8 && strongTitleArtistMatch(e.item, artist, title) && !isBadVideoCandidate(e.item, artist, title))
         .sort((a: any, b: any) => b.score - a.score)
         .slice(0, 4);
       ranked.forEach((e: any) => addCandidate(e.item));
