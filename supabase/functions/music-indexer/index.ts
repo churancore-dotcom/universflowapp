@@ -1171,7 +1171,7 @@ async function searchForCandidates(artist: string, title: string): Promise<Recor
             published: item?.snippet?.publishedAt ? Math.floor(new Date(item.snippet.publishedAt).getTime() / 1000) : 0,
             _source: 'youtube-api',
           };
-          if (vid && scoreVideo(candidate, artist, title) > -8 && !isBadVideoCandidate(candidate, artist, title)) {
+          if (vid && scoreVideo(candidate, artist, title) > -8 && strongTitleArtistMatch(candidate, artist, title) && !isBadVideoCandidate(candidate, artist, title)) {
             addCandidate({
               videoId: vid,
               title: item?.snippet?.title || '',
