@@ -44,6 +44,27 @@ function extractRuns(runs: any[] | undefined): string {
   return runs.map((r) => r?.text || '').join('');
 }
 
+// Same songs-only gate yt-music-search and ytm-radio apply. YT Music's own
+// "Songs" filter still leaks podcast clips, sports edits and motivational talks.
+const NON_MUSIC = [
+  /\b(podcast|episode|interview|talk\s*show|stand[\s-]?up|standup|comedy|sketch|skit|roast)\b/i,
+  /\b(highlights?|grand\s*prix|formula\s*1|\bf1\b|race\s*(recap|review)|match|goals?|cricket|football|nba|nfl|wwe|ipl)\b/i,
+  /(?<!radio\s)(?<!club\s)(?<!extended\s)(?<!special\s)(?<!clean\s)(?<!dirty\s)\bedits?\b/i,
+  /\b(amv|montage|fan\s*cam|fancam|4k\s*edit|cinematic)\b/i,
+  /\b(trailer|teaser|movie\s*clip|full\s*movie|web\s*series|documentary|scene\b)/i,
+  /\b(gameplay|walkthrough|unboxing|review|reaction|vlog|tutorial|how\s*to|motivation(al)?|speech|seminar|leadership|business|mindset|success)\b/i,
+  /\b(asmr|meditation|white\s*noise|sleep\s*sounds?|study\s*with\s*me|rain\s*sounds?)\b/i,
+  /\b(news|breaking|q\s*&\s*a|explained|analysis)\b/i,
+  /\b(jukebox|non\s*stop|mashup|medley|full\s*album|karaoke|ringtone)\b/i,
+];
+function isMusicResult(t: SearchResult): boolean {
+  const hay = `${t.title} ${t.artist}`;
+  if (NON_MUSIC.some((p) => p.test(hay))) return false;
+  // Under 45s is a clip; past 15min is a compilation or a talk.
+  if (t.duration && (t.duration < 45 || t.duration > 900)) return false;
+  return true;
+}
+
 function extractFromShelf(shelf: any, out: SearchResult[]) {
   const contents = shelf?.musicShelfRenderer?.contents
     || shelf?.musicCardShelfRenderer?.contents
@@ -63,7 +84,7 @@ function extractFromShelf(shelf: any, out: SearchResult[]) {
     const thumbs = item?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails || [];
     const cover_url = thumbs[thumbs.length - 1]?.url;
     if (!title || !videoId) continue;
-    out.push({
+    const track: SearchResult = {
       id: `ytm-${videoId}`,
       videoId,
       title: title.trim(),
@@ -71,7 +92,9 @@ function extractFromShelf(shelf: any, out: SearchResult[]) {
       audio_url: `yt-video:${videoId}`,
       cover_url,
       duration: parseDuration(durationText),
-    });
+    };
+    if (!isMusicResult(track)) continue;
+    out.push(track);
   }
 }
 

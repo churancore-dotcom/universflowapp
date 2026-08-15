@@ -42,6 +42,16 @@ const SPAM_PATTERNS = [
   /\b(whatsapp\s*status|ringtone|loop(ed)?|tiktok\s*version|reels?\s*version|shorts?)\b/i,
   /\b\d+\s*(hour|hours|hr|hrs|minute|minutes|min)\b/i,
   /\b(non\s*stop|jukebox|mashup|medley|compilation|full\s*album)\b/i,
+  // Non-music leaks from the YouTube trending fallback (category 10 still
+  // carries podcast clips, sports edits and motivational talks).
+  /\b(podcast|episode|interview|talk\s*show|stand[\s-]?up|standup|comedy|sketch|skit|roast)\b/i,
+  /\b(highlights?|grand\s*prix|formula\s*1|\bf1\b|race\s*(recap|review)|match|goals?|cricket|football|nba|nfl|wwe|ipl)\b/i,
+  /(?<!radio\s)(?<!club\s)(?<!extended\s)(?<!special\s)(?<!clean\s)(?<!dirty\s)\bedits?\b/i,
+  /\b(amv|montage|fan\s*cam|fancam|4k\s*edit|cinematic)\b/i,
+  /\b(trailer|teaser|movie\s*clip|full\s*movie|web\s*series|documentary|scene\b)/i,
+  /\b(gameplay|walkthrough|unboxing|vlog|motivation(al)?|speech|seminar|leadership|mindset)\b/i,
+  /\b(asmr|meditation|white\s*noise|sleep\s*sounds?|study\s*with\s*me|rain\s*sounds?)\b/i,
+  /\b(news|breaking|q\s*&\s*a|explained)\b/i,
 ];
 
 const isSpamRow = (r: Row) => {
