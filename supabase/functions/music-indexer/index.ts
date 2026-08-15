@@ -1512,7 +1512,7 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
     return { streamUrl: winner.streamUrl, duration: winner.duration };
   } catch (e) {
     const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.slice(0, 3).join(', ');
-    console.warn(`[resolve] all sources failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
+    console.warn(`[resolve] mirror fleet failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
     return null;
   }
 }
