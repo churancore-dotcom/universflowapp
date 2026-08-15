@@ -1012,7 +1012,89 @@ function extractVideoId(c: unknown) {
   return w?.[1];
 }
 
+// ── Match confidence ────────────────────────────────────────────────────────
+// Same standard as the JioSaavn matcher: the candidate's title must really be
+// the requested title, AND the artist must be evidenced in either the video
+// title or the uploading channel. Without this a loose search score could win
+// the race and we'd confidently play the wrong recording.
+function strongTitleArtistMatch(item: Record<string, unknown>, artist: string, title: string): boolean {
+  const iTitle = normalizeText(String(item.title || ''));
+  const iArtist = normalizeText(String(item.author || item.uploaderName || item.uploader || ''));
+  const wTitle = normalizeText(title);
+  const wArtist = normalizeText(artist);
+  if (!iTitle || !wTitle) return false;
+
+  const titleHit = iTitle.includes(wTitle) || wTitle.includes(iTitle);
+  if (!titleHit) {
+    // Allow "title (feat. X)" / "title - topic" style variance, but demand that
+    // nearly every meaningful word of the requested title is present.
+    const words = wTitle.split(' ').filter((w) => w.length > 2);
+    if (!words.length) return false;
+    const hits = words.filter((w) => iTitle.includes(w)).length;
+    if (hits / words.length < 0.85) return false;
+  }
+
+  if (!wArtist) return true;
+  const haystack = `${iTitle} ${iArtist}`;
+  if (haystack.includes(wArtist)) return true;
+  const aWords = wArtist.split(' ').filter((w) => w.length > 2);
+  if (!aWords.length) return false;
+  return aWords.filter((w) => haystack.includes(w)).length / aWords.length >= 0.6;
+}
+
 // ── Search: parallel race across healthy instances ──
+
+/**
+ * Mirror-free candidate discovery via YouTube Music's own InnerTube search
+ * (WEB_REMIX, songs-only params). Works without an API key and without any
+ * third-party instance, so search survives the same outage the resolver does.
+ */
+async function innerTubeSearchCandidates(artist: string, title: string): Promise<Record<string, unknown>[]> {
+  const query = `${artist} ${title}`.trim();
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 6000);
+    const res = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36',
+        'Origin': 'https://music.youtube.com',
+        'X-YouTube-Client-Name': '67',
+        'X-YouTube-Client-Version': '1.20240101.01.00',
+      },
+      body: JSON.stringify({
+        context: { client: { clientName: 'WEB_REMIX', clientVersion: '1.20240101.01.00', hl: 'en', gl: 'US' } },
+        query,
+        // songs-only search filter (public InnerTube param)
+        params: 'EgWKAQIIAWoKEAoQCRADEAQQBQ%3D%3D',
+      }),
+      signal: ctrl.signal,
+    });
+    clearTimeout(t);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const raw = await res.text();
+    const out: Record<string, unknown>[] = [];
+    const seen = new Set<string>();
+    // musicResponsiveListItemRenderer blobs are deeply nested and versioned;
+    // pull ids in document order (relevance order) and score them by the
+    // surrounding text window rather than walking a fragile renderer tree.
+    for (const m of raw.matchAll(/"videoId":"([\w-]{11})"/g)) {
+      const vid = m[1];
+      if (seen.has(vid)) continue;
+      seen.add(vid);
+      const window = raw.slice(Math.max(0, (m.index ?? 0) - 4000), (m.index ?? 0) + 2000);
+      const texts = [...window.matchAll(/"text":"((?:[^"\\]|\\.){2,120})"/g)].map((x) => x[1]);
+      const itemTitle = texts.find((s) => !/^\s*[•·]\s*$/.test(s)) || '';
+      out.push({ videoId: vid, title: itemTitle, author: texts.slice(1, 4).join(' '), _source: 'innertube-music' });
+      if (out.length >= 6) break;
+    }
+    return out;
+  } catch (e) {
+    console.warn('[search] innertube music search failed:', (e as Error).message);
+    return [];
+  }
+}
 
 async function searchForCandidates(artist: string, title: string): Promise<Record<string, unknown>[]> {
   const query = `${artist} ${title} audio`;
@@ -1026,9 +1108,18 @@ async function searchForCandidates(artist: string, title: string): Promise<Recor
     candidates.push(item);
   };
 
+  // Mirror-free source first: YouTube Music InnerTube songs search.
+  for (const item of await innerTubeSearchCandidates(artist, title)) {
+    if (!strongTitleArtistMatch(item, artist, title)) continue;
+    if (isBadVideoCandidate(item, artist, title)) continue;
+    addCandidate(item);
+  }
+  if (candidates.length >= 3) return candidates.slice(0, 8);
+
   // Try Piped first (generally more reliable). Do not globally skip recently
   // failed instances here — one region/video failure should not limit playback.
   const pipedInstances = getPipedInstances().slice(0, 8);
+
   const pipedResults = await Promise.allSettled(
     pipedInstances.map(async (inst) => {
       try {
