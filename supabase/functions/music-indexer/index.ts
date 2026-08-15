@@ -1685,8 +1685,19 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
     return result;
   } catch { /* fall through to iframe fallback */ }
 
+  // ── MONITORING SIGNAL ──────────────────────────────────────────────────────
+  // Every source is exhausted here: JioSaavn matcher, direct InnerTube, and the
+  // Invidious/Piped/Cobalt mirror fleet. This single grep-able line is the alert
+  // we watch for; if it starts appearing at volume, playback is broken app-wide
+  // and we know before a user reports it.
+  console.error(
+    `[resolve][ALERT] ALL_SOURCES_FAILED artist="${artist}" title="${title}" ` +
+    `candidates=${candidates.length} tried=${shortlist.join(',')} ` +
+    `sources=jiosaavn,innertube,mirrors at=${new Date().toISOString()}`,
+  );
 
   // YouTube IFrame fallback — guaranteed playback even when no audio host is reachable
+
   if (firstVideoId) {
     const fallback: ResolveResult = {
       success: true,
