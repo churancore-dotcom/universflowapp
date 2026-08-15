@@ -385,6 +385,7 @@ type IndexedTrack = {
 type ResolveResult = {
   success: boolean; streamUrl?: string; videoId?: string;
   duration?: number; title?: string; artist?: string; cover_url?: string; error?: string; fallback?: boolean;
+  retryable?: boolean;
 };
 
 const LASTFM_PLACEHOLDER_HASH = '2a96cbd8b46e442fc41c2b86b821562f';
