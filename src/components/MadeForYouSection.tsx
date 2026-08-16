@@ -213,21 +213,29 @@ const MadeForYouSection = memo(() => {
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, mix); };
 
   return (
-    <section>
-      <div className="flex items-end justify-between mb-5 px-1">
-        <div>
+    <section className="relative">
+      <div className="uf-slash mb-5" />
+      <div className="flex items-stretch gap-3 mb-5 px-1">
+        <span className="uf-index pt-1">03 / For You</span>
+        <div className="min-w-0 flex-1">
           <h2 className="uf-shelf-title">Made For You</h2>
-          <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground/60 mt-1">
+          <div className="uf-volt-rule w-16 mt-2 mb-2" />
+          <p className="uf-shelf-sub block">
             {taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
           </p>
         </div>
       </div>
 
+      {/* Wide notched plate — the only landscape card on Home */}
       <motion.button
-        whileTap={{ scale: 0.985 }}
+        whileTap={pressShear}
+        initial={slice.initial}
+        whileInView={slice.animate}
+        viewport={{ once: true, margin: '-40px' }}
+        transition={sliceTransition()}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[184px] overflow-hidden text-left uf-tile p-5"
+        className="relative w-full min-h-[184px] overflow-hidden text-left uf-tile uf-cut uf-cut-lg p-5"
       >
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
         {hero.cover_url && (
@@ -241,37 +249,38 @@ const MadeForYouSection = memo(() => {
           <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover opacity-80" eager />
         )}
         <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/25 backdrop-blur-[2px]" />
-        <div className="absolute inset-0 rounded-[28px] ring-1 ring-inset ring-white/[0.08]" />
         <div className="relative z-10 max-w-[62%]">
-          <span className="inline-flex bg-primary text-primary-foreground px-2 py-1 rounded-full text-[9px] font-black uppercase tracking-[0.18em] mb-5 shadow-[0_6px_18px_-6px_hsl(var(--primary))]">For You</span>
-          <h3 className="text-[25px] leading-[1] text-foreground font-extrabold tracking-tight mb-2 line-clamp-2">{hero.title}</h3>
+          <span className="inline-flex uf-volt-chip uf-cut uf-cut-sm px-2 py-1 text-[9px] mb-5">For You</span>
+          <h3 className="font-display text-[30px] leading-[0.9] uppercase text-foreground mb-2 line-clamp-2">{hero.title}</h3>
           <p className="text-[12px] text-muted-foreground truncate font-semibold mb-4">{hero.artist}</p>
-          <div className="w-9 h-9 rounded-full bg-foreground flex items-center justify-center flex-shrink-0 shadow-lg">
-            <Play className="w-4 h-4 text-background ml-0.5" fill="currentColor" />
+          <div className="w-10 h-10 uf-glow-action uf-cut uf-cut-sm flex items-center justify-center flex-shrink-0">
+            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
           </div>
         </div>
       </motion.button>
 
 
-      <div className="mt-4 rounded-[28px] overflow-hidden neu-sm">
+      {/* Ticket stub: perforated left edge, volt track numbers */}
+      <div className="mt-4 uf-cut uf-tile overflow-hidden border-l-2 border-dashed border-[hsl(var(--uf-volt)/0.45)]">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
-            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-5 py-3.5 border-b border-white/[0.05] last:border-0 text-left active:bg-white/[0.04] transition-colors">
+            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border/40 last:border-0 text-left active:bg-primary/10 transition-colors">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums w-6">{String(idx + 2).padStart(2, '0')}.</span>
+                <span className="font-display text-[17px] uf-volt-text tabular-nums w-7">{String(idx + 2).padStart(2, '0')}</span>
                 <div className="min-w-0">
                   <p className={`text-[13px] font-bold truncate leading-tight ${isPlaying ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
                   <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5 font-medium">{song.artist}</p>
                 </div>
               </div>
-              {song.duration ? <span className="text-[10px] text-muted-foreground/50 font-mono tabular-nums">{Math.floor(song.duration / 60)}:{String(Math.floor(song.duration % 60)).padStart(2, '0')}</span> : null}
+              {song.duration ? <span className="text-[10px] text-muted-foreground/60 tabular-nums">{Math.floor(song.duration / 60)}:{String(Math.floor(song.duration % 60)).padStart(2, '0')}</span> : null}
             </button>
           );
         })}
       </div>
     </section>
   );
+
 });
 
 MadeForYouSection.displayName = 'MadeForYouSection';
