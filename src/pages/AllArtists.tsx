@@ -189,12 +189,20 @@ const AllArtists = () => {
         setFollowed(new Set(prefs.map(p => p.artist_name.toLowerCase())));
 
         // Background-fill missing PFPs (Deezer) for the curated list — async, no blocking
+        // Portraits are fetched in ONE batched request per 60 names (the
+        // backend's page size) instead of a request per artist card, which is
+        // what showed up as an N+1 on /artists.
         const missing = initial.filter(a => !a.image_url).map(a => a.name);
         if (missing.length) {
-          enrichArtistImages(missing).then((images) => {
-            if (!Object.keys(images).length) return;
-            setAllArtists((prev) => prev.map((a) => images[a.name] ? { ...a, image_url: images[a.name] } : a));
-          }).catch(() => {});
+          const batches: string[][] = [];
+          for (let i = 0; i < missing.length; i += 60) batches.push(missing.slice(i, i + 60));
+          Promise.all(batches.map((b) => enrichArtistImages(b).catch(() => ({} as Record<string, string>))))
+            .then((parts) => {
+              const images = Object.assign({}, ...parts) as Record<string, string>;
+              if (!Object.keys(images).length) return;
+              setAllArtists((prev) => prev.map((a) => images[a.name] ? { ...a, image_url: images[a.name] } : a));
+            })
+            .catch(() => {});
         }
       } catch (e) {
         console.error('Failed to load artists:', e);
@@ -203,7 +211,10 @@ const AllArtists = () => {
       }
     };
     load();
-  }, [user]);
+    // Depend on the user ID, not the user object: Supabase hands back a new
+    // object on every token refresh, which re-ran this whole multi-request load
+    // (the repeated identical calls Sentry flagged on /artists).
+  }, [userId]);
 
   // Lazy-load tag-based artists when user picks a category (so list keeps growing)
   useEffect(() => {
