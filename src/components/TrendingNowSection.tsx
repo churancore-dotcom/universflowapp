@@ -14,6 +14,8 @@ import { useCountryCharts, countryLabel } from '@/lib/countryCharts';
 import { useAppTrending } from '@/lib/appTrending';
 import { RailSkeleton } from './PageSkeletons';
 import { cleanRail, diversifyByArtist, songFingerprint, claimRailSongs } from '@/lib/railQuality';
+import { slice, sliceTransition, pressShear } from '@/lib/ufMotion';
+
 
 
 
@@ -112,12 +114,12 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const rest = trending.slice(1);
 
   return (
-    <section>
-      <div className="flex items-center gap-2.5 mb-5 px-1">
-        <div className="w-7 h-7 rounded-2xl neu-inset flex items-center justify-center">
-          <Flame className="w-3.5 h-3.5 text-primary" />
-        </div>
-        <div className="min-w-0">
+    <section className="relative">
+      {/* Signature: sheared band + volt slash instead of a plain header row */}
+      <div className="uf-slash mb-5" />
+      <div className="flex items-stretch gap-3 mb-5 px-1">
+        <span className="uf-index pt-1">01 / Charts</span>
+        <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2.5">
             <h2 className="uf-shelf-title">Trending Now</h2>
             {/* Live pulse: this shelf mirrors the chart feed, refreshed per session. */}
@@ -125,37 +127,43 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
               <span className="uf-live-dot" /> Live
             </span>
           </div>
-          <p className="uf-shelf-sub mt-1 block">
+          <div className="uf-volt-rule w-16 mt-2 mb-2" />
+          <p className="uf-shelf-sub block">
             Top in {countryLabel(servedCountry)}, tuned to your taste
           </p>
-
         </div>
+        <Flame className="w-4 h-4 text-primary shrink-0 mt-1" />
       </div>
 
-      {/* Lead poster — one dominant visual instead of row #1 */}
+      {/* Lead poster — notched, sheared plate; one dominant visual */}
       <motion.button
-        whileTap={{ scale: 0.98 }}
+        whileTap={pressShear}
+        initial={slice.initial}
+        whileInView={slice.animate}
+        viewport={{ once: true, margin: '-40px' }}
+        transition={sliceTransition()}
         onClick={() => play(lead)}
         {...prewarmIntentProps(lead)}
-        className="relative w-full h-[228px] text-left uf-tile"
+        className="relative w-full h-[236px] text-left uf-tile uf-cut uf-cut-lg"
       >
         {lead.cover_url && (
           <OptimizedImage src={lead.cover_url} alt={lead.title} className="absolute inset-0 w-full h-full object-cover" eager />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
-        <div className="absolute top-4 left-4 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[9px] font-black uppercase tracking-[0.2em]">
+        <div className="absolute top-4 left-4 px-2.5 py-1 uf-volt-chip uf-cut uf-cut-sm text-[9px]">
           #1 Trending
         </div>
-        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
+        <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-[22px] leading-[1.05] font-extrabold uf-media-title line-clamp-2">{lead.title}</h3>
+            <h3 className="font-display text-[30px] leading-[0.9] uppercase uf-media-title line-clamp-2">{lead.title}</h3>
             <p className="text-xs uf-media-sub truncate mt-1 font-semibold">{lead.artist}</p>
           </div>
-          <div className="w-11 h-11 rounded-full uf-glow-action flex items-center justify-center shrink-0">
+          <div className="w-12 h-12 uf-glow-action uf-cut uf-cut-sm flex items-center justify-center shrink-0">
             <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
           </div>
         </div>
       </motion.button>
+
 
       {/* Ranked poster carousel — reorders animate so a real chart move is visible */}
       <div className="uf-rail mt-4 -mx-1 px-1 pb-2">
@@ -168,18 +176,19 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
               layout="position"
               onClick={() => play(song)}
               {...prewarmIntentProps(song)}
-              whileTap={{ scale: 0.95 }}
+              whileTap={pressShear}
               transition={{ type: 'spring', stiffness: 260, damping: 26 }}
-              className={`shrink-0 text-left ${idx % 4 === 0 ? "w-[168px]" : "w-[124px]"}`}
+              className={`shrink-0 text-left ${idx % 4 === 0 ? "w-[168px]" : "w-[124px]"} ${idx % 2 ? 'pt-5' : ''}`}
             >
-              <div className={`relative uf-tile ${idx % 4 === 0 ? "w-[168px] h-[168px]" : "w-[124px] h-[124px]"}`}>
+              <div className={`relative uf-tile ${idx % 2 ? 'uf-cut-r' : 'uf-cut'} ${idx % 4 === 0 ? "w-[168px] h-[210px]" : "w-[124px] h-[156px]"}`}>
                 {song.cover_url && (
                   <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
-                <span className="absolute bottom-1.5 left-2.5 text-[26px] leading-none font-black uf-media-title tabular-nums">
+                <span className="absolute bottom-1.5 left-2.5 font-display text-[30px] leading-none uf-volt-text tabular-nums">
                   {idx + 2}
                 </span>
+
                 {move !== 0 && (
                   <motion.span
                     initial={{ opacity: 0, y: move > 0 ? 6 : -6 }}

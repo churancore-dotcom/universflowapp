@@ -1505,3 +1505,92 @@ body {
   text-transform: uppercase;
   color: hsl(var(--muted-foreground) / 0.8);
 }
+
+/* =========================================================================
+   UNIVERS FLOW IDENTITY LAYER — "cut ribbon"
+   Three committed choices, presentation only:
+   1) Colour: rose (--primary) paired with VOLT citron, on ink. Not rose-only.
+   2) Shape: notched / diagonally cut cards ("ticket stub"), not rounded rects.
+   3) Motion: the SLICE — a skewed clip-path wipe, our signature reveal.
+   Plain (unlayered) selectors on purpose: they must beat the utility layer.
+   ========================================================================= */
+:root {
+  --uf-volt: 72 100% 60%;
+  --uf-notch: 26px;
+}
+
+/* --- shape language: notched corners ------------------------------------ */
+.uf-cut {
+  border-radius: 5px;
+  clip-path: polygon(
+    0 0,
+    calc(100% - var(--uf-notch)) 0,
+    100% var(--uf-notch),
+    100% 100%,
+    var(--uf-notch) 100%,
+    0 calc(100% - var(--uf-notch))
+  );
+}
+.uf-cut-r {
+  border-radius: 5px;
+  clip-path: polygon(
+    var(--uf-notch) 0,
+    100% 0,
+    100% calc(100% - var(--uf-notch)),
+    calc(100% - var(--uf-notch)) 100%,
+    0 100%,
+    0 var(--uf-notch)
+  );
+}
+.uf-cut-sm { --uf-notch: 14px; }
+.uf-cut-lg { --uf-notch: 40px; }
+
+/* --- rhythm: sheared bands + hard rule dividers -------------------------- */
+.uf-shear { transform: skewY(-2.4deg); }
+.uf-unshear { transform: skewY(2.4deg); }
+.uf-slash {
+  height: 3px;
+  width: 130%;
+  margin-left: -15%;
+  transform: skewY(-2.4deg);
+  background: linear-gradient(90deg,
+    transparent 0%,
+    hsl(var(--primary)) 18%,
+    hsl(var(--uf-volt)) 62%,
+    transparent 100%);
+  opacity: 0.85;
+}
+
+/* --- colour: volt accents ------------------------------------------------ */
+.uf-volt-text { color: hsl(var(--uf-volt)); }
+.uf-volt-chip {
+  background: hsl(var(--uf-volt));
+  color: hsl(240 12% 8%);
+  font-weight: 900;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+.uf-volt-rule {
+  background: linear-gradient(90deg, hsl(var(--uf-volt)), transparent);
+  height: 2px;
+}
+
+/* Vertical section index stamped down the left gutter. */
+.uf-index {
+  writing-mode: vertical-rl;
+  text-orientation: mixed;
+  font-family: 'Bebas Neue', 'Barlow', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: 0.42em;
+  text-transform: uppercase;
+  color: hsl(var(--uf-volt) / 0.75);
+}
+
+/* --- motion: THE SLICE --------------------------------------------------- */
+@keyframes uf-slice {
+  0%   { clip-path: inset(0 100% 0 0); transform: skewX(-7deg) translateX(10px); opacity: 0; }
+  60%  { opacity: 1; }
+  100% { clip-path: inset(0 0 0 0); transform: skewX(0deg) translateX(0); opacity: 1; }
+}
+.uf-slice-in { animation: uf-slice 640ms cubic-bezier(0.16, 1, 0.3, 1) both; }
