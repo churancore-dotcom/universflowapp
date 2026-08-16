@@ -99,9 +99,15 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
         <div className="w-7 h-7 rounded-2xl neu-inset flex items-center justify-center">
           <Flame className="w-3.5 h-3.5 text-primary" />
         </div>
-        <div>
-          <h2 className="uf-shelf-title">Trending Now</h2>
-          <p className="text-[11px] uppercase tracking-[0.18em] font-bold text-muted-foreground/60 mt-1">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <h2 className="uf-shelf-title">Trending Now</h2>
+            {/* Live pulse: this shelf mirrors the chart feed, refreshed per session. */}
+            <span className="uf-live shrink-0" aria-label="Live chart data">
+              <span className="uf-live-dot" /> Live
+            </span>
+          </div>
+          <p className="uf-shelf-sub mt-1 block">
             Top in {countryLabel(servedCountry)}, tuned to your taste
           </p>
 
@@ -118,50 +124,66 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
         {lead.cover_url && (
           <OptimizedImage src={lead.cover_url} alt={lead.title} className="absolute inset-0 w-full h-full object-cover" eager />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/35 to-black/10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
         <div className="absolute top-4 left-4 px-2.5 py-1 rounded-full bg-primary text-primary-foreground text-[9px] font-black uppercase tracking-[0.2em]">
           #1 Trending
         </div>
         <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-[22px] leading-[1.05] font-extrabold text-white line-clamp-2">{lead.title}</h3>
-            <p className="text-xs text-white/70 truncate mt-1 font-semibold">{lead.artist}</p>
+            <h3 className="text-[22px] leading-[1.05] font-extrabold uf-media-title line-clamp-2">{lead.title}</h3>
+            <p className="text-xs uf-media-sub truncate mt-1 font-semibold">{lead.artist}</p>
           </div>
-          <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center shrink-0">
-            <Play className="w-4 h-4 text-black ml-0.5" fill="currentColor" />
+          <div className="w-11 h-11 rounded-full uf-glow-action flex items-center justify-center shrink-0">
+            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
           </div>
         </div>
       </motion.button>
 
-      {/* Ranked poster carousel */}
+      {/* Ranked poster carousel — reorders animate so a real chart move is visible */}
       <div className="uf-rail mt-4 -mx-1 px-1 pb-2">
         {rest.map((song, idx) => {
           const active = currentSong?.id === song.id;
+          const move = rankMoves[song.id] ?? 0;
           return (
             <motion.button
               key={song.id}
+              layout="position"
               onClick={() => play(song)}
               {...prewarmIntentProps(song)}
               whileTap={{ scale: 0.95 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 26 }}
               className={`shrink-0 text-left ${idx % 4 === 0 ? "w-[168px]" : "w-[124px]"}`}
             >
               <div className={`relative uf-tile ${idx % 4 === 0 ? "w-[168px] h-[168px]" : "w-[124px] h-[124px]"}`}>
                 {song.cover_url && (
                   <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
                 )}
-                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
-                <span className="absolute bottom-1.5 left-2.5 text-[26px] leading-none font-black text-white/90 tabular-nums drop-shadow">
+                <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
+                <span className="absolute bottom-1.5 left-2.5 text-[26px] leading-none font-black uf-media-title tabular-nums">
                   {idx + 2}
                 </span>
+                {move !== 0 && (
+                  <motion.span
+                    initial={{ opacity: 0, y: move > 0 ? 6 : -6 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 22 }}
+                    className="absolute top-2 right-2 flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-background/70 backdrop-blur-sm text-[9px] font-black tabular-nums text-primary"
+                    aria-label={`${move > 0 ? 'Up' : 'Down'} ${Math.abs(move)} places`}
+                  >
+                    {move > 0 ? <ArrowUp className="w-2.5 h-2.5" /> : <ArrowDown className="w-2.5 h-2.5" />}
+                    {Math.abs(move)}
+                  </motion.span>
+                )}
               </div>
               <p className={`text-[13px] font-bold truncate mt-2 px-0.5 ${active ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
-              <p className="text-[11px] text-muted-foreground/70 truncate px-0.5 mt-0.5">{song.artist}</p>
+              <p className="text-[11px] text-muted-foreground/80 truncate px-0.5 mt-0.5">{song.artist}</p>
             </motion.button>
           );
         })}
       </div>
     </section>
   );
+
 });
 
 TrendingNowSection.displayName = 'TrendingNowSection';
