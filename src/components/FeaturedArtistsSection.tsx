@@ -106,11 +106,11 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
     <section>
       <div className="flex items-end justify-between mb-4 px-1">
         <div>
-          <h2 className="font-display text-[28px] tracking-[0.04em] uppercase text-foreground">Trending Artists</h2>
-          <p className="text-xs text-muted-foreground/70 font-semibold mt-0.5">Artists leading the charts right now</p>
+          <h2 className="uf-shelf-title">Trending Artists</h2>
+          <p className="uf-shelf-sub mt-1 block">Leading the charts right now</p>
         </div>
         <motion.button
-          className="flex items-center gap-0.5 text-xs font-semibold text-primary"
+          className="flex items-center gap-0.5 uf-eyebrow pb-1 text-primary"
           onClick={() => { triggerHaptic('selection'); navigate('/artists'); }}
           whileTap={{ scale: 0.95 }}
         >
@@ -118,18 +118,18 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
         </motion.button>
       </div>
 
-      <div className="flex gap-3 overflow-x-auto hide-scrollbar snap-x snap-mandatory -mx-1 px-1 pb-1">
+      <div className="uf-rail -mx-1 px-1 pb-1">
         {artists.map((artist, i) => (
           <motion.div
             key={artist.key}
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: i * 0.04, duration: 0.3 }}
-            className="snap-start shrink-0 w-[148px]"
+            transition={{ type: 'spring', stiffness: 140, damping: 18, delay: i * 0.045 }}
+            className="shrink-0 w-[148px]"
           >
             <button
               onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(artist.name)}`); }}
-              className="relative block w-[148px] h-[196px] rounded-[28px] overflow-hidden neu text-left neu-press"
+              className="relative block w-[148px] h-[196px] text-left uf-tile"
             >
               {artist.image ? (
                 <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
@@ -141,10 +141,10 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
                 </div>
               )}
 
-              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/25 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
               <div className="absolute bottom-3 left-3 right-3">
-                <p className="text-[13.5px] font-extrabold text-white leading-tight line-clamp-2">{artist.name}</p>
-                <p className="text-[9.5px] text-white/55 uppercase tracking-[0.16em] mt-0.5">
+                <p className="text-[13.5px] font-extrabold uf-media-title leading-tight line-clamp-2">{artist.name}</p>
+                <p className="text-[9.5px] uf-media-sub uppercase tracking-[0.16em] mt-0.5">
                   Trending now
                 </p>
               </div>
