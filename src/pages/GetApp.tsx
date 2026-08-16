@@ -4,7 +4,7 @@ import SEOHead from "@/components/SEOHead";
 import appLogo from "@/assets/app-logo.webp";
 
 
-const APK_URL = "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk";
+const APK_URL = "https://universflow.in/api/public/apk";
 const VERSION = "1.0.0";
 const SIZE = "11 MB";
 
