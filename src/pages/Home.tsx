@@ -318,13 +318,16 @@ const Home = () => {
                     <h2 className="uf-shelf-title">
                       {heroContextLabel(signals, !!currentSong)}
                     </h2>
-                    <button onClick={shuffleAll} className="flex items-center gap-1.5 uf-eyebrow pb-1">
+                    <button onClick={shuffleAll} className="flex items-center gap-1.5 uf-eyebrow pb-1 uf-volt-text">
                       <Shuffle className="w-3.5 h-3.5" /> Shuffle
                     </button>
                   </div>
 
-                  {/* Full-bleed cinematic hero */}
-                  <div className="relative w-full h-[74vh] min-h-[420px] max-h-[620px] overflow-hidden uf-hero-depth">
+                  {/* Full-bleed cinematic hero, cut off on the diagonal */}
+                  <div
+                    className="relative w-full h-[70vh] min-h-[400px] max-h-[600px] overflow-hidden uf-hero-depth"
+                    style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 42px), 0 100%)' }}
+                  >
                     <motion.div className="absolute inset-0 will-change-transform" style={{ y: heroY, scale: heroScale }}>
                       {heroSong.cover_url ? (
                         <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
@@ -336,26 +339,30 @@ const Home = () => {
                     {/* Layered scrim: deep bottom fade + rose bloom + top vignette */}
                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
                     <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_10%_100%,hsl(var(--primary)/0.35)_0%,transparent_65%)]" />
+                    <div className="absolute inset-0 bg-[radial-gradient(60%_45%_at_95%_10%,hsl(var(--uf-volt)/0.16)_0%,transparent_70%)]" />
                     <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-background/85 to-transparent" />
 
-                    <div className="absolute bottom-0 left-0 right-0 p-5 pb-8">
-                      <span className="inline-block px-2.5 py-1 rounded-full uf-glow-action text-[10px] font-black uppercase tracking-[0.18em] mb-3">
+                    <div className="absolute bottom-0 left-0 right-0 p-5 pb-14">
+                      <span className="inline-block px-2.5 py-1 uf-volt-chip uf-cut uf-cut-sm text-[10px] mb-3">
                         {heroIsCurrent && isPlaying ? 'Now playing' : 'Start here'}
                       </span>
-                      <h3
+                      <motion.h3
+                        initial={slice.initial}
+                        animate={slice.animate}
+                        transition={sliceTransition(0.1)}
                         className="font-display uppercase text-foreground line-clamp-3"
                         style={{ fontSize: 'clamp(44px, 15vw, 76px)', lineHeight: 0.84, textShadow: '0 18px 50px rgba(0,0,0,0.65)' }}
                       >
                         {heroSong.title}
-                      </h3>
+                      </motion.h3>
                       <div className="flex items-center justify-between gap-4 mt-3">
                         <p className="text-foreground/70 text-[15px] font-semibold truncate">{heroSong.artist}</p>
                         <motion.button
                           onClick={playHero}
-                          whileTap={{ scale: 0.9 }}
+                          whileTap={pressShear}
                           transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                           aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                          className="w-16 h-16 shrink-0 rounded-full uf-glow-action flex items-center justify-center"
+                          className="w-16 h-16 shrink-0 uf-glow-action uf-cut uf-cut-sm flex items-center justify-center"
                         >
                           {heroIsCurrent && isPlaying
                             ? <Pause className="w-7 h-7 fill-current" />
@@ -364,6 +371,7 @@ const Home = () => {
                       </div>
                     </div>
                   </div>
+
                 </motion.section>
               )}
 
