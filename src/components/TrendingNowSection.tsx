@@ -174,18 +174,19 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
               layout="position"
               onClick={() => play(song)}
               {...prewarmIntentProps(song)}
-              whileTap={{ scale: 0.95 }}
+              whileTap={pressShear}
               transition={{ type: 'spring', stiffness: 260, damping: 26 }}
-              className={`shrink-0 text-left ${idx % 4 === 0 ? "w-[168px]" : "w-[124px]"}`}
+              className={`shrink-0 text-left ${idx % 4 === 0 ? "w-[168px]" : "w-[124px]"} ${idx % 2 ? 'pt-5' : ''}`}
             >
-              <div className={`relative uf-tile ${idx % 4 === 0 ? "w-[168px] h-[168px]" : "w-[124px] h-[124px]"}`}>
+              <div className={`relative uf-tile ${idx % 2 ? 'uf-cut-r' : 'uf-cut'} ${idx % 4 === 0 ? "w-[168px] h-[210px]" : "w-[124px] h-[156px]"}`}>
                 {song.cover_url && (
                   <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
-                <span className="absolute bottom-1.5 left-2.5 text-[26px] leading-none font-black uf-media-title tabular-nums">
+                <span className="absolute bottom-1.5 left-2.5 font-display text-[30px] leading-none uf-volt-text tabular-nums">
                   {idx + 2}
                 </span>
+
                 {move !== 0 && (
                   <motion.span
                     initial={{ opacity: 0, y: move > 0 ? 6 : -6 }}
