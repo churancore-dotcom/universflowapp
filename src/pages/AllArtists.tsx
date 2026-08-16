@@ -83,6 +83,7 @@ const AllArtists = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
+  const userId = user?.id;
   const { playSong, currentSong, isPlaying } = usePlayer();
   const [allArtists, setAllArtists] = useState<ArtistEntry[]>([]);
   const [followed, setFollowed] = useState<Set<string>>(new Set());
