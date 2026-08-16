@@ -1472,7 +1472,32 @@ function proxiedStreamUrl(raw: string): string {
   return `${base}/functions/v1/stream-proxy?u=${encodeURIComponent(raw)}`;
 }
 
-/** Pick the best ORIGINAL-language audio format that ships a plain `url=`. */
+/**
+ * Format selection, ported from NewPipeExtractor's audio-stream handling
+ * (ItagItem tiers + DRC rejection) rather than "highest bitrate wins":
+ *
+ *  - Reject `isDrc` / `drc=1` formats. YouTube ships loudness-compressed
+ *    duplicates of the same itag; NewPipe drops them because they sound
+ *    audibly squashed and their bitrate makes them win a naive score.
+ *  - Prefer AAC (mp4a, itag 140/141/139) over Opus/WebM. NewPipe can pick
+ *    either because ExoPlayer decodes both; a *browser* cannot — Safari/iOS
+ *    has no Opus-in-WebM decoder, so an opus win means silent playback for
+ *    every iPhone visitor. This was ranking webm ABOVE m4a before.
+ *  - Keep the original-language guard (never a dubbed audioTrack).
+ *  - Flag `n`-param URLs: those are throttle-signed and need player.js
+ *    deciphering (NewPipe's throttling decrypter). We cannot decipher in the
+ *    edge runtime, so we only log it — the playability probe is what actually
+ *    rejects a crawling stream.
+ */
+const ITAG_RANK: Record<number, number> = {
+  141: 100, // AAC 256k
+  140: 90,  // AAC 128k  ← the workhorse, universally decodable
+  139: 60,  // AAC 48k
+  251: 55,  // Opus ~160k
+  250: 45,
+  249: 40,
+};
+
 function pickInnerTubeAudio(streamingData: Record<string, any> | undefined): { url: string; itag: number } | null {
   const lists = [streamingData?.adaptiveFormats, streamingData?.formats].filter(Array.isArray) as any[][];
   let best: { url: string; itag: number } | null = null;
@@ -1486,13 +1511,24 @@ function pickInnerTubeAudio(streamingData: Record<string, any> | undefined): { u
       const track = f?.audioTrack;
       const isOriginal = !track || track?.audioIsDefault === true || String(track?.id || '').includes('.original');
       if (!isOriginal) continue;                 // never hand back a dubbed track
-      const score = (isAudio ? 1_000_000 : 0) + Number(f?.bitrate || 0) + (mime.includes('webm') ? 10240 : 0);
-      if (score > bestScore) { best = { url, itag: Number(f?.itag || 0) }; bestScore = score; }
+      if (f?.isDrc === true || /[?&]drc=1/.test(url)) continue; // NewPipe: drop DRC dupes
+      const itag = Number(f?.itag || 0);
+      const codecPref = /mp4a/i.test(mime) ? 60_000 : /opus/i.test(mime) ? 10_000 : 0;
+      const score =
+        (isAudio ? 1_000_000 : 0) +
+        (ITAG_RANK[itag] ?? 0) * 1_000 +
+        codecPref +
+        Math.min(Number(f?.bitrate || 0) / 1000, 500);
+      if (score > bestScore) { best = { url, itag }; bestScore = score; }
     }
     if (best) break;                             // prefer adaptive over muxed
   }
+  if (best && /[?&]n=/.test(best.url)) {
+    console.warn(`[resolve] itag=${best.itag} carries an n= throttle param; probe will decide`);
+  }
   return best;
 }
+
 
 async function innerTubeAttempt(videoId: string, c: ItClient, visitor: string | null) {
   const client = visitor ? { ...c.client, visitorData: visitor } : c.client;

@@ -6,6 +6,8 @@ import { resolveIndexedTrack } from '@/lib/musicIndexer';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { supabase } from '@/integrations/supabase/client';
 import { isNativePlayerAvailable, resolveNativeMetadataStream } from '@/lib/nativePlayer';
+import { retry } from '@/utils/retry';
+
 
 // Build a proxy URL for cross-origin streams that fail direct fetch.
 // Uses the same music-indexer audio proxy that the player uses.
@@ -23,19 +25,35 @@ const buildDownloadProxyUrl = (sourceUrl: string): string | null => {
 
 // Try direct fetch first, fall back to proxy on CORS / network failure so
 // every track with an audio URL can actually be downloaded.
+// Ported from Musify's download service: a single failed request must not kill
+// the download — mobile networks drop requests constantly. Retry with backoff,
+// but only for transient failures (never for 4xx, which will never succeed).
 const robustFetch = async (url: string, init?: RequestInit): Promise<Response> => {
-  try {
-    const direct = await fetch(url, init);
-    if (direct.ok) return direct;
-    throw new Error(`HTTP ${direct.status}`);
-  } catch (directErr) {
-    const proxyUrl = buildDownloadProxyUrl(url);
-    if (!proxyUrl) throw directErr;
-    const proxied = await fetch(proxyUrl, { ...init, mode: 'cors', credentials: 'omit' });
-    if (!proxied.ok) throw new Error(`Proxy HTTP ${proxied.status}`);
-    return proxied;
-  }
+  const attempt = async (): Promise<Response> => {
+    try {
+      const direct = await fetch(url, init);
+      if (direct.ok) return direct;
+      throw new Error(`HTTP ${direct.status}`);
+    } catch (directErr) {
+      const proxyUrl = buildDownloadProxyUrl(url);
+      if (!proxyUrl) throw directErr;
+      const proxied = await fetch(proxyUrl, { ...init, mode: 'cors', credentials: 'omit' });
+      if (!proxied.ok) throw new Error(`Proxy HTTP ${proxied.status}`);
+      return proxied;
+    }
+  };
+  return retry(attempt, {
+    retries: 2,
+    baseDelayMs: 600,
+    shouldRetry: (err) => {
+      if ((err as DOMException)?.name === 'AbortError') return false;
+      const msg = String((err as Error)?.message || '');
+      const status = Number(msg.match(/HTTP (\d{3})/)?.[1] || 0);
+      return !(status >= 400 && status < 500);
+    },
+  });
 };
+
 
 const getSongVideoId = (song: Song): string | undefined => {
   const raw = song.audio_url || '';
@@ -454,7 +472,13 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }));
         }
 
-        blob = new Blob(chunks, { type: 'audio/mpeg' });
+        // Keep the upstream container type. Saving an m4a/webm stream as
+        // "audio/mpeg" makes some browsers refuse to decode it offline — the
+        // download looked fine and then played silence.
+        const upstreamType = (response.headers.get('content-type') || '').split(';')[0].trim();
+        const blobType = /^audio\/|^video\/mp4$/.test(upstreamType) ? upstreamType : 'audio/mpeg';
+        blob = new Blob(chunks, { type: blobType });
+
       } catch (fetchError) {
         if (controller.signal.aborted) throw fetchError;
         blob = await nativeFetchBlob(downloadableSong.audio_url);
