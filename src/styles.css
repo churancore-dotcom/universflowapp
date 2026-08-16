@@ -1459,3 +1459,49 @@ body {
 }
 .uf-rail::-webkit-scrollbar { display: none; }
 .uf-rail > * { scroll-snap-align: start; }
+
+/* Live data pulse — reinforces that chart rails are current, not static. */
+@keyframes uf-live-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.72); }
+}
+@utility uf-live {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.175rem 0.5rem 0.175rem 0.4rem;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.14);
+  border: 1px solid hsl(var(--primary) / 0.35);
+}
+@utility uf-live-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  background: hsl(var(--primary));
+  box-shadow: 0 0 0 3px hsl(var(--primary) / 0.22);
+  animation: uf-live-pulse 1.6s ease-in-out infinite;
+}
+
+/* Text sitting directly on artwork scrims: always light, always legible,
+   in every theme (the scrim below it is dark by design, not theme-driven). */
+@utility uf-media-title {
+  color: hsl(0 0% 100%);
+  text-shadow: 0 2px 14px hsl(0 0% 0% / 0.75);
+}
+@utility uf-media-sub {
+  color: hsl(0 0% 100% / 0.78);
+  text-shadow: 0 1px 10px hsl(0 0% 0% / 0.7);
+}
+@utility uf-shelf-sub {
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground) / 0.8);
+}

@@ -184,7 +184,7 @@ const CompactGridCard = memo(({ song, index, songs }: { song: Song; index: numbe
       <p className={`font-bold text-[12px] truncate leading-tight ${isCurrentSong ? 'text-primary' : 'text-foreground'}`}>
         {song.title}
       </p>
-      <p className="text-[10px] text-muted-foreground/40 truncate mt-0.5 font-medium">{song.artist}</p>
+      <p className="text-[10px] text-muted-foreground/80 truncate mt-0.5 font-medium">{song.artist}</p>
     </div>
   );
 });
@@ -215,23 +215,19 @@ const AllSongsSection = memo(({ songs }: AllSongsSectionProps) => {
         {/* Header */}
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h2 className="font-display text-[28px] leading-none tracking-[0.04em] uppercase text-foreground">All Songs</h2>
-            <p className="text-xs text-muted-foreground/70 mt-0.5 font-semibold">
+            <h2 className="uf-shelf-title">All Songs</h2>
+            <p className="uf-shelf-sub mt-1 block">
               {songs.length} {songs.length === 1 ? 'track' : 'tracks'}
             </p>
           </div>
           <button
             onClick={toggleViewMode}
-            className="w-9 h-9 rounded-xl flex items-center justify-center active:scale-90 transition-transform"
-            style={{
-              background: 'rgba(255,255,255,0.06)',
-              border: '0.5px solid rgba(255,255,255,0.10)',
-            }}
+            className="w-9 h-9 rounded-[14px] flex items-center justify-center active:scale-90 transition-transform bg-muted/40 border border-border"
           >
             {viewMode === 'grid' ? (
-              <List className="w-4 h-4 text-foreground/50" />
+              <List className="w-4 h-4 text-foreground/80" />
             ) : (
-              <LayoutGrid className="w-4 h-4 text-foreground/50" />
+              <LayoutGrid className="w-4 h-4 text-foreground/80" />
             )}
           </button>
         </div>
