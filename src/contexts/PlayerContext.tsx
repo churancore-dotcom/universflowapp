@@ -8,6 +8,7 @@ import { recordPerfEvent } from '@/lib/perfMonitor';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
 import { EQ_SETTINGS_KEY, getEQSettings, hasWebAudioEffects, isEqActive } from '@/lib/eqSettings';
 import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
+import { signStorageAudioUrl } from '@/lib/storageAudio';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { noteSongCompleted, primeAdEngine } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
