@@ -14,6 +14,8 @@ import { supabase } from '@/integrations/supabase/client';
 import { isSpamSong } from '@/pages/Search';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
+import { slice, sliceTransition, pressShear } from '@/lib/ufMotion';
+
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { getCountryQueries } from '@/lib/countryQueries';
 import { fetchCountryCharts } from '@/lib/countryCharts';
