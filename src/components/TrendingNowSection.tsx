@@ -1,6 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Flame } from 'lucide-react';
+import { Play, Flame, ArrowUp, ArrowDown } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
@@ -88,6 +88,24 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   if (trending.length === 0) {
     return enabled && (chartsLoading || (needsFallback && !countryChart)) ? <RailSkeleton layout="poster" /> : null;
   }
+
+  // Real rank movement: compare this render's chart order against the previous
+  // order we saw for the same country feed. No synthetic deltas — if a track is
+  // new to the shelf or hasn't moved, no badge is shown.
+  const prevRanks = React.useRef<Record<string, number>>({});
+  const rankMoves = React.useMemo(() => {
+    const moves: Record<string, number> = {};
+    trending.forEach((s, i) => {
+      const before = prevRanks.current[s.id];
+      if (before !== undefined && before !== i) moves[s.id] = before - i;
+    });
+    return moves;
+  }, [trending]);
+  React.useEffect(() => {
+    const next: Record<string, number> = {};
+    trending.forEach((s, i) => { next[s.id] = i; });
+    prevRanks.current = next;
+  }, [trending]);
 
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, trending); };
   const lead = trending[0];
