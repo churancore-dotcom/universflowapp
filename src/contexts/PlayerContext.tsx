@@ -1414,7 +1414,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const ytFallback = isYouTubeFallbackUrl(song.audio_url) ? song.audio_url ?? null : null;
       // Skip resolution only when we already have a real (non-YT-iframe) URL.
       if (!opts.forceRefresh && isPlayableUrl(song.audio_url) && !ytFallback) {
-        return song.audio_url!;
+        // Private `music` bucket objects need a short-lived signed URL.
+        return await signStorageAudioUrl(song.audio_url!);
       }
 
       // Single attempt that tries extract-audio (and music-indexer) once.
