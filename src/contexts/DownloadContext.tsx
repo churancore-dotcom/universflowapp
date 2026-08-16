@@ -6,6 +6,8 @@ import { resolveIndexedTrack } from '@/lib/musicIndexer';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { supabase } from '@/integrations/supabase/client';
 import { isNativePlayerAvailable, resolveNativeMetadataStream } from '@/lib/nativePlayer';
+import { retry } from '@/utils/retry';
+
 
 // Build a proxy URL for cross-origin streams that fail direct fetch.
 // Uses the same music-indexer audio proxy that the player uses.
