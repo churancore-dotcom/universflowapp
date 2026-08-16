@@ -103,14 +103,17 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
   if (artists.length === 0) return null;
 
   return (
-    <section>
-      <div className="flex items-end justify-between mb-4 px-1">
-        <div>
+    <section className="relative">
+      <div className="uf-slash mb-5" />
+      <div className="flex items-stretch gap-3 mb-4 px-1">
+        <span className="uf-index pt-1">04 / Artists</span>
+        <div className="min-w-0 flex-1">
           <h2 className="uf-shelf-title">Trending Artists</h2>
-          <p className="uf-shelf-sub mt-1 block">Leading the charts right now</p>
+          <div className="uf-volt-rule w-16 mt-2 mb-2" />
+          <p className="uf-shelf-sub block">Leading the charts right now</p>
         </div>
         <motion.button
-          className="flex items-center gap-0.5 uf-eyebrow pb-1 text-primary"
+          className="flex items-center gap-0.5 uf-eyebrow pb-1 uf-volt-text shrink-0"
           onClick={() => { triggerHaptic('selection'); navigate('/artists'); }}
           whileTap={{ scale: 0.95 }}
         >
@@ -122,18 +125,20 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
         {artists.map((artist, i) => (
           <motion.div
             key={artist.key}
-            initial={{ opacity: 0, y: 18 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 140, damping: 18, delay: i * 0.045 }}
-            className="shrink-0 w-[148px]"
+            initial={slice.initial}
+            whileInView={slice.animate}
+            viewport={{ once: true, margin: '-20px' }}
+            transition={sliceTransition(i * 0.05)}
+            className={`shrink-0 w-[148px] ${i % 2 ? 'pt-6' : ''}`}
           >
             <button
               onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(artist.name)}`); }}
-              className="relative block w-[148px] h-[196px] text-left uf-tile"
+              className={`relative block w-[148px] h-[196px] text-left uf-tile ${i % 2 ? 'uf-cut-r' : 'uf-cut'}`}
             >
               {artist.image ? (
                 <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
               ) : (
+
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/25 to-background flex items-center justify-center">
                   <span className="font-display text-4xl tracking-[0.06em] text-foreground/70 uppercase">
                     {artist.name.slice(0, 2)}
