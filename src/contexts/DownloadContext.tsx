@@ -472,7 +472,13 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           }));
         }
 
-        blob = new Blob(chunks, { type: 'audio/mpeg' });
+        // Keep the upstream container type. Saving an m4a/webm stream as
+        // "audio/mpeg" makes some browsers refuse to decode it offline — the
+        // download looked fine and then played silence.
+        const upstreamType = (response.headers.get('content-type') || '').split(';')[0].trim();
+        const blobType = /^audio\/|^video\/mp4$/.test(upstreamType) ? upstreamType : 'audio/mpeg';
+        blob = new Blob(chunks, { type: blobType });
+
       } catch (fetchError) {
         if (controller.signal.aborted) throw fetchError;
         blob = await nativeFetchBlob(downloadableSong.audio_url);
