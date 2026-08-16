@@ -85,15 +85,12 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // Pre-resolve the top of the chart so the first taps are instant.
   React.useEffect(() => { prewarmSongs(trending, 4); }, [trending]);
 
-  // Never render nothing while the chart query is in flight — that is what made
-  // Home look frozen. Skeleton mirrors the real poster layout.
-  if (trending.length === 0) {
-    return enabled && (chartsLoading || (needsFallback && !countryChart)) ? <RailSkeleton layout="poster" /> : null;
-  }
-
   // Real rank movement: compare this render's chart order against the previous
   // order we saw for the same country feed. No synthetic deltas — if a track is
   // new to the shelf or hasn't moved, no badge is shown.
+  // NOTE: these hooks MUST stay above the early return below. They used to sit
+  // after it, so the hook count changed between the skeleton render and the
+  // loaded render ("Rendered more hooks than during the previous render").
   const prevRanks = React.useRef<Record<string, number>>({});
   const rankMoves = React.useMemo(() => {
     const moves: Record<string, number> = {};
@@ -108,6 +105,13 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     trending.forEach((s, i) => { next[s.id] = i; });
     prevRanks.current = next;
   }, [trending]);
+
+  // Never render nothing while the chart query is in flight — that is what made
+  // Home look frozen. Skeleton mirrors the real poster layout.
+  if (trending.length === 0) {
+    return enabled && (chartsLoading || (needsFallback && !countryChart)) ? <RailSkeleton layout="poster" /> : null;
+  }
+
 
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, trending); };
   const lead = trending[0];
