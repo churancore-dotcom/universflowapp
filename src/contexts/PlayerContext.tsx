@@ -1515,7 +1515,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           && parsed.hostname.endsWith('googlevideo.com')
           && !isNativeResolvedStreamUrl(directUrl);
       } catch { /* use direct URL */ }
-      if (!shouldRefreshYoutubeUrl) return buildNativeExoPlayerUrl(directUrl);
+      if (!shouldRefreshYoutubeUrl) {
+        const signed = await signStorageAudioUrl(directUrl);
+        if (signed) return buildNativeExoPlayerUrl(signed);
+      }
     }
 
     // Race every resolver under one hard deadline. The old sequential chain
