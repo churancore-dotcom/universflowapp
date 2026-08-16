@@ -85,8 +85,7 @@ export const FAQ_SCHEMA = JSON.stringify({
   ],
 });
 
-const APK_URL =
-  "https://kzaeahjeqlihmxrfhjqd.supabase.co/storage/v1/object/public/music/releases/UniversFlow.apk";
+const APK_URL = `${SITE_ORIGIN}/api/public/apk`;
 
 export const APP_SCHEMA = JSON.stringify({
   "@context": "https://schema.org",
