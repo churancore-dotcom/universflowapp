@@ -77,6 +77,16 @@ export function useGlobalAudioEngine(
       vinyl:     { virt: 400,  bass: 250, loud: 150, reverb: 8,  eqMb: [300, 150, 0, -300, -600],  geo: { room: 18, damping: 85, wet: 16, width: 45, predelayMs: 2,   size: 60 } },
       // Dry control room: short, bright, controlled.
       studio:    { virt: 250,  bass: 0,   loud: 100, reverb: 6,  eqMb: [0, 0, 150, 200, 100],      geo: { room: 30, damping: 40, wet: 18, width: 70, predelayMs: 6,   size: 75 } },
+      bedroom:   { virt: 550,  bass: 150, loud: 250, reverb: 14, eqMb: [200, 50, 0, -100, -250],   geo: { room: 42, damping: 70, wet: 26, width: 65, predelayMs: 11,  size: 85 } },
+      hall:      { virt: 900,  bass: 250, loud: 400, reverb: 28, eqMb: [350, 150, 0, 200, 400],    geo: { room: 78, damping: 32, wet: 46, width: 95, predelayMs: 32,  size: 150 } },
+      cathedral: { virt: 1000, bass: 350, loud: 550, reverb: 42, eqMb: [500, 250, -100, 250, 550], geo: { room: 94, damping: 16, wet: 58, width: 100, predelayMs: 55, size: 210 } },
+      stadium:   { virt: 1000, bass: 450, loud: 650, reverb: 34, eqMb: [600, 350, 0, 200, 350],    geo: { room: 86, damping: 45, wet: 52, width: 100, predelayMs: 105, size: 190 } },
+      club:      { virt: 700,  bass: 550, loud: 450, reverb: 20, eqMb: [650, 300, -50, 100, 150],  geo: { room: 52, damping: 55, wet: 34, width: 80, predelayMs: 18,  size: 100 } },
+      arena:     { virt: 1000, bass: 400, loud: 600, reverb: 32, eqMb: [500, 300, 0, 200, 300],    geo: { room: 82, damping: 38, wet: 50, width: 100, predelayMs: 72, size: 175 } },
+      chapel:    { virt: 800,  bass: 200, loud: 350, reverb: 26, eqMb: [250, 100, 0, 250, 450],    geo: { room: 66, damping: 22, wet: 42, width: 88, predelayMs: 26,  size: 130 } },
+      opera:     { virt: 950,  bass: 300, loud: 450, reverb: 30, eqMb: [400, 200, 50, 250, 400],   geo: { room: 84, damping: 20, wet: 52, width: 100, predelayMs: 42, size: 180 } },
+      canyon:    { virt: 1000, bass: 250, loud: 500, reverb: 40, eqMb: [300, 150, -50, 200, 250],  geo: { room: 96, damping: 30, wet: 60, width: 100, predelayMs: 180, size: 220 } },
+    };
       // Small soft room, early reflections close in.
       bedroom:   { virt: 550,  bass: 150, loud: 250, reverb: 14, eqMb: [200, 50, 0, -100, -250],   geo: { room: 42, damping: 70, wet: 26, width: 65, predelayMs: 11,  size: 85 } },
       // Concert hall: long bloom, wide, gentle damping.
