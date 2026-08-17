@@ -230,7 +230,7 @@ const MadeForYouSection = memo(() => {
         transition={sliceTransition()}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[164px] overflow-hidden text-left uf-tile rounded-[20px] p-4"
+        className="relative w-full min-h-[164px] overflow-hidden text-left rounded-xl p-6 group border border-white/5"
       >
 
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
