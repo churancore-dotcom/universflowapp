@@ -244,21 +244,22 @@ type RailSkeletonProps = { layout?: 'poster' | 'grid' | 'mix'; title?: string };
 export const RailSkeleton = memo(
   ({ layout = 'poster', title = 'w-40' }: RailSkeletonProps) => (
     <section style={{ animation: 'fade-in 0.32s ease-out both' }}>
-      <div className="flex items-end justify-between mb-5 px-1">
-        <div className="space-y-2">
-          <Skeleton className={`h-7 ${title} rounded-md`} />
-          <Skeleton className="h-2.5 w-24 rounded-md" />
+      {/* Matches RailHeader: 19px title + 12px subtitle, mb-3.5 */}
+      <div className="flex items-center justify-between gap-3 mb-3.5">
+        <div className="space-y-1.5 min-w-0">
+          <Skeleton className={`h-5 ${title} rounded-md`} />
+          <Skeleton className="h-3 w-32 rounded-md" />
         </div>
-        <Skeleton className="h-2.5 w-16 rounded-md mb-1" />
+        <Skeleton className="h-3 w-14 rounded-md shrink-0" />
       </div>
 
       {layout === 'poster' && (
         <>
-          <Skeleton className="w-full h-[196px] rounded-[28px]" />
+          <Skeleton className="w-full h-[210px] rounded-[20px]" />
           <div className="flex gap-3 mt-4 overflow-hidden">
             {[0, 1, 2].map((i) => (
-              <div key={i} className="shrink-0 w-[124px] space-y-2">
-                <Skeleton className="w-[124px] h-[124px] rounded-[28px]" />
+              <div key={i} className="shrink-0 w-[132px] space-y-2">
+                <Skeleton className="w-[132px] h-[132px] rounded-[14px]" />
                 <Skeleton className="h-3 w-3/4 rounded-md" />
                 <Skeleton className="h-2.5 w-1/2 rounded-md" />
               </div>
@@ -268,10 +269,10 @@ export const RailSkeleton = memo(
       )}
 
       {layout === 'grid' && (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-2 gap-3.5">
           {[0, 1, 2, 3].map((i) => (
-            <div key={i} className={`space-y-3 ${i % 2 === 1 ? 'pt-6' : ''}`}>
-              <Skeleton className="w-full aspect-square rounded-[28px]" />
+            <div key={i} className="space-y-2.5">
+              <Skeleton className="w-full aspect-square rounded-[14px]" />
               <Skeleton className="h-3 w-3/4 rounded-md" />
               <Skeleton className="h-2.5 w-1/2 rounded-md" />
             </div>
@@ -281,14 +282,15 @@ export const RailSkeleton = memo(
 
       {layout === 'mix' && (
         <>
-          <Skeleton className="w-full h-[164px] rounded-[28px]" />
-          <div className="mt-4 rounded-[28px] overflow-hidden">
+          <Skeleton className="w-full h-[164px] rounded-[20px]" />
+          <div className="mt-3.5 rounded-[20px] overflow-hidden">
             {[0, 1, 2, 3].map((i) => (
               <Row key={i} delay={i * 0.04} />
             ))}
           </div>
         </>
       )}
+
     </section>
   ),
 );
