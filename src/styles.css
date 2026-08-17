@@ -415,6 +415,14 @@
 @utility safe-area-pb { padding-bottom: env(safe-area-inset-bottom, 0); }
 @utility safe-area-pt { padding-top: env(safe-area-inset-top, 0); }
 
+@utility uf-shelf-title {
+  @apply font-display text-[19px] font-black uppercase tracking-[0.08em] text-foreground/90;
+}
+
+@utility uf-card-obsidian {
+  @apply bg-secondary/20 border border-white/5 backdrop-blur-md rounded-xl transition-all duration-300 hover:bg-secondary/30 hover:border-white/10;
+}
+
 /* Keyframes */
 @keyframes waveform { 0%, 100% { transform: scaleY(0.4); } 50% { transform: scaleY(1); } }
 @keyframes audio-wave { 0%, 100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
