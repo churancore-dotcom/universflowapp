@@ -1527,58 +1527,32 @@ body {
 }
 
 /* --- shape language: standard rounded rectangles ------------------------- */
-.uf-cut,
-.uf-cut-r {
-  border-radius: var(--uf-radius-card);
-  clip-path: none;
+/* --- shape language: standard rounded rectangles ------------------------- */
+.uf-tile {
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: transform 0.2s ease, border-color 0.2s ease;
 }
-.uf-cut-sm,
-.uf-cut-r.uf-cut-sm { border-radius: var(--uf-radius-sm); }
-.uf-cut-lg,
-.uf-cut-r.uf-cut-lg { border-radius: var(--uf-radius-card); }
-
-/* --- rhythm: no shear, simple hairline divider --------------------------- */
-.uf-shear,
-.uf-unshear { transform: none; }
-.uf-slash {
-  height: 2px;
-  width: 100%;
-  margin-left: 0;
-  border-radius: 2px;
-  transform: none;
-  background: linear-gradient(90deg,
-    hsl(var(--primary)) 0%,
-    hsl(var(--uf-volt)) 45%,
-    transparent 100%);
-  opacity: 0.7;
+.uf-tile:hover {
+  border-color: rgba(255, 255, 255, 0.1);
 }
 
-
-/* --- colour: volt accents ------------------------------------------------ */
-.uf-volt-text { color: hsl(var(--uf-volt)); }
-.uf-volt-chip {
-  background: hsl(var(--uf-volt));
-  color: hsl(240 12% 8%);
-  font-weight: 900;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-}
-.uf-volt-rule {
-  background: linear-gradient(90deg, hsl(var(--uf-volt)), transparent);
-  height: 2px;
+/* --- colour: surgical accents -------------------------------------------- */
+.uf-accent-gradient {
+  background: linear-gradient(135deg, hsl(var(--primary)), hsl(280 100% 65%));
 }
 
-/* Vertical section index stamped down the left gutter. */
-.uf-index {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  font-family: 'Bebas Neue', 'Barlow', system-ui, sans-serif;
-  font-size: 11px;
-  font-weight: 900;
-  letter-spacing: 0.42em;
-  text-transform: uppercase;
-  color: hsl(var(--uf-volt) / 0.75);
+.uf-glow-action {
+  background: white;
+  color: black;
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.2);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.uf-glow-action:hover {
+  transform: scale(1.05);
+  box-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+}
+
 
 /* --- motion: soft rise-in ------------------------------------------------ */
 @keyframes uf-slice {
