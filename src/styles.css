@@ -1507,59 +1507,45 @@ body {
 }
 
 /* =========================================================================
-   UNIVERS FLOW IDENTITY LAYER — "cut ribbon"
-   Three committed choices, presentation only:
-   1) Colour: rose (--primary) paired with VOLT citron, on ink. Not rose-only.
-   2) Shape: notched / diagonally cut cards ("ticket stub"), not rounded rects.
-   3) Motion: the SLICE — a skewed clip-path wipe, our signature reveal.
+   UNIVERS FLOW IDENTITY LAYER — clean edition
+   The diagonal / notched "cut ribbon" geometry was removed: it read as broken.
+   What stays: rose + VOLT colour pairing, ambient glows, consistent radii,
+   consistent shadows, and a soft rise-in reveal.
    Plain (unlayered) selectors on purpose: they must beat the utility layer.
    ========================================================================= */
 :root {
   --uf-volt: 72 100% 60%;
-  --uf-notch: 26px;
+  --uf-radius-card: 28px;
+  --uf-radius-sm: 14px;
 }
 
-/* --- shape language: notched corners ------------------------------------ */
-.uf-cut {
-  border-radius: 5px;
-  clip-path: polygon(
-    0 0,
-    calc(100% - var(--uf-notch)) 0,
-    100% var(--uf-notch),
-    100% 100%,
-    var(--uf-notch) 100%,
-    0 calc(100% - var(--uf-notch))
-  );
-}
+/* --- shape language: standard rounded rectangles ------------------------- */
+.uf-cut,
 .uf-cut-r {
-  border-radius: 5px;
-  clip-path: polygon(
-    var(--uf-notch) 0,
-    100% 0,
-    100% calc(100% - var(--uf-notch)),
-    calc(100% - var(--uf-notch)) 100%,
-    0 100%,
-    0 var(--uf-notch)
-  );
+  border-radius: var(--uf-radius-card);
+  clip-path: none;
 }
-.uf-cut-sm { --uf-notch: 14px; }
-.uf-cut-lg { --uf-notch: 40px; }
+.uf-cut-sm,
+.uf-cut-r.uf-cut-sm { border-radius: var(--uf-radius-sm); }
+.uf-cut-lg,
+.uf-cut-r.uf-cut-lg { border-radius: var(--uf-radius-card); }
 
-/* --- rhythm: sheared bands + hard rule dividers -------------------------- */
-.uf-shear { transform: skewY(-2.4deg); }
-.uf-unshear { transform: skewY(2.4deg); }
+/* --- rhythm: no shear, simple hairline divider --------------------------- */
+.uf-shear,
+.uf-unshear { transform: none; }
 .uf-slash {
-  height: 3px;
-  width: 130%;
-  margin-left: -15%;
-  transform: skewY(-2.4deg);
+  height: 2px;
+  width: 100%;
+  margin-left: 0;
+  border-radius: 2px;
+  transform: none;
   background: linear-gradient(90deg,
-    transparent 0%,
-    hsl(var(--primary)) 18%,
-    hsl(var(--uf-volt)) 62%,
+    hsl(var(--primary)) 0%,
+    hsl(var(--uf-volt)) 45%,
     transparent 100%);
-  opacity: 0.85;
+  opacity: 0.7;
 }
+
 
 /* --- colour: volt accents ------------------------------------------------ */
 .uf-volt-text { color: hsl(var(--uf-volt)); }
