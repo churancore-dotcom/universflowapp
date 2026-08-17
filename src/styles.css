@@ -416,7 +416,7 @@
 @utility safe-area-pt { padding-top: env(safe-area-inset-top, 0); }
 
 @utility uf-shelf-title {
-  @apply font-display text-[19px] font-black uppercase tracking-[0.08em] text-foreground/90;
+  @apply font-display text-[18px] font-bold tracking-tight text-foreground/90;
 }
 
 @utility uf-card-obsidian {
