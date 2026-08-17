@@ -388,9 +388,6 @@ const Home = () => {
                   )
                 ) : (
                   railOrder.map((rail, railIdx) => {
-                    const isMix = rail === 'mix';
-                    const isFresh = rail === 'fresh';
-                    
                     let body;
                     if (rail === 'mix') body = <MadeForYouSection />;
                     else if (rail === 'trending') body = <TrendingNowSection songs={allSongs} enabled={homeReady} />;
@@ -400,23 +397,12 @@ const Home = () => {
                     return (
                       <motion.div
                         key={rail}
-                        className={`relative rounded-[32px] transition-colors ${
-                          isFresh ? 'p-6 bg-secondary/10 border border-white/5' : 
-                          isMix ? 'py-4' : ''
-                        }`}
+                        className="relative"
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.04 * railIdx }}
                       >
-                        {isMix && (
-                          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-[32px] -mx-4" />
-                        )}
-                        {isFresh && (
-                          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl -mr-16 -mt-16 pointer-events-none" />
-                        )}
-                        <div className="relative z-10">
-                          {body}
-                        </div>
+                        {body}
                       </motion.div>
                     );
                   })
