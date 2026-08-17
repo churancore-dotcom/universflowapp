@@ -125,7 +125,7 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
           >
             <button
               onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(artist.name)}`); }}
-              className="relative block w-[132px] h-[168px] text-left uf-tile rounded-[14px] overflow-hidden"
+              className="relative block w-[132px] h-[168px] text-left rounded-lg overflow-hidden border border-white/5 group"
             >
               {artist.image ? (
                 <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
