@@ -427,7 +427,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
             {view === 'stems' && (
               <div className="space-y-4">
                 <SectionLabel
-                  title="Vocal & beat isolation"
+                  title="Master Chain"
                   value={stemMode === 'custom' ? 'Custom' : STEM_MODES.find((m) => m.id === stemMode)?.name || ''}
                 />
 
