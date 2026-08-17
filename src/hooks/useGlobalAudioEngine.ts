@@ -221,7 +221,7 @@ export function useGlobalAudioEngine(
         ? saved
         : { ...saved, bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0, reverb: 0,
             spatialAudio: false, studioSpace: 'off' as const, lateNight: false,
-            headphoneSurround: false, vocalMix: 100, instrumentalMix: 100, playbackSpeed: 1 };
+            headphoneSurround: false, harmonicExciter: 0, stereoWidth: 50, playbackSpeed: 1 };
 
       // Always honor playback rate — native <audio> property, no graph needed.
       audioElement.playbackRate = s.playbackSpeed;
