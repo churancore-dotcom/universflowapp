@@ -261,9 +261,9 @@ const MadeForYouSection = memo(() => {
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
-            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40 last:border-0 text-left active:bg-primary/10 transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-[13px] font-black uf-volt-text tabular-nums w-6">{String(idx + 2).padStart(2, '0')}</span>
+            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-4 py-3.5 border-b border-white/5 last:border-0 text-left hover:bg-white/5 active:bg-white/10 transition-colors group">
+              <div className="flex items-center gap-4 min-w-0">
+                <span className="text-xs font-bold text-muted-foreground/60 tabular-nums w-4 text-right">{idx + 2}</span>
 
                 <div className="min-w-0">
                   <p className={`text-[13px] font-bold truncate leading-tight ${isPlaying ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
