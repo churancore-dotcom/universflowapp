@@ -13,10 +13,10 @@ export interface EQSettings {
   studioSpace: StudioSpaceId;
   lateNight: boolean;
   headphoneSurround: boolean;
-  /** 0..100 — mid-channel level. 100 = normal, 0 = vocals removed (karaoke). */
-  vocalMix: number;
-  /** 0..100 — side-channel level. 100 = normal, 0 = instrumental removed (a-cappella). */
-  instrumentalMix: number;
+  /** 0..100 — harmonic exciter level. 100 = full saturation, 0 = neutral. */
+  harmonicExciter: number;
+  /** 0..100 — stereo widening. 100 = wide, 50 = normal, 0 = narrow/mono. */
+  stereoWidth: number;
   activePreset: string;
 }
 
