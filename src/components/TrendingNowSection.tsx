@@ -180,7 +180,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
                   <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
-                <span className="absolute bottom-1 left-2 text-[22px] font-black leading-none uf-volt-text tabular-nums">
+                <span className="absolute bottom-2 left-2 text-[20px] font-black leading-none text-white drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)] tabular-nums">
                   {idx + 2}
                 </span>
 
