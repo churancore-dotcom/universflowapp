@@ -75,8 +75,8 @@ interface Engine {
   spatialEnabled: boolean;
   lateNightEnabled: boolean;
   surroundEnabled: boolean;
-  vocalMix: number;
-  instrumentalMix: number;
+  harmonicExciter: number;
+  stereoWidth: number;
   listeners: Set<(m: Mode) => void>;
   cachedIR: AudioBuffer | null;
 }
