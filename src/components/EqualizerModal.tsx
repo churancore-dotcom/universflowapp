@@ -265,8 +265,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
   const applyStemMode = useCallback((mode: typeof STEM_MODES[number]) => {
     setEQSettings({
-      vocalMix: mode.vocalMix,
-      instrumentalMix: mode.instrumentalMix,
+      harmonicExciter: mode.vocalMix,
+      stereoWidth: mode.instrumentalMix,
       activePreset: 'custom',
     });
   }, []);
