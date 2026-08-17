@@ -459,23 +459,23 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
                 <ControlSlider
                   icon={Mic2}
-                  label="Vocal level"
-                  value={settings.vocalMix}
+                  label="Harmonic exciter"
+                  value={settings.harmonicExciter}
                   min={0}
                   max={100}
                   step={1}
-                  display={settings.vocalMix === 0 ? 'Muted' : `${settings.vocalMix}%`}
-                  onChange={(value) => setEQSettings({ vocalMix: value, activePreset: 'custom' })}
+                  display={settings.harmonicExciter === 0 ? 'Pure' : `${settings.harmonicExciter}%`}
+                  onChange={(value) => setEQSettings({ harmonicExciter: value, activePreset: 'custom' })}
                 />
                 <ControlSlider
                   icon={Drum}
-                  label="Beat & instruments"
-                  value={settings.instrumentalMix}
+                  label="Stereo width"
+                  value={settings.stereoWidth}
                   min={0}
                   max={100}
                   step={1}
-                  display={settings.instrumentalMix === 0 ? 'Muted' : `${settings.instrumentalMix}%`}
-                  onChange={(value) => setEQSettings({ instrumentalMix: value, activePreset: 'custom' })}
+                  display={`${settings.stereoWidth}%`}
+                  onChange={(value) => setEQSettings({ stereoWidth: value, activePreset: 'custom' })}
                 />
 
                 <p className="border-l-2 border-primary bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
