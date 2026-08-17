@@ -217,29 +217,22 @@ const MadeForYouSection = memo(() => {
 
   return (
     <section className="relative">
-      <div className="uf-slash mb-5" />
-      <div className="flex items-stretch gap-3 mb-5 px-1">
-        <span className="uf-index pt-1">03 / For You</span>
-        <div className="min-w-0 flex-1">
-          <h2 className="uf-shelf-title">Made For You</h2>
-          <div className="uf-volt-rule w-16 mt-2 mb-2" />
-          <p className="uf-shelf-sub block">
-            {taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
-          </p>
-        </div>
-      </div>
+      <RailHeader
+        title="Made For You"
+        subtitle={taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
+      />
 
-      {/* Wide notched plate — the only landscape card on Home */}
+      {/* Wide plate — the only landscape card on Home */}
       <motion.button
         whileTap={pressShear}
         initial={slice.initial}
-        whileInView={slice.animate}
-        viewport={{ once: true, margin: '-40px' }}
+        animate={slice.animate}
         transition={sliceTransition()}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[184px] overflow-hidden text-left uf-tile rounded-[28px] p-5"
+        className="relative w-full min-h-[164px] overflow-hidden text-left uf-tile rounded-[20px] p-4"
       >
+
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
         {hero.cover_url && (
           <OptimizedImage
