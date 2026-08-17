@@ -119,8 +119,8 @@ export function hasWebAudioEffects(settings = currentSettings): boolean {
   if (settings.studioSpace && settings.studioSpace !== 'off') return true;
   if (settings.lateNight) return true;
   if (settings.headphoneSurround) return true;
-  if ((settings.vocalMix ?? 100) < 100) return true;
-  if ((settings.instrumentalMix ?? 100) < 100) return true;
+  if (settings.harmonicExciter > 0) return true;
+  if (settings.stereoWidth !== 50) return true;
   return false;
 }
 
