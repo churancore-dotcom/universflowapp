@@ -76,7 +76,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
             transition={sliceTransition(0.04 + idx * 0.05)}
             className="min-w-0 text-left"
           >
-            <div className="overflow-hidden mb-2.5 relative uf-tile rounded-[14px] aspect-square">
+            <div className="overflow-hidden mb-2 relative rounded-lg aspect-square border border-white/5 group">
               {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
             </div>
             <p className="text-[13px] font-bold leading-tight text-foreground truncate">{song.title}</p>
