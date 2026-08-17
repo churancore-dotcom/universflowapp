@@ -15,6 +15,7 @@ import { isSpamSong } from '@/pages/Search';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
 import { slice, sliceTransition, pressShear } from '@/lib/ufMotion';
+import RailHeader from './RailHeader';
 
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { getCountryQueries } from '@/lib/countryQueries';
@@ -216,29 +217,22 @@ const MadeForYouSection = memo(() => {
 
   return (
     <section className="relative">
-      <div className="uf-slash mb-5" />
-      <div className="flex items-stretch gap-3 mb-5 px-1">
-        <span className="uf-index pt-1">03 / For You</span>
-        <div className="min-w-0 flex-1">
-          <h2 className="uf-shelf-title">Made For You</h2>
-          <div className="uf-volt-rule w-16 mt-2 mb-2" />
-          <p className="uf-shelf-sub block">
-            {taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
-          </p>
-        </div>
-      </div>
+      <RailHeader
+        title="Made For You"
+        subtitle={taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
+      />
 
-      {/* Wide notched plate — the only landscape card on Home */}
+      {/* Wide plate — the only landscape card on Home */}
       <motion.button
         whileTap={pressShear}
         initial={slice.initial}
-        whileInView={slice.animate}
-        viewport={{ once: true, margin: '-40px' }}
+        animate={slice.animate}
         transition={sliceTransition()}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[184px] overflow-hidden text-left uf-tile rounded-[28px] p-5"
+        className="relative w-full min-h-[164px] overflow-hidden text-left uf-tile rounded-[20px] p-4"
       >
+
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
         {hero.cover_url && (
           <OptimizedImage
@@ -251,10 +245,10 @@ const MadeForYouSection = memo(() => {
           <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover opacity-80" eager />
         )}
         <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/25 backdrop-blur-[2px]" />
-        <div className="relative z-10 max-w-[62%]">
-          <span className="inline-flex uf-volt-chip rounded-full px-2 py-1 text-[9px] mb-5">For You</span>
-          <h3 className="font-display text-[30px] leading-[0.9] uppercase text-foreground mb-2 line-clamp-2">{hero.title}</h3>
-          <p className="text-[12px] text-muted-foreground truncate font-semibold mb-4">{hero.artist}</p>
+        <div className="relative z-10 max-w-[60%]">
+          <span className="inline-flex uf-volt-chip rounded-full px-2 py-1 text-[9px] mb-3">For You</span>
+          <h3 className="text-[19px] font-extrabold leading-tight text-foreground mb-1.5 line-clamp-2">{hero.title}</h3>
+          <p className="text-[12px] text-muted-foreground truncate font-semibold mb-3">{hero.artist}</p>
           <div className="w-10 h-10 uf-glow-action rounded-full flex items-center justify-center flex-shrink-0">
             <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
           </div>
@@ -262,14 +256,15 @@ const MadeForYouSection = memo(() => {
       </motion.button>
 
 
-      {/* Ticket stub: perforated left edge, volt track numbers */}
-      <div className="mt-4 rounded-[28px] uf-tile overflow-hidden border-l-2 border-[hsl(var(--uf-volt)/0.35)]">
+      {/* Up-next list, uniform rows */}
+      <div className="mt-3.5 rounded-[20px] uf-tile overflow-hidden">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
-            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-5 py-3.5 border-b border-border/40 last:border-0 text-left active:bg-primary/10 transition-colors">
+            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40 last:border-0 text-left active:bg-primary/10 transition-colors">
               <div className="flex items-center gap-3 min-w-0">
-                <span className="font-display text-[17px] uf-volt-text tabular-nums w-7">{String(idx + 2).padStart(2, '0')}</span>
+                <span className="text-[13px] font-black uf-volt-text tabular-nums w-6">{String(idx + 2).padStart(2, '0')}</span>
+
                 <div className="min-w-0">
                   <p className={`text-[13px] font-bold truncate leading-tight ${isPlaying ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
                   <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5 font-medium">{song.artist}</p>

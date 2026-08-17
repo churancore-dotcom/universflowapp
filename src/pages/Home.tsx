@@ -307,26 +307,26 @@ const Home = () => {
           ) : isOffline && songs.length === 0 ? (
             <EmptyState />
           ) : (
-            <div className="space-y-10">
-              {/* ====== HERO — artwork-dominant bento tile ====== */}
+            <div className="space-y-7">
+              {/* ====== HERO — artwork-dominant tile ====== */}
               {heroSong && (
                 <motion.section
-                  initial={{ opacity: 0, y: 24, scale: 0.98 }}
-                  animate={{ opacity: 1, y: 0, scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 120, damping: 18, mass: 0.9 }}
+                  initial={{ opacity: 0, y: 16 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 140, damping: 20 }}
                   className="relative"
                 >
-                  <div className="flex items-end justify-between mb-4 px-5">
+                  <div className="flex items-center justify-between mb-3 px-5">
                     <h2 className="uf-shelf-title">
                       {heroContextLabel(signals, !!currentSong)}
                     </h2>
-                    <button onClick={shuffleAll} className="flex items-center gap-1.5 uf-eyebrow pb-1 uf-volt-text">
+                    <button onClick={shuffleAll} className="flex items-center gap-1.5 text-[12px] font-bold text-primary active:opacity-60">
                       <Shuffle className="w-3.5 h-3.5" /> Shuffle
                     </button>
                   </div>
 
-                  {/* Full-bleed cinematic hero with gradient scrim */}
-                  <div className="relative w-full h-[70vh] min-h-[400px] max-h-[600px] overflow-hidden uf-hero-depth rounded-b-[28px]">
+                  {/* Full-bleed hero with gradient scrim */}
+                  <div className="relative w-full h-[46vh] min-h-[300px] max-h-[420px] overflow-hidden uf-hero-depth rounded-b-[20px]">
                     <motion.div className="absolute inset-0 will-change-transform" style={{ y: heroY, scale: heroScale }}>
                       {heroSong.cover_url ? (
                         <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
@@ -338,34 +338,29 @@ const Home = () => {
                     {/* Layered scrim: deep bottom fade + rose bloom + top vignette */}
                     <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
                     <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_10%_100%,hsl(var(--primary)/0.35)_0%,transparent_65%)]" />
-                    <div className="absolute inset-0 bg-[radial-gradient(60%_45%_at_95%_10%,hsl(var(--uf-volt)/0.16)_0%,transparent_70%)]" />
-                    <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-background/85 to-transparent" />
+                    <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-background/70 to-transparent" />
 
-                    <div className="absolute bottom-0 left-0 right-0 p-5 pb-14">
-                      <span className="inline-block px-2.5 py-1 uf-volt-chip rounded-full text-[10px] mb-3">
+                    <div className="absolute bottom-0 left-0 right-0 p-5 pb-6">
+                      <span className="inline-block px-2.5 py-1 uf-volt-chip rounded-full text-[10px] mb-2.5">
                         {heroIsCurrent && isPlaying ? 'Now playing' : 'Start here'}
                       </span>
-                      <motion.h3
-                        initial={slice.initial}
-                        animate={slice.animate}
-                        transition={sliceTransition(0.1)}
-                        className="font-display uppercase text-foreground line-clamp-3"
-                        style={{ fontSize: 'clamp(44px, 15vw, 76px)', lineHeight: 0.84, textShadow: '0 18px 50px rgba(0,0,0,0.65)' }}
-                      >
-                        {heroSong.title}
-                      </motion.h3>
-                      <div className="flex items-center justify-between gap-4 mt-3">
-                        <p className="text-foreground/70 text-[15px] font-semibold truncate">{heroSong.artist}</p>
+                      <div className="flex items-end justify-between gap-4">
+                        <div className="min-w-0">
+                          <h3 className="text-[26px] font-extrabold leading-tight text-foreground line-clamp-2">
+                            {heroSong.title}
+                          </h3>
+                          <p className="text-muted-foreground text-[13px] font-semibold truncate mt-1">{heroSong.artist}</p>
+                        </div>
                         <motion.button
                           onClick={playHero}
                           whileTap={pressShear}
                           transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                           aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                          className="w-16 h-16 shrink-0 uf-glow-action rounded-full flex items-center justify-center"
+                          className="w-14 h-14 shrink-0 uf-glow-action rounded-full flex items-center justify-center"
                         >
                           {heroIsCurrent && isPlaying
-                            ? <Pause className="w-7 h-7 fill-current" />
-                            : <Play className="w-7 h-7 fill-current ml-0.5" />}
+                            ? <Pause className="w-6 h-6 fill-current" />
+                            : <Play className="w-6 h-6 fill-current ml-0.5" />}
                         </motion.button>
                       </div>
                     </div>
@@ -375,6 +370,7 @@ const Home = () => {
               )}
 
 
+
               {/* ====== RAILS ======
                   Order is scored per listener in src/lib/homeFeedOrder.ts, not
                   hardcoded: an open listening loop outranks everything while it
@@ -382,7 +378,7 @@ const Home = () => {
                   social proof leads for a stranger, and the new-release rail is
                   only promoted inside the Friday–Sunday window. Every rail
                   self-hides with no real data, so nothing renders empty. */}
-              <div className="space-y-10">
+              <div className="space-y-8">
                 {isOffline ? (
                   allSongs.length > 0 && (
                     <div className="px-5"><AllSongsSection songs={allSongs} /></div>
@@ -403,10 +399,9 @@ const Home = () => {
                       <motion.div
                         key={rail}
                         className={`px-5 ${aura}`}
-                        initial={{ opacity: 0, y: 28 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true, margin: '-60px' }}
-                        transition={{ type: 'spring', stiffness: 110, damping: 18, delay: 0.04 * railIdx }}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.04 * railIdx }}
                       >
                         {body}
                       </motion.div>
@@ -414,6 +409,7 @@ const Home = () => {
                   })
                 )}
               </div>
+
 
 
             </div>
