@@ -29,8 +29,8 @@ export const DEFAULT_EQ_SETTINGS: EQSettings = {
   studioSpace: 'off',
   lateNight: false,
   headphoneSurround: false,
-  vocalMix: 100,
-  instrumentalMix: 100,
+  harmonicExciter: 0,
+  stereoWidth: 50,
   activePreset: 'flat',
 };
 
