@@ -62,49 +62,40 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   return (
     <section className="relative">
       <div className="uf-slash mb-5" />
-      {/* Sheared band: the whole shelf tilts, the content counter-tilts back. */}
-      <div className="uf-shear">
-        <div className="uf-unshear">
-          <div className="flex items-stretch gap-3 mb-5 px-1">
-            <span className="uf-index pt-1">02 / Fresh</span>
-            <div className="min-w-0 flex-1">
-              <h2 className="uf-shelf-title">New Releases</h2>
-              <div className="uf-volt-rule w-16 mt-2 mb-2" />
-              <p className="uf-shelf-sub block">Out now, straight off the feed</p>
-            </div>
-          </div>
-
-          {/* Staircase: alternating notch direction + offset, never a flat grid */}
-          <div className="grid grid-cols-2 gap-4">
-            {fresh.slice(0, 6).map((song, idx) => (
-              <motion.button
-                key={song.id}
-                onClick={() => play(song)}
-                {...prewarmIntentProps(song)}
-                whileTap={pressShear}
-                initial={sliceUp.initial}
-                whileInView={sliceUp.animate}
-                viewport={{ once: true, margin: '-30px' }}
-                transition={sliceTransition(0.04 + idx * 0.06)}
-                className={`min-w-0 text-left ${idx === 0 ? 'col-span-2' : ''} ${idx % 2 === 0 && idx > 0 ? 'pt-7' : ''}`}
-              >
-                <div className={`overflow-hidden mb-3 relative uf-tile ${idx % 2 ? 'uf-cut-r' : 'uf-cut'} ${idx === 0 ? 'aspect-[16/9] uf-cut-lg' : idx % 3 === 0 ? 'aspect-[4/5]' : 'aspect-square'}`}>
-                  {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
-                  {idx === 0 && (
-                    <span className="absolute bottom-3 right-3 w-10 h-10 uf-volt-chip uf-cut uf-cut-sm flex items-center justify-center">
-                      <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
-                    </span>
-                  )}
-                </div>
-                <p className="font-display text-[19px] font-bold leading-tight uppercase text-foreground truncate">{song.title}</p>
-                <p className="text-[11px] text-muted-foreground/70 truncate font-semibold mt-0.5">{song.artist}</p>
-              </motion.button>
-            ))}
-          </div>
+      <div className="flex items-stretch gap-3 mb-5 px-1">
+        <span className="uf-index pt-1">02 / Fresh</span>
+        <div className="min-w-0 flex-1">
+          <h2 className="uf-shelf-title">New Releases</h2>
+          <div className="uf-volt-rule w-16 mt-2 mb-2" />
+          <p className="uf-shelf-sub block">Out now, straight off the feed</p>
         </div>
+      </div>
+
+      {/* Clean two-column grid, uniform square artwork */}
+      <div className="grid grid-cols-2 gap-4">
+        {fresh.slice(0, 6).map((song, idx) => (
+          <motion.button
+            key={song.id}
+            onClick={() => play(song)}
+            {...prewarmIntentProps(song)}
+            whileTap={pressShear}
+            initial={sliceUp.initial}
+            whileInView={sliceUp.animate}
+            viewport={{ once: true, margin: '-30px' }}
+            transition={sliceTransition(0.04 + idx * 0.06)}
+            className="min-w-0 text-left"
+          >
+            <div className="overflow-hidden mb-3 relative uf-tile rounded-[28px] aspect-square">
+              {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
+            </div>
+            <p className="font-display text-[17px] font-bold leading-tight uppercase text-foreground truncate">{song.title}</p>
+            <p className="text-[11px] text-muted-foreground/70 truncate font-semibold mt-0.5">{song.artist}</p>
+          </motion.button>
+        ))}
       </div>
     </section>
   );
+
 
 
 });
