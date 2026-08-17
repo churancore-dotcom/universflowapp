@@ -132,7 +132,7 @@ const STUDIO_SPACES: StudioSpace[] = [
 
 const VIEWS: Array<{ id: EqView; label: string; icon: ComponentType<{ className?: string }> }> = [
   { id: 'smart', label: 'Smart', icon: Wand2 },
-  { id: 'stems', label: 'Stems', icon: MicOff },
+  { id: 'stems', label: 'Master', icon: SlidersHorizontal },
   { id: 'manual', label: 'Bands', icon: SlidersHorizontal },
   { id: 'space', label: 'Space', icon: Waves },
 ];
@@ -146,8 +146,8 @@ const NEUTRAL_PATCH: Partial<EQSettings> = {
   studioSpace: 'off',
   lateNight: false,
   headphoneSurround: false,
-  vocalMix: 100,
-  instrumentalMix: 100,
+  harmonicExciter: 0,
+  stereoWidth: 50,
 };
 
 type StemMode = 'normal' | 'karaoke' | 'acappella' | 'custom';
@@ -203,7 +203,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const nativeAudio = isNativePlayerAvailable();
   const effectsActive = isEqActive(settings);
   const isConnected = engineMode === 'processed' || nativeAudio;
-  const stemMode = detectStemMode(settings.vocalMix, settings.instrumentalMix);
+  const stemMode = detectStemMode(settings.harmonicExciter, settings.stereoWidth);
 
   useEffect(() => setMounted(true), []);
 
@@ -265,8 +265,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
   const applyStemMode = useCallback((mode: typeof STEM_MODES[number]) => {
     setEQSettings({
-      vocalMix: mode.vocalMix,
-      instrumentalMix: mode.instrumentalMix,
+      harmonicExciter: mode.vocalMix,
+      stereoWidth: mode.instrumentalMix,
       activePreset: 'custom',
     });
   }, []);
@@ -427,7 +427,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
             {view === 'stems' && (
               <div className="space-y-4">
                 <SectionLabel
-                  title="Vocal & beat isolation"
+                  title="Master Chain"
                   value={stemMode === 'custom' ? 'Custom' : STEM_MODES.find((m) => m.id === stemMode)?.name || ''}
                 />
 
@@ -459,28 +459,28 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
                 <ControlSlider
                   icon={Mic2}
-                  label="Vocal level"
-                  value={settings.vocalMix}
+                  label="Harmonic exciter"
+                  value={settings.harmonicExciter}
                   min={0}
                   max={100}
                   step={1}
-                  display={settings.vocalMix === 0 ? 'Muted' : `${settings.vocalMix}%`}
-                  onChange={(value) => setEQSettings({ vocalMix: value, activePreset: 'custom' })}
+                  display={settings.harmonicExciter === 0 ? 'Pure' : `${settings.harmonicExciter}%`}
+                  onChange={(value) => setEQSettings({ harmonicExciter: value, activePreset: 'custom' })}
                 />
                 <ControlSlider
                   icon={Drum}
-                  label="Beat & instruments"
-                  value={settings.instrumentalMix}
+                  label="Stereo width"
+                  value={settings.stereoWidth}
                   min={0}
                   max={100}
                   step={1}
-                  display={settings.instrumentalMix === 0 ? 'Muted' : `${settings.instrumentalMix}%`}
-                  onChange={(value) => setEQSettings({ instrumentalMix: value, activePreset: 'custom' })}
+                  display={`${settings.stereoWidth}%`}
+                  onChange={(value) => setEQSettings({ stereoWidth: value, activePreset: 'custom' })}
                 />
 
                 <p className="border-l-2 border-primary bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                  Isolation is instant and works on every stereo track. Studio-produced songs separate the
-                  cleanest; heavily mono or live recordings keep more bleed.
+                  The Master Chain adds harmonic richness and stereo depth.
+                  Exciter adds high-end sparkle and "air", while Width expands the stage beyond your speakers.
                 </p>
               </div>
             )}
