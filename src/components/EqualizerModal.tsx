@@ -203,7 +203,7 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const nativeAudio = isNativePlayerAvailable();
   const effectsActive = isEqActive(settings);
   const isConnected = engineMode === 'processed' || nativeAudio;
-  const stemMode = detectStemMode(settings.vocalMix, settings.instrumentalMix);
+  const stemMode = detectStemMode(settings.harmonicExciter, settings.stereoWidth);
 
   useEffect(() => setMounted(true), []);
 
