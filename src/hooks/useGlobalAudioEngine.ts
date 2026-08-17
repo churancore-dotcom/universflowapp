@@ -130,7 +130,7 @@ export function useGlobalAudioEngine(
       // Late Night: real +14 dB loudness compression makeup, not the old +6 dB
       // that was inaudible on phone speakers. Combine with space loudness.
       const lateNightMb = s.lateNight ? 1400 : 0;
-      const stemMakeupMb = Math.round(Math.max(vocalCut, instrumentalCut) * 450);
+      const stemMakeupMb = Math.round(exciter * 450);
       // Virtualizer: headphone surround / space width baseline.
       const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);
 
