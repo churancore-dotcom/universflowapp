@@ -14,9 +14,11 @@ import {
   Guitar,
   Headphones,
   Home,
+  Landmark,
   Mic2,
   MicOff,
   Moon,
+  Mountain,
   Music2,
   Piano,
   Podcast,
@@ -24,6 +26,7 @@ import {
   RotateCcw,
   SlidersHorizontal,
   Speaker,
+  Theater,
   Trophy,
   Wand2,
   Waves,
@@ -113,13 +116,18 @@ const PRESETS: Preset[] = [
 ];
 
 const STUDIO_SPACES: StudioSpace[] = [
-  { id: 'off', name: 'Off', icon: X, desc: 'Dry signal' },
-  { id: 'vinyl', name: 'Vinyl', icon: Disc3, desc: 'Warm booth' },
-  { id: 'studio', name: 'Studio', icon: Mic2, desc: 'Tight room' },
-  { id: 'bedroom', name: 'Bedroom', icon: Home, desc: 'Close space' },
-  { id: 'hall', name: 'Hall', icon: Building2, desc: 'Wide tails' },
-  { id: 'cathedral', name: 'Cathedral', icon: Church, desc: 'Huge wash' },
-  { id: 'stadium', name: 'Stadium', icon: Trophy, desc: 'Live scale' },
+  { id: 'off', name: 'Off', icon: X, desc: 'No room — pure track' },
+  { id: 'vinyl', name: 'Vinyl booth', icon: Disc3, desc: 'Dark, dry lacquer cut' },
+  { id: 'studio', name: 'Studio', icon: Mic2, desc: 'Tight control room' },
+  { id: 'bedroom', name: 'Bedroom', icon: Home, desc: 'Soft close walls' },
+  { id: 'club', name: 'Night club', icon: Speaker, desc: 'Low room, thick bass' },
+  { id: 'chapel', name: 'Chapel', icon: Church, desc: 'Bright stone, medium tail' },
+  { id: 'hall', name: 'Concert hall', icon: Building2, desc: 'Wide orchestral bloom' },
+  { id: 'opera', name: 'Opera house', icon: Theater, desc: 'Warm wood, very wide' },
+  { id: 'arena', name: 'Arena', icon: Trophy, desc: 'Indoor crowd roar' },
+  { id: 'stadium', name: 'Stadium', icon: Landmark, desc: 'Open-air slapback' },
+  { id: 'cathedral', name: 'Cathedral', icon: Church, desc: 'Longest stone wash' },
+  { id: 'canyon', name: 'Canyon', icon: Mountain, desc: 'Far echo, huge sky' },
 ];
 
 const VIEWS: Array<{ id: EqView; label: string; icon: ComponentType<{ className?: string }> }> = [
