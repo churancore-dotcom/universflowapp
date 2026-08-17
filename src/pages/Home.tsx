@@ -325,11 +325,8 @@ const Home = () => {
                     </button>
                   </div>
 
-                  {/* Full-bleed cinematic hero, cut off on the diagonal */}
-                  <div
-                    className="relative w-full h-[70vh] min-h-[400px] max-h-[600px] overflow-hidden uf-hero-depth"
-                    style={{ clipPath: 'polygon(0 0, 100% 0, 100% calc(100% - 42px), 0 100%)' }}
-                  >
+                  {/* Full-bleed cinematic hero with gradient scrim */}
+                  <div className="relative w-full h-[70vh] min-h-[400px] max-h-[600px] overflow-hidden uf-hero-depth rounded-b-[28px]">
                     <motion.div className="absolute inset-0 will-change-transform" style={{ y: heroY, scale: heroScale }}>
                       {heroSong.cover_url ? (
                         <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
@@ -345,7 +342,7 @@ const Home = () => {
                     <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-background/85 to-transparent" />
 
                     <div className="absolute bottom-0 left-0 right-0 p-5 pb-14">
-                      <span className="inline-block px-2.5 py-1 uf-volt-chip uf-cut uf-cut-sm text-[10px] mb-3">
+                      <span className="inline-block px-2.5 py-1 uf-volt-chip rounded-full text-[10px] mb-3">
                         {heroIsCurrent && isPlaying ? 'Now playing' : 'Start here'}
                       </span>
                       <motion.h3
@@ -364,7 +361,7 @@ const Home = () => {
                           whileTap={pressShear}
                           transition={{ type: 'spring', stiffness: 500, damping: 22 }}
                           aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                          className="w-16 h-16 shrink-0 uf-glow-action uf-cut uf-cut-sm flex items-center justify-center"
+                          className="w-16 h-16 shrink-0 uf-glow-action rounded-full flex items-center justify-center"
                         >
                           {heroIsCurrent && isPlaying
                             ? <Pause className="w-7 h-7 fill-current" />

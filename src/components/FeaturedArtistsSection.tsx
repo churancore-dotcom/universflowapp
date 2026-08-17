@@ -131,11 +131,11 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
             whileInView={slice.animate}
             viewport={{ once: true, margin: '-20px' }}
             transition={sliceTransition(i * 0.05)}
-            className={`shrink-0 w-[148px] ${i % 2 ? 'pt-6' : ''}`}
+            className="shrink-0 w-[148px]"
           >
             <button
               onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(artist.name)}`); }}
-              className={`relative block w-[148px] h-[196px] text-left uf-tile ${i % 2 ? 'uf-cut-r' : 'uf-cut'}`}
+              className="relative block w-[148px] h-[196px] text-left uf-tile rounded-[28px] overflow-hidden"
             >
               {artist.image ? (
                 <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
