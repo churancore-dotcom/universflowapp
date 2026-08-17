@@ -139,22 +139,22 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
         transition={sliceTransition()}
         onClick={() => play(lead)}
         {...prewarmIntentProps(lead)}
-        className="relative w-full h-[210px] text-left uf-tile rounded-[20px] overflow-hidden"
+        className="relative w-full h-[210px] text-left rounded-xl overflow-hidden group border border-white/5"
       >
         {lead.cover_url && (
-          <OptimizedImage src={lead.cover_url} alt={lead.title} className="absolute inset-0 w-full h-full object-cover" eager />
+          <OptimizedImage src={lead.cover_url} alt={lead.title} className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" eager />
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
-        <div className="absolute top-3 left-3 px-2.5 py-1 uf-volt-chip rounded-full text-[9px]">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/30 to-transparent" />
+        <div className="absolute top-3 left-3 px-2 py-0.5 bg-primary text-white rounded-full text-[9px] font-bold uppercase tracking-wider">
           #1 Trending
         </div>
         <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="text-[19px] font-extrabold leading-tight uf-media-title line-clamp-2">{lead.title}</h3>
-            <p className="text-xs uf-media-sub truncate mt-1 font-semibold">{lead.artist}</p>
+            <h3 className="text-xl font-black leading-tight line-clamp-2 tracking-tight">{lead.title}</h3>
+            <p className="text-xs text-muted-foreground/90 truncate mt-1 font-semibold">{lead.artist}</p>
           </div>
-          <div className="w-12 h-12 uf-glow-action rounded-full flex items-center justify-center shrink-0">
-            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+          <div className="w-11 h-11 bg-white text-black rounded-full shadow-lg flex items-center justify-center shrink-0 transition-transform hover:scale-105">
+            <Play className="w-4 h-4 ml-0.5 fill-current" />
           </div>
         </div>
       </motion.button>
@@ -175,7 +175,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
               transition={{ type: 'spring', stiffness: 260, damping: 26 }}
               className="shrink-0 text-left w-[132px]"
             >
-              <div className="relative uf-tile rounded-[14px] overflow-hidden w-[132px] h-[132px]">
+              <div className="relative rounded-lg overflow-hidden w-[132px] h-[132px] border border-white/5 group">
                 {song.cover_url && (
                   <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
                 )}
