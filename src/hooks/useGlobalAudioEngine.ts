@@ -148,8 +148,8 @@ export function useGlobalAudioEngine(
         reverbAmount: Math.max(s.reverb, space.reverb),
         space: space.geo,
 
-        vocalMix: s.vocalMix ?? 100,
-        instrumentalMix: s.instrumentalMix ?? 100,
+        harmonicExciter: s.harmonicExciter ?? 0,
+        stereoWidth: s.stereoWidth ?? 50,
         playbackSpeed: s.playbackSpeed,
       });
       if (revision !== nativeApplyRevision) return;
