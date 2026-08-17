@@ -378,7 +378,7 @@ const Home = () => {
                   social proof leads for a stranger, and the new-release rail is
                   only promoted inside the Friday–Sunday window. Every rail
                   self-hides with no real data, so nothing renders empty. */}
-              <div className="space-y-10">
+              <div className="space-y-8">
                 {isOffline ? (
                   allSongs.length > 0 && (
                     <div className="px-5"><AllSongsSection songs={allSongs} /></div>
@@ -399,10 +399,9 @@ const Home = () => {
                       <motion.div
                         key={rail}
                         className={`px-5 ${aura}`}
-                        initial={{ opacity: 0, y: 28 }}
-                        whileInView={{ opacity: 1, y: 0 }}
-                        viewport={{ once: true, margin: '-60px' }}
-                        transition={{ type: 'spring', stiffness: 110, damping: 18, delay: 0.04 * railIdx }}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.04 * railIdx }}
                       >
                         {body}
                       </motion.div>
@@ -410,6 +409,7 @@ const Home = () => {
                   })
                 )}
               </div>
+
 
 
             </div>
