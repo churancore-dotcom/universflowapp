@@ -681,11 +681,13 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
 function applyStems() {
   if (!engine.ctx || !engine.stemsMidSum) return;
   const now = engine.ctx.currentTime;
-  const vocal = Math.max(0, Math.min(1, engine.vocalMix / 100));
-  const instrument = Math.max(0, Math.min(1, engine.instrumentalMix / 100));
-  const neutral = vocal >= 0.995 && instrument >= 0.995;
-  const power = Math.sqrt((vocal * vocal + instrument * instrument) / 2);
-  const makeup = power > 0.04 ? Math.min(1.9, Math.max(1, 1 / power)) : 1;
+  
+  // exciter: 0..100 -> 0..1
+  const exciter = Math.max(0, Math.min(1, engine.harmonicExciter / 100));
+  // width: 0..100 -> 0..2 (normal = 1.0 at 50)
+  const width = Math.max(0, Math.min(2, engine.stereoWidth / 50));
+  
+  const neutral = exciter < 0.05 && Math.abs(width - 1.0) < 0.05;
 
   const setGain = (n: GainNode | null, v: number, smooth = SMOOTH) => {
     if (!n) return;
@@ -693,33 +695,31 @@ function applyStems() {
     n.gain.setTargetAtTime(v, now, smooth);
   };
 
-  // Crossfade direct → matrix so neutral playback stays bit-transparent.
+  // Crossfade direct → matrix
   setGain(engine.stemsDirectGain, neutral ? 1 : 0, SNAP);
-  setGain(engine.stemsMatrixGain, neutral ? 0 : makeup, SNAP);
+  setGain(engine.stemsMatrixGain, neutral ? 0 : 1, SNAP);
 
-  // Centered low end (kick/bass) belongs to the instrument bed, so karaoke
-  // keeps the groove instead of sounding thin. Full a-cappella still strips
-  // it, leaving the isolated voice band.
-  setGain(engine.stemsMidLowGain, instrument);
-  // Centered vocal band follows the vocal slider.
-  setGain(engine.stemsMidBandGain, vocal);
-  // Centered air/cymbals stay with the instruments.
-  setGain(engine.stemsMidHighGain, instrument);
-  // Stereo instrument bed follows the instrument slider.
-  setGain(engine.stemsSidePos, instrument);
-  setGain(engine.stemsSideNeg, -instrument);
+  // Harmonic exciter: drive the MidBand with a bit more gain and high-shelf tilt
+  // (In a real DSP we'd add saturation, but here we simulate it with presence)
+  setGain(engine.stemsMidLowGain, 1.0);
+  setGain(engine.stemsMidBandGain, 1.0 + exciter * 0.4);
+  setGain(engine.stemsMidHighGain, 1.0 + exciter * 0.8);
+
+  // Stereo width: adjust side channel gain
+  setGain(engine.stemsSidePos, width);
+  setGain(engine.stemsSideNeg, -width);
 }
 
-/** Vocal mix (0..100). 100 = normal, 0 = karaoke (vocals removed). */
+/** Harmonic exciter level (0..100). */
 export function setVocalMix(percent: number) {
-  engine.vocalMix = Math.max(0, Math.min(100, percent));
+  engine.harmonicExciter = Math.max(0, Math.min(100, percent));
   if (engine.mode !== 'processed') return;
   applyStems();
 }
 
-/** Instrumental mix (0..100). 100 = normal, 0 = a-cappella (music removed). */
+/** Stereo width (0..100). 50 = normal. */
 export function setInstrumentalMix(percent: number) {
-  engine.instrumentalMix = Math.max(0, Math.min(100, percent));
+  engine.stereoWidth = Math.max(0, Math.min(100, percent));
   if (engine.mode !== 'processed') return;
   applyStems();
 }
