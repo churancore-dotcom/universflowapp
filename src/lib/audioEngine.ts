@@ -132,8 +132,8 @@ const engine: Engine = {
   spatialEnabled: false,
   lateNightEnabled: false,
   surroundEnabled: false,
-  vocalMix: 100,
-  instrumentalMix: 100,
+  harmonicExciter: 0,
+  stereoWidth: 50,
   listeners: new Set(),
   cachedIR: null,
 };
