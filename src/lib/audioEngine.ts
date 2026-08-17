@@ -295,7 +295,7 @@ function getCachedSpaceIR(ctx: AudioContext, spaceId: Exclude<StudioSpaceId, 'of
 
 function prebuildAllSpaceIRs(ctx: AudioContext) {
   // Idle-time warm-up so the first toggle is instant.
-  const ids: Array<Exclude<StudioSpaceId, 'off'>> = ['vinyl', 'studio', 'bedroom', 'hall', 'cathedral', 'stadium'];
+  const ids = Object.keys(SPACE_PROFILES) as Array<Exclude<StudioSpaceId, 'off'>>;
   const run = () => { for (const id of ids) { try { getCachedSpaceIR(ctx, id); } catch { /* ignore */ } } };
   if (typeof (window as Window & { requestIdleCallback?: (cb: () => void) => void }).requestIdleCallback === 'function') {
     (window as Window & { requestIdleCallback: (cb: () => void) => void }).requestIdleCallback(run);
