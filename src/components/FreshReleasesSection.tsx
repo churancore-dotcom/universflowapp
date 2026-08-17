@@ -60,18 +60,10 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
   return (
     <section className="relative">
-      <div className="uf-slash mb-5" />
-      <div className="flex items-stretch gap-3 mb-5 px-1">
-        <span className="uf-index pt-1">02 / Fresh</span>
-        <div className="min-w-0 flex-1">
-          <h2 className="uf-shelf-title">New Releases</h2>
-          <div className="uf-volt-rule w-16 mt-2 mb-2" />
-          <p className="uf-shelf-sub block">Out now, straight off the feed</p>
-        </div>
-      </div>
+      <RailHeader title="New Releases" subtitle="Out now, straight off the feed" />
 
-      {/* Clean two-column grid, uniform square artwork */}
-      <div className="grid grid-cols-2 gap-4">
+      {/* Uniform two-column grid, square artwork */}
+      <div className="grid grid-cols-2 gap-3.5">
         {fresh.slice(0, 6).map((song, idx) => (
           <motion.button
             key={song.id}
@@ -79,21 +71,21 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
             {...prewarmIntentProps(song)}
             whileTap={pressShear}
             initial={sliceUp.initial}
-            whileInView={sliceUp.animate}
-            viewport={{ once: true, margin: '-30px' }}
-            transition={sliceTransition(0.04 + idx * 0.06)}
+            animate={sliceUp.animate}
+            transition={sliceTransition(0.04 + idx * 0.05)}
             className="min-w-0 text-left"
           >
-            <div className="overflow-hidden mb-3 relative uf-tile rounded-[28px] aspect-square">
+            <div className="overflow-hidden mb-2.5 relative uf-tile rounded-[14px] aspect-square">
               {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
             </div>
-            <p className="font-display text-[17px] font-bold leading-tight uppercase text-foreground truncate">{song.title}</p>
-            <p className="text-[11px] text-muted-foreground/70 truncate font-semibold mt-0.5">{song.artist}</p>
+            <p className="text-[13px] font-bold leading-tight text-foreground truncate">{song.title}</p>
+            <p className="text-[11px] text-muted-foreground/70 truncate font-medium mt-0.5">{song.artist}</p>
           </motion.button>
         ))}
       </div>
     </section>
   );
+
 
 
 
