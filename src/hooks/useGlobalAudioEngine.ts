@@ -270,8 +270,8 @@ export function useGlobalAudioEngine(
       setSpatial(s.spatialAudio);
       setLateNight(s.lateNight);
       setHeadphoneSurround(s.headphoneSurround);
-      setVocalMix(s.vocalMix);
-      setInstrumentalMix(s.instrumentalMix);
+      setVocalMix(s.harmonicExciter);
+      setInstrumentalMix(s.stereoWidth);
     };
 
 
