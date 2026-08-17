@@ -125,7 +125,7 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
           >
             <button
               onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(artist.name)}`); }}
-              className="relative block w-[132px] h-[168px] text-left uf-tile rounded-[14px] overflow-hidden"
+              className="relative block w-[132px] h-[168px] text-left rounded-lg overflow-hidden border border-white/5 group"
             >
               {artist.image ? (
                 <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
@@ -140,7 +140,7 @@ const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
 
               <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/40 to-transparent" />
               <div className="absolute bottom-2.5 left-3 right-3">
-                <p className="text-[13px] font-extrabold uf-media-title leading-tight line-clamp-2">{artist.name}</p>
+                <p className="text-[12.5px] font-bold text-foreground leading-tight line-clamp-2 tracking-tight group-hover:text-primary transition-colors">{artist.name}</p>
               </div>
             </button>
             <div className="mt-2 flex justify-center">

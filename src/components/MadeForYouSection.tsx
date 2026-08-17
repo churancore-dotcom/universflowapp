@@ -230,7 +230,7 @@ const MadeForYouSection = memo(() => {
         transition={sliceTransition()}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[164px] overflow-hidden text-left uf-tile rounded-[20px] p-4"
+        className="relative w-full min-h-[164px] overflow-hidden text-left rounded-xl p-6 group border border-white/5"
       >
 
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
@@ -242,28 +242,28 @@ const MadeForYouSection = memo(() => {
           />
         )}
         {hero.cover_url && (
-          <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover opacity-80" eager />
+          <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover transition-transform duration-700 group-hover:scale-105" eager />
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/25 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/95 to-transparent backdrop-blur-[1px]" />
         <div className="relative z-10 max-w-[60%]">
-          <span className="inline-flex uf-volt-chip rounded-full px-2 py-1 text-[9px] mb-3">For You</span>
-          <h3 className="text-[19px] font-extrabold leading-tight text-foreground mb-1.5 line-clamp-2">{hero.title}</h3>
-          <p className="text-[12px] text-muted-foreground truncate font-semibold mb-3">{hero.artist}</p>
-          <div className="w-10 h-10 uf-glow-action rounded-full flex items-center justify-center flex-shrink-0">
-            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+          <span className="inline-flex px-2 py-0.5 bg-primary/20 text-primary border border-primary/20 rounded-full text-[9px] font-bold uppercase tracking-wider mb-4">Personalized</span>
+          <h3 className="text-xl font-black leading-tight text-foreground mb-1 line-clamp-2 tracking-tight">{hero.title}</h3>
+          <p className="text-sm text-muted-foreground truncate font-semibold mb-4 opacity-80">{hero.artist}</p>
+          <div className="w-11 h-11 bg-white text-black rounded-full shadow-lg flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105">
+            <Play className="w-4 h-4 ml-0.5 fill-current" />
           </div>
         </div>
       </motion.button>
 
 
       {/* Up-next list, uniform rows */}
-      <div className="mt-3.5 rounded-[20px] uf-tile overflow-hidden">
+      <div className="mt-4 rounded-xl overflow-hidden border border-white/5 bg-card/30">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
-            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-4 py-3 border-b border-border/40 last:border-0 text-left active:bg-primary/10 transition-colors">
-              <div className="flex items-center gap-3 min-w-0">
-                <span className="text-[13px] font-black uf-volt-text tabular-nums w-6">{String(idx + 2).padStart(2, '0')}</span>
+            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-4 py-3.5 border-b border-white/5 last:border-0 text-left hover:bg-white/5 active:bg-white/10 transition-colors group">
+              <div className="flex items-center gap-4 min-w-0">
+                <span className="text-xs font-bold text-muted-foreground/60 tabular-nums w-4 text-right">{idx + 2}</span>
 
                 <div className="min-w-0">
                   <p className={`text-[13px] font-bold truncate leading-tight ${isPlaying ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
