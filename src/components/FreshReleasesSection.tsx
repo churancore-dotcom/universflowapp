@@ -1,6 +1,5 @@
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { Play } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
