@@ -8,6 +8,7 @@ import { useQuery } from '@tanstack/react-query';
 import FollowArtistButton from './FollowArtistButton';
 import type { Song } from '@/contexts/PlayerContext';
 import { slice, sliceTransition } from '@/lib/ufMotion';
+import RailHeader from './RailHeader';
 
 
 interface DisplayArtist {

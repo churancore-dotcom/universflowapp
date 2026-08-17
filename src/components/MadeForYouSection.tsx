@@ -15,6 +15,7 @@ import { isSpamSong } from '@/pages/Search';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { cleanRail, diversifyByArtist } from '@/lib/railQuality';
 import { slice, sliceTransition, pressShear } from '@/lib/ufMotion';
+import RailHeader from './RailHeader';
 
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { getCountryQueries } from '@/lib/countryQueries';

@@ -12,6 +12,7 @@ import { useUserCountry } from '@/hooks/useUserCountry';
 import { RailSkeleton } from './PageSkeletons';
 import { cleanRail, diversifyByArtist, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 import { sliceUp, sliceTransition, pressShear } from '@/lib/ufMotion';
+import RailHeader from './RailHeader';
 
 
 interface Props { songs?: Song[]; enabled?: boolean }
