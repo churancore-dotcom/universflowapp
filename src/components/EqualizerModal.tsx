@@ -146,8 +146,8 @@ const NEUTRAL_PATCH: Partial<EQSettings> = {
   studioSpace: 'off',
   lateNight: false,
   headphoneSurround: false,
-  vocalMix: 100,
-  instrumentalMix: 100,
+  harmonicExciter: 0,
+  stereoWidth: 50,
 };
 
 type StemMode = 'normal' | 'karaoke' | 'acappella' | 'custom';
