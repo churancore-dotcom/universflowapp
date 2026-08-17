@@ -132,7 +132,7 @@ const STUDIO_SPACES: StudioSpace[] = [
 
 const VIEWS: Array<{ id: EqView; label: string; icon: ComponentType<{ className?: string }> }> = [
   { id: 'smart', label: 'Smart', icon: Wand2 },
-  { id: 'stems', label: 'Stems', icon: MicOff },
+  { id: 'stems', label: 'Master', icon: SlidersHorizontal },
   { id: 'manual', label: 'Bands', icon: SlidersHorizontal },
   { id: 'space', label: 'Space', icon: Waves },
 ];
