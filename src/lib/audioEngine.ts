@@ -236,7 +236,9 @@ function signature(el: HTMLAudioElement): string | null {
 }
 
 /** Studio Space presets — each defines an acoustic environment. */
-export type StudioSpaceId = 'off' | 'vinyl' | 'studio' | 'bedroom' | 'hall' | 'cathedral' | 'stadium';
+export type StudioSpaceId =
+  | 'off' | 'vinyl' | 'studio' | 'bedroom' | 'hall' | 'cathedral' | 'stadium'
+  | 'club' | 'arena' | 'chapel' | 'opera' | 'canyon';
 
 interface SpaceProfile {
   duration: number;   // IR length in seconds
