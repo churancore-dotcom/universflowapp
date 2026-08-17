@@ -237,7 +237,7 @@ const MadeForYouSection = memo(() => {
         transition={sliceTransition()}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[184px] overflow-hidden text-left uf-tile uf-cut uf-cut-lg p-5"
+        className="relative w-full min-h-[184px] overflow-hidden text-left uf-tile rounded-[28px] p-5"
       >
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
         {hero.cover_url && (
@@ -252,10 +252,10 @@ const MadeForYouSection = memo(() => {
         )}
         <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/25 backdrop-blur-[2px]" />
         <div className="relative z-10 max-w-[62%]">
-          <span className="inline-flex uf-volt-chip uf-cut uf-cut-sm px-2 py-1 text-[9px] mb-5">For You</span>
+          <span className="inline-flex uf-volt-chip rounded-full px-2 py-1 text-[9px] mb-5">For You</span>
           <h3 className="font-display text-[30px] leading-[0.9] uppercase text-foreground mb-2 line-clamp-2">{hero.title}</h3>
           <p className="text-[12px] text-muted-foreground truncate font-semibold mb-4">{hero.artist}</p>
-          <div className="w-10 h-10 uf-glow-action uf-cut uf-cut-sm flex items-center justify-center flex-shrink-0">
+          <div className="w-10 h-10 uf-glow-action rounded-full flex items-center justify-center flex-shrink-0">
             <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
           </div>
         </div>
@@ -263,7 +263,7 @@ const MadeForYouSection = memo(() => {
 
 
       {/* Ticket stub: perforated left edge, volt track numbers */}
-      <div className="mt-4 uf-cut uf-tile overflow-hidden border-l-2 border-dashed border-[hsl(var(--uf-volt)/0.45)]">
+      <div className="mt-4 rounded-[28px] uf-tile overflow-hidden border-l-2 border-[hsl(var(--uf-volt)/0.35)]">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
