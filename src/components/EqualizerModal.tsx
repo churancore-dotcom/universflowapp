@@ -479,8 +479,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 />
 
                 <p className="border-l-2 border-primary bg-secondary/40 px-3 py-2.5 text-[11px] leading-relaxed text-muted-foreground">
-                  Isolation is instant and works on every stereo track. Studio-produced songs separate the
-                  cleanest; heavily mono or live recordings keep more bleed.
+                  The Master Chain adds harmonic richness and stereo depth.
+                  Exciter adds high-end sparkle and "air", while Width expands the stage beyond your speakers.
                 </p>
               </div>
             )}
