@@ -242,15 +242,15 @@ const MadeForYouSection = memo(() => {
           />
         )}
         {hero.cover_url && (
-          <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover opacity-80" eager />
+          <OptimizedImage src={hero.cover_url} alt={hero.title} className="absolute right-0 top-0 h-full w-[46%] object-cover transition-transform duration-700 group-hover:scale-105" eager />
         )}
-        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/90 to-card/25 backdrop-blur-[2px]" />
+        <div className="absolute inset-0 bg-gradient-to-r from-card via-card/95 to-transparent backdrop-blur-[1px]" />
         <div className="relative z-10 max-w-[60%]">
-          <span className="inline-flex uf-volt-chip rounded-full px-2 py-1 text-[9px] mb-3">For You</span>
-          <h3 className="text-[19px] font-extrabold leading-tight text-foreground mb-1.5 line-clamp-2">{hero.title}</h3>
-          <p className="text-[12px] text-muted-foreground truncate font-semibold mb-3">{hero.artist}</p>
-          <div className="w-10 h-10 uf-glow-action rounded-full flex items-center justify-center flex-shrink-0">
-            <Play className="w-4 h-4 ml-0.5" fill="currentColor" />
+          <span className="inline-flex px-2 py-0.5 bg-primary/20 text-primary border border-primary/20 rounded-full text-[9px] font-bold uppercase tracking-wider mb-4">Personalized</span>
+          <h3 className="text-xl font-black leading-tight text-foreground mb-1 line-clamp-2 tracking-tight">{hero.title}</h3>
+          <p className="text-sm text-muted-foreground truncate font-semibold mb-4 opacity-80">{hero.artist}</p>
+          <div className="w-11 h-11 bg-white text-black rounded-full shadow-lg flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105">
+            <Play className="w-4 h-4 ml-0.5 fill-current" />
           </div>
         </div>
       </motion.button>
