@@ -257,7 +257,7 @@ const MadeForYouSection = memo(() => {
 
 
       {/* Up-next list, uniform rows */}
-      <div className="mt-3.5 rounded-[20px] uf-tile overflow-hidden">
+      <div className="mt-4 rounded-xl overflow-hidden border border-white/5 bg-card/30">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
