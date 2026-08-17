@@ -1427,15 +1427,13 @@ body {
 
 /* Oversized display header with personality. */
 @utility uf-shelf-title {
-  font-family: 'Bebas Neue', 'Barlow', system-ui, sans-serif;
-  font-size: 40px;
-  line-height: 0.86;
-  letter-spacing: 0.005em;
-  text-transform: uppercase;
-  font-weight: 900;
+  font-size: 19px;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  font-weight: 800;
   color: hsl(var(--foreground));
-  text-shadow: 0 12px 34px hsl(var(--primary) / 0.22);
 }
+
 @utility uf-eyebrow {
   font-size: 10px;
   font-weight: 800;
