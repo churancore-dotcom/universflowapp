@@ -117,8 +117,8 @@ export function useGlobalAudioEngine(
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
-      const vocalCut = 1 - Math.max(0, Math.min(100, s.vocalMix ?? 100)) / 100;
-      const instrumentalCut = 1 - Math.max(0, Math.min(100, s.instrumentalMix ?? 100)) / 100;
+      const exciter = Math.max(0, Math.min(100, s.harmonicExciter ?? 0)) / 100;
+      const width = Math.max(0, Math.min(100, s.stereoWidth ?? 50)) / 100;
       // Real Mid/Side isolation runs inside ExoPlayer's PCM pipeline now.
       // The old tonal EQ "simulation" stacked on top of it and made isolated
       // vocals sound hollow/phasey, so the stem curve is gone — the processor
