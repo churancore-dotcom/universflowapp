@@ -383,32 +383,42 @@ const Home = () => {
                   social proof leads for a stranger, and the new-release rail is
                   only promoted inside the Friday–Sunday window. Every rail
                   self-hides with no real data, so nothing renders empty. */}
-              <div className="space-y-8">
+              <div className="space-y-12 px-5 pb-32 pt-6">
                 {isOffline ? (
                   allSongs.length > 0 && (
-                    <div className="px-5"><AllSongsSection songs={allSongs} /></div>
+                    <AllSongsSection songs={allSongs} />
                   )
                 ) : (
                   railOrder.map((rail, railIdx) => {
-                    const aura =
-                      rail === 'trending' ? 'uf-aura uf-aura-hot'
-                      : rail === 'mix' ? 'uf-aura uf-aura-cool'
-                      : rail === 'fresh' ? 'uf-aura uf-aura-deep'
-                      : 'uf-aura';
-                    const body =
-                      rail === 'mix' ? <MadeForYouSection />
-                      : rail === 'trending' ? <TrendingNowSection songs={allSongs} enabled={homeReady} />
-                      : rail === 'fresh' ? <FreshReleasesSection songs={allSongs} enabled={homeReady} />
-                      : <FeaturedArtistsSection songs={allSongs} />;
+                    const isMix = rail === 'mix';
+                    const isFresh = rail === 'fresh';
+                    
+                    let body;
+                    if (rail === 'mix') body = <MadeForYouSection />;
+                    else if (rail === 'trending') body = <TrendingNowSection songs={allSongs} enabled={homeReady} />;
+                    else if (rail === 'fresh') body = <FreshReleasesSection songs={allSongs} enabled={homeReady} />;
+                    else body = <FeaturedArtistsSection songs={allSongs} />;
+                    
                     return (
                       <motion.div
                         key={rail}
-                        className={`px-5 ${aura}`}
+                        className={`relative rounded-[32px] transition-colors ${
+                          isFresh ? 'p-6 bg-secondary/10 border border-white/5' : 
+                          isMix ? 'py-4' : ''
+                        }`}
                         initial={{ opacity: 0, y: 16 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.04 * railIdx }}
                       >
-                        {body}
+                        {isMix && (
+                          <div className="absolute inset-0 bg-gradient-to-b from-primary/5 to-transparent rounded-[32px] -mx-4" />
+                        )}
+                        {isFresh && (
+                          <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl -mr-16 -mt-16 pointer-events-none" />
+                        )}
+                        <div className="relative z-10">
+                          {body}
+                        </div>
                       </motion.div>
                     );
                   })
