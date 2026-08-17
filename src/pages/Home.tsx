@@ -326,43 +326,48 @@ const Home = () => {
                   </div>
 
                   {/* Full-bleed hero with gradient scrim */}
-                  <div className="relative w-full h-[46vh] min-h-[300px] max-h-[420px] overflow-hidden uf-hero-depth rounded-b-[20px]">
+                  <div className="relative w-full h-[52vh] min-h-[360px] max-h-[500px] overflow-hidden rounded-b-[40px] shadow-2xl">
                     <motion.div className="absolute inset-0 will-change-transform" style={{ y: heroY, scale: heroScale }}>
                       {heroSong.cover_url ? (
                         <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover" loading="eager" />
                       ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-card"><Music className="w-10 h-10 text-muted-foreground" /></div>
+                        <div className="absolute inset-0 flex items-center justify-center bg-card"><Music className="w-12 h-12 text-muted-foreground" /></div>
                       )}
                     </motion.div>
 
-                    {/* Layered scrim: deep bottom fade + rose bloom + top vignette */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
-                    <div className="absolute inset-0 bg-[radial-gradient(90%_60%_at_10%_100%,hsl(var(--primary)/0.35)_0%,transparent_65%)]" />
-                    <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-b from-background/70 to-transparent" />
-
-                    <div className="absolute bottom-0 left-0 right-0 p-5 pb-6">
-                      <span className="inline-block px-2.5 py-1 uf-volt-chip rounded-full text-[10px] mb-2.5">
-                        {heroIsCurrent && isPlaying ? 'Now playing' : 'Start here'}
-                      </span>
-                      <div className="flex items-end justify-between gap-4">
-                        <div className="min-w-0">
-                          <h3 className="text-[26px] font-extrabold leading-tight text-foreground line-clamp-2">
-                            {heroSong.title}
-                          </h3>
-                          <p className="text-muted-foreground text-[13px] font-semibold truncate mt-1">{heroSong.artist}</p>
+                    {/* Sophisticated Obsidian Scrim */}
+                    <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-transparent" />
+                    <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_left,hsl(var(--primary)/0.4)_0%,transparent_70%)]" />
+                    
+                    <div className="absolute bottom-0 left-0 right-0 p-8 pb-10">
+                      <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.2 }}
+                      >
+                        <span className="inline-block px-3 py-1 bg-primary/20 backdrop-blur-md border border-primary/30 rounded-full text-[11px] font-bold text-primary mb-3 uppercase tracking-widest">
+                          {heroIsCurrent && isPlaying ? 'Now playing' : 'Featured Track'}
+                        </span>
+                        <div className="flex items-end justify-between gap-6">
+                          <div className="min-w-0">
+                            <h3 className="text-4xl font-black leading-[1.1] text-foreground line-clamp-2 tracking-tight">
+                              {heroSong.title}
+                            </h3>
+                            <p className="text-muted-foreground text-base font-bold truncate mt-2 opacity-80 uppercase tracking-wide">{heroSong.artist}</p>
+                          </div>
+                          <motion.button
+                            onClick={playHero}
+                            whileTap={{ scale: 0.9 }}
+                            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
+                            aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
+                            className="w-16 h-16 shrink-0 bg-primary text-primary-foreground rounded-full flex items-center justify-center shadow-[0_0_30px_-5px_hsl(var(--primary)/0.6)]"
+                          >
+                            {heroIsCurrent && isPlaying
+                              ? <Pause className="w-8 h-8 fill-current" />
+                              : <Play className="w-8 h-8 fill-current ml-1" />}
+                          </motion.button>
                         </div>
-                        <motion.button
-                          onClick={playHero}
-                          whileTap={pressShear}
-                          transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-                          aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                          className="w-14 h-14 shrink-0 uf-glow-action rounded-full flex items-center justify-center"
-                        >
-                          {heroIsCurrent && isPlaying
-                            ? <Pause className="w-6 h-6 fill-current" />
-                            : <Play className="w-6 h-6 fill-current ml-0.5" />}
-                        </motion.button>
-                      </div>
+                      </motion.div>
                     </div>
                   </div>
 
