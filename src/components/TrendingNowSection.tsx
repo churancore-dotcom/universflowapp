@@ -119,46 +119,36 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
 
   return (
     <section className="relative">
-      <div className="uf-slash mb-5" />
-      <div className="flex items-stretch gap-3 mb-5 px-1">
-        <span className="uf-index pt-1">01 / Charts</span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2.5">
-            <h2 className="uf-shelf-title">Trending Now</h2>
-            {/* Live pulse: this shelf mirrors the chart feed, refreshed per session. */}
-            <span className="uf-live shrink-0" aria-label="Live chart data">
-              <span className="uf-live-dot" /> Live
-            </span>
-          </div>
-          <div className="uf-volt-rule w-16 mt-2 mb-2" />
-          <p className="uf-shelf-sub block">
-            Top in {countryLabel(servedCountry)}, tuned to your taste
-          </p>
-        </div>
-        <Flame className="w-4 h-4 text-primary shrink-0 mt-1" />
-      </div>
+      <RailHeader
+        title="Trending Now"
+        subtitle={`Top in ${countryLabel(servedCountry)}, tuned to your taste`}
+        badge={(
+          <span className="uf-live shrink-0" aria-label="Live chart data">
+            <span className="uf-live-dot" /> Live
+          </span>
+        )}
+      />
 
       {/* Lead poster — one dominant visual */}
       <motion.button
         whileTap={pressShear}
         initial={slice.initial}
-        whileInView={slice.animate}
-        viewport={{ once: true, margin: '-40px' }}
+        animate={slice.animate}
         transition={sliceTransition()}
         onClick={() => play(lead)}
         {...prewarmIntentProps(lead)}
-        className="relative w-full h-[236px] text-left uf-tile rounded-[28px] overflow-hidden"
+        className="relative w-full h-[210px] text-left uf-tile rounded-[20px] overflow-hidden"
       >
         {lead.cover_url && (
           <OptimizedImage src={lead.cover_url} alt={lead.title} className="absolute inset-0 w-full h-full object-cover" eager />
         )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/95 via-black/45 to-black/10" />
-        <div className="absolute top-4 left-4 px-2.5 py-1 uf-volt-chip rounded-full text-[9px]">
+        <div className="absolute top-3 left-3 px-2.5 py-1 uf-volt-chip rounded-full text-[9px]">
           #1 Trending
         </div>
-        <div className="absolute bottom-5 left-5 right-5 flex items-end justify-between gap-3">
+        <div className="absolute bottom-4 left-4 right-4 flex items-end justify-between gap-3">
           <div className="min-w-0">
-            <h3 className="font-display text-[30px] leading-[0.9] uppercase uf-media-title line-clamp-2">{lead.title}</h3>
+            <h3 className="text-[19px] font-extrabold leading-tight uf-media-title line-clamp-2">{lead.title}</h3>
             <p className="text-xs uf-media-sub truncate mt-1 font-semibold">{lead.artist}</p>
           </div>
           <div className="w-12 h-12 uf-glow-action rounded-full flex items-center justify-center shrink-0">
@@ -168,7 +158,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
       </motion.button>
 
 
-      {/* Ranked carousel — reorders animate so a real chart move is visible */}
+      {/* Ranked carousel — uniform tiles, reorders animate on a real chart move */}
       <div className="uf-rail mt-4 -mx-1 px-1 pb-2">
         {rest.map((song, idx) => {
           const active = currentSong?.id === song.id;
@@ -181,14 +171,14 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
               {...prewarmIntentProps(song)}
               whileTap={pressShear}
               transition={{ type: 'spring', stiffness: 260, damping: 26 }}
-              className="shrink-0 text-left w-[148px]"
+              className="shrink-0 text-left w-[132px]"
             >
-              <div className="relative uf-tile rounded-[28px] overflow-hidden w-[148px] h-[148px]">
+              <div className="relative uf-tile rounded-[14px] overflow-hidden w-[132px] h-[132px]">
                 {song.cover_url && (
                   <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
                 )}
                 <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/90 to-transparent" />
-                <span className="absolute bottom-1.5 left-2.5 font-display text-[30px] leading-none uf-volt-text tabular-nums">
+                <span className="absolute bottom-1 left-2 text-[22px] font-black leading-none uf-volt-text tabular-nums">
                   {idx + 2}
                 </span>
 
@@ -205,12 +195,13 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
                   </motion.span>
                 )}
               </div>
-              <p className={`text-[13px] font-bold truncate mt-2 px-0.5 ${active ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
+              <p className={`text-[12.5px] font-bold truncate mt-2 px-0.5 ${active ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
               <p className="text-[11px] text-muted-foreground/80 truncate px-0.5 mt-0.5">{song.artist}</p>
             </motion.button>
           );
         })}
       </div>
+
     </section>
   );
 
