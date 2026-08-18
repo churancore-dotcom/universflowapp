@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -235,7 +235,7 @@ const Home = () => {
   }, [playSong, allSongs]);
 
   // Cheap scroll parallax for the hero artwork (transform-only, GPU friendly).
-  const scrollRef = React.useRef<HTMLElement | null>(null);
+  const scrollRef = useRef<HTMLElement | null>(null);
   const { scrollY } = useScroll({ container: scrollRef as React.RefObject<HTMLElement> });
   const heroY = useTransform(scrollY, [0, 500], [0, 110]);
   const heroScale = useTransform(scrollY, [0, 500], [1, 1.12]);

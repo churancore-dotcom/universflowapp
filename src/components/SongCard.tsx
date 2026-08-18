@@ -1,4 +1,4 @@
-import React, { memo, useCallback, useMemo, useState } from 'react';
+import { memo, useCallback, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play, Pause, ListPlus } from 'lucide-react';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
@@ -39,7 +39,7 @@ const SongCard = memo(({ song, index = 0, sectionSongs }: SongCardProps) => {
 
   // Echo-Music instant play: warm the stream for the first visible cards, and
   // for this card the instant a finger lands on it (before `click` fires).
-  React.useEffect(() => {
+  useEffect(() => {
     if (index < 2) prewarmSong(song);
   }, [index, song]);
 

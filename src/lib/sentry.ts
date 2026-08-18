@@ -17,8 +17,18 @@ const IGNORED_ERROR_PATTERNS = [
   /Extension context invalidated/i,
 ];
 
+// Sentry.init() must run at most ONCE per document. A second call creates a
+// second Session Replay integration, which Sentry rejects with "Multiple Sentry
+// Session Replay instances are not supported" and then records no replay at
+// all. Vite HMR, a re-evaluated route module, or two callers of initSentry()
+// were all enough to trigger it, so the guard lives here (the lowest level)
+// rather than at the call site.
+let initialized = false;
+
 export function initSentry() {
   if (typeof window === 'undefined') return;
+  if (initialized || Sentry.getClient()) return;
+  initialized = true;
 
   // Skip in local dev to avoid noise
   const isLocalDev =

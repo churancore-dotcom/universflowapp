@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { useGlobalAudioEngine } from '@/hooks/useGlobalAudioEngine';
 import { supabase } from '@/integrations/supabase/client';
@@ -3479,7 +3479,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Media Session API for lock screen / notification controls
   // These callbacks must be stable refs to avoid hook count issues
-  const mediaSessionCallbacks = React.useMemo(() => ({
+  const mediaSessionCallbacks = useMemo(() => ({
     onPlay: () => {
       if (isNativePlayerAvailable()) {
         nativeUserPausedRef.current = false;
