@@ -210,7 +210,12 @@ const shouldUseAnonymousCors = (audioUrl?: string | null) => {
   // Native on-device YouTube URLs are signed for the user's phone IP. They must
   // be played directly with NO crossorigin attribute; forcing anonymous CORS
   // makes Android WebView reject the stream before playback even starts.
-  if (isNativeResolvedStreamUrl(audioUrl)) return false;
+  //
+  // This ONLY applies while the native player is actually present. On the web
+  // build the same cached InnerTube URL has to be fetched through stream-proxy
+  // with anonymous CORS, otherwise createMediaElementSource() taints the element
+  // and Premium users get a silently dead EQ on every InnerTube-sourced track.
+  if (isNativeResolvedStreamUrl(audioUrl) && isNativePlayerAvailable()) return false;
   try {
     const parsed = new URL(audioUrl, window.location.href);
     if (parsed.origin === window.location.origin) return false;
@@ -252,7 +257,9 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
   // signed for the user's IP. If we send those URLs through the Supabase edge
   // proxy, YouTube sees a different IP and returns 403/empty media, so every tap
   // becomes "This song could not start". Play these URLs directly.
-  if (isNativeResolvedStreamUrl(sourceUrl)) return false;
+  // Native-only: on web there is no phone-IP signature to preserve, and the
+  // proxy is required for the WebAudio EQ chain to attach at all.
+  if (isNativeResolvedStreamUrl(sourceUrl) && isNativePlayerAvailable()) return false;
 
   try {
     const parsed = new URL(sourceUrl, window.location.href);
@@ -269,8 +276,15 @@ const shouldProxyStreamUrl = (sourceUrl: string) => {
     // straight from its own CDN. Sending those through the edge proxy added a
     // second network hop to EVERY range request, which is what made songs take
     // seconds to start on both Web and the APK. Proxy them ONLY when the EQ
-    // graph is actually running and needs a CORS-clean response.
-    return isEqProcessingEnabled();
+    // graph is actually needed.
+    //
+    // NOTE: this deliberately does NOT consult the Premium flag. `premiumState`
+    // starts false and only flips true after an async server fetch, so gating
+    // here raced the first track: the raw (tainted) URL was assigned, and the
+    // WebAudio graph could never attach to that element afterwards. Routing is
+    // decided purely by the saved EQ settings; audibility is still gated by
+    // entitlement inside useGlobalAudioEngine.
+    return wantsWebAudioChain();
   } catch {
     return false;
   }
@@ -333,6 +347,13 @@ const isLocalMediaSource = (url?: string | null) => {
 // fast native <audio> path (better Android background behaviour).
 const isEqProcessingEnabled = () => {
   try { return getRuntimePremium() && hasWebAudioEffects(getEQSettings()); } catch { return false; }
+};
+
+// Race-free routing predicate: true when the SAVED settings would need the
+// WebAudio graph, regardless of whether the entitlement fetch has resolved yet.
+// Used for stream routing/CORS only — never for deciding audibility.
+const wantsWebAudioChain = () => {
+  try { return hasWebAudioEffects(getEQSettings()); } catch { return false; }
 };
 
 const isAutoplayEnabled = () => {
@@ -1012,7 +1033,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const onEqChanged = () => {
       const a = audioRef.current;
       if (!a || !a.src) return;
-      if (!isEqProcessingEnabled()) return;
+      // Do not gate on the async Premium flag here — that produced the
+      // "EQ dead until you nudge a slider twice" race. Settings alone decide
+      // whether the element needs a CORS-clean source.
+      if (!wantsWebAudioChain()) return;
 
       // Already proxied + anonymous → engine handles it instantly.
       const alreadyProxied = isAudioProxyUrl(a.src);
