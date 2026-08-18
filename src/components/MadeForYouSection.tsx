@@ -1,4 +1,4 @@
-import React, { memo, useEffect, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Play } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
@@ -208,7 +208,7 @@ const MadeForYouSection = memo(() => {
     },
   });
 
-  React.useEffect(() => { prewarmSongs(mix, 4); }, [mix]);
+  useEffect(() => { prewarmSongs(mix, 4); }, [mix]);
 
   if (!mix.length) return isLoading ? <RailSkeleton layout="mix" title="w-48" /> : null;
   const hero = mix[0];

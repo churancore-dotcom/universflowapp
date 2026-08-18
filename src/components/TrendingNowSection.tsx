@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { Play, ArrowUp, ArrowDown } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
@@ -82,10 +82,10 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
 
   // Trending owns these fingerprints: lower-priority rails (New Releases)
   // subtract them so the same regional hit never appears twice on Home.
-  React.useEffect(() => { claimRailSongs('trending', trending); }, [trending]);
+  useEffect(() => { claimRailSongs('trending', trending); }, [trending]);
 
   // Pre-resolve the top of the chart so the first taps are instant.
-  React.useEffect(() => { prewarmSongs(trending, 4); }, [trending]);
+  useEffect(() => { prewarmSongs(trending, 4); }, [trending]);
 
   // Real rank movement: compare this render's chart order against the previous
   // order we saw for the same country feed. No synthetic deltas — if a track is
@@ -94,7 +94,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // after it, so the hook count changed between the skeleton render and the
   // loaded render ("Rendered more hooks than during the previous render").
   const prevRanks = React.useRef<Record<string, number>>({});
-  const rankMoves = React.useMemo(() => {
+  const rankMoves = useMemo(() => {
     const moves: Record<string, number> = {};
     trending.forEach((s, i) => {
       const before = prevRanks.current[s.id];
@@ -102,7 +102,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     });
     return moves;
   }, [trending]);
-  React.useEffect(() => {
+  useEffect(() => {
     const next: Record<string, number> = {};
     trending.forEach((s, i) => { next[s.id] = i; });
     prevRanks.current = next;

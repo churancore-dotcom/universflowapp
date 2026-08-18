@@ -1,4 +1,4 @@
-import React, { memo, useMemo } from 'react';
+import { memo, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
@@ -53,8 +53,8 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
 
 
-  React.useEffect(() => { claimRailSongs('fresh', fresh); }, [fresh]);
-  React.useEffect(() => { prewarmSongs(fresh, 4); }, [fresh]);
+  useEffect(() => { claimRailSongs('fresh', fresh); }, [fresh]);
+  useEffect(() => { prewarmSongs(fresh, 4); }, [fresh]);
 
   if (fresh.length === 0) return enabled && isLoading ? <RailSkeleton layout="grid" title="w-52" /> : null;
   const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, fresh); };
