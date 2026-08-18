@@ -157,20 +157,19 @@ const STEM_MODES: Array<{
   name: string;
   desc: string;
   icon: ComponentType<{ className?: string }>;
-  vocalMix: number;
-  instrumentalMix: number;
+  harmonicExciter: number;
+  stereoWidth: number;
 }> = [
-  { id: 'normal', name: 'Original', desc: 'Full mix, untouched', icon: AudioLines, vocalMix: 100, instrumentalMix: 100 },
-  { id: 'karaoke', name: 'No vocals', desc: 'Beat stays, voice out', icon: MicOff, vocalMix: 0, instrumentalMix: 100 },
-  { id: 'acappella', name: 'No beat', desc: 'Voice stays, music out', icon: Mic2, vocalMix: 100, instrumentalMix: 0 },
+  { id: 'normal', name: 'Pure', desc: 'Full mix, untouched', icon: AudioLines, harmonicExciter: 0, stereoWidth: 50 },
+  { id: 'karaoke', name: 'Open Air', desc: 'Wider stage, gentle sparkle', icon: Mic2, harmonicExciter: 30, stereoWidth: 75 },
+  { id: 'acappella', name: 'Mastered', desc: 'Rich presence, big stereo', icon: MicOff, harmonicExciter: 65, stereoWidth: 90 },
 ];
 
-function detectStemMode(vocalMix: number, instrumentalMix: number): StemMode {
-  if (vocalMix >= 100 && instrumentalMix >= 100) return 'normal';
-  if (vocalMix === 0 && instrumentalMix >= 100) return 'karaoke';
-  if (vocalMix >= 100 && instrumentalMix === 0) return 'acappella';
-  return 'custom';
+function detectStemMode(harmonicExciter: number, stereoWidth: number): StemMode {
+  const match = STEM_MODES.find((m) => m.harmonicExciter === harmonicExciter && m.stereoWidth === stereoWidth);
+  return match ? match.id : 'custom';
 }
+
 
 function pickAutoPreset(song: { title?: string; artist?: string; album?: string } | null): string {
   if (!song) return 'flat';
