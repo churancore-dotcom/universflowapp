@@ -15,6 +15,8 @@ import {
   Headphones,
   Home,
   Landmark,
+  Loader2,
+  Lock,
   Mic2,
   MicOff,
   Moon,
@@ -24,6 +26,7 @@ import {
   Podcast,
   Radio,
   RotateCcw,
+  Sparkles,
   SlidersHorizontal,
   Speaker,
   Theater,
@@ -33,6 +36,7 @@ import {
   X,
   Zap,
 } from 'lucide-react';
+import { Link } from '@tanstack/react-router';
 import { toast } from 'sonner';
 
 import { Slider } from '@/components/ui/slider';
@@ -44,6 +48,7 @@ import { getEQSettings, isEqActive, setEQSettings, useEQSettings, type EQSetting
 import { isNativePlayerAvailable } from '@/lib/nativePlayer';
 import { cn } from '@/lib/utils';
 import { useEngineState } from '@/hooks/useGlobalAudioEngine';
+import { usePremium } from '@/hooks/usePremium';
 
 interface EqualizerModalProps {
   isOpen: boolean;
@@ -196,6 +201,12 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
   const { currentSong } = usePlayer();
 
   const engineMode = useEngineState();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
+  // Entitlement resolves asynchronously. While it is in flight we must NOT
+  // render the locked state — that flashed a false "Premium only" wall at
+  // paying users on every cold open.
+  const entitlementChecking = premiumLoading;
+  const locked = !premiumLoading && !isPremium;
   const settings = useEQSettings();
   const [view, setView] = useState<EqView>('smart');
   const [mounted, setMounted] = useState(false);
@@ -216,7 +227,11 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
     [settings.activePreset],
   );
 
-  const connectionLabel = !currentSong
+  const connectionLabel = entitlementChecking
+    ? 'Checking your plan…'
+    : locked
+      ? 'Premium required'
+      : !currentSong
     ? 'Play a song to hear changes'
     : isConnected
       ? nativeAudio ? 'Native studio engine live' : 'Studio engine live'
@@ -224,12 +239,12 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
         ? engineMode === 'unsupported' ? 'Saved — this stream blocks effects' : 'Linking audio…'
         : 'Ready';
 
-  // The studio engine is free for everyone — no entitlement gate.
+  // Studio effects are Premium. Only poke the engine when the user is entitled.
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !isPremium) return;
     engineResume();
     window.dispatchEvent(new CustomEvent('uf-eq-changed', { detail: getEQSettings() }));
-  }, [isOpen]);
+  }, [isOpen, isPremium]);
 
 
   const applyPreset = useCallback((preset: Preset) => {
@@ -304,8 +319,9 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   <button
                     type="button"
                     onClick={reset}
+                    disabled={locked || entitlementChecking}
                     aria-label="Reset sound"
-                    className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-secondary text-foreground transition active:scale-95"
+                    className="grid h-9 w-9 place-items-center rounded-xl border border-border bg-secondary text-foreground transition active:scale-95 disabled:opacity-40"
                   >
                     <RotateCcw className="h-4 w-4" />
                   </button>
@@ -361,8 +377,46 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
           </div>
 
 
+          {/* ---------- Entitlement state ---------- */}
+          {entitlementChecking && (
+            <div className="flex items-center gap-2 border-b border-border bg-secondary/40 px-4 py-3 text-xs text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+              Checking your Premium status…
+            </div>
+          )}
+          {locked && (
+            <div className="border-b border-border bg-secondary/40 px-4 py-4">
+              <div className="flex items-start gap-3">
+                <div className="grid h-9 w-9 shrink-0 place-items-center rounded-xl bg-primary text-primary-foreground">
+                  <Lock className="h-4 w-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-bold text-foreground">Studio EQ is a Premium feature</p>
+                  <p className="mt-1 text-xs leading-snug text-muted-foreground">
+                    Bands, spaces, master chain and speed stay off on the free plan — playback runs clean and
+                    untouched. Upgrade to unlock the full studio engine.
+                  </p>
+                  <Link
+                    to="/premium"
+                    onClick={onClose}
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-xl bg-primary px-3 py-2 text-xs font-bold text-primary-foreground transition active:scale-95"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    Upgrade to Premium
+                  </Link>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* ---------- Body ---------- */}
-          <div className="hide-scrollbar flex-1 overflow-y-auto px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-4">
+          <div
+            aria-disabled={locked || entitlementChecking}
+            className={cn(
+              'hide-scrollbar flex-1 overflow-y-auto px-4 pb-[max(24px,env(safe-area-inset-bottom))] pt-4',
+              (locked || entitlementChecking) && 'pointer-events-none select-none opacity-40 grayscale',
+            )}
+          >
             {view === 'smart' && (
               <div className="space-y-4">
                 <SectionLabel title="Sound profile" value={activePreset?.name || 'Custom'} />
