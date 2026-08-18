@@ -93,7 +93,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // NOTE: these hooks MUST stay above the early return below. They used to sit
   // after it, so the hook count changed between the skeleton render and the
   // loaded render ("Rendered more hooks than during the previous render").
-  const prevRanks = React.useRef<Record<string, number>>({});
+  const prevRanks = useRef<Record<string, number>>({});
   const rankMoves = useMemo(() => {
     const moves: Record<string, number> = {};
     trending.forEach((s, i) => {

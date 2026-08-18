@@ -235,7 +235,7 @@ const Home = () => {
   }, [playSong, allSongs]);
 
   // Cheap scroll parallax for the hero artwork (transform-only, GPU friendly).
-  const scrollRef = React.useRef<HTMLElement | null>(null);
+  const scrollRef = useRef<HTMLElement | null>(null);
   const { scrollY } = useScroll({ container: scrollRef as React.RefObject<HTMLElement> });
   const heroY = useTransform(scrollY, [0, 500], [0, 110]);
   const heroScale = useTransform(scrollY, [0, 500], [1, 1.12]);
