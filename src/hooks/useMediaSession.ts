@@ -1,5 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { Song } from '@/contexts/PlayerContext';
+// TYPE-ONLY on purpose: PlayerContext imports this hook, so a value import
+// here made a real runtime cycle (PlayerContext -> useMediaSession ->
+// PlayerContext). In a chunked production build the module that loses the race
+// sees an uninitialised namespace, which surfaced as
+// "Cannot read properties of null (reading 'useState')".
+import type { Song } from '@/contexts/PlayerContext';
 
 interface UseMediaSessionOptions {
   song: Song | null;

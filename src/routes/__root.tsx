@@ -39,7 +39,16 @@ const Toaster = lazy(() => import("@/components/ui/sonner").then(m => ({ default
 const DownloadQueuePanel = lazy(() => import("@/components/DownloadQueuePanel"));
 const PWAInstallBanner = lazy(() => import("@/components/PWAInstallBanner"));
 
-if (typeof window !== "undefined") {
+// Module-scope side effects must be idempotent: this module can be evaluated
+// more than once (HMR, and the client/SSR graphs both pulling it in), and a
+// second pass re-ran every boot import — that is what double-initialised Sentry
+// Session Replay.
+declare global {
+  interface Window { __ufBooted?: boolean }
+}
+
+if (typeof window !== "undefined" && !window.__ufBooted) {
+  window.__ufBooted = true;
   void import("@/lib/themeBoot");
   void import("@/lib/median");
   void import("@/lib/sentry").then((m) => m.initSentry());

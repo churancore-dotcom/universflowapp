@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, memo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
 import { motion, useScroll, useTransform } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
