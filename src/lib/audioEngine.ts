@@ -35,13 +35,11 @@ interface Engine {
   stemsMidL: GainNode | null;
   stemsMidR: GainNode | null;
   stemsMidSum: GainNode | null;
-  stemsMidLowFilter: BiquadFilterNode | null;
-  stemsMidBandHigh: BiquadFilterNode | null;
-  stemsMidBandLow: BiquadFilterNode | null;
-  stemsMidHighFilter: BiquadFilterNode | null;
-  stemsMidLowGain: GainNode | null;
-  stemsMidBandGain: GainNode | null;
-  stemsMidHighGain: GainNode | null;
+  // Serial mid-channel colour stage (presence + air). Serial biquads keep the
+  // mid path phase-coherent; the old 3-way parallel split comb-filtered at its
+  // 180 Hz / 9 kHz crossovers whenever the matrix path was engaged.
+  stemsMidPresence: BiquadFilterNode | null;
+  stemsMidAir: BiquadFilterNode | null;
   stemsSideL: GainNode | null;
   stemsSideR: GainNode | null;
   stemsSideSum: GainNode | null;
@@ -93,13 +91,8 @@ const engine: Engine = {
   stemsMidL: null,
   stemsMidR: null,
   stemsMidSum: null,
-  stemsMidLowFilter: null,
-  stemsMidBandHigh: null,
-  stemsMidBandLow: null,
-  stemsMidHighFilter: null,
-  stemsMidLowGain: null,
-  stemsMidBandGain: null,
-  stemsMidHighGain: null,
+  stemsMidPresence: null,
+  stemsMidAir: null,
   stemsSideL: null,
   stemsSideR: null,
   stemsSideSum: null,
@@ -426,8 +419,7 @@ function disconnectAll() {
     engine.stemsSplitter, engine.stemsMerger,
     engine.stemsDirectGain, engine.stemsMatrixGain,
     engine.stemsMidL, engine.stemsMidR, engine.stemsMidSum,
-    engine.stemsMidLowFilter, engine.stemsMidBandHigh, engine.stemsMidBandLow,
-    engine.stemsMidLowGain, engine.stemsMidBandGain,
+    engine.stemsMidPresence, engine.stemsMidAir,
     engine.stemsSideL, engine.stemsSideR, engine.stemsSideSum,
     engine.stemsSidePos, engine.stemsSideNeg,
     engine.surroundSplitter, engine.surroundMerger,
@@ -527,20 +519,13 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   const stemsMidL = ctx.createGain(); stemsMidL.gain.value = 0.5;
   const stemsMidR = ctx.createGain(); stemsMidR.gain.value = 0.5;
   const stemsMidSum = ctx.createGain(); stemsMidSum.gain.value = 1;
-  const stemsMidLowFilter = ctx.createBiquadFilter();
-  stemsMidLowFilter.type = 'lowpass'; stemsMidLowFilter.frequency.value = 180; stemsMidLowFilter.Q.value = 0.7;
-  const stemsMidBandHigh = ctx.createBiquadFilter();
-  stemsMidBandHigh.type = 'highpass'; stemsMidBandHigh.frequency.value = 180; stemsMidBandHigh.Q.value = 0.7;
-  const stemsMidBandLow = ctx.createBiquadFilter();
-  stemsMidBandLow.type = 'lowpass'; stemsMidBandLow.frequency.value = 9000; stemsMidBandLow.Q.value = 0.7;
-  // Mid content above 9 kHz (cymbals, air, hi-hats) is instrument bed, not
-  // voice. It used to be discarded entirely, which is why karaoke sounded
-  // hollow and "not really working" — the mix lost all its top end.
-  const stemsMidHighFilter = ctx.createBiquadFilter();
-  stemsMidHighFilter.type = 'highpass'; stemsMidHighFilter.frequency.value = 9000; stemsMidHighFilter.Q.value = 0.7;
-  const stemsMidLowGain = ctx.createGain(); stemsMidLowGain.gain.value = 1;
-  const stemsMidBandGain = ctx.createGain(); stemsMidBandGain.gain.value = 1;
-  const stemsMidHighGain = ctx.createGain(); stemsMidHighGain.gain.value = 1;
+  // Presence (vocal/instrument body) and air, in SERIES. At exciter = 0 both
+  // gains are 0 dB, so the matrix path is transparent apart from the M/S
+  // reconstruction itself — no crossover cancellation anywhere.
+  const stemsMidPresence = ctx.createBiquadFilter();
+  stemsMidPresence.type = 'peaking'; stemsMidPresence.frequency.value = 3000; stemsMidPresence.Q.value = 0.9; stemsMidPresence.gain.value = 0;
+  const stemsMidAir = ctx.createBiquadFilter();
+  stemsMidAir.type = 'highshelf'; stemsMidAir.frequency.value = 9000; stemsMidAir.Q.value = 0.7; stemsMidAir.gain.value = 0;
 
   const stemsSideL = ctx.createGain(); stemsSideL.gain.value = 0.5;
   const stemsSideR = ctx.createGain(); stemsSideR.gain.value = -0.5;
@@ -561,21 +546,11 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   stemsSplitter.connect(stemsSideL, 0); stemsSideL.connect(stemsSideSum);
   stemsSplitter.connect(stemsSideR, 1); stemsSideR.connect(stemsSideSum);
 
-  stemsMidSum.connect(stemsMidLowFilter);
-  stemsMidLowFilter.connect(stemsMidLowGain);
-  stemsMidSum.connect(stemsMidBandHigh);
-  stemsMidBandHigh.connect(stemsMidBandLow);
-  stemsMidBandLow.connect(stemsMidBandGain);
-  stemsMidSum.connect(stemsMidHighFilter);
-  stemsMidHighFilter.connect(stemsMidHighGain);
-
-  // Mid content is identical in both output channels.
-  stemsMidLowGain.connect(stemsMerger, 0, 0);
-  stemsMidLowGain.connect(stemsMerger, 0, 1);
-  stemsMidBandGain.connect(stemsMerger, 0, 0);
-  stemsMidBandGain.connect(stemsMerger, 0, 1);
-  stemsMidHighGain.connect(stemsMerger, 0, 0);
-  stemsMidHighGain.connect(stemsMerger, 0, 1);
+  // Single serial mid path: sum -> presence -> air -> both output channels.
+  stemsMidSum.connect(stemsMidPresence);
+  stemsMidPresence.connect(stemsMidAir);
+  stemsMidAir.connect(stemsMerger, 0, 0);
+  stemsMidAir.connect(stemsMerger, 0, 1);
 
   // Side content is added to L and subtracted from R to rebuild stereo.
   stemsSideSum.connect(stemsSidePos); stemsSidePos.connect(stemsMerger, 0, 0);
@@ -634,13 +609,8 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.stemsMidL = stemsMidL;
   engine.stemsMidR = stemsMidR;
   engine.stemsMidSum = stemsMidSum;
-  engine.stemsMidLowFilter = stemsMidLowFilter;
-  engine.stemsMidBandHigh = stemsMidBandHigh;
-  engine.stemsMidBandLow = stemsMidBandLow;
-  engine.stemsMidHighFilter = stemsMidHighFilter;
-  engine.stemsMidLowGain = stemsMidLowGain;
-  engine.stemsMidBandGain = stemsMidBandGain;
-  engine.stemsMidHighGain = stemsMidHighGain;
+  engine.stemsMidPresence = stemsMidPresence;
+  engine.stemsMidAir = stemsMidAir;
   engine.stemsSideL = stemsSideL;
   engine.stemsSideR = stemsSideR;
   engine.stemsSideSum = stemsSideSum;
@@ -699,11 +669,15 @@ function applyStems() {
   setGain(engine.stemsDirectGain, neutral ? 1 : 0, SNAP);
   setGain(engine.stemsMatrixGain, neutral ? 0 : 1, SNAP);
 
-  // Harmonic exciter: drive the MidBand with a bit more gain and high-shelf tilt
-  // (In a real DSP we'd add saturation, but here we simulate it with presence)
-  setGain(engine.stemsMidLowGain, 1.0);
-  setGain(engine.stemsMidBandGain, 1.0 + exciter * 0.4);
-  setGain(engine.stemsMidHighGain, 1.0 + exciter * 0.8);
+  // Harmonic exciter: serial presence peak + air shelf on the mid channel.
+  // dB gains (not linear gain stacking), so exciter = 0 is bit-transparent.
+  const setDb = (n: BiquadFilterNode | null, db: number) => {
+    if (!n) return;
+    n.gain.cancelScheduledValues(now);
+    n.gain.setTargetAtTime(db, now, SMOOTH);
+  };
+  setDb(engine.stemsMidPresence, exciter * 4.5);
+  setDb(engine.stemsMidAir, exciter * 3.5);
 
   // Stereo width: adjust side channel gain
   setGain(engine.stemsSidePos, width);
@@ -820,11 +794,8 @@ function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext
   engine.stemsMidL = null;
   engine.stemsMidR = null;
   engine.stemsMidSum = null;
-  engine.stemsMidLowFilter = null;
-  engine.stemsMidBandHigh = null;
-  engine.stemsMidBandLow = null;
-  engine.stemsMidLowGain = null;
-  engine.stemsMidBandGain = null;
+  engine.stemsMidPresence = null;
+  engine.stemsMidAir = null;
   engine.stemsSideL = null;
   engine.stemsSideR = null;
   engine.stemsSideSum = null;
@@ -1058,17 +1029,25 @@ export function subscribe(cb: (m: Mode) => void): () => void {
  */
 let visualAnalyser: AnalyserNode | null = null;
 let visualAnalyserCtx: AudioContext | null = null;
+let visualAnalyserTap: AudioNode | null = null;
 
 export function getAnalyser(): AnalyserNode | null {
   const ctx = engine.ctx;
-  const source = engine.source;
-  if (!ctx || !source) return null;
+  // Tap the END of the processing chain (post EQ / space / width / limiter) so
+  // the on-screen spectrum reflects what the user actually hears. Tapping the
+  // raw source meant EQ moves were invisible in the visualizer.
+  const tap: AudioNode | null = engine.limiter || engine.source;
+  if (!ctx || !tap) return null;
   try {
-    if (visualAnalyser && visualAnalyserCtx === ctx) return visualAnalyser;
+    // The chain is rebuilt on source/preset changes, so a cached analyser can be
+    // hanging off a dead node. Re-tap whenever the terminal node changed.
+    if (visualAnalyser && visualAnalyserCtx === ctx && visualAnalyserTap === tap) return visualAnalyser;
+    if (visualAnalyser) { try { visualAnalyser.disconnect(); } catch { /* ignore */ } }
     const analyser = ctx.createAnalyser();
     analyser.fftSize = 512;
     analyser.smoothingTimeConstant = 0.72;
-    source.connect(analyser);
+    tap.connect(analyser);
+    visualAnalyserTap = tap;
     visualAnalyser = analyser;
     visualAnalyserCtx = ctx;
     return analyser;
