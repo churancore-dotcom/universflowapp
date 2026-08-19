@@ -318,10 +318,33 @@ object NativeYouTubeResolver {
             put("hl", "en"); put("gl", "US")
         })
 
+        // TVHTML5 — the ONLY client YouTube accepts an OAuth bearer token with
+        // (it is the client the youtube.com/activate pairing flow authorises).
+        // Raced first when an account is connected: a signed-in request is not
+        // subject to the LOGIN_REQUIRED refusals that kill the anonymous
+        // clients on age-gated and region-locked tracks. Note it deliberately
+        // carries no visitorData — an anonymous session id alongside a real
+        // account token makes the edge reject the pair.
+        val tvAuth = if (YouTubeAccount.isSignedIn()) JSONObject().apply {
+            put("client", JSONObject().apply {
+                put("clientName", "TVHTML5")
+                put("clientVersion", "7.20250219.14.00")
+                put("hl", "en"); put("gl", "US")
+            })
+        } else null
+
         // clientId 28 = ANDROID_VR in YouTube's INNERTUBE_CONTEXT_CLIENT_NAME
         // enum. Sending the wrong numeric id makes the edge distrust the client
         // and reply with SABR-only / 403-prone URLs.
-        return listOf(
+        return listOfNotNull(
+            tvAuth?.let {
+                ClientCtx(
+                    "TVHTML5_AUTH", "7", "7.20250219.14.00", it,
+                    "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version",
+                    needsSts = true,
+                    useAuth = true,
+                )
+            },
             ClientCtx("ANDROID_VR_1_43", "28", "1.43.32", vr143,
                 "com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12L; GB) gzip"),
             ClientCtx("ANDROID_VR", "28", "1.61.48", vr161,
@@ -333,6 +356,7 @@ object NativeYouTubeResolver {
             ClientCtx("ANDROID_CREATOR", "14", "24.45.100", androidCreator,
                 "com.google.android.apps.youtube.creator/24.45.100 (Linux; U; Android 14) gzip"),
         )
+
 
     }
 
