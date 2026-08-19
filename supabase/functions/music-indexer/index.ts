@@ -1619,15 +1619,60 @@ async function resolveViaInnerTube(videoId: string): Promise<{ streamUrl: string
   }
 }
 
-async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
+// ── Mirror-fleet circuit breaker ───────────────────────────────────────────
+// While the public Invidious/Piped/Cobalt fleet is down it costs ~4s on EVERY
+// tap before we give up. After 3 consecutive whole-fleet failures we park the
+// fleet for 5 minutes so failures are instant and JioSaavn/InnerTube keep their
+// full budget. Any success resets the counter.
+let fleetFailStreak = 0;
+let fleetParkedUntil = 0;
+const FLEET_PARK_MS = 5 * 60 * 1000;
+
+/** Metadata for a bare videoId — oembed is public and is NOT IP-walled. */
+async function videoMeta(videoId: string): Promise<{ title: string; artist: string } | null> {
+  try {
+    const data = await fetchJson(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`,
+      4000,
+    ) as any;
+    const rawTitle = String(data?.title || '').trim();
+    const artist = String(data?.author_name || '').replace(/\s*-\s*Topic$/i, '').trim();
+    if (!rawTitle) return null;
+    // "Artist - Title (Official Video)" → "Title"
+    const title = rawTitle
+      .replace(/\s*[([][^)\]]*(official|video|audio|lyrics?|hd|4k|visualizer)[^)\]]*[)\]]/gi, '')
+      .replace(/^.*?\s[-–—]\s/, '')
+      .trim() || rawTitle;
+    return { title, artist };
+  } catch {
+    return null;
+  }
+}
+
+async function resolveVideoId(
+  videoId: string,
+  meta?: { title?: string; artist?: string },
+): Promise<{ streamUrl: string; duration?: number } | null> {
   const t0 = Date.now();
 
-  // 1) Direct InnerTube — no third-party dependency. Only fall through to the
+  // 1) JioSaavn first — a source that does not block our egress IP. The bare
+  //    videoId path used to skip this entirely and go straight to YouTube, which
+  //    is exactly why a YouTube-side block killed playback outright.
+  const known = meta?.title ? { title: meta.title, artist: meta.artist || '' } : await videoMeta(videoId);
+  if (known?.title) {
+    const saavn = await resolveViaSaavn(known.artist, known.title);
+    if (saavn?.streamUrl) return { streamUrl: saavn.streamUrl, duration: saavn.duration };
+  }
+
+  // 2) Direct InnerTube — no third-party dependency. Only fall through to the
   //    public mirror fleet when YouTube itself refuses us.
   const direct = await resolveViaInnerTube(videoId);
   if (direct?.streamUrl) return { streamUrl: direct.streamUrl, duration: direct.duration };
 
-
+  if (Date.now() < fleetParkedUntil) {
+    console.warn(`[resolve] mirror fleet parked (breaker open) — skipping for ${videoId}`);
+    return null;
+  }
 
   // Skip the pre-flight /stats & /healthcheck probes — they blocked ALL
   // instances when their status endpoints were rate-limited even though
@@ -1669,10 +1714,17 @@ async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; dur
 
   try {
     const winner = await Promise.any(attempts);
+    fleetFailStreak = 0;
     console.log(`[resolve] ✓ ${videoId} via ${winner.src} (${Date.now() - t0}ms, tried=${attempts.length})`);
     return { streamUrl: winner.streamUrl, duration: winner.duration };
   } catch (e) {
     const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.slice(0, 3).join(', ');
+    fleetFailStreak += 1;
+    if (fleetFailStreak >= 3) {
+      fleetParkedUntil = Date.now() + FLEET_PARK_MS;
+      fleetFailStreak = 0;
+      console.warn(`[resolve] mirror fleet breaker OPEN for ${FLEET_PARK_MS / 60000}min`);
+    }
     console.warn(`[resolve] mirror fleet failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
     return null;
   }
@@ -2210,10 +2262,23 @@ serve(async (req) => {
         }
       }
 
-      const resolved = await resolveVideoId(videoId);
+      // Pass through whatever metadata the client already knows so the JioSaavn
+      // attempt inside resolveVideoId doesn't need an oembed round-trip.
+      const hintTitle = typeof body.title === 'string' ? body.title.trim() : '';
+      const hintArtist = typeof body.artist === 'string' ? body.artist.trim() : '';
+      const resolved = await resolveVideoId(videoId, hintTitle ? { title: hintTitle, artist: hintArtist } : undefined);
+      // A `yt-video:` marker is not a playable stream — every client already
+      // discards it, so returning it as `success: true` just produced a silent
+      // dead tap. Report the failure honestly and let the UI offer a retry.
       return new Response(JSON.stringify(resolved
         ? { success: true, streamUrl: resolved.streamUrl, duration: resolved.duration, videoId }
-        : { success: true, streamUrl: `yt-video:${videoId}`, videoId, fallback: true }
+        : {
+          success: false,
+          videoId,
+          error: 'This track is temporarily unavailable — tap play again to retry',
+          fallback: true,
+          retryable: true,
+        }
       ), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

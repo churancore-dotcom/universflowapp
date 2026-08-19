@@ -833,6 +833,10 @@ async function resolveYouTubeVideoStreamInner(
       const data = await requestIndexer<ResolveTrackResponse>({
         action: 'resolve-video',
         videoId: id,
+        // Metadata hints let the backend try JioSaavn (which does not block us)
+        // before YouTube, instead of paying an oembed lookup first.
+        title: opts.title,
+        artist: opts.artist,
         forceRefresh: opts.forceRefresh === true,
       }, priority);
       if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
