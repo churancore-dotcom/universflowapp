@@ -10,9 +10,24 @@ export interface InnerTubeResult {
   client: string;
 }
 
+export interface YouTubeDeviceAuth {
+  deviceCode: string;
+  userCode: string;
+  verificationUrl: string;
+  interval: number;
+  expiresIn: number;
+}
+
+export type YouTubeAuthPollStatus = 'pending' | 'slow_down' | 'connected' | 'error';
+
 interface InnerTubePluginShape {
   resolveAudio: (opts: { videoId: string }) => Promise<InnerTubeResult>;
+  accountStatus: () => Promise<{ connected: boolean }>;
+  startAccountAuth: () => Promise<YouTubeDeviceAuth>;
+  pollAccountAuth: (opts: { deviceCode: string }) => Promise<{ status: YouTubeAuthPollStatus; error?: string }>;
+  disconnectAccount: () => Promise<{ connected: boolean }>;
 }
+
 
 interface StreamResolverResult {
   url: string;
