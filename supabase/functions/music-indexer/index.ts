@@ -1420,6 +1420,14 @@ const INNERTUBE_PLAYER = 'https://www.youtube.com/youtubei/v1/player?prettyPrint
 
 type ItClient = { name: string; id: string; version: string; ua: string; client: Record<string, unknown> };
 
+// Re-probed 2026-08-19 against the exact videoIds from the LOGIN_REQUIRED
+// alerts: IOS (client 5) answers `OK` with plain-url adaptiveFormats that probe
+// 206 with a Range header, while IOS_MUSIC (26), IOS_UNPLUGGED (33),
+// ANDROID_MUSIC (21), ANDROID_VR (28), TVHTML5*, WEB* and MWEB all return
+// LOGIN_REQUIRED / UNPLAYABLE / ERROR for every single one. Keeping those in the
+// race meant three failures and one real chance; worse, `Promise.any` had to wait
+// on them. IOS is now the only family we ask, tried both with and without the
+// visitor token (see below), plus IOS_MUSIC last purely as a free extra shot.
 const IT_CLIENTS: ItClient[] = [
   {
     name: 'IOS', id: '5', version: '21.03.2',
@@ -1437,18 +1445,23 @@ const IT_CLIENTS: ItClient[] = [
       deviceModel: 'iPhone16,2', osName: 'iPhone', osVersion: '18.7.2.22H124', hl: 'en', gl: 'US',
     },
   },
-  {
-    name: 'ANDROID_VR', id: '28', version: '1.61.48',
-    ua: 'com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip',
-    client: {
-      clientName: 'ANDROID_VR', clientVersion: '1.61.48', deviceMake: 'Oculus',
-      deviceModel: 'Quest 3', androidSdkVersion: 32, osName: 'Android', osVersion: '12L', hl: 'en', gl: 'US',
-    },
-  },
 ];
 
 let itVisitorData: string | null = null;
 let itVisitorAt = 0;
+
+/**
+ * The old regex took the FIRST >=40-char token in sw.js_data, which is not
+ * necessarily visitorData — any unrelated blob matched, and sending a bogus
+ * visitorData makes YouTube answer LOGIN_REQUIRED for *every* client, which is
+ * exactly the failure signature in the alerts. Real visitor tokens are
+ * protobuf-base64 starting with `Cg`; anything else is discarded and we send no
+ * token at all (which resolves fine anonymously).
+ */
+function isPlausibleVisitorData(v: string): boolean {
+  return v.startsWith('Cg') && v.length >= 40 && v.length <= 1024;
+}
+
 async function getVisitorData(): Promise<string | null> {
   if (itVisitorData && Date.now() - itVisitorAt < 6 * 60 * 60 * 1000) return itVisitorData;
   try {
@@ -1460,8 +1473,13 @@ async function getVisitorData(): Promise<string | null> {
     });
     clearTimeout(t);
     const body = await res.text();
-    const m = body.match(/"([A-Za-z0-9_%\-]{40,})"/);
-    if (m?.[1]) { itVisitorData = m[1]; itVisitorAt = Date.now(); }
+    const candidate = (body.match(/"(Cg[A-Za-z0-9_%\-]{38,})"/) || [])[1];
+    if (candidate && isPlausibleVisitorData(candidate)) {
+      itVisitorData = candidate;
+      itVisitorAt = Date.now();
+    } else {
+      itVisitorData = null;
+    }
   } catch { /* visitorData is optional */ }
   return itVisitorData;
 }
