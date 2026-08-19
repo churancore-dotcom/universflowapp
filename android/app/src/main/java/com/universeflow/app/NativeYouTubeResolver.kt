@@ -53,7 +53,10 @@ object NativeYouTubeResolver {
         val jsonContext: JSONObject,
         val userAgent: String,
         val needsSts: Boolean = false,
+        /** Send the connected account's OAuth bearer token with this request. */
+        val useAuth: Boolean = false,
     )
+
 
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
     private val raceExecutor = Executors.newFixedThreadPool(6)
