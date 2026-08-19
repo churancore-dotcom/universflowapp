@@ -2262,10 +2262,23 @@ serve(async (req) => {
         }
       }
 
-      const resolved = await resolveVideoId(videoId);
+      // Pass through whatever metadata the client already knows so the JioSaavn
+      // attempt inside resolveVideoId doesn't need an oembed round-trip.
+      const hintTitle = typeof body.title === 'string' ? body.title.trim() : '';
+      const hintArtist = typeof body.artist === 'string' ? body.artist.trim() : '';
+      const resolved = await resolveVideoId(videoId, hintTitle ? { title: hintTitle, artist: hintArtist } : undefined);
+      // A `yt-video:` marker is not a playable stream — every client already
+      // discards it, so returning it as `success: true` just produced a silent
+      // dead tap. Report the failure honestly and let the UI offer a retry.
       return new Response(JSON.stringify(resolved
         ? { success: true, streamUrl: resolved.streamUrl, duration: resolved.duration, videoId }
-        : { success: true, streamUrl: `yt-video:${videoId}`, videoId, fallback: true }
+        : {
+          success: false,
+          videoId,
+          error: 'This track is temporarily unavailable — tap play again to retry',
+          fallback: true,
+          retryable: true,
+        }
       ), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
