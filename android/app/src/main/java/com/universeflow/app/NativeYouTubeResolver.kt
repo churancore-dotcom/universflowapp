@@ -227,6 +227,16 @@ object NativeYouTubeResolver {
         if (videoId.length == 11) streamCache.remove(videoId)
     }
 
+    /**
+     * Drop every cached stream. Called when the YouTube account is connected or
+     * disconnected: entries resolved under the old session may be unplayable
+     * (or needlessly degraded) under the new one.
+     */
+    fun clearCache() {
+        streamCache.clear()
+    }
+
+
     /** Stale cache for emergency fallback (within 30 min past TTL). */
     fun getStale(videoId: String): NativeResolvedStream? {
         val c = streamCache[videoId] ?: return null
