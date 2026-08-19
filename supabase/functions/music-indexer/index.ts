@@ -1714,10 +1714,17 @@ async function resolveVideoId(
 
   try {
     const winner = await Promise.any(attempts);
+    fleetFailStreak = 0;
     console.log(`[resolve] ✓ ${videoId} via ${winner.src} (${Date.now() - t0}ms, tried=${attempts.length})`);
     return { streamUrl: winner.streamUrl, duration: winner.duration };
   } catch (e) {
     const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.slice(0, 3).join(', ');
+    fleetFailStreak += 1;
+    if (fleetFailStreak >= 3) {
+      fleetParkedUntil = Date.now() + FLEET_PARK_MS;
+      fleetFailStreak = 0;
+      console.warn(`[resolve] mirror fleet breaker OPEN for ${FLEET_PARK_MS / 60000}min`);
+    }
     console.warn(`[resolve] mirror fleet failed for ${videoId} in ${Date.now() - t0}ms: ${msgs}`);
     return null;
   }
