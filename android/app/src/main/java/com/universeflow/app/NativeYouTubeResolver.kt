@@ -397,7 +397,12 @@ object NativeYouTubeResolver {
             // progressive/adaptive URLs consistently.
             .header("X-YouTube-Client-Name", ctx.clientId)
             .header("X-YouTube-Client-Version", ctx.clientVersion)
-        visitorData?.let { reqBuilder.header("X-Goog-Visitor-Id", it) }
+        if (bearer != null) {
+            reqBuilder.header("Authorization", "Bearer $bearer")
+        } else {
+            visitorData?.let { reqBuilder.header("X-Goog-Visitor-Id", it) }
+        }
+
         val req = reqBuilder
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
