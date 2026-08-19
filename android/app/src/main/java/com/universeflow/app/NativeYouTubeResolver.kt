@@ -53,7 +53,10 @@ object NativeYouTubeResolver {
         val jsonContext: JSONObject,
         val userAgent: String,
         val needsSts: Boolean = false,
+        /** Send the connected account's OAuth bearer token with this request. */
+        val useAuth: Boolean = false,
     )
+
 
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
     private val raceExecutor = Executors.newFixedThreadPool(6)
@@ -227,6 +230,16 @@ object NativeYouTubeResolver {
         if (videoId.length == 11) streamCache.remove(videoId)
     }
 
+    /**
+     * Drop every cached stream. Called when the YouTube account is connected or
+     * disconnected: entries resolved under the old session may be unplayable
+     * (or needlessly degraded) under the new one.
+     */
+    fun clearCache() {
+        streamCache.clear()
+    }
+
+
     /** Stale cache for emergency fallback (within 30 min past TTL). */
     fun getStale(videoId: String): NativeResolvedStream? {
         val c = streamCache[videoId] ?: return null
@@ -305,10 +318,33 @@ object NativeYouTubeResolver {
             put("hl", "en"); put("gl", "US")
         })
 
+        // TVHTML5 — the ONLY client YouTube accepts an OAuth bearer token with
+        // (it is the client the youtube.com/activate pairing flow authorises).
+        // Raced first when an account is connected: a signed-in request is not
+        // subject to the LOGIN_REQUIRED refusals that kill the anonymous
+        // clients on age-gated and region-locked tracks. Note it deliberately
+        // carries no visitorData — an anonymous session id alongside a real
+        // account token makes the edge reject the pair.
+        val tvAuth = if (YouTubeAccount.isSignedIn()) JSONObject().apply {
+            put("client", JSONObject().apply {
+                put("clientName", "TVHTML5")
+                put("clientVersion", "7.20250219.14.00")
+                put("hl", "en"); put("gl", "US")
+            })
+        } else null
+
         // clientId 28 = ANDROID_VR in YouTube's INNERTUBE_CONTEXT_CLIENT_NAME
         // enum. Sending the wrong numeric id makes the edge distrust the client
         // and reply with SABR-only / 403-prone URLs.
-        return listOf(
+        return listOfNotNull(
+            tvAuth?.let {
+                ClientCtx(
+                    "TVHTML5_AUTH", "7", "7.20250219.14.00", it,
+                    "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version",
+                    needsSts = true,
+                    useAuth = true,
+                )
+            },
             ClientCtx("ANDROID_VR_1_43", "28", "1.43.32", vr143,
                 "com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12L; GB) gzip"),
             ClientCtx("ANDROID_VR", "28", "1.61.48", vr161,
@@ -321,11 +357,19 @@ object NativeYouTubeResolver {
                 "com.google.android.apps.youtube.creator/24.45.100 (Linux; U; Android 14) gzip"),
         )
 
+
     }
 
     private fun attempt(videoId: String, ctx: ClientCtx): Pair<String, Int>? {
         val sts: String? = if (ctx.needsSts) PlayerJsManager.getSts() else null
         if (ctx.needsSts && sts == null) return null
+
+        // Bearer token for the authorised TV client. Resolved up-front so a
+        // revoked/expired grant skips the attempt instead of burning a request
+        // that would come back LOGIN_REQUIRED anyway.
+        val bearer: String? = if (ctx.useAuth) YouTubeAccount.accessToken() ?: return null else null
+
+
 
         val body = JSONObject().apply {
             put("context", ctx.jsonContext)
@@ -353,7 +397,12 @@ object NativeYouTubeResolver {
             // progressive/adaptive URLs consistently.
             .header("X-YouTube-Client-Name", ctx.clientId)
             .header("X-YouTube-Client-Version", ctx.clientVersion)
-        visitorData?.let { reqBuilder.header("X-Goog-Visitor-Id", it) }
+        if (bearer != null) {
+            reqBuilder.header("Authorization", "Bearer $bearer")
+        } else {
+            visitorData?.let { reqBuilder.header("X-Goog-Visitor-Id", it) }
+        }
+
         val req = reqBuilder
             .post(body.toRequestBody("application/json".toMediaType()))
             .build()
