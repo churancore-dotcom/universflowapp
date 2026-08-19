@@ -1619,15 +1619,60 @@ async function resolveViaInnerTube(videoId: string): Promise<{ streamUrl: string
   }
 }
 
-async function resolveVideoId(videoId: string): Promise<{ streamUrl: string; duration?: number } | null> {
+// ── Mirror-fleet circuit breaker ───────────────────────────────────────────
+// While the public Invidious/Piped/Cobalt fleet is down it costs ~4s on EVERY
+// tap before we give up. After 3 consecutive whole-fleet failures we park the
+// fleet for 5 minutes so failures are instant and JioSaavn/InnerTube keep their
+// full budget. Any success resets the counter.
+let fleetFailStreak = 0;
+let fleetParkedUntil = 0;
+const FLEET_PARK_MS = 5 * 60 * 1000;
+
+/** Metadata for a bare videoId — oembed is public and is NOT IP-walled. */
+async function videoMeta(videoId: string): Promise<{ title: string; artist: string } | null> {
+  try {
+    const data = await fetchJson(
+      `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`,
+      4000,
+    ) as any;
+    const rawTitle = String(data?.title || '').trim();
+    const artist = String(data?.author_name || '').replace(/\s*-\s*Topic$/i, '').trim();
+    if (!rawTitle) return null;
+    // "Artist - Title (Official Video)" → "Title"
+    const title = rawTitle
+      .replace(/\s*[([][^)\]]*(official|video|audio|lyrics?|hd|4k|visualizer)[^)\]]*[)\]]/gi, '')
+      .replace(/^.*?\s[-–—]\s/, '')
+      .trim() || rawTitle;
+    return { title, artist };
+  } catch {
+    return null;
+  }
+}
+
+async function resolveVideoId(
+  videoId: string,
+  meta?: { title?: string; artist?: string },
+): Promise<{ streamUrl: string; duration?: number } | null> {
   const t0 = Date.now();
 
-  // 1) Direct InnerTube — no third-party dependency. Only fall through to the
+  // 1) JioSaavn first — a source that does not block our egress IP. The bare
+  //    videoId path used to skip this entirely and go straight to YouTube, which
+  //    is exactly why a YouTube-side block killed playback outright.
+  const known = meta?.title ? { title: meta.title, artist: meta.artist || '' } : await videoMeta(videoId);
+  if (known?.title) {
+    const saavn = await resolveViaSaavn(known.artist, known.title);
+    if (saavn?.streamUrl) return { streamUrl: saavn.streamUrl, duration: saavn.duration };
+  }
+
+  // 2) Direct InnerTube — no third-party dependency. Only fall through to the
   //    public mirror fleet when YouTube itself refuses us.
   const direct = await resolveViaInnerTube(videoId);
   if (direct?.streamUrl) return { streamUrl: direct.streamUrl, duration: direct.duration };
 
-
+  if (Date.now() < fleetParkedUntil) {
+    console.warn(`[resolve] mirror fleet parked (breaker open) — skipping for ${videoId}`);
+    return null;
+  }
 
   // Skip the pre-flight /stats & /healthcheck probes — they blocked ALL
   // instances when their status endpoints were rate-limited even though
