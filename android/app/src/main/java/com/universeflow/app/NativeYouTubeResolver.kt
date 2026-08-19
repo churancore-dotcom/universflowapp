@@ -364,6 +364,13 @@ object NativeYouTubeResolver {
         val sts: String? = if (ctx.needsSts) PlayerJsManager.getSts() else null
         if (ctx.needsSts && sts == null) return null
 
+        // Bearer token for the authorised TV client. Resolved up-front so a
+        // revoked/expired grant skips the attempt instead of burning a request
+        // that would come back LOGIN_REQUIRED anyway.
+        val bearer: String? = if (ctx.useAuth) YouTubeAccount.accessToken() ?: return null else null
+
+
+
         val body = JSONObject().apply {
             put("context", ctx.jsonContext)
             put("videoId", videoId)
