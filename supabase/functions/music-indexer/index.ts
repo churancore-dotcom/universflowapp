@@ -1597,12 +1597,23 @@ async function innerTubeAttempt(videoId: string, c: ItClient, visitor: string | 
 async function resolveViaInnerTube(videoId: string): Promise<{ streamUrl: string; duration?: number; src: string } | null> {
   if (!/^[\w-]{11}$/.test(videoId)) return null;
   const visitor = await getVisitorData();
+  // A stale/bogus visitor token poisons every client at once (LOGIN_REQUIRED),
+  // while anonymous requests resolve fine — so each client is raced BOTH with
+  // and without the token instead of betting the whole request on it.
+  const attempts = IT_CLIENTS.flatMap((c) =>
+    visitor
+      ? [innerTubeAttempt(videoId, c, visitor), innerTubeAttempt(videoId, c, null)]
+      : [innerTubeAttempt(videoId, c, null)],
+  );
   try {
-    const winner = await Promise.any(IT_CLIENTS.map((c) => innerTubeAttempt(videoId, c, visitor)));
+    const winner = await Promise.any(attempts);
     console.log(`[resolve] ✓ ${videoId} via ${winner.src} itag=${winner.itag}`);
     return { streamUrl: winner.streamUrl, duration: winner.duration, src: winner.src };
   } catch (e) {
     const msgs = (e as AggregateError)?.errors?.map((err: Error) => err.message)?.join(' | ');
+    // If every attempt says LOGIN_REQUIRED the cached visitor token is suspect;
+    // drop it so the next request re-scrapes instead of repeating the failure.
+    if (msgs?.includes('LOGIN_REQUIRED')) { itVisitorData = null; itVisitorAt = 0; }
     console.warn(`[resolve] innertube failed for ${videoId}: ${msgs}`);
     return null;
   }
