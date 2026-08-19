@@ -17,8 +17,47 @@ class InnerTubePlugin : Plugin() {
     override fun load() {
         super.load()
         NativeYouTubeResolver.attach(context)
+        YouTubeAccount.attach(context)
         NativeYouTubeResolver.warm()
     }
+
+    // ── Optional YouTube account pairing (youtube.com/activate device flow) ──
+    // A signed-in InnerTube request is not refused with LOGIN_REQUIRED, which
+    // is the single biggest cause of "tap play, nothing happens" on age-gated
+    // or region-locked tracks. Tokens live only in this app's private prefs.
+
+    @PluginMethod
+    fun accountStatus(call: PluginCall) {
+        call.resolve(JSObject().apply { put("connected", YouTubeAccount.isSignedIn()) })
+    }
+
+    @PluginMethod
+    fun startAccountAuth(call: PluginCall) {
+        Thread {
+            val res = YouTubeAccount.startDeviceAuth()
+            if (res == null) call.reject("could not start YouTube pairing")
+            else call.resolve(JSObject.fromJSONObject(res))
+        }.start()
+    }
+
+    @PluginMethod
+    fun pollAccountAuth(call: PluginCall) {
+        val deviceCode = call.getString("deviceCode")
+        if (deviceCode.isNullOrBlank()) {
+            call.reject("deviceCode required")
+            return
+        }
+        Thread {
+            call.resolve(JSObject.fromJSONObject(YouTubeAccount.pollDeviceAuth(deviceCode)))
+        }.start()
+    }
+
+    @PluginMethod
+    fun disconnectAccount(call: PluginCall) {
+        YouTubeAccount.signOut()
+        call.resolve(JSObject().apply { put("connected", false) })
+    }
+
 
     @PluginMethod
     fun resolveAudio(call: PluginCall) {
