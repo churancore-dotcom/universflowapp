@@ -32,6 +32,8 @@ import { setEQSettings } from '@/lib/eqSettings';
 import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/useHaptics';
 import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLang } from '@/lib/userPrefs';
 import SEOHead from '@/components/SEOHead';
+import { YouTubeAccountSection } from '@/components/YouTubeAccountSection';
+
 
 const EQ_KEY = 'eq_settings';
 
@@ -537,8 +539,10 @@ const Settings = () => {
               chevron
               onClick={() => { if (!isPremium) { setShowEqPremium(true); return; } setShowEq(true); }}
             />
+            <YouTubeAccountSection />
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
+
 
           {/* ============ 3. DOWNLOADS ============ */}
           <Section label="Downloads">
