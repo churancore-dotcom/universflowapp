@@ -43,9 +43,17 @@ data class NativeResolvedStream(val url: String, val itag: Int, val client: Stri
 object NativeYouTubeResolver {
     private const val TAG = "NativeYouTubeResolver"
     private const val ENDPOINT = "https://www.youtube.com/youtubei/v1/player?prettyPrint=false"
-    private const val CACHE_TTL_MS = 5L * 60L * 60L * 1000L
+    private const val STALE_GRACE_MS = 30L * 60L * 1000L
+    private const val CLIENT_COOLDOWN_MS = 2L * 60L * 1000L
+    private const val VISITOR_FAILURE_ROTATE_THRESHOLD = 2
 
-    private data class CachedStream(val url: String, val itag: Int, val client: String, val ts: Long)
+    private data class CachedStream(
+        val url: String,
+        val itag: Int,
+        val client: String,
+        val ts: Long,
+        val expiresAt: Long,
+    )
     private data class ClientCtx(
         val name: String,
         val clientId: String,          // numeric string for X-YouTube-Client-Name
@@ -59,7 +67,9 @@ object NativeYouTubeResolver {
 
 
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
+    private val clientCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val raceExecutor = Executors.newFixedThreadPool(6)
+    private val consecutiveAllClientFailures = AtomicInteger(0)
 
     private val http: OkHttpClient by lazy {
         OkHttpClient.Builder()
@@ -169,11 +179,21 @@ object NativeYouTubeResolver {
         return NativeResolvedStream(c.url, c.itag, c.client)
     }
 
-    fun resolve(videoId: String, timeoutMs: Long = 5200L): NativeResolvedStream? {
+    fun resolve(videoId: String, timeoutMs: Long = 5200L): NativeResolvedStream? =
+        resolveInternal(videoId, timeoutMs, allowVisitorRefresh = true)
+
+    private fun resolveInternal(
+        videoId: String,
+        timeoutMs: Long,
+        allowVisitorRefresh: Boolean,
+    ): NativeResolvedStream? {
         if (videoId.length != 11) return null
         getCached(videoId)?.let { return NativeResolvedStream(it.url, it.itag, it.client) }
 
-        val clients = buildClients()
+        val now = System.currentTimeMillis()
+        val allClients = buildClients()
+        val readyClients = allClients.filter { (clientCooldowns[it.name] ?: 0L) <= now }
+        val clients = if (readyClients.isNotEmpty()) readyClients else allClients
         val latch = CountDownLatch(1)
         val winner = AtomicReference<NativeResolvedStream?>()
         val errors = java.util.concurrent.ConcurrentLinkedQueue<String>()
@@ -184,6 +204,7 @@ object NativeYouTubeResolver {
                 try {
                     val result = attempt(videoId, ctx)
                     if (result != null && winner.compareAndSet(null, NativeResolvedStream(result.first, result.second, ctx.name))) {
+                        clientCooldowns.remove(ctx.name)
                         latch.countDown()
                         return@execute
                     }
@@ -197,17 +218,33 @@ object NativeYouTubeResolver {
         try { latch.await(timeoutMs, TimeUnit.MILLISECONDS) } catch (_: Throwable) {}
         val w = winner.get()
         if (w != null) {
-            streamCache[videoId] = CachedStream(w.url, w.itag, w.client, System.currentTimeMillis())
+            val resolvedAt = System.currentTimeMillis()
+            streamCache[videoId] = CachedStream(
+                w.url,
+                w.itag,
+                w.client,
+                resolvedAt,
+                StreamUrlPolicy.expiresAt(w.url, resolvedAt),
+            )
+            consecutiveAllClientFailures.set(0)
             Log.d(TAG, "resolved $videoId via ${w.client} itag=${w.itag}")
             return w
         }
         Log.w(TAG, "resolve failed $videoId: ${errors.joinToString("; ").ifEmpty { "no playable stream" }}")
+        val failures = consecutiveAllClientFailures.incrementAndGet()
+        if (allowVisitorRefresh && !YouTubeAccount.isSignedIn() && failures >= VISITOR_FAILURE_ROTATE_THRESHOLD) {
+            Log.w(TAG, "all clients failed repeatedly; rotating anonymous visitor session")
+            clearVisitorData()
+            fetchVisitorData()
+            consecutiveAllClientFailures.set(0)
+            return resolveInternal(videoId, timeoutMs, allowVisitorRefresh = false)
+        }
         return null
     }
 
     private fun getCached(videoId: String): CachedStream? {
         val c = streamCache[videoId] ?: return null
-        if (System.currentTimeMillis() - c.ts > CACHE_TTL_MS) {
+        if (!StreamUrlPolicy.isUsable(c.expiresAt)) {
             streamCache.remove(videoId)
             return null
         }
@@ -222,7 +259,14 @@ object NativeYouTubeResolver {
      */
     fun putCached(videoId: String, url: String, source: String) {
         if (videoId.length != 11 || url.isBlank()) return
-        streamCache[videoId] = CachedStream(url, /* itag */ 0, source, System.currentTimeMillis())
+        val now = System.currentTimeMillis()
+        streamCache[videoId] = CachedStream(
+            url,
+            /* itag */ 0,
+            source,
+            now,
+            StreamUrlPolicy.expiresAt(url, now),
+        )
     }
 
     /** Drop a cached entry so the next resolve() re-hits InnerTube. */
@@ -243,9 +287,24 @@ object NativeYouTubeResolver {
     /** Stale cache for emergency fallback (within 30 min past TTL). */
     fun getStale(videoId: String): NativeResolvedStream? {
         val c = streamCache[videoId] ?: return null
-        val age = System.currentTimeMillis() - c.ts
-        if (age > CACHE_TTL_MS + 30L * 60L * 1000L) return null
+        if (System.currentTimeMillis() > c.expiresAt + STALE_GRACE_MS) return null
         return NativeResolvedStream(c.url, c.itag, c.client)
+    }
+
+    private fun clearVisitorData() {
+        visitorData = null
+        try {
+            appContext?.getSharedPreferences(VISITOR_PREFS, android.content.Context.MODE_PRIVATE)
+                ?.edit()
+                ?.remove(VISITOR_KEY)
+                ?.remove(VISITOR_TS_KEY)
+                ?.apply()
+        } catch (_: Throwable) { /* best effort */ }
+    }
+
+    private fun coolDownClient(clientName: String, reason: String) {
+        clientCooldowns[clientName] = System.currentTimeMillis() + CLIENT_COOLDOWN_MS
+        Log.w(TAG, "cooling down $clientName: $reason")
     }
 
     // ── Client definitions ─────────────────────────────────────────────────
@@ -412,11 +471,17 @@ object NativeYouTubeResolver {
             if (visitorData == null) {
                 resp.header("X-Goog-Visitor-Id")?.let { setVisitorData(it) }
             }
-            if (!resp.isSuccessful) return null
+            if (!resp.isSuccessful) {
+                if (resp.code == 403 || resp.code == 429) coolDownClient(ctx.name, "HTTP ${resp.code}")
+                return null
+            }
             val raw = resp.body?.string() ?: return null
             val json = JSONObject(raw)
             val status = json.optJSONObject("playabilityStatus")?.optString("status")
-            if (status != null && status != "OK") return null
+            if (status != null && status != "OK") {
+                if (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE") coolDownClient(ctx.name, status)
+                return null
+            }
             val streamingData = json.optJSONObject("streamingData") ?: return null
             val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
             // Adaptive audio first. The HEAD probe is only worth its round-trip
@@ -443,6 +508,7 @@ object NativeYouTubeResolver {
 
             if (streamingData.has("serverAbrStreamingUrl")) {
                 Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
+                coolDownClient(ctx.name, "SABR_ONLY")
             }
             return null
         }

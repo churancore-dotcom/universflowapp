@@ -298,6 +298,15 @@ class ExoPlayerPlugin : Plugin() {
                 )
                 if (transient && errorRetryCount < MAX_ERROR_RETRIES) {
                     errorRetryCount += 1
+                    if (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
+                        val uri = player.currentMediaItem?.localConfiguration?.uri
+                        val videoId = uri?.takeIf { it.scheme == "yt" }?.host
+                        if (videoId?.length == 11) {
+                            NativeYouTubeResolver.invalidate(videoId)
+                            PlayerJsManager.onStreamRejected()
+                            Log.w("ExoPlayerPlugin", "re-resolving rejected stream for $videoId")
+                        }
+                    }
                     val delayMs = 350L * errorRetryCount
                     main.postDelayed({
                         val p = service()?.player ?: return@postDelayed
