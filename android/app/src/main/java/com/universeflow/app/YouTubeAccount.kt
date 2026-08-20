@@ -125,6 +125,10 @@ object YouTubeAccount {
                 "authorization_pending" -> JSONObject().apply { put("status", "pending") }
                 "slow_down" -> JSONObject().apply { put("status", "slow_down") }
                 "server_error", "temporarily_unavailable" -> JSONObject().apply { put("status", "pending") }
+                "invalid_client", "unauthorized_client" -> JSONObject().apply {
+                    put("status", "error")
+                    put("error", "secure_exchange_required")
+                }
                 else -> JSONObject().apply { put("status", "error"); put("error", err) }
             }
         }

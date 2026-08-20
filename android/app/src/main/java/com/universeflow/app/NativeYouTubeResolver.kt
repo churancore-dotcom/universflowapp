@@ -68,6 +68,7 @@ object NativeYouTubeResolver {
 
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
     private val clientCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
+    private val lastFailures = java.util.concurrent.ConcurrentHashMap<String, String>()
     private val raceExecutor = Executors.newFixedThreadPool(6)
     private val consecutiveAllClientFailures = AtomicInteger(0)
 
@@ -179,6 +180,8 @@ object NativeYouTubeResolver {
         return NativeResolvedStream(c.url, c.itag, c.client)
     }
 
+    fun lastFailure(videoId: String): String = lastFailures[videoId] ?: "NO_PLAYABLE_STREAM"
+
     fun resolve(videoId: String, timeoutMs: Long = 5200L): NativeResolvedStream? =
         resolveInternal(videoId, timeoutMs, allowVisitorRefresh = true)
 
@@ -197,12 +200,13 @@ object NativeYouTubeResolver {
         val latch = CountDownLatch(1)
         val winner = AtomicReference<NativeResolvedStream?>()
         val errors = java.util.concurrent.ConcurrentLinkedQueue<String>()
+        val failureCodes = java.util.concurrent.ConcurrentLinkedQueue<String>()
         val remaining = AtomicInteger(clients.size)
 
         for (ctx in clients) {
             raceExecutor.execute {
                 try {
-                    val result = attempt(videoId, ctx)
+                    val result = attempt(videoId, ctx, failureCodes)
                     if (result != null && winner.compareAndSet(null, NativeResolvedStream(result.first, result.second, ctx.name))) {
                         clientCooldowns.remove(ctx.name)
                         latch.countDown()
@@ -227,10 +231,19 @@ object NativeYouTubeResolver {
                 StreamUrlPolicy.expiresAt(w.url, resolvedAt),
             )
             consecutiveAllClientFailures.set(0)
+            lastFailures.remove(videoId)
             Log.d(TAG, "resolved $videoId via ${w.client} itag=${w.itag}")
             return w
         }
         Log.w(TAG, "resolve failed $videoId: ${errors.joinToString("; ").ifEmpty { "no playable stream" }}")
+        lastFailures[videoId] = when {
+            failureCodes.contains("LOGIN_REQUIRED") -> "LOGIN_REQUIRED"
+            failureCodes.contains("SABR_ONLY") -> "SABR_ONLY"
+            failureCodes.contains("HTTP_429") -> "RATE_LIMITED"
+            failureCodes.contains("HTTP_403") -> "STREAM_REJECTED"
+            failureCodes.contains("DECIPHER_FAILED") -> "DECIPHER_FAILED"
+            else -> "NO_PLAYABLE_STREAM"
+        }
         val failures = consecutiveAllClientFailures.incrementAndGet()
         if (allowVisitorRefresh && !YouTubeAccount.isSignedIn() && failures >= VISITOR_FAILURE_ROTATE_THRESHOLD) {
             Log.w(TAG, "all clients failed repeatedly; rotating anonymous visitor session")
@@ -419,7 +432,11 @@ object NativeYouTubeResolver {
 
     }
 
-    private fun attempt(videoId: String, ctx: ClientCtx): Pair<String, Int>? {
+    private fun attempt(
+        videoId: String,
+        ctx: ClientCtx,
+        failureCodes: java.util.concurrent.ConcurrentLinkedQueue<String>,
+    ): Pair<String, Int>? {
         val sts: String? = if (ctx.needsSts) PlayerJsManager.getSts() else null
         if (ctx.needsSts && sts == null) return null
 
@@ -472,6 +489,7 @@ object NativeYouTubeResolver {
                 resp.header("X-Goog-Visitor-Id")?.let { setVisitorData(it) }
             }
             if (!resp.isSuccessful) {
+                failureCodes.add("HTTP_${resp.code}")
                 if (resp.code == 403 || resp.code == 429) coolDownClient(ctx.name, "HTTP ${resp.code}")
                 return null
             }
@@ -479,6 +497,7 @@ object NativeYouTubeResolver {
             val json = JSONObject(raw)
             val status = json.optJSONObject("playabilityStatus")?.optString("status")
             if (status != null && status != "OK") {
+                failureCodes.add(status)
                 if (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE") coolDownClient(ctx.name, status)
                 return null
             }
@@ -507,7 +526,12 @@ object NativeYouTubeResolver {
             }
 
             if (streamingData.has("serverAbrStreamingUrl")) {
+                val sabrUrl = streamingData.optString("serverAbrStreamingUrl", "")
+                val sabrProvider = YouTubeProtocolProviders.sabrPlaybackProvider
+                val playable = sabrProvider?.takeIf { it.supports(sabrUrl) }?.playableUrl(sabrUrl)
+                if (!playable.isNullOrBlank()) return playable to 0
                 Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
+                failureCodes.add("SABR_ONLY")
                 coolDownClient(ctx.name, "SABR_ONLY")
             }
             return null
