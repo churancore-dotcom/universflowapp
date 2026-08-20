@@ -258,7 +258,6 @@ object NativeYouTubeResolver {
     private fun getCached(videoId: String): CachedStream? {
         val c = streamCache[videoId] ?: return null
         if (!StreamUrlPolicy.isUsable(c.expiresAt)) {
-            streamCache.remove(videoId)
             return null
         }
         return c
