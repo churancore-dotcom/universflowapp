@@ -32,6 +32,8 @@ import { setEQSettings } from '@/lib/eqSettings';
 import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/useHaptics';
 import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLang } from '@/lib/userPrefs';
 import SEOHead from '@/components/SEOHead';
+import { YouTubeAccountSection } from '@/components/YouTubeAccountSection';
+
 
 const EQ_KEY = 'eq_settings';
 
