@@ -157,6 +157,50 @@ export async function resolveOnDevice(videoId: string): Promise<string | null> {
   return null;
 }
 
+// ── Optional YouTube account pairing (Android only) ────────────────────────
+// Connecting an account makes on-device InnerTube requests authenticated, which
+// removes the LOGIN_REQUIRED refusals behind most "tap play, nothing happens"
+// failures. Tokens are stored in the app's private storage on the phone; they
+// never reach our servers.
+
+export async function getYouTubeAccountStatus(): Promise<boolean> {
+  if (!isNativePlayerAvailable()) return false;
+  try {
+    return (await InnerTubePlugin.accountStatus()).connected === true;
+  } catch {
+    return false;
+  }
+}
+
+export async function startYouTubeAccountAuth(): Promise<YouTubeDeviceAuth | null> {
+  if (!isNativePlayerAvailable()) return null;
+  try {
+    return await InnerTubePlugin.startAccountAuth();
+  } catch (e) {
+    console.warn('[YouTubeAccount] start failed', (e as Error)?.message);
+    return null;
+  }
+}
+
+export async function pollYouTubeAccountAuth(deviceCode: string): Promise<{ status: YouTubeAuthPollStatus; error?: string }> {
+  if (!isNativePlayerAvailable()) return { status: 'error', error: 'unsupported' };
+  try {
+    return await InnerTubePlugin.pollAccountAuth({ deviceCode });
+  } catch (e) {
+    return { status: 'error', error: (e as Error)?.message ?? 'failed' };
+  }
+}
+
+export async function disconnectYouTubeAccount(): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try {
+    await InnerTubePlugin.disconnectAccount();
+  } catch (e) {
+    console.warn('[YouTubeAccount] disconnect failed', (e as Error)?.message);
+  }
+}
+
+
 export async function resolveNativeMetadataStream(opts: { videoId?: string; title?: string; artist?: string }): Promise<string | null> {
   if (!isNativePlayerAvailable()) return null;
   try {
