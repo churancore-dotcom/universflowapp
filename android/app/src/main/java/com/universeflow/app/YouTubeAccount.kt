@@ -35,7 +35,6 @@ object YouTubeAccount {
     // device flow cannot be used to impersonate anyone without the user typing
     // the pairing code on youtube.com/activate themselves.
     private const val CLIENT_ID = "861556708454-d6dlm3lh05idd8npek18k6be8ba3oc68.apps.googleusercontent.com"
-    private const val CLIENT_SECRET = "SboVhoG9s0rNafixCSGGKXAT"
     private const val SCOPE = "https://www.googleapis.com/auth/youtube"
 
     private const val DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code"
@@ -114,7 +113,6 @@ object YouTubeAccount {
     fun pollDeviceAuth(deviceCode: String): JSONObject {
         val body = FormBody.Builder()
             .add("client_id", CLIENT_ID)
-            .add("client_secret", CLIENT_SECRET)
             .add("device_code", deviceCode)
             .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
             .build()
@@ -126,6 +124,11 @@ object YouTubeAccount {
             return when (err) {
                 "authorization_pending" -> JSONObject().apply { put("status", "pending") }
                 "slow_down" -> JSONObject().apply { put("status", "slow_down") }
+                "server_error", "temporarily_unavailable" -> JSONObject().apply { put("status", "pending") }
+                "invalid_client", "unauthorized_client" -> JSONObject().apply {
+                    put("status", "error")
+                    put("error", "secure_exchange_required")
+                }
                 else -> JSONObject().apply { put("status", "error"); put("error", err) }
             }
         }
@@ -152,7 +155,6 @@ object YouTubeAccount {
             if (again != null && System.currentTimeMillis() < expiresAt - 60_000L) return@synchronized again
             val body = FormBody.Builder()
                 .add("client_id", CLIENT_ID)
-                .add("client_secret", CLIENT_SECRET)
                 .add("refresh_token", refresh)
                 .add("grant_type", "refresh_token")
                 .build()

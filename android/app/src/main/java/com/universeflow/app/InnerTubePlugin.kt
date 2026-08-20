@@ -71,7 +71,8 @@ class InnerTubePlugin : Plugin() {
         Thread {
             val resolved = NativeYouTubeResolver.resolve(videoId)
             if (resolved == null) {
-                call.reject("InnerTube resolve failed")
+                val code = NativeYouTubeResolver.lastFailure(videoId)
+                call.reject("InnerTube resolve failed: $code", code)
                 return@Thread
             }
             call.resolve(JSObject().apply {
