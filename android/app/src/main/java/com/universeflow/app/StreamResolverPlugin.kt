@@ -51,7 +51,10 @@ class StreamResolverPlugin : Plugin() {
                 null
             }
             if (r == null) {
-                call.reject("resolution failed")
+                val code = videoId?.takeIf { it.length == 11 }
+                    ?.let { NativeYouTubeResolver.lastFailure(it) }
+                    ?: "NO_PLAYABLE_STREAM"
+                call.reject("resolution failed: $code", code)
             } else {
                 val client = r.source.substringAfter("youtube:", r.source)
                 val out = JSObject()
