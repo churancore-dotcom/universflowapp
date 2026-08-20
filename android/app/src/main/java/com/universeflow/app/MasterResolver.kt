@@ -33,7 +33,7 @@ object MasterResolver {
         // Cache check first — covers both YT and seeded JioSaavn entries.
         if (!videoId.isNullOrBlank() && videoId.length == 11) {
             NativeYouTubeResolver.peek(videoId)?.let { hit ->
-                return Resolved(hit.url, hit.client, System.currentTimeMillis() + 60_000L)
+                return Resolved(hit.url, hit.client, StreamUrlPolicy.expiresAt(hit.url))
             }
         }
 
@@ -56,7 +56,7 @@ object MasterResolver {
         // YouTube fallback.
         if (!videoId.isNullOrBlank() && videoId.length == 11) {
             NativeYouTubeResolver.resolve(videoId, timeoutMs = timeoutMs)?.let { yt ->
-                return Resolved(yt.url, "youtube:${yt.client}", System.currentTimeMillis() + 4L * 3600L * 1000L)
+                return Resolved(yt.url, "youtube:${yt.client}", StreamUrlPolicy.expiresAt(yt.url))
             }
             // Last-resort: stale cache within grace window.
             NativeYouTubeResolver.getStale(videoId)?.let { stale ->

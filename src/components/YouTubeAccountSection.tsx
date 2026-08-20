@@ -62,7 +62,12 @@ export function YouTubeAccountSection() {
       }
       if (res.status === 'error') {
         setPairing(null);
-        toast.error(res.error === 'access_denied' ? 'Pairing was declined' : "Pairing didn't complete");
+        const message = res.error === 'access_denied'
+          ? 'Pairing was declined'
+          : res.error === 'secure_exchange_required'
+            ? 'Account connection needs a secure app update'
+            : "Pairing didn't complete";
+        toast.error(message);
         return;
       }
       if (res.status === 'slow_down') intervalMs += 5000;
