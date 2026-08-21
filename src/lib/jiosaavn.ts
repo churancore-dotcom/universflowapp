@@ -1,4 +1,6 @@
 import type { IndexedTrack } from './musicIndexer';
+import { getStreamBitrateCap } from './userPrefs';
+
 
 const API = 'https://jiosaavn-api.universflow.workers.dev';
 
