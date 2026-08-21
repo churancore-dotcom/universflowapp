@@ -290,8 +290,10 @@ export async function findSongStreamUrl(title: string, artist = '', opts: { forc
 
 export function prefetchSong(songId: string) {
   const id = songId.startsWith('saavn-') ? songId.slice(6) : songId;
-  if (!cache.has(id)) getSongStreamUrl(id);
+  const cacheKey = `${id}@${getStreamBitrateCap()}`;
+  if (!cache.has(cacheKey)) void getSongStreamUrl(id);
 }
+
 
 export function preloadNext(queue: Array<{ id?: string }>, currentIndex: number) {
   const next = queue[currentIndex + 1];
