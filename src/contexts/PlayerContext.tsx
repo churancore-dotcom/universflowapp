@@ -2609,7 +2609,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { errorHandle?.remove(); } catch { /* noop */ }
       try { transitionHandle?.remove(); } catch { /* noop */ }
     };
-  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer]);
+  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer, startNativeFadeTransition]);
 
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
