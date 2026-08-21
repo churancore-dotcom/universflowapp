@@ -2704,7 +2704,33 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // outside the EQ/stems chain until the swap completes. Keep one continuous,
     // processed element whenever an effect is active so every sample uses the
     // same graph and a track transition can never silently reset the sound.
-    if (isEqActive(getEQSettings())) return;
+    // …but the user still asked for a crossfade, so fall back to a real
+    // single-element fade-out/hand-over instead of doing nothing at all.
+    if (isEqActive(getEQSettings())) {
+      const audio = audioRef.current;
+      if (!audio || isCrossfading.current) return;
+      if (crossfadeAttemptedForSeqRef.current === playRequestSeqRef.current) return;
+      if (queue.length <= 1) return;
+      const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
+      if (nextIdx === null) return;
+      crossfadeAttemptedForSeqRef.current = playRequestSeqRef.current;
+      const master = volumeRef.current;
+      const total = Math.max(0.5, Math.min(12, transitionSeconds));
+      const steps = Math.max(10, Math.round(total * 20));
+      let step = 0;
+      const timer = window.setInterval(() => {
+        step++;
+        const p = Math.min(1, step / steps);
+        try { audio.volume = Math.max(0, Math.min(1, master * curveGain(p))); } catch { /* ignore */ }
+        if (step >= steps) {
+          clearInterval(timer);
+          try { audio.volume = master; } catch { /* ignore */ }
+          playSongAtIndex(nextIdx, queue);
+        }
+      }, (total * 1000) / steps);
+      return;
+    }
+
     if (!audioRef.current || !nextAudioRef.current || isCrossfading.current) return;
     if (crossfadeAttemptedForSeqRef.current === playRequestSeqRef.current) return;
     crossfadeAttemptedForSeqRef.current = playRequestSeqRef.current;
