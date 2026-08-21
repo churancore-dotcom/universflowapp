@@ -3397,6 +3397,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, [queue, currentIndex, shuffle, repeat, showPrerollAd, currentSong, getNextIndex, playSongAtIndex]);
 
+  // Expose the latest next-track action to the native fade transition.
+  useEffect(() => { nextSongFnRef.current = () => { void nextSong(); }; }, [nextSong]);
+
+
+
   const prevSong = useCallback(async () => {
     if (queue.length === 0) return;
     if (showPrerollAd) return;
