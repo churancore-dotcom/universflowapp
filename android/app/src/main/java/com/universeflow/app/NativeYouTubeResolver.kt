@@ -29,8 +29,8 @@ data class NativeResolvedStream(val url: String, val itag: Int, val client: Stri
  * header names) are borrowed — no GPL source is reproduced.
  *
  * Strategy (updated 2026):
- *  - Race ANDROID_VR (1.61.48 + 1.43.32), IOS (21.03.x), ANDROID_MUSIC,
- *    ANDROID_CREATOR on-device in parallel. All are PoToken-free.
+ *  - Race ANDROID_VR (1.61.48 + 1.43.32), IOS (21.03.x), ANDROID (19.44.33),
+ *    ANDROID_MUSIC, ANDROID_CREATOR on-device in parallel. All are PoToken-free.
  *  - WEB / WEB_REMIX are NOT in the race: YouTube now returns SABR-only
  *    responses for those clients, requires PoToken from a BotGuard WebView,
  *    and the effort/quality tradeoff isn't worth it for audio-only playback.
