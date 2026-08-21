@@ -101,7 +101,25 @@ const resolveDownloadableSong = async (song: Song): Promise<Song> => {
   const needsResolve = !audioUrl || audioUrl === 'pending' || audioUrl === 'resolving' || audioUrl.startsWith('yt-video:');
   if (!needsResolve && audioUrl.startsWith('http')) return song;
 
+  // Downloads honour the *download* quality tier, which is independent of the
+  // streaming tier (defaults to Ultra). Ask the catalogue for the variant that
+  // matches the user's chosen bitrate before falling back to generic resolvers.
+  try {
+    const [{ findSongStreamUrl }, { getDownloadBitrateCap }] = await Promise.all([
+      import('@/lib/jiosaavn'),
+      import('@/lib/userPrefs'),
+    ]);
+    const match = await findSongStreamUrl(song.title, song.artist, {
+      forceRefresh: true,
+      bitrateCap: getDownloadBitrateCap(),
+    });
+    if (match?.streamUrl?.startsWith('http')) {
+      return { ...song, audio_url: match.streamUrl };
+    }
+  } catch { /* fall through to generic resolvers */ }
+
   if (isNativePlayerAvailable()) {
+
     const nativeUrl = await resolveNativeMetadataStream({
       videoId: getSongVideoId(song),
       title: song.title,

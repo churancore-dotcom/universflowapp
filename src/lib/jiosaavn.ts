@@ -1,4 +1,6 @@
 import type { IndexedTrack } from './musicIndexer';
+import { getStreamBitrateCap } from './userPrefs';
+
 
 const API = 'https://jiosaavn-api.universflow.workers.dev';
 
@@ -80,17 +82,32 @@ function bestImage(images: SaavnSong['image']): string | undefined {
   return undefined;
 }
 
-function bestAudio(downloadUrl: SaavnSong['downloadUrl']): string | undefined {
+/**
+ * Pick the audio variant that honours the user's quality preference.
+ * JioSaavn exposes 12/48/96/160/320 kbps; we choose the highest variant that
+ * still fits under the selected tier's bitrate cap (Saver ≈96, Normal ≈160,
+ * High/Ultra → 320) instead of always grabbing 320 kbps.
+ */
+function bestAudio(downloadUrl: SaavnSong['downloadUrl'], capBps?: number): string | undefined {
   if (!downloadUrl) return undefined;
   if (typeof downloadUrl === 'string') return downloadUrl;
   if (Array.isArray(downloadUrl)) {
-    const hi = downloadUrl.find((u) => u.quality === '320kbps')
-      || downloadUrl.find((u) => u.quality === '160kbps')
-      || downloadUrl[downloadUrl.length - 1];
-    return hi?.url || hi?.link;
+    const capKbps = Math.max(48, Math.round((capBps ?? getStreamBitrateCap()) / 1000));
+    const parsed = downloadUrl
+      .map((u) => ({ u, kbps: Number(String(u.quality ?? '').replace(/[^0-9]/g, '')) || 0 }))
+      .filter((e) => !!(e.u.url || e.u.link));
+    const withBitrate = parsed.filter((e) => e.kbps > 0).sort((a, b) => a.kbps - b.kbps);
+    if (withBitrate.length) {
+      const underCap = withBitrate.filter((e) => e.kbps <= capKbps);
+      const chosen = (underCap.length ? underCap[underCap.length - 1] : withBitrate[0]).u;
+      return chosen.url || chosen.link;
+    }
+    const last = parsed[parsed.length - 1]?.u ?? downloadUrl[downloadUrl.length - 1];
+    return last?.url || last?.link;
   }
   return undefined;
 }
+
 
 function primaryArtists(song: SaavnSong): string {
   const primary = song?.artists?.primary;
@@ -201,17 +218,21 @@ export async function searchSongsAsTracks(query: string, limit = 30): Promise<In
     .filter((t): t is IndexedTrack => !!t && !!t.title && !!t.artist);
 }
 
-export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: boolean } = {}) {
+export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: boolean; bitrateCap?: number } = {}) {
   // Strip our own prefix if caller forgot
   const id = songId.startsWith('saavn-') ? songId.slice(6) : songId;
-  if (!opts.forceRefresh && cache.has(id)) return cache.get(id);
+  const cap = opts.bitrateCap ?? getStreamBitrateCap();
+  // Quality tier is part of the identity of a stream URL — never serve a
+  // cached 320 kbps link to a Saver-tier listener (or vice versa).
+  const cacheKey = `${id}@${cap}`;
+  if (!opts.forceRefresh && cache.has(cacheKey)) return cache.get(cacheKey);
 
   try {
     const data = await fetchJson(`${API}/api/songs/${id}`) as { data?: SaavnSong[] | SaavnSong } | null;
     const song = Array.isArray(data?.data) ? data.data[0] : data?.data;
     if (!song) return null;
 
-    const streamUrl = bestAudio(song.downloadUrl);
+    const streamUrl = bestAudio(song.downloadUrl, cap);
     if (!streamUrl) return null;
 
     const result = {
@@ -224,7 +245,7 @@ export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: bo
       image: bestImage(song.image),
     };
 
-    cache.set(id, result);
+    cache.set(cacheKey, result);
     if (cache.size > 60) {
       const firstKey = cache.keys().next().value;
       if (firstKey !== undefined) cache.delete(firstKey);
@@ -235,7 +256,7 @@ export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: bo
   }
 }
 
-export async function findSongStreamUrl(title: string, artist = '', opts: { forceRefresh?: boolean } = {}) {
+export async function findSongStreamUrl(title: string, artist = '', opts: { forceRefresh?: boolean; bitrateCap?: number } = {}) {
   const query = [title, artist].filter(Boolean).join(' ').trim();
   if (query.length < 2) return null;
 
@@ -247,7 +268,8 @@ export async function findSongStreamUrl(title: string, artist = '', opts: { forc
   if (!best?.id) return null;
   if (!isConfidentMatch(best, title, artist)) return null;
 
-  const direct = bestAudio(best.downloadUrl);
+  const cap = opts.bitrateCap ?? getStreamBitrateCap();
+  const direct = bestAudio(best.downloadUrl, cap);
   if (direct && !opts.forceRefresh) {
     const result = {
       streamUrl: direct,
@@ -258,17 +280,20 @@ export async function findSongStreamUrl(title: string, artist = '', opts: { forc
       duration: best.duration,
       image: bestImage(best.image),
     };
-    cache.set(best.id, result);
+    cache.set(`${best.id}@${cap}`, result);
     return result;
   }
 
-  return getSongStreamUrl(best.id, opts);
+  return getSongStreamUrl(best.id, { ...opts, bitrateCap: cap });
 }
+
 
 export function prefetchSong(songId: string) {
   const id = songId.startsWith('saavn-') ? songId.slice(6) : songId;
-  if (!cache.has(id)) getSongStreamUrl(id);
+  const cacheKey = `${id}@${getStreamBitrateCap()}`;
+  if (!cache.has(cacheKey)) void getSongStreamUrl(id);
 }
+
 
 export function preloadNext(queue: Array<{ id?: string }>, currentIndex: number) {
   const next = queue[currentIndex + 1];

@@ -580,6 +580,62 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => { volumeRef.current = volume; }, [volume]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
+  // ── Android crossfade (single-ExoPlayer fade transition) ──────────────────
+  // ExoPlayer owns one authoritative pipeline on native, so we cannot overlap
+  // two elements like the web path does. Instead we ramp the output volume
+  // down over the configured crossfade window, hand over to the next track,
+  // and ramp back up — an audible, real transition instead of a dead toggle.
+  const crossfadeRef = useRef(crossfade);
+  const crossfadeDurationRef = useRef(crossfadeDuration);
+  const crossfadeCurveRef = useRef(crossfadeCurve);
+  const nextSongFnRef = useRef<(() => void) | null>(null);
+  const nativeFadeSeqRef = useRef<number>(-1);
+  const nativeFadeTimerRef = useRef<number | null>(null);
+  useEffect(() => { crossfadeRef.current = crossfade; }, [crossfade]);
+  useEffect(() => { crossfadeDurationRef.current = crossfadeDuration; }, [crossfadeDuration]);
+  useEffect(() => { crossfadeCurveRef.current = crossfadeCurve; }, [crossfadeCurve]);
+
+  const curveGain = useCallback((p: number): number => {
+    switch (crossfadeCurveRef.current) {
+      case 'equal-power': return Math.cos(p * Math.PI * 0.5);
+      case 'smooth': return 1 - (p * p * (3 - 2 * p));
+      case 'exponential': return (1 - p) * (1 - p);
+      default: return 1 - p;
+    }
+  }, []);
+
+  const startNativeFadeTransition = useCallback((seconds: number) => {
+    if (nativeFadeTimerRef.current != null) return;
+    const master = volumeRef.current;
+    const total = Math.max(0.5, Math.min(12, seconds));
+    const steps = Math.max(10, Math.round(total * 20));
+    const stepMs = (total * 1000) / steps;
+    let step = 0;
+    nativeFadeTimerRef.current = window.setInterval(() => {
+      step++;
+      const p = Math.min(1, step / steps);
+      const gain = Math.max(0, Math.min(1, curveGain(p)));
+      void ExoPlayerPlugin.setVolume({ volume: master * gain }).catch(() => undefined);
+      if (step >= steps) {
+        if (nativeFadeTimerRef.current != null) {
+          clearInterval(nativeFadeTimerRef.current);
+          nativeFadeTimerRef.current = null;
+        }
+        try { nextSongFnRef.current?.(); } catch { /* ignore */ }
+        // Ramp back up on the incoming track.
+        let up = 0;
+        const upSteps = 10;
+        const upTimer = window.setInterval(() => {
+          up++;
+          const g = Math.min(1, up / upSteps);
+          void ExoPlayerPlugin.setVolume({ volume: master * g }).catch(() => undefined);
+          if (up >= upSteps) clearInterval(upTimer);
+        }, 60);
+      }
+    }, stepMs);
+  }, [curveGain]);
+
+
 
   useEffect(() => {
     queueRef.current = queue;
@@ -2404,7 +2460,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
           setProgress(posSec);
           if (durSec > 0) setDuration(durSec);
+
+          // Native crossfade: fade out + hand over before the track ends.
+          if (
+            crossfadeRef.current &&
+            getRuntimePremium() &&
+            isAutoplayEnabled() &&
+            queueRef.current.length > 1 &&
+            durSec > 5
+          ) {
+            const window_ = Math.max(1, Math.min(12, crossfadeDurationRef.current));
+            const timeLeft = durSec - posSec;
+            if (timeLeft > 0.2 && timeLeft <= window_ && nativeFadeSeqRef.current !== playRequestSeqRef.current) {
+              nativeFadeSeqRef.current = playRequestSeqRef.current;
+              startNativeFadeTransition(Math.min(window_, timeLeft));
+            }
+          }
         });
+
         const s = await ExoPlayerPlugin.addListener('playbackStateChange', (d) => {
           const data = d as ExoPlaybackState;
           const startupPending = nativeStartupSeqRef.current === playRequestSeqRef.current;
@@ -2536,7 +2609,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { errorHandle?.remove(); } catch { /* noop */ }
       try { transitionHandle?.remove(); } catch { /* noop */ }
     };
-  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer]);
+  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer, startNativeFadeTransition]);
 
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
@@ -2631,7 +2704,33 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // outside the EQ/stems chain until the swap completes. Keep one continuous,
     // processed element whenever an effect is active so every sample uses the
     // same graph and a track transition can never silently reset the sound.
-    if (isEqActive(getEQSettings())) return;
+    // …but the user still asked for a crossfade, so fall back to a real
+    // single-element fade-out/hand-over instead of doing nothing at all.
+    if (isEqActive(getEQSettings())) {
+      const audio = audioRef.current;
+      if (!audio || isCrossfading.current) return;
+      if (crossfadeAttemptedForSeqRef.current === playRequestSeqRef.current) return;
+      if (queue.length <= 1) return;
+      const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
+      if (nextIdx === null) return;
+      crossfadeAttemptedForSeqRef.current = playRequestSeqRef.current;
+      const master = volumeRef.current;
+      const total = Math.max(0.5, Math.min(12, transitionSeconds));
+      const steps = Math.max(10, Math.round(total * 20));
+      let step = 0;
+      const timer = window.setInterval(() => {
+        step++;
+        const p = Math.min(1, step / steps);
+        try { audio.volume = Math.max(0, Math.min(1, master * curveGain(p))); } catch { /* ignore */ }
+        if (step >= steps) {
+          clearInterval(timer);
+          try { audio.volume = master; } catch { /* ignore */ }
+          playSongAtIndex(nextIdx, queue);
+        }
+      }, (total * 1000) / steps);
+      return;
+    }
+
     if (!audioRef.current || !nextAudioRef.current || isCrossfading.current) return;
     if (crossfadeAttemptedForSeqRef.current === playRequestSeqRef.current) return;
     crossfadeAttemptedForSeqRef.current = playRequestSeqRef.current;
@@ -3323,6 +3422,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       playSongAtIndex(0, queue);
     }
   }, [queue, currentIndex, shuffle, repeat, showPrerollAd, currentSong, getNextIndex, playSongAtIndex]);
+
+  // Expose the latest next-track action to the native fade transition.
+  useEffect(() => { nextSongFnRef.current = () => { void nextSong(); }; }, [nextSong]);
+
+
 
   const prevSong = useCallback(async () => {
     if (queue.length === 0) return;

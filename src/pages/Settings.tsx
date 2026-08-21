@@ -292,8 +292,12 @@ const Settings = () => {
     localStorage.setItem('uf_stream_quality', v);
     emitPlaybackSettingsChanged();
     emitPrefsChanged();
+    // Cached URLs were resolved at the previous bitrate — drop them so the new
+    // tier takes effect on the next track (and the next resolve of this one).
+    void import('@/lib/musicIndexer').then((m) => m.clearStreamCache()).catch(() => undefined);
     toast.success(`Streaming quality: ${QUALITY_OPTIONS.find(o => o.id === v)?.label}`);
   };
+
   const handleDownloadQuality = (v: QualityTier) => {
     setDownloadQuality(v);
     localStorage.setItem('uf_download_quality', v);
