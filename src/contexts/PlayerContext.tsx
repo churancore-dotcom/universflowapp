@@ -2460,7 +2460,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
           setProgress(posSec);
           if (durSec > 0) setDuration(durSec);
+
+          // Native crossfade: fade out + hand over before the track ends.
+          if (
+            crossfadeRef.current &&
+            getRuntimePremium() &&
+            isAutoplayEnabled() &&
+            queueRef.current.length > 1 &&
+            durSec > 5
+          ) {
+            const window_ = Math.max(1, Math.min(12, crossfadeDurationRef.current));
+            const timeLeft = durSec - posSec;
+            if (timeLeft > 0.2 && timeLeft <= window_ && nativeFadeSeqRef.current !== playRequestSeqRef.current) {
+              nativeFadeSeqRef.current = playRequestSeqRef.current;
+              startNativeFadeTransition(Math.min(window_, timeLeft));
+            }
+          }
         });
+
         const s = await ExoPlayerPlugin.addListener('playbackStateChange', (d) => {
           const data = d as ExoPlaybackState;
           const startupPending = nativeStartupSeqRef.current === playRequestSeqRef.current;
