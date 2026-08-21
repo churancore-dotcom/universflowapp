@@ -218,17 +218,21 @@ export async function searchSongsAsTracks(query: string, limit = 30): Promise<In
     .filter((t): t is IndexedTrack => !!t && !!t.title && !!t.artist);
 }
 
-export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: boolean } = {}) {
+export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: boolean; bitrateCap?: number } = {}) {
   // Strip our own prefix if caller forgot
   const id = songId.startsWith('saavn-') ? songId.slice(6) : songId;
-  if (!opts.forceRefresh && cache.has(id)) return cache.get(id);
+  const cap = opts.bitrateCap ?? getStreamBitrateCap();
+  // Quality tier is part of the identity of a stream URL — never serve a
+  // cached 320 kbps link to a Saver-tier listener (or vice versa).
+  const cacheKey = `${id}@${cap}`;
+  if (!opts.forceRefresh && cache.has(cacheKey)) return cache.get(cacheKey);
 
   try {
     const data = await fetchJson(`${API}/api/songs/${id}`) as { data?: SaavnSong[] | SaavnSong } | null;
     const song = Array.isArray(data?.data) ? data.data[0] : data?.data;
     if (!song) return null;
 
-    const streamUrl = bestAudio(song.downloadUrl);
+    const streamUrl = bestAudio(song.downloadUrl, cap);
     if (!streamUrl) return null;
 
     const result = {
@@ -241,7 +245,7 @@ export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: bo
       image: bestImage(song.image),
     };
 
-    cache.set(id, result);
+    cache.set(cacheKey, result);
     if (cache.size > 60) {
       const firstKey = cache.keys().next().value;
       if (firstKey !== undefined) cache.delete(firstKey);
@@ -252,7 +256,7 @@ export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: bo
   }
 }
 
-export async function findSongStreamUrl(title: string, artist = '', opts: { forceRefresh?: boolean } = {}) {
+export async function findSongStreamUrl(title: string, artist = '', opts: { forceRefresh?: boolean; bitrateCap?: number } = {}) {
   const query = [title, artist].filter(Boolean).join(' ').trim();
   if (query.length < 2) return null;
 
@@ -264,7 +268,8 @@ export async function findSongStreamUrl(title: string, artist = '', opts: { forc
   if (!best?.id) return null;
   if (!isConfidentMatch(best, title, artist)) return null;
 
-  const direct = bestAudio(best.downloadUrl);
+  const cap = opts.bitrateCap ?? getStreamBitrateCap();
+  const direct = bestAudio(best.downloadUrl, cap);
   if (direct && !opts.forceRefresh) {
     const result = {
       streamUrl: direct,
@@ -275,12 +280,13 @@ export async function findSongStreamUrl(title: string, artist = '', opts: { forc
       duration: best.duration,
       image: bestImage(best.image),
     };
-    cache.set(best.id, result);
+    cache.set(`${best.id}@${cap}`, result);
     return result;
   }
 
-  return getSongStreamUrl(best.id, opts);
+  return getSongStreamUrl(best.id, { ...opts, bitrateCap: cap });
 }
+
 
 export function prefetchSong(songId: string) {
   const id = songId.startsWith('saavn-') ? songId.slice(6) : songId;
