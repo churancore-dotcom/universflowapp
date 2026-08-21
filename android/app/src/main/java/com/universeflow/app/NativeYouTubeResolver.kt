@@ -429,7 +429,21 @@ object NativeYouTubeResolver {
         )
 
 
-    }
+        }
+
+        // ANDROID (plain YouTube app) — InnerTune ships this as its primary
+        // fallback for not-logged-in playback because it survives on real
+        // handset IPs when the VR/iOS pair gets refused.
+        val android = ctxJson(JSONObject().apply {
+            put("clientName", "ANDROID")
+            put("clientVersion", "19.44.33")
+            put("androidSdkVersion", 34)
+            put("osName", "Android")
+            put("osVersion", "14")
+            put("hl", "en"); put("gl", "US")
+        })
+
+
 
     private fun attempt(
         videoId: String,
