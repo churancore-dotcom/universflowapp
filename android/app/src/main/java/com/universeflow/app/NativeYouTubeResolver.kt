@@ -389,6 +389,18 @@ object NativeYouTubeResolver {
             put("hl", "en"); put("gl", "US")
         })
 
+        // ANDROID (plain YouTube app) — InnerTune ships this as its primary
+        // fallback for not-logged-in playback because it survives on real
+        // handset IPs when the VR/iOS pair gets refused.
+        val android = ctxJson(JSONObject().apply {
+            put("clientName", "ANDROID")
+            put("clientVersion", "19.44.33")
+            put("androidSdkVersion", 34)
+            put("osName", "Android")
+            put("osVersion", "14")
+            put("hl", "en"); put("gl", "US")
+        })
+
         // TVHTML5 — the ONLY client YouTube accepts an OAuth bearer token with
         // (it is the client the youtube.com/activate pairing flow authorises).
         // Raced first when an account is connected: a signed-in request is not
@@ -422,14 +434,18 @@ object NativeYouTubeResolver {
                 "com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip"),
             ClientCtx("IOS", "5", "21.03.2", ios,
                 "com.google.ios.youtube/21.03.2 (iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X)"),
+            ClientCtx("ANDROID", "3", "19.44.33", android,
+                "com.google.android.youtube/19.44.33 (Linux; U; Android 14) gzip"),
             ClientCtx("ANDROID_MUSIC", "21", "7.29.52", androidMusic,
                 "com.google.android.apps.youtube.music/7.29.52 (Linux; U; Android 15) gzip"),
             ClientCtx("ANDROID_CREATOR", "14", "24.45.100", androidCreator,
                 "com.google.android.apps.youtube.creator/24.45.100 (Linux; U; Android 14) gzip"),
         )
-
-
     }
+
+
+
+
 
     private fun attempt(
         videoId: String,
