@@ -580,6 +580,62 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => { volumeRef.current = volume; }, [volume]);
   useEffect(() => { isPlayingRef.current = isPlaying; }, [isPlaying]);
 
+  // ── Android crossfade (single-ExoPlayer fade transition) ──────────────────
+  // ExoPlayer owns one authoritative pipeline on native, so we cannot overlap
+  // two elements like the web path does. Instead we ramp the output volume
+  // down over the configured crossfade window, hand over to the next track,
+  // and ramp back up — an audible, real transition instead of a dead toggle.
+  const crossfadeRef = useRef(crossfade);
+  const crossfadeDurationRef = useRef(crossfadeDuration);
+  const crossfadeCurveRef = useRef(crossfadeCurve);
+  const nextSongFnRef = useRef<(() => void) | null>(null);
+  const nativeFadeSeqRef = useRef<number>(-1);
+  const nativeFadeTimerRef = useRef<number | null>(null);
+  useEffect(() => { crossfadeRef.current = crossfade; }, [crossfade]);
+  useEffect(() => { crossfadeDurationRef.current = crossfadeDuration; }, [crossfadeDuration]);
+  useEffect(() => { crossfadeCurveRef.current = crossfadeCurve; }, [crossfadeCurve]);
+
+  const curveGain = useCallback((p: number): number => {
+    switch (crossfadeCurveRef.current) {
+      case 'equal-power': return Math.cos(p * Math.PI * 0.5);
+      case 'smooth': return 1 - (p * p * (3 - 2 * p));
+      case 'exponential': return (1 - p) * (1 - p);
+      default: return 1 - p;
+    }
+  }, []);
+
+  const startNativeFadeTransition = useCallback((seconds: number) => {
+    if (nativeFadeTimerRef.current != null) return;
+    const master = volumeRef.current;
+    const total = Math.max(0.5, Math.min(12, seconds));
+    const steps = Math.max(10, Math.round(total * 20));
+    const stepMs = (total * 1000) / steps;
+    let step = 0;
+    nativeFadeTimerRef.current = window.setInterval(() => {
+      step++;
+      const p = Math.min(1, step / steps);
+      const gain = Math.max(0, Math.min(1, curveGain(p)));
+      void ExoPlayerPlugin.setVolume({ volume: master * gain }).catch(() => undefined);
+      if (step >= steps) {
+        if (nativeFadeTimerRef.current != null) {
+          clearInterval(nativeFadeTimerRef.current);
+          nativeFadeTimerRef.current = null;
+        }
+        try { nextSongFnRef.current?.(); } catch { /* ignore */ }
+        // Ramp back up on the incoming track.
+        let up = 0;
+        const upSteps = 10;
+        const upTimer = window.setInterval(() => {
+          up++;
+          const g = Math.min(1, up / upSteps);
+          void ExoPlayerPlugin.setVolume({ volume: master * g }).catch(() => undefined);
+          if (up >= upSteps) clearInterval(upTimer);
+        }, 60);
+      }
+    }, stepMs);
+  }, [curveGain]);
+
+
 
   useEffect(() => {
     queueRef.current = queue;
