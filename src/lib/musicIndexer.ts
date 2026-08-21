@@ -215,6 +215,17 @@ function setCachedStream(key: string, url: string, meta?: Partial<ResolveTrackRe
   persistCache();
 }
 
+/**
+ * Drop every cached stream URL. Called when the user changes the audio quality
+ * tier so the new bitrate applies to the very next track instead of silently
+ * replaying URLs resolved under the old setting.
+ */
+export function clearStreamCache(): void {
+  streamCache.clear();
+  try { persistCache(); } catch { /* ignore */ }
+}
+
+
 function isKnownBrokenStreamUrl(url?: string | null) {
   // `yt-video:` is an iframe fallback marker, not an audio stream. Keeping it
   // in the stream cache makes the player bypass real extraction on future plays,
