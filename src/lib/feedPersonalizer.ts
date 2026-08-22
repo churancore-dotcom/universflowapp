@@ -200,17 +200,36 @@ export function tasteScore(item: RerankItem, profile: TasteProfile): number {
 }
 
 /**
+ * Hard negative check. A repeatedly skipped/disliked artist with no offsetting
+ * positive signal must not appear in a feed at all — demoting it by score was
+ * not enough, because a strong editorial position could still float it to the
+ * top of a rail.
+ */
+export function isSuppressed(item: RerankItem, profile: TasteProfile): boolean {
+  const a = (item.artist || '').trim().toLowerCase();
+  if (!a) return false;
+  const negative = profile.skips.get(a) || 0;
+  if (negative < 2) return false;
+  const positive = profile.artists.get(a) || 0;
+  return negative > positive;
+}
+
+/**
  * Stable rerank: keeps original order tie-broken so editorial ordering is
  * preserved when the user has no signal for an item. Boost is additive to a
  * decreasing positional score so we don't fully discard the source ranking.
+ * Explicitly disliked artists are removed outright.
  */
 export function rerank<T extends RerankItem>(items: T[], profile: TasteProfile): T[] {
   if (profile.signalCount < 1 || items.length < 2) return items;
+  const allowed = items.filter((item) => !isSuppressed(item, profile));
+  // Never blank a rail: if suppression would empty it, fall back to the source.
+  const pool = allowed.length >= Math.min(3, items.length) ? allowed : items;
   // Confidence ramps the personal weight: a listener with one session gets a
   // gentle nudge, a heavy listener gets a feed that is visibly theirs.
   const confidence = Math.min(1, profile.signalCount / 15);
   const personalWeight = 0.8 + confidence * 1.1; // 0.8 → 1.9
-  const scored = items.map((item, idx) => {
+  const scored = pool.map((item, idx) => {
     // Editorial weight: first item ~ 1.0, decays slowly. Personal score is added.
     const editorial = 1 / Math.log2(idx + 2);
     const personal = tasteScore(item, profile);
@@ -222,6 +241,7 @@ export function rerank<T extends RerankItem>(items: T[], profile: TasteProfile):
   scored.sort((a, b) => b.score - a.score || a.idx - b.idx);
   return scored.map((s) => s.item);
 }
+
 
 /** Top artists by affinity — the real seeds for "Made For You". */
 export function topTasteArtists(profile: TasteProfile, n = 5): string[] {
