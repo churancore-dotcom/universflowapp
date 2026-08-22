@@ -35,7 +35,14 @@ object YouTubeAccount {
     // device flow cannot be used to impersonate anyone without the user typing
     // the pairing code on youtube.com/activate themselves.
     private const val CLIENT_ID = "861556708454-d6dlm3lh05idd8npek18k6be8ba3oc68.apps.googleusercontent.com"
+    // The TV OAuth client is a *confidential* client: Google's token endpoint
+    // answers `invalid_client` to a device-code exchange that omits the secret,
+    // which is why pairing used to fail the instant the user approved it. This
+    // value ships inside every YouTube TV/console app and grants nothing on its
+    // own — the user still has to type the pairing code on youtube.com/activate.
+    private const val CLIENT_SECRET = "SboVhoG9s0rNafixCSGGKXAT"
     private const val SCOPE = "https://www.googleapis.com/auth/youtube"
+
 
     private const val DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code"
     private const val TOKEN_URL = "https://oauth2.googleapis.com/token"
