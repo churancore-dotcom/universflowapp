@@ -24,6 +24,7 @@ export type YouTubeAuthPollStatus = 'pending' | 'slow_down' | 'connected' | 'err
 
 interface InnerTubePluginShape {
   resolveAudio: (opts: { videoId: string }) => Promise<InnerTubeResult>;
+  setQualityCap: (opts: { bitrateCap: number }) => Promise<{ bitrateCap: number }>;
   accountStatus: () => Promise<{ connected: boolean }>;
   startAccountAuth: () => Promise<YouTubeDeviceAuth>;
   pollAccountAuth: (opts: { deviceCode: string }) => Promise<{ status: YouTubeAuthPollStatus; error?: string }>;
@@ -145,6 +146,16 @@ export const StreamResolverPlugin = registerPlugin<StreamResolverPluginShape>('S
 
 export function isNativePlayerAvailable(): boolean {
   return Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+}
+
+/**
+ * Push the user's Streaming Quality tier down to the on-device resolver so the
+ * native InnerTube path picks a stream at or under that bitrate. The native
+ * resolver drops its stream cache whenever the cap changes.
+ */
+export async function setNativeStreamBitrateCap(bitrateCap: number): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await InnerTubePlugin.setQualityCap({ bitrateCap: Math.max(0, Math.round(bitrateCap)) }); } catch { /* older shell */ }
 }
 
 export async function resolveOnDevice(videoId: string): Promise<string | null> {

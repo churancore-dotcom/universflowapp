@@ -5,6 +5,21 @@ import { Capacitor } from '@capacitor/core';
 export async function initCapacitorNative() {
   if (!Capacitor.isNativePlatform()) return;
 
+  // Streaming Quality tier → on-device InnerTube resolver. Applied at boot and
+  // re-applied whenever Settings changes the tier, so Saver/Normal/High/Ultra
+  // genuinely change which stream the APK requests.
+  try {
+    const [{ setNativeStreamBitrateCap }, { getStreamBitrateCap }] = await Promise.all([
+      import('@/lib/nativePlayer'),
+      import('@/lib/userPrefs'),
+    ]);
+    const push = () => { void setNativeStreamBitrateCap(getStreamBitrateCap()); };
+    push();
+    window.addEventListener('uf-prefs-changed', push);
+  } catch (e) {
+    console.warn('[capacitor] stream quality cap init failed:', e);
+  }
+
   // Status bar — dark/transparent so it blends with the dark UI.
   try {
     const { StatusBar, Style } = await import('@capacitor/status-bar');
