@@ -28,7 +28,9 @@ export interface TasteProfile {
 }
 
 const POSITIVE_ACTIONS = new Set(['stream', 'save', 'share', 'playlist_add']);
-const NEGATIVE_ACTIONS = new Set(['skip']);
+const NEGATIVE_ACTIONS = new Set(['skip', 'dislike', 'hide', 'not_interested']);
+// An explicit dislike outweighs a passive skip.
+const STRONG_NEGATIVE = new Set(['dislike', 'hide', 'not_interested']);
 
 const STOP_WORDS = new Set([
   'the','a','an','and','or','of','to','in','on','for','with','feat','ft','featuring',
@@ -132,7 +134,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
         keywords.set(k, (keywords.get(k) || 0) + w * 0.3);
       }
     } else if (NEGATIVE_ACTIONS.has(action) && a) {
-      skips.set(a, (skips.get(a) || 0) + r * 2);
+      skips.set(a, (skips.get(a) || 0) + r * (STRONG_NEGATIVE.has(action) ? 6 : 2));
       signalCount++;
     }
   }
