@@ -295,6 +295,23 @@ object NativeYouTubeResolver {
         streamCache.clear()
     }
 
+    /**
+     * Streaming-quality tier from Settings, in bits per second (0 = unlimited).
+     * pickBestAudio picks the highest audio track at or under this cap, so
+     * Saver/Normal/High/Ultra genuinely request different streams instead of
+     * always grabbing the fattest format. Changing the cap drops the cache,
+     * otherwise a previously resolved URL would keep the old bitrate.
+     */
+    @Volatile private var bitrateCapBps: Int = 0
+
+    fun setBitrateCap(bps: Int) {
+        val next = if (bps > 0) bps else 0
+        if (next == bitrateCapBps) return
+        bitrateCapBps = next
+        streamCache.clear()
+        Log.d(TAG, "stream bitrate cap = $next bps")
+    }
+
 
     /** Stale cache for emergency fallback (within 30 min past TTL). */
     fun getStale(videoId: String): NativeResolvedStream? {
@@ -559,6 +576,11 @@ object NativeYouTubeResolver {
         // hears a voiceover), then maximise bitrate with a bonus for opus/webm.
         var best: Pair<String, Int>? = null
         var bestScore = -1
+        // Fallback when every available track exceeds the user's quality cap:
+        // the leanest stream is still closer to their intent than the fattest.
+        var leanest: Pair<String, Int>? = null
+        var leanestBitrate = Int.MAX_VALUE
+        val cap = bitrateCapBps
 
         for (i in 0 until adaptive.length()) {
             val f = adaptive.optJSONObject(i) ?: continue
@@ -570,12 +592,19 @@ object NativeYouTubeResolver {
             if (!isOriginal) continue
             val url = resolveFormatUrl(f) ?: continue
             val itag = f.optInt("itag", 0)
-            val score = f.optInt("bitrate", 0) + if (mime.contains("webm")) 10240 else 0
+            val bitrate = f.optInt("bitrate", 0)
+            if (bitrate in 1 until leanestBitrate) {
+                leanest = url to itag
+                leanestBitrate = bitrate
+            }
+            if (cap > 0 && bitrate > cap) continue
+            val score = bitrate + if (mime.contains("webm")) 10240 else 0
             if (score > bestScore) {
                 best = url to itag
                 bestScore = score
             }
         }
+        if (best == null && leanest != null) best = leanest
         if (best == null) Log.d(TAG, "no audio formats from $clientName")
         return best
     }

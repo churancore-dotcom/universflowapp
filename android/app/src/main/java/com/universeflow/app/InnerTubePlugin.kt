@@ -84,6 +84,18 @@ class InnerTubePlugin : Plugin() {
     }
 
 
+    /**
+     * Streaming-quality tier (bits per second, 0 = unlimited) from Settings.
+     * Without this the on-device resolver always grabbed the fattest audio
+     * track, so the Saver/Normal/High/Ultra picker had no effect on the APK.
+     */
+    @PluginMethod
+    fun setQualityCap(call: PluginCall) {
+        val bps = call.getInt("bitrateCap") ?: 0
+        NativeYouTubeResolver.setBitrateCap(bps)
+        call.resolve(JSObject().apply { put("bitrateCap", bps) })
+    }
+
     @PluginMethod
     fun resolveAudio(call: PluginCall) {
         val videoId = call.getString("videoId")

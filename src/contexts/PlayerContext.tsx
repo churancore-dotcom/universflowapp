@@ -594,6 +594,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => { crossfadeRef.current = crossfade; }, [crossfade]);
   useEffect(() => { crossfadeDurationRef.current = crossfadeDuration; }, [crossfadeDuration]);
   useEffect(() => { crossfadeCurveRef.current = crossfadeCurve; }, [crossfadeCurve]);
+  const gaplessProRef = useRef(gaplessPro);
+  useEffect(() => { gaplessProRef.current = gaplessPro; }, [gaplessPro]);
 
   const curveGain = useCallback((p: number): number => {
     switch (crossfadeCurveRef.current) {
@@ -2462,18 +2464,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (durSec > 0) setDuration(durSec);
 
           // Native crossfade: fade out + hand over before the track ends.
+          // Gapless Pro (crossfade OFF) uses the same machinery with a tight
+          // sub-second window, so the toggle is genuinely audible on the APK
+          // instead of being a web-only behaviour.
+          const nativeTransition = crossfadeRef.current
+            ? Math.max(1, Math.min(12, crossfadeDurationRef.current))
+            : (gaplessProRef.current ? GAPLESS_PRO_OVERLAP_SECONDS : 0);
           if (
-            crossfadeRef.current &&
+            nativeTransition > 0 &&
             getRuntimePremium() &&
             isAutoplayEnabled() &&
             queueRef.current.length > 1 &&
             durSec > 5
           ) {
-            const window_ = Math.max(1, Math.min(12, crossfadeDurationRef.current));
             const timeLeft = durSec - posSec;
-            if (timeLeft > 0.2 && timeLeft <= window_ && nativeFadeSeqRef.current !== playRequestSeqRef.current) {
+            const trigger = crossfadeRef.current ? 0.2 : 0.05;
+            if (timeLeft > trigger && timeLeft <= nativeTransition && nativeFadeSeqRef.current !== playRequestSeqRef.current) {
               nativeFadeSeqRef.current = playRequestSeqRef.current;
-              startNativeFadeTransition(Math.min(window_, timeLeft));
+              startNativeFadeTransition(Math.min(nativeTransition, timeLeft));
             }
           }
         });
