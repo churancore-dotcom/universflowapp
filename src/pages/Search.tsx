@@ -537,8 +537,11 @@ const Search = () => {
     setLoadingMore(true);
     try {
       const deeper = await searchYouTubeMusicTracks(trimmed, 400);
+      // Deeper pages MUST go through the same ranker/spam filter as page one —
+      // appending raw source order is what let junk results reappear on scroll.
+      const ranked = rankAndDedupeResults(trimmed, deeper, [], [], false);
       const existing = new Set(indexedResults.map((t) => t.id));
-      const additions = deeper.filter(
+      const additions = ranked.filter(
         (t) => !existing.has(t.id) && !isHiddenTrack(t, hiddenResults),
       );
       if (additions.length > 0) {
@@ -550,6 +553,7 @@ const Search = () => {
       setLoadingMore(false);
     }
   }, [query, indexedResults, hiddenResults]);
+
 
   // Infinite scroll — bump visibleCount as the user nears the bottom; when the
   // local pool runs out, request a deeper page from the server.

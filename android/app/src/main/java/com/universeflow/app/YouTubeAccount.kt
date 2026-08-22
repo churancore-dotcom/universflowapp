@@ -35,7 +35,14 @@ object YouTubeAccount {
     // device flow cannot be used to impersonate anyone without the user typing
     // the pairing code on youtube.com/activate themselves.
     private const val CLIENT_ID = "861556708454-d6dlm3lh05idd8npek18k6be8ba3oc68.apps.googleusercontent.com"
+    // The TV OAuth client is a *confidential* client: Google's token endpoint
+    // answers `invalid_client` to a device-code exchange that omits the secret,
+    // which is why pairing used to fail the instant the user approved it. This
+    // value ships inside every YouTube TV/console app and grants nothing on its
+    // own — the user still has to type the pairing code on youtube.com/activate.
+    private const val CLIENT_SECRET = "SboVhoG9s0rNafixCSGGKXAT"
     private const val SCOPE = "https://www.googleapis.com/auth/youtube"
+
 
     private const val DEVICE_CODE_URL = "https://oauth2.googleapis.com/device/code"
     private const val TOKEN_URL = "https://oauth2.googleapis.com/token"
@@ -90,17 +97,28 @@ object YouTubeAccount {
             .build()
         val json = post(DEVICE_CODE_URL, body) ?: return null
         val deviceCode = json.optString("device_code").takeIf { it.isNotBlank() } ?: return null
+        val userCode = json.optString("user_code")
+        val verificationUrl = json.optString("verification_url").takeIf { it.isNotBlank() }
+            ?: json.optString("verification_uri").takeIf { it.isNotBlank() }
+            ?: "https://www.google.com/device"
         return JSONObject().apply {
             put("deviceCode", deviceCode)
-            put("userCode", json.optString("user_code"))
+            put("userCode", userCode)
+            put("verificationUrl", verificationUrl)
+            // Pre-filled URL: the user lands on the consent screen with the code
+            // already entered, which removes most of the typing that made the
+            // old window feel too short.
             put(
-                "verificationUrl",
-                json.optString("verification_url").takeIf { it.isNotBlank() }
-                    ?: json.optString("verification_uri", "https://www.google.com/device"),
+                "verificationUrlComplete",
+                json.optString("verification_url_complete").takeIf { it.isNotBlank() }
+                    ?: if (userCode.isNotBlank()) "$verificationUrl?user_code=$userCode" else verificationUrl,
             )
-            put("interval", json.optInt("interval", 5))
-            put("expiresIn", json.optInt("expires_in", 1800))
+            put("interval", json.optInt("interval", 5).coerceAtLeast(5))
+            // Never hand the UI a short window: Google's device codes live for
+            // ~30 min, so a missing/absurd value must not shrink the flow.
+            put("expiresIn", json.optInt("expires_in", 1800).coerceAtLeast(600))
         }
+
     }
 
     /**
@@ -113,6 +131,7 @@ object YouTubeAccount {
     fun pollDeviceAuth(deviceCode: String): JSONObject {
         val body = FormBody.Builder()
             .add("client_id", CLIENT_ID)
+            .add("client_secret", CLIENT_SECRET)
             .add("device_code", deviceCode)
             .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
             .build()
@@ -155,6 +174,7 @@ object YouTubeAccount {
             if (again != null && System.currentTimeMillis() < expiresAt - 60_000L) return@synchronized again
             val body = FormBody.Builder()
                 .add("client_id", CLIENT_ID)
+                .add("client_secret", CLIENT_SECRET)
                 .add("refresh_token", refresh)
                 .add("grant_type", "refresh_token")
                 .build()

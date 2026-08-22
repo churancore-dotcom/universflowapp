@@ -8,6 +8,7 @@ import {
   startYouTubeAccountAuth,
   pollYouTubeAccountAuth,
   disconnectYouTubeAccount,
+  openYouTubePairingUrl,
   type YouTubeDeviceAuth,
 } from '@/lib/nativePlayer';
 
@@ -21,6 +22,7 @@ import {
 export function YouTubeAccountSection() {
   const [connected, setConnected] = useState(false);
   const [pairing, setPairing] = useState<YouTubeDeviceAuth | null>(null);
+  const [secondsLeft, setSecondsLeft] = useState(0);
   const [busy, setBusy] = useState(false);
   const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -30,6 +32,13 @@ export function YouTubeAccountSection() {
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
   }, []);
+
+  // Visible countdown so the window never *feels* shorter than it is.
+  useEffect(() => {
+    if (!pairing) return;
+    const id = setInterval(() => setSecondsLeft((s) => (s > 0 ? s - 1 : 0)), 1000);
+    return () => clearInterval(id);
+  }, [pairing]);
 
   if (!isNativePlayerAvailable()) return null;
 
@@ -42,10 +51,16 @@ export function YouTubeAccountSection() {
       return;
     }
     setPairing(auth);
-    // Poll on the interval Google asked for; widening it on slow_down keeps the
-    // grant alive instead of getting the device code rejected for hammering.
+    // Google's device codes live ~30 min. Floor it so a missing/short value from
+    // the endpoint can't cut the flow off before the user finishes signing in.
+    const windowSeconds = Math.max(auth.expiresIn || 0, 600);
+    setSecondsLeft(windowSeconds);
+    // Send the user straight to the consent screen, code pre-filled.
+    void openYouTubePairingUrl(auth.verificationUrlComplete || auth.verificationUrl);
+
     let intervalMs = Math.max(auth.interval, 5) * 1000;
-    const deadline = Date.now() + auth.expiresIn * 1000;
+    const deadline = Date.now() + windowSeconds * 1000;
+    let softFailures = 0;
 
     const tick = async () => {
       if (Date.now() > deadline) {
@@ -61,19 +76,36 @@ export function YouTubeAccountSection() {
         return;
       }
       if (res.status === 'error') {
+        // Transient network/plugin hiccups must not cancel a live pairing —
+        // only a definitive refusal (or three failures in a row) stops it.
+        const fatal = res.error === 'access_denied'
+          || res.error === 'expired_token'
+          || res.error === 'secure_exchange_required';
+        if (!fatal && softFailures < 3) {
+          softFailures += 1;
+          pollTimer.current = setTimeout(() => { void tick(); }, intervalMs);
+          return;
+        }
         setPairing(null);
-        const message = res.error === 'access_denied'
-          ? 'Pairing was declined'
-          : res.error === 'secure_exchange_required'
-            ? 'Account connection needs a secure app update'
-            : "Pairing didn't complete";
-        toast.error(message);
+        toast.error(
+          res.error === 'access_denied'
+            ? 'Pairing was declined'
+            : res.error === 'secure_exchange_required'
+              ? 'Account connection needs a secure app update'
+              : "Pairing didn't complete",
+        );
         return;
       }
+      softFailures = 0;
       if (res.status === 'slow_down') intervalMs += 5000;
       pollTimer.current = setTimeout(() => { void tick(); }, intervalMs);
     };
     pollTimer.current = setTimeout(() => { void tick(); }, intervalMs);
+  };
+
+  const cancelPairing = () => {
+    if (pollTimer.current) clearTimeout(pollTimer.current);
+    setPairing(null);
   };
 
   const disconnect = async () => {
@@ -81,6 +113,9 @@ export function YouTubeAccountSection() {
     setConnected(false);
     toast.success('YouTube account disconnected');
   };
+
+  const mins = Math.floor(secondsLeft / 60);
+  const secs = String(secondsLeft % 60).padStart(2, '0');
 
   return (
     <div className="px-4 py-3 space-y-3">
@@ -99,7 +134,7 @@ export function YouTubeAccountSection() {
       {pairing ? (
         <div className="rounded-[14px] border border-border bg-muted/40 p-3 space-y-2">
           <p className="text-xs text-muted-foreground">
-            Open the link, then enter this code:
+            Sign in on the page that just opened. If it didn't open, tap below and enter this code:
           </p>
           <div className="flex items-center gap-2">
             <code className="font-display text-lg tracking-[0.2em] text-foreground">{pairing.userCode}</code>
@@ -115,18 +150,23 @@ export function YouTubeAccountSection() {
               <Copy className="w-3.5 h-3.5 text-muted-foreground" />
             </button>
           </div>
-          <a
-            href={pairing.verificationUrl}
-            target="_blank"
-            rel="noreferrer"
-            className="inline-flex items-center gap-1.5 text-xs text-primary"
+          <Button
+            size="sm"
+            variant="secondary"
+            className="w-full text-xs"
+            onClick={() =>
+              void openYouTubePairingUrl(pairing.verificationUrlComplete || pairing.verificationUrl)
+            }
           >
-            {pairing.verificationUrl.replace(/^https?:\/\//, '')}
-            <ExternalLink className="w-3 h-3" />
-          </a>
+            Open sign-in page
+            <ExternalLink className="w-3 h-3 ml-1.5" />
+          </Button>
           <p className="text-[11px] text-muted-foreground flex items-center gap-1.5">
-            <Loader2 className="w-3 h-3 animate-spin" /> Waiting for you to approve…
+            <Loader2 className="w-3 h-3 animate-spin" /> Waiting for approval — {mins}:{secs} left
           </p>
+          <Button variant="ghost" size="sm" className="w-full text-xs" onClick={cancelPairing}>
+            Cancel
+          </Button>
         </div>
       ) : connected ? (
         <div className="flex items-center gap-2">

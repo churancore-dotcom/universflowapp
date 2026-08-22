@@ -14,6 +14,8 @@ export interface YouTubeDeviceAuth {
   deviceCode: string;
   userCode: string;
   verificationUrl: string;
+  /** Same page with the pairing code pre-filled, when Google supplies one. */
+  verificationUrlComplete?: string;
   interval: number;
   expiresIn: number;
 }
@@ -26,7 +28,9 @@ interface InnerTubePluginShape {
   startAccountAuth: () => Promise<YouTubeDeviceAuth>;
   pollAccountAuth: (opts: { deviceCode: string }) => Promise<{ status: YouTubeAuthPollStatus; error?: string }>;
   disconnectAccount: () => Promise<{ connected: boolean }>;
+  openPairingUrl: (opts: { url: string }) => Promise<{ opened: boolean }>;
 }
+
 
 
 interface StreamResolverResult {
@@ -199,6 +203,30 @@ export async function disconnectYouTubeAccount(): Promise<void> {
     console.warn('[YouTubeAccount] disconnect failed', (e as Error)?.message);
   }
 }
+
+/**
+ * Open the pairing page in the system browser. A plain anchor/`window.open`
+ * inside the Capacitor WebView frequently does nothing, so the consent screen
+ * never showed up; the native intent always resolves.
+ */
+export async function openYouTubePairingUrl(url: string): Promise<boolean> {
+  if (isNativePlayerAvailable()) {
+    try {
+      await InnerTubePlugin.openPairingUrl({ url });
+      return true;
+    } catch (e) {
+      console.warn('[YouTubeAccount] openPairingUrl failed', (e as Error)?.message);
+    }
+  }
+  try {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+
 
 
 export async function resolveNativeMetadataStream(opts: { videoId?: string; title?: string; artist?: string }): Promise<string | null> {
