@@ -209,7 +209,8 @@ export function isSuppressed(item: RerankItem, profile: TasteProfile): boolean {
   const a = (item.artist || '').trim().toLowerCase();
   if (!a) return false;
   const negative = profile.skips.get(a) || 0;
-  if (negative < 2) return false;
+  // ~2+ skips (or one explicit dislike) before we hide an artist.
+  if (negative < 3.5) return false;
   const positive = profile.artists.get(a) || 0;
   return negative > positive;
 }
