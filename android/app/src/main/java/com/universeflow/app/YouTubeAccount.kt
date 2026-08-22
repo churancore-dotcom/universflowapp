@@ -97,17 +97,28 @@ object YouTubeAccount {
             .build()
         val json = post(DEVICE_CODE_URL, body) ?: return null
         val deviceCode = json.optString("device_code").takeIf { it.isNotBlank() } ?: return null
+        val userCode = json.optString("user_code")
+        val verificationUrl = json.optString("verification_url").takeIf { it.isNotBlank() }
+            ?: json.optString("verification_uri").takeIf { it.isNotBlank() }
+            ?: "https://www.google.com/device"
         return JSONObject().apply {
             put("deviceCode", deviceCode)
-            put("userCode", json.optString("user_code"))
+            put("userCode", userCode)
+            put("verificationUrl", verificationUrl)
+            // Pre-filled URL: the user lands on the consent screen with the code
+            // already entered, which removes most of the typing that made the
+            // old window feel too short.
             put(
-                "verificationUrl",
-                json.optString("verification_url").takeIf { it.isNotBlank() }
-                    ?: json.optString("verification_uri", "https://www.google.com/device"),
+                "verificationUrlComplete",
+                json.optString("verification_url_complete").takeIf { it.isNotBlank() }
+                    ?: if (userCode.isNotBlank()) "$verificationUrl?user_code=$userCode" else verificationUrl,
             )
-            put("interval", json.optInt("interval", 5))
-            put("expiresIn", json.optInt("expires_in", 1800))
+            put("interval", json.optInt("interval", 5).coerceAtLeast(5))
+            // Never hand the UI a short window: Google's device codes live for
+            // ~30 min, so a missing/absurd value must not shrink the flow.
+            put("expiresIn", json.optInt("expires_in", 1800).coerceAtLeast(600))
         }
+
     }
 
     /**
