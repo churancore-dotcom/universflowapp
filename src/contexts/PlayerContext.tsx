@@ -594,6 +594,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   useEffect(() => { crossfadeRef.current = crossfade; }, [crossfade]);
   useEffect(() => { crossfadeDurationRef.current = crossfadeDuration; }, [crossfadeDuration]);
   useEffect(() => { crossfadeCurveRef.current = crossfadeCurve; }, [crossfadeCurve]);
+  const gaplessProRef = useRef(gaplessPro);
+  useEffect(() => { gaplessProRef.current = gaplessPro; }, [gaplessPro]);
 
   const curveGain = useCallback((p: number): number => {
     switch (crossfadeCurveRef.current) {
