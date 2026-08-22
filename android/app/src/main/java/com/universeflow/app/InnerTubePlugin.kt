@@ -31,6 +31,31 @@ class InnerTubePlugin : Plugin() {
         call.resolve(JSObject().apply { put("connected", YouTubeAccount.isSignedIn()) })
     }
 
+    /**
+     * Hand the pairing URL to the system browser. A WebView `target="_blank"`
+     * link is swallowed by Capacitor's shell, which is why the consent screen
+     * never appeared for the user.
+     */
+    @PluginMethod
+    fun openPairingUrl(call: PluginCall) {
+        val url = call.getString("url")
+        if (url.isNullOrBlank()) {
+            call.reject("url required")
+            return
+        }
+        try {
+            val intent = android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url))
+            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            context.startActivity(intent)
+            call.resolve(JSObject().apply { put("opened", true) })
+        } catch (t: Throwable) {
+            Log.w("InnerTube", "openPairingUrl failed: ${t.message}")
+            call.reject("could not open browser")
+        }
+    }
+
+
+
     @PluginMethod
     fun startAccountAuth(call: PluginCall) {
         Thread {
