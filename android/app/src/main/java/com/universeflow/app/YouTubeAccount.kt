@@ -131,6 +131,7 @@ object YouTubeAccount {
     fun pollDeviceAuth(deviceCode: String): JSONObject {
         val body = FormBody.Builder()
             .add("client_id", CLIENT_ID)
+            .add("client_secret", CLIENT_SECRET)
             .add("device_code", deviceCode)
             .add("grant_type", "urn:ietf:params:oauth:grant-type:device_code")
             .build()
@@ -173,6 +174,7 @@ object YouTubeAccount {
             if (again != null && System.currentTimeMillis() < expiresAt - 60_000L) return@synchronized again
             val body = FormBody.Builder()
                 .add("client_id", CLIENT_ID)
+                .add("client_secret", CLIENT_SECRET)
                 .add("refresh_token", refresh)
                 .add("grant_type", "refresh_token")
                 .build()
