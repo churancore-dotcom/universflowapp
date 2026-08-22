@@ -14,6 +14,8 @@ export interface YouTubeDeviceAuth {
   deviceCode: string;
   userCode: string;
   verificationUrl: string;
+  /** Same page with the pairing code pre-filled, when Google supplies one. */
+  verificationUrlComplete?: string;
   interval: number;
   expiresIn: number;
 }
@@ -26,7 +28,9 @@ interface InnerTubePluginShape {
   startAccountAuth: () => Promise<YouTubeDeviceAuth>;
   pollAccountAuth: (opts: { deviceCode: string }) => Promise<{ status: YouTubeAuthPollStatus; error?: string }>;
   disconnectAccount: () => Promise<{ connected: boolean }>;
+  openPairingUrl: (opts: { url: string }) => Promise<{ opened: boolean }>;
 }
+
 
 
 interface StreamResolverResult {
