@@ -27,6 +27,7 @@
 
 export type HomeRail =
   | 'mix'
+  | 'shelves'
   | 'trending'
   | 'fresh'
   | 'artists';
@@ -62,10 +63,14 @@ export function scoreHomeRails(s: HomeFeedSignals): Record<HomeRail, number> {
     // The shelf also provides a high-quality discovery mix for a new listener;
     // once listening signals exist its query seeds become genuinely personal.
     mix: isReturning ? 75 : 45,
+    // Multi-shelf taste clusters ("Because you listened to …"). They only exist
+    // once real listening signals do, and the component self-hides otherwise,
+    // so scoring them at 0 for a stranger keeps the page honest.
+    shelves: s.recentCount >= 2 ? 80 : 0,
   };
 }
 
-const TIE_BREAK: HomeRail[] = ['fresh', 'trending', 'mix', 'artists'];
+const TIE_BREAK: HomeRail[] = ['fresh', 'trending', 'mix', 'shelves', 'artists'];
 
 export function getHomeRailOrder(s: HomeFeedSignals): HomeRail[] {
   const scores = scoreHomeRails(s);

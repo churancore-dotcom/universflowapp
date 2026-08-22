@@ -11,6 +11,7 @@ import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import { getHomeRailOrder, heroContextLabel, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import MadeForYouSection from '@/components/MadeForYouSection';
+import TasteShelvesSection from '@/components/TasteShelvesSection';
 import AllSongsSection from '@/components/AllSongsSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
@@ -390,6 +391,7 @@ const Home = () => {
                   railOrder.map((rail, railIdx) => {
                     let body;
                     if (rail === 'mix') body = <MadeForYouSection />;
+                    else if (rail === 'shelves') body = <TasteShelvesSection />;
                     else if (rail === 'trending') body = <TrendingNowSection songs={allSongs} enabled={homeReady} />;
                     else if (rail === 'fresh') body = <FreshReleasesSection songs={allSongs} enabled={homeReady} />;
                     else body = <FeaturedArtistsSection songs={allSongs} />;
