@@ -204,6 +204,30 @@ export async function disconnectYouTubeAccount(): Promise<void> {
   }
 }
 
+/**
+ * Open the pairing page in the system browser. A plain anchor/`window.open`
+ * inside the Capacitor WebView frequently does nothing, so the consent screen
+ * never showed up; the native intent always resolves.
+ */
+export async function openYouTubePairingUrl(url: string): Promise<boolean> {
+  if (isNativePlayerAvailable()) {
+    try {
+      await InnerTubePlugin.openPairingUrl({ url });
+      return true;
+    } catch (e) {
+      console.warn('[YouTubeAccount] openPairingUrl failed', (e as Error)?.message);
+    }
+  }
+  try {
+    window.open(url, '_blank', 'noopener,noreferrer');
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+
+
 
 export async function resolveNativeMetadataStream(opts: { videoId?: string; title?: string; artist?: string }): Promise<string | null> {
   if (!isNativePlayerAvailable()) return null;
