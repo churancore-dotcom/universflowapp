@@ -5,7 +5,7 @@ import { topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
  * Taste clusters → real, named shelves.
  *
  * A shelf only exists when there is a concrete reason for it, and that reason
- * IS the title ("Because you listened to Arijit Singh"), the way YouTube Music
+ * IS the title ("More Arijit Singh"), the way YouTube Music
  * and Spotify structure a personalised home page. We never invent a cluster to
  * fill a slot: with thin signals the caller simply gets fewer shelves.
  */
@@ -29,11 +29,11 @@ const titleCase = (v: string) =>
  * Build up to `max` distinct shelves from signals we actually have.
  *
  * Priority order reflects signal strength:
- *  1. Most-played artists ("Because you listened to …") — the strongest,
+ *  1. Most-played artists ("More …") — the strongest,
  *     most legible reason a recommendation exists.
  *  2. Artists the listener explicitly followed ("New from …") — a commitment
  *     signal, so fresh material from them is always welcome.
- *  3. Recurring title keywords ("More <keyword>") — weakest, used to widen
+ *  3. Recurring title keywords ("<keyword> Picks") — weakest, used to widen
  *     the page only when the stronger clusters can't fill it.
  */
 export function buildTasteShelves(
@@ -52,8 +52,8 @@ export function buildTasteShelves(
     const name = titleCase(artist);
     shelves.push({
       id: `listened:${key}`,
-      title: `Because you listened to ${name}`,
-      subtitle: 'Similar artists and songs',
+      title: `More ${name}`,
+      subtitle: 'Songs and artists in this lane',
       queries: [`${artist} songs`, `artists similar to ${artist}`],
       anchorArtist: artist,
     });
@@ -66,8 +66,8 @@ export function buildTasteShelves(
     usedArtists.add(key);
     shelves.push({
       id: `following:${key}`,
-      title: `New from ${titleCase(artist)}`,
-      subtitle: 'From an artist you follow',
+      title: `${titleCase(artist)} — Latest`,
+      subtitle: 'Fresh from an artist you follow',
       queries: [`${artist} new songs`, `${artist} latest songs`],
       anchorArtist: artist,
     });
@@ -83,8 +83,8 @@ export function buildTasteShelves(
     const key = genre.toLowerCase();
     shelves.push({
       id: `genre:${key}`,
-      title: `${titleCase(genre)} for you`,
-      subtitle: 'Based on the genres you play most',
+      title: `${titleCase(genre)} Mix`,
+      subtitle: 'Built from what you play most',
       queries: [`best ${genre} songs`, `${genre} playlist`],
     });
   }
@@ -123,8 +123,8 @@ export function buildTasteShelves(
     if (shelves.some((s) => s.id === `keyword:${key}`)) continue;
     shelves.push({
       id: `keyword:${key}`,
-      title: `More ${titleCase(keyword)}`,
-      subtitle: 'Keeps showing up in what you play',
+      title: `${titleCase(keyword)} Picks`,
+      subtitle: 'Recurring in your rotation',
       queries: [`${keyword} songs`],
     });
   }
@@ -151,9 +151,9 @@ function decadeFromToken(token: string): string | null {
 
 function currentMood() {
   const h = new Date().getHours();
-  if (h < 6) return { id: 'latenight', title: 'Late night listening', subtitle: 'Quieter picks for right now', seed: 'late night chill' };
-  if (h < 11) return { id: 'morning', title: 'Morning warm-up', subtitle: 'Easy start to the day', seed: 'morning feel good' };
-  if (h < 17) return { id: 'afternoon', title: 'Afternoon focus', subtitle: 'Steady background energy', seed: 'focus' };
-  if (h < 22) return { id: 'evening', title: 'Evening rotation', subtitle: 'Bigger sound for the evening', seed: 'evening hits' };
-  return { id: 'night', title: 'Night drive', subtitle: 'For the end of the day', seed: 'night drive' };
+  if (h < 6) return { id: 'latenight', title: 'Late Night', subtitle: 'Quieter picks for right now', seed: 'late night chill' };
+  if (h < 11) return { id: 'morning', title: 'Morning Mix', subtitle: 'An easy start', seed: 'morning feel good' };
+  if (h < 17) return { id: 'afternoon', title: 'Focus Flow', subtitle: 'Steady background energy', seed: 'focus' };
+  if (h < 22) return { id: 'evening', title: 'Evening Rotation', subtitle: 'Bigger sound for tonight', seed: 'evening hits' };
+  return { id: 'night', title: 'Night Drive', subtitle: 'For the end of the day', seed: 'night drive' };
 }
