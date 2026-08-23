@@ -325,8 +325,12 @@ const Settings = () => {
   };
 
   const handleResetPlayback = () => {
-    handlePlaybackSpeed(1);
+    // Reset speed directly (never route a free user to /premium from a reset).
+    setPlaybackSpeed(1);
+    writeEq({ playbackSpeed: 1 });
+    if (audioElement) { try { audioElement.playbackRate = 1; } catch { /* ignore */ } }
     handleGapless(true);
+
     handleAutoplay(true);
     if (cfEnabled) toggleCrossfade();
     if (gaplessPro) toggleGaplessPro();
