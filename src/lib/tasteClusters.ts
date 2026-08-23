@@ -73,10 +73,54 @@ export function buildTasteShelves(
     });
   }
 
-  for (const keyword of topTasteKeywords(profile, 3)) {
+  // 4. Genre clusters — derived from genre words that actually appear in the
+  //    titles/keywords the listener plays, so the shelf is grounded in real
+  //    signal rather than an invented category.
+  const keywords = topTasteKeywords(profile, 12);
+  const genres = keywords.filter((k) => GENRE_LEXICON.has(k.toLowerCase()));
+  for (const genre of genres) {
+    if (shelves.length >= max) break;
+    const key = genre.toLowerCase();
+    shelves.push({
+      id: `genre:${key}`,
+      title: `${titleCase(genre)} for you`,
+      subtitle: 'Based on the genres you play most',
+      queries: [`best ${genre} songs`, `${genre} playlist`],
+    });
+  }
+
+  // 5. Time-of-day mood cluster, anchored to the listener's own top artist so
+  //    it stays personal instead of a generic mood playlist.
+  const anchor = topTasteArtists(profile, 1)[0];
+  if (shelves.length < max && anchor && profile.signalCount >= 4) {
+    const mood = currentMood();
+    shelves.push({
+      id: `mood:${mood.id}`,
+      title: mood.title,
+      subtitle: `${mood.subtitle} · around ${titleCase(anchor)}`,
+      queries: [`${anchor} ${mood.seed} songs`, `${mood.seed} songs`],
+    });
+  }
+
+  // 6. Decade cluster — only when a year/decade token shows up in play history.
+  if (shelves.length < max) {
+    const decade = keywords.map(decadeFromToken).find(Boolean);
+    if (decade) {
+      shelves.push({
+        id: `decade:${decade}`,
+        title: `${decade} rewind`,
+        subtitle: 'You keep going back to this era',
+        queries: [`best ${decade} songs`, `${decade} hits`],
+      });
+    }
+  }
+
+  // 7. Weakest fallback: a plain recurring keyword shelf to widen the page.
+  for (const keyword of keywords.slice(0, 3)) {
     if (shelves.length >= max) break;
     const key = keyword.trim().toLowerCase();
-    if (key.length < 3) continue;
+    if (key.length < 3 || GENRE_LEXICON.has(key)) continue;
+    if (shelves.some((s) => s.id === `keyword:${key}`)) continue;
     shelves.push({
       id: `keyword:${key}`,
       title: `More ${titleCase(keyword)}`,
@@ -86,4 +130,30 @@ export function buildTasteShelves(
   }
 
   return shelves;
+}
+
+const GENRE_LEXICON = new Set([
+  'pop','rock','metal','punk','indie','folk','jazz','blues','soul','funk','disco',
+  'house','techno','trance','edm','dubstep','lofi','ambient','classical','opera',
+  'rap','hiphop','trap','drill','reggae','reggaeton','afrobeats','amapiano','kpop',
+  'bollywood','punjabi','bhojpuri','ghazal','qawwali','sufi','bhangra','desi',
+  'country','latin','salsa','emo','grunge','synthwave','phonk','garage','gospel',
+]);
+
+function decadeFromToken(token: string): string | null {
+  const m = token.match(/^(19[5-9]0|20[0-2]0)s?$/) || token.match(/^([5-9]0|[0-2]0)s$/);
+  if (!m) return null;
+  const raw = m[1];
+  if (raw.length === 4) return `${raw}s`;
+  const n = Number(raw);
+  return n >= 50 ? `19${raw}s` : `20${raw}s`;
+}
+
+function currentMood() {
+  const h = new Date().getHours();
+  if (h < 6) return { id: 'latenight', title: 'Late night listening', subtitle: 'Quieter picks for right now', seed: 'late night chill' };
+  if (h < 11) return { id: 'morning', title: 'Morning warm-up', subtitle: 'Easy start to the day', seed: 'morning feel good' };
+  if (h < 17) return { id: 'afternoon', title: 'Afternoon focus', subtitle: 'Steady background energy', seed: 'focus' };
+  if (h < 22) return { id: 'evening', title: 'Evening rotation', subtitle: 'Bigger sound for the evening', seed: 'evening hits' };
+  return { id: 'night', title: 'Night drive', subtitle: 'For the end of the day', seed: 'night drive' };
 }
