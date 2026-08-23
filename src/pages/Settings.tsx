@@ -280,12 +280,18 @@ const Settings = () => {
   };
 
   const handlePlaybackSpeed = (speed: number) => {
+    if (!isPremium) {
+      toast.error('Playback Speed is a Premium feature');
+      navigate('/premium');
+      return;
+    }
     setPlaybackSpeed(speed);
     writeEq({ playbackSpeed: speed });
     if (audioElement) {
       try { audioElement.playbackRate = speed; } catch { /* ignore */ }
     }
   };
+
 
   const handleStreamQuality = (v: QualityTier) => {
     setStreamQuality(v);
