@@ -280,12 +280,18 @@ const Settings = () => {
   };
 
   const handlePlaybackSpeed = (speed: number) => {
+    if (!isPremium) {
+      toast.error('Playback Speed is a Premium feature');
+      navigate('/premium');
+      return;
+    }
     setPlaybackSpeed(speed);
     writeEq({ playbackSpeed: speed });
     if (audioElement) {
       try { audioElement.playbackRate = speed; } catch { /* ignore */ }
     }
   };
+
 
   const handleStreamQuality = (v: QualityTier) => {
     setStreamQuality(v);
@@ -319,8 +325,12 @@ const Settings = () => {
   };
 
   const handleResetPlayback = () => {
-    handlePlaybackSpeed(1);
+    // Reset speed directly (never route a free user to /premium from a reset).
+    setPlaybackSpeed(1);
+    writeEq({ playbackSpeed: 1 });
+    if (audioElement) { try { audioElement.playbackRate = 1; } catch { /* ignore */ } }
     handleGapless(true);
+
     handleAutoplay(true);
     if (cfEnabled) toggleCrossfade();
     if (gaplessPro) toggleGaplessPro();
@@ -514,26 +524,39 @@ const Settings = () => {
 
             {/* Playback speed */}
             <div className="px-4 py-3 border-b border-white/5">
+
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <Gauge className="w-4 h-4 text-primary" />
                   <span className="text-sm">Playback Speed</span>
+                  {!isPremium && <Crown className="w-3 h-3 text-primary" fill="currentColor" />}
                 </div>
-                <span className="text-sm text-primary font-medium">{playbackSpeed.toFixed(2)}x</span>
+                <span className="text-sm text-primary font-medium">
+                  {isPremium ? `${playbackSpeed.toFixed(2)}x` : 'Pro'}
+                </span>
               </div>
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className={`grid grid-cols-5 gap-1.5 ${!isPremium ? 'opacity-50' : ''}`}>
                 {[0.75, 1, 1.25, 1.5, 2].map((s) => (
                   <button
                     key={s}
                     onClick={() => handlePlaybackSpeed(s)}
+                    aria-disabled={!isPremium}
                     className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      playbackSpeed === s ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
+                      isPremium && playbackSpeed === s ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
                     }`}
                   >
                     {s}x
                   </button>
                 ))}
               </div>
+              {!isPremium && (
+                <button
+                  onClick={() => navigate('/premium')}
+                  className="mt-2 text-[11px] text-primary font-medium"
+                >
+                  Unlock with Premium
+                </button>
+              )}
             </div>
 
             <Row
@@ -543,7 +566,9 @@ const Settings = () => {
               chevron
               onClick={() => { if (!isPremium) { setShowEqPremium(true); return; } setShowEq(true); }}
             />
+
             <YouTubeAccountSection />
+
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
 
