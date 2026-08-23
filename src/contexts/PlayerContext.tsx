@@ -1302,7 +1302,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
         push(seed.id);
         queueRef.current.slice(-8).forEach((s) => push(s.id));
-        readLocalRecent(null).slice(0, 8).forEach((e) => push(e.song?.id));
+        readLocalRecent(null).slice(0, 8).forEach((e) => push(e.song_id || e.song?.id));
         return ids;
       })();
       const seedVideoId = seedCandidates.length
