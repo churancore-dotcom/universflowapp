@@ -530,29 +530,41 @@ const Settings = () => {
                   <span className="text-sm">Playback Speed</span>
                 </div>
                 <span className="text-sm text-primary font-medium">{playbackSpeed.toFixed(2)}x</span>
+            <div className="px-4 py-3 border-b border-white/5">
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center gap-3">
+                  <Gauge className="w-4 h-4 text-primary" />
+                  <span className="text-sm">Playback Speed</span>
+                  {!isPremium && <Crown className="w-3 h-3 text-primary" fill="currentColor" />}
+                </div>
+                <span className="text-sm text-primary font-medium">
+                  {isPremium ? `${playbackSpeed.toFixed(2)}x` : 'Pro'}
+                </span>
               </div>
-              <div className="grid grid-cols-5 gap-1.5">
+              <div className={`grid grid-cols-5 gap-1.5 ${!isPremium ? 'opacity-50' : ''}`}>
                 {[0.75, 1, 1.25, 1.5, 2].map((s) => (
                   <button
                     key={s}
                     onClick={() => handlePlaybackSpeed(s)}
+                    aria-disabled={!isPremium}
                     className={`py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      playbackSpeed === s ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
+                      isPremium && playbackSpeed === s ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
                     }`}
                   >
                     {s}x
                   </button>
                 ))}
               </div>
+              {!isPremium && (
+                <button
+                  onClick={() => navigate('/premium')}
+                  className="mt-2 text-[11px] text-primary font-medium"
+                >
+                  Unlock with Premium
+                </button>
+              )}
             </div>
 
-            <Row
-              icon={<Sliders className="w-4 h-4" />}
-              label="Equalizer & Effects"
-              sub="Studio presets, 10-band EQ & effects"
-              chevron
-              onClick={() => { if (!isPremium) { setShowEqPremium(true); return; } setShowEq(true); }}
-            />
             <YouTubeAccountSection />
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
