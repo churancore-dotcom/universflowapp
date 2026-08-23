@@ -524,13 +524,7 @@ const Settings = () => {
 
             {/* Playback speed */}
             <div className="px-4 py-3 border-b border-white/5">
-              <div className="flex items-center justify-between mb-2">
-                <div className="flex items-center gap-3">
-                  <Gauge className="w-4 h-4 text-primary" />
-                  <span className="text-sm">Playback Speed</span>
-                </div>
-                <span className="text-sm text-primary font-medium">{playbackSpeed.toFixed(2)}x</span>
-            <div className="px-4 py-3 border-b border-white/5">
+
               <div className="flex items-center justify-between mb-2">
                 <div className="flex items-center gap-3">
                   <Gauge className="w-4 h-4 text-primary" />
