@@ -120,7 +120,7 @@ const TasteShelvesSection = memo(() => {
   if (!shelves.length) return isLoading ? <RailSkeleton title="w-56" /> : null;
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-10">
       {shelves.map((shelf, shelfIdx) => (
         <section key={shelf.id} className="relative">
           <RailHeader title={shelf.title} subtitle={shelf.subtitle} />
@@ -146,7 +146,7 @@ const TasteShelvesSection = memo(() => {
                   {...prewarmIntentProps(song)}
                   className="shrink-0 w-[132px] text-left snap-start"
                 >
-                  <div className="relative w-[132px] h-[132px] rounded-[14px] overflow-hidden bg-muted">
+                  <div className="relative w-[132px] h-[132px] rounded-[14px] overflow-hidden bg-muted border border-border/40">
                     <OptimizedImage
                       src={song.cover_url || ''}
                       alt={song.title}
