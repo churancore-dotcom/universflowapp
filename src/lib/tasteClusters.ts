@@ -108,8 +108,8 @@ export function buildTasteShelves(
     if (decade) {
       shelves.push({
         id: `decade:${decade}`,
-        title: `${decade} rewind`,
-        subtitle: 'You keep going back to this era',
+        title: `${decade} Rewind`,
+        subtitle: 'The era you keep coming back to',
         queries: [`best ${decade} songs`, `${decade} hits`],
       });
     }
