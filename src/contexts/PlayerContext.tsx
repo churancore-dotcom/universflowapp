@@ -14,6 +14,7 @@ import { noteSongCompleted, primeAdEngine } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
 import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
+import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -1301,7 +1302,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         };
         push(seed.id);
         queueRef.current.slice(-8).forEach((s) => push(s.id));
-        readLocalRecent(user?.id ?? null).slice(0, 8).forEach((e) => push(e.song?.id));
+        readLocalRecent(null).slice(0, 8).forEach((e) => push(e.song?.id));
         return ids;
       })();
       const seedVideoId = seedCandidates.length
