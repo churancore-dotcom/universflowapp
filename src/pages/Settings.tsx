@@ -559,7 +559,16 @@ const Settings = () => {
               )}
             </div>
 
+            <Row
+              icon={<Sliders className="w-4 h-4" />}
+              label="Equalizer & Effects"
+              sub="Studio presets, 10-band EQ & effects"
+              chevron
+              onClick={() => { if (!isPremium) { setShowEqPremium(true); return; } setShowEq(true); }}
+            />
+
             <YouTubeAccountSection />
+
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
 
