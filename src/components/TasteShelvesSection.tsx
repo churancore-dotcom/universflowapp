@@ -8,7 +8,7 @@ import RailHeader from './RailHeader';
 import { RailSkeleton } from './PageSkeletons';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
-import { searchYouTubeMusicTracks } from '@/lib/musicIndexer';
+import { feedRotationSalt, searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import { isSpamSong } from '@/pages/Search';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { useFollowedArtists } from '@/hooks/useFollowedArtists';
@@ -38,17 +38,23 @@ const TasteShelvesSection = memo(() => {
   const taste = useTasteProfile();
   const { names: followed } = useFollowedArtists();
 
+  // Recomputed per render but stable within a 30-minute bucket.
+  const salt = feedRotationSalt();
+
   const specs = useMemo(
-    () => buildTasteShelves(taste, followed, 3),
+    () => buildTasteShelves(taste, followed, 5),
     [taste, followed],
   );
 
   const { data: shelves = [], isLoading } = useQuery({
     queryKey: [
-      'taste-shelves-v1',
+      'taste-shelves-v2',
       user?.id ?? 'anon',
       specs.map((s) => s.id).join('|'),
       Math.floor(taste.signalCount / 5),
+      // Rotates every ~30 min / new session so shelves don't stay pinned to
+      // one cached result set all day.
+      salt,
     ],
     enabled: specs.length > 0,
     staleTime: 10 * 60 * 1000,
@@ -61,7 +67,7 @@ const TasteShelvesSection = memo(() => {
 
       const settled = await Promise.allSettled(
         specs.map((spec) =>
-          Promise.allSettled(spec.queries.map((q) => searchYouTubeMusicTracks(q, 14))),
+          Promise.allSettled(spec.queries.map((q) => searchYouTubeMusicTracks(q, 14, salt))),
         ),
       );
 

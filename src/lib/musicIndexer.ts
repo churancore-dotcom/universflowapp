@@ -478,10 +478,41 @@ export async function searchIndexedTracks(query: string, limit = 50): Promise<In
   });
 }
 
-export async function searchYouTubeMusicTracks(query: string, limit = 50): Promise<IndexedTrack[]> {
+/**
+ * Rotating salt for *feed* surfaces (taste shelves, charts, hero).
+ *
+ * The search cache survives reloads for 20 minutes and every feed key is a
+ * fixed string, so Home used to re-render a byte-identical set of rails all
+ * day. Feed callers mix this salt into their cache key so the computed feed
+ * rotates on a ~30 minute cadence (and once per fresh session), while
+ * user-typed searches keep their fast, stable cache key.
+ */
+const SESSION_SALT = (() => {
+  try {
+    const k = 'uf_feed_session_salt';
+    const prev = Number(sessionStorage.getItem(k) || '');
+    if (Number.isFinite(prev) && prev > 0) return prev;
+    const next = Math.floor(Math.random() * 1000);
+    sessionStorage.setItem(k, String(next));
+    return next;
+  } catch {
+    return Math.floor(Math.random() * 1000);
+  }
+})();
+
+export function feedRotationSalt(): string {
+  const bucket = Math.floor(Date.now() / (30 * 60 * 1000));
+  return `${bucket}-${SESSION_SALT}`;
+}
+
+export async function searchYouTubeMusicTracks(
+  query: string,
+  limit = 50,
+  cacheBust?: string,
+): Promise<IndexedTrack[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  return cachedSearch(searchKey('youtube', q, limit), async () => {
+  return cachedSearch(searchKey('youtube', cacheBust ? `${q}#${cacheBust}` : q, limit), async () => {
     try {
       const data = await requestFunction<YoutubeSearchResponse>('yt-music-search', {
         query: q,

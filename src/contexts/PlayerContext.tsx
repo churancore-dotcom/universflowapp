@@ -14,6 +14,7 @@ import { noteSongCompleted, primeAdEngine } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
 import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
+import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -1288,7 +1289,25 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // 1) YT Music Radio FIRST — this is what YouTube/Spotify actually do:
       // the next-up queue is a real "mix" built around the track you're on, not
       // a random dump of the local catalogue.
-      const seedVideoId = seed.id?.startsWith('ytm-') ? seed.id.slice(4) : undefined;
+      // Seed rotation: always using the current track produces YouTube's
+      // deterministic RDAMVM mix, i.e. the exact same up-next list every
+      // session. Rotate the seed across the current track plus recent queue /
+      // history entries so repeated sessions build genuinely different mixes.
+      const seedCandidates = (() => {
+        const ids: string[] = [];
+        const push = (id?: string) => {
+          if (!id?.startsWith('ytm-')) return;
+          const vid = id.slice(4);
+          if (vid && !ids.includes(vid)) ids.push(vid);
+        };
+        push(seed.id);
+        queueRef.current.slice(-8).forEach((s) => push(s.id));
+        readLocalRecent(null).slice(0, 8).forEach((e) => push(e.song_id || e.song?.id));
+        return ids;
+      })();
+      const seedVideoId = seedCandidates.length
+        ? seedCandidates[Math.floor(Math.random() * seedCandidates.length)]
+        : undefined;
       if (seedVideoId) {
         try {
           const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId: seedVideoId } });
