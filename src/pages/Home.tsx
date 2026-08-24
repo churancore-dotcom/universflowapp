@@ -17,9 +17,13 @@ import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
 import FreshReleasesSection from '@/components/FreshReleasesSection';
 import BottomNav from '@/components/BottomNav';
+import HomeBento from '@/components/HomeBento';
+import QueueDrawer from '@/components/QueueDrawer';
+import EqualizerModal from '@/components/EqualizerModal';
+import { greetingForHour } from '@/lib/personalHome';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Play, Pause, User, Shuffle } from 'lucide-react';
+import { Music, Play, Pause, User, Shuffle, ListMusic, SlidersHorizontal, Lock } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { HomeSkeleton } from '@/components/PageSkeletons';
 import SEOHead from '@/components/SEOHead';
@@ -102,6 +106,8 @@ const Home = () => {
   const country = useUserCountry();
   // Re-pick the hero when a rail claims/releases fingerprints.
   const claimVersion = useRailClaimVersion();
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [eqOpen, setEqOpen] = useState(false);
 
   // Artist users land on their Studio dashboard, not the listener home.
   // We only auto-route once per session so they can browse later if they wish.
@@ -378,7 +384,7 @@ const Home = () => {
                     else if (rail === 'shelves') body = <TasteShelvesSection />;
                     else if (rail === 'trending') body = <TrendingNowSection songs={allSongs} enabled={homeReady} />;
                     else if (rail === 'fresh') body = <FreshReleasesSection songs={allSongs} enabled={homeReady} />;
-                    else body = <FeaturedArtistsSection songs={allSongs} />;
+                    else body = null; // Featured Artists now lives in the bento header block
                     
                     return (
                       <motion.div
