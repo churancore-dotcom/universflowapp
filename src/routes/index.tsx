@@ -1,9 +1,20 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { RootGate } from "@/lib/route-guards";
 import { routeSeo, FAQ_SCHEMA } from "@/lib/routeSeo";
+import SsrLandingContent from "@/components/SsrLandingContent";
+
+function IndexPage() {
+  return (
+    <>
+      <SsrLandingContent />
+      <RootGate />
+    </>
+  );
+}
 
 export const Route = createFileRoute("/")({
-  component: RootGate,
+  component: IndexPage,
+
   head: () => {
     const seo = routeSeo({
       title: "Universflow — Free Music Streaming & Offline Downloads",
