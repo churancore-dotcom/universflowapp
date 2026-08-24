@@ -105,6 +105,42 @@ const FeaturedArtistsSection = ({ songs, circle = false }: { songs: Song[]; circ
 
   if (artists.length === 0) return null;
 
+  if (circle) {
+    return (
+      <section className="relative">
+        <RailHeader
+          title="Featured Artists"
+          subtitle="Leading the charts right now"
+          actionLabel="View all"
+          onAction={() => navigate('/artists')}
+        />
+        <div className="uf-rail -mx-1 px-1 pb-1">
+          {artists.map((artist, i) => (
+            <motion.button
+              key={artist.key}
+              initial={slice.initial}
+              animate={slice.animate}
+              transition={sliceTransition(i * 0.04)}
+              onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(artist.name)}`); }}
+              className="shrink-0 w-[104px] text-center"
+            >
+              <div className="w-[92px] h-[92px] mx-auto rounded-full overflow-hidden border-2 border-primary/70">
+                {artist.image ? (
+                  <img src={artist.image} alt={`${artist.name} artist profile`} className="w-full h-full object-cover" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                ) : (
+                  <div className="w-full h-full bg-gradient-to-br from-primary/25 to-background flex items-center justify-center">
+                    <span className="text-xl font-black uppercase text-foreground/70">{artist.name.slice(0, 2)}</span>
+                  </div>
+                )}
+              </div>
+              <p className="mt-2 text-[12px] font-bold text-foreground truncate">{artist.name}</p>
+            </motion.button>
+          ))}
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section className="relative">
       <RailHeader
@@ -149,6 +185,7 @@ const FeaturedArtistsSection = ({ songs, circle = false }: { songs: Song[]; circ
           </motion.div>
         ))}
       </div>
+
 
     </section>
   );
