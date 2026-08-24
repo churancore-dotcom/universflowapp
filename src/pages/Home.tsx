@@ -266,18 +266,13 @@ const Home = () => {
           }}
         />
 
-        {/* ====== HEADER ====== */}
+        {/* ====== HEADER — profile · greeting + wordmark · utilities ====== */}
         <header className="flex-shrink-0 z-30 px-5 pt-5 pb-3 safe-area-pt">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-            <h1 className="font-display text-[32px] leading-none tracking-[0.06em] text-primary truncate">
-              UNIVERSFLOW
-              <span className="sr-only"> — Your Personal Music Feed</span>
-            </h1>
-
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
             <motion.button
               onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
               aria-label="Open profile"
-              className="w-10 h-10 shrink-0 rounded-full overflow-hidden border border-border/60 bg-card flex items-center justify-center neu-press"
+              className="w-11 h-11 shrink-0 rounded-full overflow-hidden border border-primary/60 bg-card flex items-center justify-center neu-press"
               whileTap={{ scale: 0.94 }}
             >
               {userAvatar ? (
@@ -286,8 +281,43 @@ const Home = () => {
                 <User className="w-4 h-4 text-muted-foreground" />
               )}
             </motion.button>
+
+            <div className="min-w-0">
+              <h1 className="font-display text-[22px] leading-none uppercase text-foreground truncate">
+                {hydrated ? greetingForHour(signals.hour) : 'Welcome'}
+                <span className="sr-only"> — Universflow, your personal music feed</span>
+              </h1>
+              <p className="font-display text-[12px] tracking-[0.28em] text-primary truncate mt-1">UNIVERSFLOW</p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => { triggerHaptic('selection'); setQueueOpen(true); }}
+                aria-label="Open queue"
+                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
+              >
+                <ListMusic className="w-4 h-4 text-foreground" />
+              </button>
+              <button
+                onClick={() => { triggerHaptic('selection'); setEqOpen(true); }}
+                aria-label="Open equalizer"
+                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
+              >
+                <SlidersHorizontal className="w-4 h-4 text-foreground" />
+              </button>
+              <button
+                onClick={() => { triggerHaptic('selection'); window.location.href = '/settings'; }}
+                aria-label="Privacy and settings"
+                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
+              >
+                <Lock className="w-4 h-4 text-foreground" />
+              </button>
+            </div>
           </div>
         </header>
+
+        <QueueDrawer isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
+        <EqualizerModal isOpen={eqOpen} onClose={() => setEqOpen(false)} />
 
 
         {/* Scrollable content area */}
