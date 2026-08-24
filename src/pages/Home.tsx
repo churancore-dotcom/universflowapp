@@ -1,8 +1,9 @@
 import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
+import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { prewarmSong } from '@/lib/instantPlay';
 import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
@@ -11,19 +12,18 @@ import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import { getHomeRailOrder, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import MadeForYouSection from '@/components/MadeForYouSection';
-import TasteShelvesSection from '@/components/TasteShelvesSection';
 import AllSongsSection from '@/components/AllSongsSection';
-import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
 import FreshReleasesSection from '@/components/FreshReleasesSection';
 import BottomNav from '@/components/BottomNav';
-import HomeBento from '@/components/HomeBento';
 import QueueDrawer from '@/components/QueueDrawer';
 import EqualizerModal from '@/components/EqualizerModal';
-import { greetingForHour } from '@/lib/personalHome';
+import OptimizedImage from '@/components/OptimizedImage';
+import { greetingForHour, recentSongs } from '@/lib/personalHome';
+import { useLocalRecents } from '@/hooks/useLocalRecents';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Play, Pause, User, Shuffle, ListMusic, SlidersHorizontal, Lock } from 'lucide-react';
+import { Music, Play, Pause, User, ListMusic, SlidersHorizontal, Settings as SettingsIcon } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { HomeSkeleton } from '@/components/PageSkeletons';
 import SEOHead from '@/components/SEOHead';
@@ -33,23 +33,24 @@ import { useUserCountry } from '@/hooks/useUserCountry';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { isSpamSong } from '@/pages/Search';
 import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
-import { slice, sliceTransition, pressShear } from '@/lib/ufMotion';
 
-
-// Simple empty state
 const EmptyState = memo(() => (
-  <div className="text-center py-8">
-    <div className="w-16 h-16 rounded-2xl neu-inset flex items-center justify-center mx-auto mb-3">
-      <Music className="w-8 h-8 text-muted-foreground" />
+  <div className="text-center py-16 px-8">
+    <div className="w-16 h-16 rounded-[20px] bg-card border border-border/60 flex items-center justify-center mx-auto mb-4">
+      <Music className="w-7 h-7 text-muted-foreground" />
     </div>
     <h2 className="text-base font-semibold mb-1">Nothing saved offline</h2>
-    <p className="text-muted-foreground text-xs px-4">
+    <p className="text-muted-foreground text-[13px]">
       Download songs while online to listen without a connection.
     </p>
   </div>
 ));
-
 EmptyState.displayName = 'EmptyState';
+
+const fmt = (s?: number) => {
+  if (!s || !Number.isFinite(s) || s <= 0) return '0:00';
+  return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
+};
 
 const upgradeThumb = (url?: string) => {
   if (!url) return undefined;
@@ -57,17 +58,12 @@ const upgradeThumb = (url?: string) => {
   return url.replace(/\/default\.jpg/i, '/hqdefault.jpg').replace(/\/mqdefault\.jpg/i, '/hqdefault.jpg');
 };
 
-// One real pool for the hero: live regional chart sources only. A keyword
-// search is not a chart and can surface old popular uploads as "trending".
 const fetchHomeSongs = async (country: string): Promise<Song[]> => {
-  // No country yet (or a region YouTube has no chart for) → the real GLOBAL
-  // chart ('ZZ'), never the US chart. This app ships worldwide.
   const cc = country || 'ZZ';
   const [charts, regionalFallback] = await Promise.all([
     getYouTubeMusicCharts(cc, 40).catch(() => ({ top: [], trending: [], videos: [], country: cc })),
     country ? getGeoTopTracks(country, 30).catch(() => []) : Promise.resolve([]),
   ]);
-
 
   const byId = new Map<string, Song>();
   const ingest = (list: { id: string; title?: string; artist?: string; album?: string; cover_url?: string; audio_url?: string; videoId?: string; duration?: number }[]) => {
@@ -86,9 +82,6 @@ const fetchHomeSongs = async (country: string): Promise<Song[]> => {
     }
   };
 
-  // Charts are ranked data. Preserve the provider's order rather than rotating
-  // it independently on server and client (which caused hydration mismatches
-  // and made old entries look like the current #1).
   ingest(charts.top);
   ingest(charts.trending);
   ingest(charts.videos);
@@ -99,18 +92,17 @@ const fetchHomeSongs = async (country: string): Promise<Song[]> => {
 
 const Home = () => {
   const { currentSong, playSong, isPlaying, togglePlay } = usePlayer();
+  const { progress, duration } = usePlayerProgress();
   const { cachedSongs, updateCache } = useSongCache();
   const { isOffline, user } = useAuth();
   const { downloads } = useDownloads();
   const queryClient = useQueryClient();
   const country = useUserCountry();
-  // Re-pick the hero when a rail claims/releases fingerprints.
   const claimVersion = useRailClaimVersion();
   const [queueOpen, setQueueOpen] = useState(false);
   const [eqOpen, setEqOpen] = useState(false);
 
   // Artist users land on their Studio dashboard, not the listener home.
-  // We only auto-route once per session so they can browse later if they wish.
   useEffect(() => {
     if (!user?.id) return;
     const key = `uf_artist_routed_${user.id}`;
@@ -134,7 +126,6 @@ const Home = () => {
     enabled: !isOffline,
   });
 
-  // When offline → ONLY show downloaded songs. When online → full catalog.
   const songs: Song[] = useMemo(() => {
     if (isOffline) {
       return downloads.map((d) => ({
@@ -150,7 +141,6 @@ const Home = () => {
     return onlineSongs;
   }, [isOffline, downloads, onlineSongs]);
 
-  // Persist to local song cache for instant boot next time
   useEffect(() => {
     if (!isOffline && onlineSongs && onlineSongs.length > 0) updateCache(onlineSongs);
   }, [onlineSongs, updateCache, isOffline]);
@@ -159,10 +149,6 @@ const Home = () => {
   const homeReady = songs.length > 0 && !isOffline;
   const allSongs = useMemo(() => songs, [songs]);
 
-
-  // Behavioural signals. Computed after hydration only — the clock and
-  // localStorage don't exist on the server, and guessing them there would flip
-  // the whole feed order right after first paint.
   const [hydrated, setHydrated] = useState(false);
   const [recentVersion, setRecentVersion] = useState(0);
   useEffect(() => {
@@ -184,11 +170,13 @@ const Home = () => {
     };
   }, [hydrated, recentVersion, user?.id]);
 
-  const railOrder = useMemo(() => getHomeRailOrder(signals), [signals]);
+  // Only three shelves ever render below the stage — trending, fresh, and the
+  // personal mix. Order still comes from the personalisation scorer.
+  const railOrder = useMemo(
+    () => getHomeRailOrder(signals).filter((r) => r === 'trending' || r === 'fresh' || r === 'mix'),
+    [signals],
+  );
 
-
-
-  // Pull-to-refresh — re-fetches home feed on overscroll
   const pullToRefresh = usePullToRefresh({
     onRefresh: async () => {
       triggerHaptic('impactMedium');
@@ -202,54 +190,66 @@ const Home = () => {
     return typeof metadata.avatar_url === 'string' ? metadata.avatar_url : undefined;
   }, [user]);
 
-  // The hero read from the raw chart pool, so it showed whatever the country
-  // feed returned first — including junk uploads and, worse, the exact track
-  // Trending/New Releases were already showing (the repeated-song complaint).
-  // It now uses the same quality gate and the same cross-rail claim registry
-  // as every other shelf.
-  const heroSong = useMemo(() => {
-    if (currentSong) return currentSong;
+  const recentEntries = useLocalRecents(20);
+  const history = useMemo(() => recentSongs(recentEntries), [recentEntries]);
+
+  // ── The stage: one card, real signal only ────────────────────────────────
+  const clean = useMemo(
+    () => cleanRail(allSongs.filter((s) => !isSpamSong(s)), { requireCover: true }),
+    [allSongs],
+  );
+
+  const stage = useMemo(() => {
+    if (currentSong) {
+      return { song: currentSong, at: progress, total: duration || currentSong.duration || 0, label: 'Now playing' };
+    }
+    if (history[0]) {
+      return { song: history[0], at: 0, total: history[0].duration || 0, label: 'Pick up where you left off' };
+    }
     const claimed = claimedByOtherRails('hero');
-    const clean = cleanRail(allSongs.filter((s) => !isSpamSong(s)), { requireCover: true });
-    return (
-      clean.find((s) => !claimed.has(songFingerprint(s)))
-      || clean[0]
-      || allSongs.find((s) => s.cover_url)
-      || allSongs[0]
-    );
-  }, [currentSong, allSongs, claimVersion]);
+    const song = clean.find((s) => !claimed.has(songFingerprint(s))) || clean[0] || allSongs[0];
+    return song ? { song, at: 0, total: song.duration || 0, label: `Top in your area` } : null;
+  }, [currentSong, progress, duration, history, clean, allSongs, claimVersion]);
 
-  useEffect(() => { if (heroSong) claimRailSongs('hero', [heroSong]); }, [heroSong]);
+  useEffect(() => { if (stage?.song) claimRailSongs('hero', [stage.song]); }, [stage?.song?.id]);
+  useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
 
-  // When the hero IS the current track, the button must not restart it or
-  // replace the live queue — it toggles playback like any player control.
-  // Warm the hero's stream as soon as Home renders — the most likely first tap.
-  useEffect(() => { if (heroSong) prewarmSong(heroSong); }, [heroSong]);
-
+  const stageIsCurrent = !!stage && !!currentSong && stage.song.id === currentSong.id;
+  const pct = stage && stage.total > 0 ? Math.min(100, (stage.at / stage.total) * 100) : 0;
 
   const playTile = useCallback((song?: Song, queue?: Song[]) => {
     if (!song) return;
     triggerHaptic('selection');
-    playSong(song, null, (queue || allSongs).slice(0, 40));
-  }, [playSong, allSongs]);
+    playSong(song, null, (queue || clean).slice(0, 40));
+  }, [playSong, clean]);
 
-  // Cheap scroll parallax for the hero artwork (transform-only, GPU friendly).
+  const playStage = () => {
+    if (!stage) return;
+    if (stageIsCurrent) { triggerHaptic('selection'); togglePlay(); return; }
+    playTile(stage.song, [stage.song, ...clean]);
+  };
+
+  // Quick picks — four compact rows from history first, then the live chart.
+  const quickPicks = useMemo(() => {
+    const seen = new Set<string>([stage?.song?.id || '']);
+    const out: Song[] = [];
+    for (const s of [...history, ...clean]) {
+      if (seen.has(s.id)) continue;
+      seen.add(s.id);
+      out.push(s);
+      if (out.length === 4) break;
+    }
+    return out;
+  }, [history, clean, stage?.song?.id]);
+
   const scrollRef = useRef<HTMLElement | null>(null);
-  const { scrollY } = useScroll({ container: scrollRef as React.RefObject<HTMLElement> });
-
-  const shuffleAll = useCallback(() => {
-    const pool = allSongs.filter((s) => s.cover_url);
-    if (pool.length === 0) return;
-    const shuffled = [...pool].sort(() => Math.random() - 0.5);
-    playTile(shuffled[0], shuffled);
-  }, [allSongs, playTile]);
 
   return (
     <TabTransition>
       <div className="h-[100dvh] bg-background relative flex flex-col overflow-hidden">
         <SEOHead
           title="Univers Flow — Free Music Streaming & Playlists"
-          description="Your personalized music feed: trending tracks, fresh releases, featured artists and your listening history. Stream and download free."
+          description="Your personalized music feed: trending tracks, fresh releases and your listening history. Stream and download free."
           path="/home"
           jsonLdId="home-jsonld"
           jsonLd={{
@@ -257,19 +257,42 @@ const Home = () => {
             '@type': 'CollectionPage',
             name: 'Univers Flow — Home',
             url: 'https://universflow.in/home',
-            description: 'Personalized music feed with trending tracks, featured artists, and fresh releases.',
+            description: 'Personalized music feed with trending tracks and fresh releases.',
             isPartOf: { '@type': 'WebSite', name: 'Univers Flow', url: 'https://universflow.in' },
           }}
         />
 
-        {/* ====== HEADER — profile · greeting + wordmark · utilities ====== */}
-        <header className="flex-shrink-0 z-30 px-5 pt-5 pb-3 safe-area-pt">
-          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+        {/* ── Header: quiet, one line, no boxes ── */}
+        <header className="flex-shrink-0 z-30 px-6 pt-6 pb-4 safe-area-pt">
+          <div className="flex items-center gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/70">
+                {hydrated ? greetingForHour(signals.hour) : 'Welcome'}
+              </p>
+              <h1 className="font-display text-[26px] leading-none tracking-[0.06em] uppercase text-foreground mt-1.5">
+                Universflow
+              </h1>
+            </div>
+
+            <button
+              onClick={() => { triggerHaptic('selection'); setQueueOpen(true); }}
+              aria-label="Open queue"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground active:scale-90 transition-transform"
+            >
+              <ListMusic className="w-[18px] h-[18px]" />
+            </button>
+            <button
+              onClick={() => { triggerHaptic('selection'); setEqOpen(true); }}
+              aria-label="Open equalizer"
+              className="w-9 h-9 rounded-full flex items-center justify-center text-muted-foreground active:scale-90 transition-transform"
+            >
+              <SlidersHorizontal className="w-[18px] h-[18px]" />
+            </button>
             <motion.button
               onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
               aria-label="Open profile"
-              className="w-11 h-11 shrink-0 rounded-full overflow-hidden border border-primary/60 bg-card flex items-center justify-center neu-press"
-              whileTap={{ scale: 0.94 }}
+              className="w-9 h-9 shrink-0 rounded-full overflow-hidden bg-card border border-border/70 flex items-center justify-center"
+              whileTap={{ scale: 0.92 }}
             >
               {userAvatar ? (
                 <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
@@ -277,46 +300,12 @@ const Home = () => {
                 <User className="w-4 h-4 text-muted-foreground" />
               )}
             </motion.button>
-
-            <div className="min-w-0">
-              <h1 className="font-display text-[22px] leading-none uppercase text-foreground truncate">
-                {hydrated ? greetingForHour(signals.hour) : 'Welcome'}
-                <span className="sr-only"> — Universflow, your personal music feed</span>
-              </h1>
-              <p className="font-display text-[12px] tracking-[0.28em] text-primary truncate mt-1">UNIVERSFLOW</p>
-            </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <button
-                onClick={() => { triggerHaptic('selection'); setQueueOpen(true); }}
-                aria-label="Open queue"
-                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
-              >
-                <ListMusic className="w-4 h-4 text-foreground" />
-              </button>
-              <button
-                onClick={() => { triggerHaptic('selection'); setEqOpen(true); }}
-                aria-label="Open equalizer"
-                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
-              >
-                <SlidersHorizontal className="w-4 h-4 text-foreground" />
-              </button>
-              <button
-                onClick={() => { triggerHaptic('selection'); window.location.href = '/settings'; }}
-                aria-label="Privacy and settings"
-                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
-              >
-                <Lock className="w-4 h-4 text-foreground" />
-              </button>
-            </div>
           </div>
         </header>
 
         <QueueDrawer isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
         <EqualizerModal isOpen={eqOpen} onClose={() => setEqOpen(false)} />
 
-
-        {/* Scrollable content area */}
         <main
           ref={scrollRef}
           className="flex-1 overflow-y-auto overflow-x-hidden pb-40 relative z-10"
@@ -329,71 +318,114 @@ const Home = () => {
             progress={pullToRefresh.progress}
             isTriggered={pullToRefresh.isTriggered}
           />
+
           {loading ? (
-            <div className="px-5"><HomeSkeleton /></div>
+            <div className="px-6"><HomeSkeleton /></div>
           ) : isOffline && songs.length === 0 ? (
             <EmptyState />
+          ) : isOffline ? (
+            <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
           ) : (
-            <div className="space-y-7">
-              {/* ====== BENTO — Continue Listening hero + 2-up rows ======
-                  Real signals only: live player / persisted resume snapshot /
-                  device history, live chart pool, and the new-releases rail. */}
-              {!isOffline && (
-                <div className="mt-1 space-y-3">
-                  <HomeBento songs={allSongs} />
-                  <div className="px-5 flex justify-end">
-                    <button onClick={shuffleAll} className="flex items-center gap-1.5 text-[12px] font-bold text-primary active:opacity-60 transition-opacity">
-                      <Shuffle className="w-3.5 h-3.5" /> Shuffle everything
-                    </button>
+            <>
+              {/* ── STAGE — one big artwork card, nothing else competing ── */}
+              {stage && (
+                <motion.section
+                  initial={{ opacity: 0, y: 18 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ type: 'spring', stiffness: 130, damping: 20 }}
+                  className="px-6"
+                >
+                  <div className="relative rounded-[28px] overflow-hidden bg-card border border-border/50">
+                    <div className="relative aspect-[4/5] w-full">
+                      <OptimizedImage
+                        src={stage.song.cover_url}
+                        alt={stage.song.title}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+
+                      <div className="absolute left-5 right-5 bottom-5">
+                        <p className="text-[10.5px] font-bold uppercase tracking-[0.22em] text-primary">
+                          {stage.label}
+                        </p>
+                        <h2 className="font-display text-[34px] leading-[0.95] uppercase text-foreground line-clamp-2 mt-2">
+                          {stage.song.title}
+                        </h2>
+                        <p className="text-[13px] font-medium text-muted-foreground truncate mt-1">
+                          {stage.song.artist}
+                        </p>
+
+                        <div className="flex items-center gap-4 mt-5">
+                          <button
+                            onClick={playStage}
+                            aria-label={stageIsCurrent && isPlaying ? 'Pause' : `Play ${stage.song.title}`}
+                            className="w-14 h-14 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95 transition-transform"
+                          >
+                            {stageIsCurrent && isPlaying
+                              ? <Pause className="w-6 h-6 fill-current" />
+                              : <Play className="w-6 h-6 fill-current ml-0.5" />}
+                          </button>
+                          {pct > 0 && (
+                            <div className="min-w-0 flex-1">
+                              <div className="h-[3px] rounded-full bg-foreground/15 overflow-hidden">
+                                <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+                              </div>
+                              <div className="flex justify-between text-[11px] font-medium text-muted-foreground mt-1.5">
+                                <span>{fmt(stage.at)}</span>
+                                <span>{stage.total > 0 ? fmt(stage.total) : '--:--'}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <div className="px-5">
-                    <FeaturedArtistsSection songs={allSongs} circle />
-                  </div>
-                </div>
+                </motion.section>
               )}
 
-
-
-
-              {/* ====== RAILS ======
-                  Order is scored per listener in src/lib/homeFeedOrder.ts, not
-                  hardcoded: an open listening loop outranks everything while it
-                  is warm, familiarity beats novelty once we know their taste,
-                  social proof leads for a stranger, and the new-release rail is
-                  only promoted inside the Friday–Sunday window. Every rail
-                  self-hides with no real data, so nothing renders empty. */}
-              <div className="space-y-12 px-5 pb-32 pt-6">
-                {isOffline ? (
-                  allSongs.length > 0 && (
-                    <AllSongsSection songs={allSongs} />
-                  )
-                ) : (
-                  railOrder.map((rail, railIdx) => {
-                    let body;
-                    if (rail === 'mix') body = <MadeForYouSection />;
-                    else if (rail === 'shelves') body = <TasteShelvesSection />;
-                    else if (rail === 'trending') body = <TrendingNowSection songs={allSongs} enabled={homeReady} />;
-                    else if (rail === 'fresh') body = <FreshReleasesSection songs={allSongs} enabled={homeReady} />;
-                    else body = null; // Featured Artists now lives in the bento header block
-                    
-                    return (
-                      <motion.div
-                        key={rail}
-                        className="relative"
-                        initial={{ opacity: 0, y: 16 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.04 * railIdx }}
+              {/* ── QUICK PICKS — four calm rows, no cards ── */}
+              {quickPicks.length >= 4 && (
+                <section className="px-6 mt-9">
+                  <h3 className="text-[13px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70 mb-4">
+                    Quick picks
+                  </h3>
+                  <div className="divide-y divide-border/40">
+                    {quickPicks.map((song) => (
+                      <button
+                        key={song.id}
+                        onClick={() => playTile(song, [song, ...quickPicks, ...clean])}
+                        className="flex items-center gap-3.5 w-full text-left py-2.5 active:opacity-60 transition-opacity"
                       >
-                        {body}
-                      </motion.div>
-                    );
-                  })
-                )}
+                        <div className="w-12 h-12 shrink-0 rounded-[14px] overflow-hidden bg-muted">
+                          <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[14px] font-semibold text-foreground truncate">{song.title}</p>
+                          <p className="text-[12px] text-muted-foreground truncate mt-0.5">{song.artist}</p>
+                        </div>
+                        <Play className="w-4 h-4 shrink-0 text-muted-foreground fill-current" />
+                      </button>
+                    ))}
+                  </div>
+                </section>
+              )}
+
+              {/* ── SHELVES — three, max ── */}
+              <div className="px-6 mt-11 space-y-11 pb-24">
+                {railOrder.map((rail, railIdx) => (
+                  <motion.div
+                    key={rail}
+                    initial={{ opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.05 * railIdx }}
+                  >
+                    {rail === 'trending' && <TrendingNowSection songs={allSongs} enabled={homeReady} />}
+                    {rail === 'fresh' && <FreshReleasesSection songs={allSongs} enabled={homeReady} />}
+                    {rail === 'mix' && <MadeForYouSection />}
+                  </motion.div>
+                ))}
               </div>
-
-
-
-            </div>
+            </>
           )}
         </main>
 
