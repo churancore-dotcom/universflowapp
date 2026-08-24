@@ -67,10 +67,45 @@ const GA_SNIPPET =
 const SCHEMA_GRAPH = JSON.stringify({
   "@context": "https://schema.org",
   "@graph": [
-    { "@type": "WebSite", "@id": "https://universflow.in/#website", url: "https://universflow.in/", name: "Universflow", description: "Free music streaming and download — stream, follow artists, listen offline.", potentialAction: { "@type": "SearchAction", target: "https://universflow.in/search?q={search_term_string}", "query-input": "required name=search_term_string" } },
-    { "@type": "Organization", "@id": "https://universflow.in/#org", name: "Universflow", url: "https://universflow.in/", logo: "https://universflow.in/pwa-512x512.png" },
+    { "@type": "WebSite", "@id": "https://universflow.in/#website", url: "https://universflow.in/", name: "Universflow", description: "Free music streaming and download — stream, follow artists, listen offline.", publisher: { "@id": "https://universflow.in/#org" }, potentialAction: { "@type": "SearchAction", target: "https://universflow.in/search?q={search_term_string}", "query-input": "required name=search_term_string" } },
+    {
+      "@type": "Organization",
+      "@id": "https://universflow.in/#org",
+      name: "Universflow",
+      legalName: "Univers Flow",
+      alternateName: ["Univers Flow", "Universflow App"],
+      url: "https://universflow.in/",
+      description: "Universflow is a free music streaming and download app: play millions of songs, follow artists, and listen offline on Android or the web.",
+      logo: { "@type": "ImageObject", url: "https://universflow.in/pwa-512x512.png", width: 512, height: 512 },
+      image: "https://universflow.in/pwa-512x512.png",
+      email: "universflow.in@gmail.com",
+      sameAs: [
+        "https://universflow.in/",
+        "https://universflow.cyou/",
+        "https://twitter.com/UniversFlow",
+      ],
+      address: { "@type": "PostalAddress", addressCountry: "IN" },
+      contactPoint: [
+        { "@type": "ContactPoint", contactType: "customer support", email: "universflow.in@gmail.com", url: "https://universflow.in/support", availableLanguage: ["en", "hi"] },
+        { "@type": "ContactPoint", contactType: "technical support", email: "universflow.in@gmail.com", url: "https://universflow.in/support", availableLanguage: ["en", "hi"] },
+      ],
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": "https://universflow.in/#app",
+      name: "Universflow",
+      url: "https://universflow.in/",
+      applicationCategory: "MusicApplication",
+      operatingSystem: "Android, Web",
+      description: "Free music streaming and offline downloads with personalized mixes, a studio equalizer, and independent artist releases.",
+      installUrl: "https://universflow.in/get",
+      image: "https://universflow.in/pwa-512x512.png",
+      publisher: { "@id": "https://universflow.in/#org" },
+      offers: { "@type": "Offer", price: "0", priceCurrency: "INR" },
+    },
   ],
 });
+
 
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
