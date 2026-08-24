@@ -8,7 +8,7 @@ import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
-import { getHomeRailOrder, heroContextLabel, type HomeFeedSignals } from '@/lib/homeFeedOrder';
+import { getHomeRailOrder, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import MadeForYouSection from '@/components/MadeForYouSection';
 import TasteShelvesSection from '@/components/TasteShelvesSection';
@@ -226,14 +226,6 @@ const Home = () => {
   // Warm the hero's stream as soon as Home renders — the most likely first tap.
   useEffect(() => { if (heroSong) prewarmSong(heroSong); }, [heroSong]);
 
-  const heroIsCurrent = !!heroSong && !!currentSong && heroSong.id === currentSong.id;
-
-  const playHero = useCallback(() => {
-    if (!heroSong) return;
-    triggerHaptic('selection');
-    if (heroIsCurrent) { togglePlay(); return; }
-    playSong(heroSong, null, allSongs.slice(0, 40));
-  }, [heroSong, heroIsCurrent, togglePlay, playSong, allSongs]);
 
   const playTile = useCallback((song?: Song, queue?: Song[]) => {
     if (!song) return;
@@ -244,8 +236,6 @@ const Home = () => {
   // Cheap scroll parallax for the hero artwork (transform-only, GPU friendly).
   const scrollRef = useRef<HTMLElement | null>(null);
   const { scrollY } = useScroll({ container: scrollRef as React.RefObject<HTMLElement> });
-  const heroY = useTransform(scrollY, [0, 500], [0, 110]);
-  const heroScale = useTransform(scrollY, [0, 500], [1, 1.12]);
 
   const shuffleAll = useCallback(() => {
     const pool = allSongs.filter((s) => s.cover_url);
