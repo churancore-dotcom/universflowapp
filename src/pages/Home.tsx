@@ -8,7 +8,7 @@ import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
-import { getHomeRailOrder, heroContextLabel, type HomeFeedSignals } from '@/lib/homeFeedOrder';
+import { getHomeRailOrder, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import MadeForYouSection from '@/components/MadeForYouSection';
 import TasteShelvesSection from '@/components/TasteShelvesSection';
@@ -17,9 +17,13 @@ import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
 import FreshReleasesSection from '@/components/FreshReleasesSection';
 import BottomNav from '@/components/BottomNav';
+import HomeBento from '@/components/HomeBento';
+import QueueDrawer from '@/components/QueueDrawer';
+import EqualizerModal from '@/components/EqualizerModal';
+import { greetingForHour } from '@/lib/personalHome';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Play, Pause, User, Shuffle } from 'lucide-react';
+import { Music, Play, Pause, User, Shuffle, ListMusic, SlidersHorizontal, Lock } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { HomeSkeleton } from '@/components/PageSkeletons';
 import SEOHead from '@/components/SEOHead';
@@ -102,6 +106,8 @@ const Home = () => {
   const country = useUserCountry();
   // Re-pick the hero when a rail claims/releases fingerprints.
   const claimVersion = useRailClaimVersion();
+  const [queueOpen, setQueueOpen] = useState(false);
+  const [eqOpen, setEqOpen] = useState(false);
 
   // Artist users land on their Studio dashboard, not the listener home.
   // We only auto-route once per session so they can browse later if they wish.
@@ -220,14 +226,6 @@ const Home = () => {
   // Warm the hero's stream as soon as Home renders — the most likely first tap.
   useEffect(() => { if (heroSong) prewarmSong(heroSong); }, [heroSong]);
 
-  const heroIsCurrent = !!heroSong && !!currentSong && heroSong.id === currentSong.id;
-
-  const playHero = useCallback(() => {
-    if (!heroSong) return;
-    triggerHaptic('selection');
-    if (heroIsCurrent) { togglePlay(); return; }
-    playSong(heroSong, null, allSongs.slice(0, 40));
-  }, [heroSong, heroIsCurrent, togglePlay, playSong, allSongs]);
 
   const playTile = useCallback((song?: Song, queue?: Song[]) => {
     if (!song) return;
@@ -238,8 +236,6 @@ const Home = () => {
   // Cheap scroll parallax for the hero artwork (transform-only, GPU friendly).
   const scrollRef = useRef<HTMLElement | null>(null);
   const { scrollY } = useScroll({ container: scrollRef as React.RefObject<HTMLElement> });
-  const heroY = useTransform(scrollY, [0, 500], [0, 110]);
-  const heroScale = useTransform(scrollY, [0, 500], [1, 1.12]);
 
   const shuffleAll = useCallback(() => {
     const pool = allSongs.filter((s) => s.cover_url);
@@ -266,18 +262,13 @@ const Home = () => {
           }}
         />
 
-        {/* ====== HEADER ====== */}
+        {/* ====== HEADER — profile · greeting + wordmark · utilities ====== */}
         <header className="flex-shrink-0 z-30 px-5 pt-5 pb-3 safe-area-pt">
-          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-4">
-            <h1 className="font-display text-[32px] leading-none tracking-[0.06em] text-primary truncate">
-              UNIVERSFLOW
-              <span className="sr-only"> — Your Personal Music Feed</span>
-            </h1>
-
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
             <motion.button
               onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
               aria-label="Open profile"
-              className="w-10 h-10 shrink-0 rounded-full overflow-hidden border border-border/60 bg-card flex items-center justify-center neu-press"
+              className="w-11 h-11 shrink-0 rounded-full overflow-hidden border border-primary/60 bg-card flex items-center justify-center neu-press"
               whileTap={{ scale: 0.94 }}
             >
               {userAvatar ? (
@@ -286,8 +277,43 @@ const Home = () => {
                 <User className="w-4 h-4 text-muted-foreground" />
               )}
             </motion.button>
+
+            <div className="min-w-0">
+              <h1 className="font-display text-[22px] leading-none uppercase text-foreground truncate">
+                {hydrated ? greetingForHour(signals.hour) : 'Welcome'}
+                <span className="sr-only"> — Universflow, your personal music feed</span>
+              </h1>
+              <p className="font-display text-[12px] tracking-[0.28em] text-primary truncate mt-1">UNIVERSFLOW</p>
+            </div>
+
+            <div className="flex shrink-0 items-center gap-2">
+              <button
+                onClick={() => { triggerHaptic('selection'); setQueueOpen(true); }}
+                aria-label="Open queue"
+                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
+              >
+                <ListMusic className="w-4 h-4 text-foreground" />
+              </button>
+              <button
+                onClick={() => { triggerHaptic('selection'); setEqOpen(true); }}
+                aria-label="Open equalizer"
+                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
+              >
+                <SlidersHorizontal className="w-4 h-4 text-foreground" />
+              </button>
+              <button
+                onClick={() => { triggerHaptic('selection'); window.location.href = '/settings'; }}
+                aria-label="Privacy and settings"
+                className="w-10 h-10 rounded-2xl border border-border/60 bg-card flex items-center justify-center"
+              >
+                <Lock className="w-4 h-4 text-foreground" />
+              </button>
+            </div>
           </div>
         </header>
+
+        <QueueDrawer isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
+        <EqualizerModal isOpen={eqOpen} onClose={() => setEqOpen(false)} />
 
 
         {/* Scrollable content area */}
@@ -309,69 +335,23 @@ const Home = () => {
             <EmptyState />
           ) : (
             <div className="space-y-7">
-              {/* ====== HERO — artwork-dominant tile ====== */}
-              {heroSong && (
-                <motion.section
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: 'spring', stiffness: 140, damping: 20 }}
-                  className="px-5 mt-2"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-[14px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                      {heroContextLabel(signals, !!currentSong)}
-                    </h2>
+              {/* ====== BENTO — Continue Listening hero + 2-up rows ======
+                  Real signals only: live player / persisted resume snapshot /
+                  device history, live chart pool, and the new-releases rail. */}
+              {!isOffline && (
+                <div className="mt-1 space-y-3">
+                  <HomeBento songs={allSongs} />
+                  <div className="px-5 flex justify-end">
                     <button onClick={shuffleAll} className="flex items-center gap-1.5 text-[12px] font-bold text-primary active:opacity-60 transition-opacity">
-                      <Shuffle className="w-3.5 h-3.5" /> Shuffle
+                      <Shuffle className="w-3.5 h-3.5" /> Shuffle everything
                     </button>
                   </div>
-
-                  {/* Refined Contained Hero Card */}
-                  <div className="relative w-full h-[40vh] min-h-[300px] max-h-[420px] overflow-hidden rounded-2xl shadow-xl group border border-white/5">
-                    <motion.div className="absolute inset-0 will-change-transform" style={{ y: heroY, scale: heroScale }}>
-                      {heroSong.cover_url ? (
-                        <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="eager" />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-card"><Music className="w-12 h-12 text-muted-foreground" /></div>
-                      )}
-                    </motion.div>
-
-                    {/* Minimalist Scrim */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent" />
-                    
-                    <div className="absolute bottom-0 left-0 right-0 p-6">
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                      >
-                        <div className="flex items-end justify-between gap-6">
-                          <div className="min-w-0">
-                            <span className="inline-block px-2.5 py-0.5 bg-primary text-white rounded-full text-[10px] font-bold uppercase tracking-wider mb-2">
-                              {heroIsCurrent && isPlaying ? 'Playing' : 'Featured'}
-                            </span>
-                            <h3 className="text-3xl font-black leading-tight text-foreground line-clamp-1 tracking-tight">
-                              {heroSong.title}
-                            </h3>
-                            <p className="text-muted-foreground text-sm font-semibold truncate mt-1 opacity-90">{heroSong.artist}</p>
-                          </div>
-                          <motion.button
-                            onClick={playHero}
-                            whileTap={{ scale: 0.92 }}
-                            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                            aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                            className="w-14 h-14 shrink-0 bg-white text-black rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105"
-                          >
-                            {heroIsCurrent && isPlaying
-                              ? <Pause className="w-7 h-7 fill-current" />
-                              : <Play className="w-7 h-7 fill-current ml-1" />}
-                          </motion.button>
-                        </div>
-                      </motion.div>
-                    </div>
+                  <div className="px-5">
+                    <FeaturedArtistsSection songs={allSongs} circle />
                   </div>
-                </motion.section>
+                </div>
               )}
+
 
 
 
@@ -394,7 +374,7 @@ const Home = () => {
                     else if (rail === 'shelves') body = <TasteShelvesSection />;
                     else if (rail === 'trending') body = <TrendingNowSection songs={allSongs} enabled={homeReady} />;
                     else if (rail === 'fresh') body = <FreshReleasesSection songs={allSongs} enabled={homeReady} />;
-                    else body = <FeaturedArtistsSection songs={allSongs} />;
+                    else body = null; // Featured Artists now lives in the bento header block
                     
                     return (
                       <motion.div
