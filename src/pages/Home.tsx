@@ -339,69 +339,23 @@ const Home = () => {
             <EmptyState />
           ) : (
             <div className="space-y-7">
-              {/* ====== HERO — artwork-dominant tile ====== */}
-              {heroSong && (
-                <motion.section
-                  initial={{ opacity: 0, y: 16 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: 'spring', stiffness: 140, damping: 20 }}
-                  className="px-5 mt-2"
-                >
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-[14px] font-bold uppercase tracking-widest text-muted-foreground/60">
-                      {heroContextLabel(signals, !!currentSong)}
-                    </h2>
+              {/* ====== BENTO — Continue Listening hero + 2-up rows ======
+                  Real signals only: live player / persisted resume snapshot /
+                  device history, live chart pool, and the new-releases rail. */}
+              {!isOffline && (
+                <div className="mt-1 space-y-3">
+                  <HomeBento songs={allSongs} />
+                  <div className="px-5 flex justify-end">
                     <button onClick={shuffleAll} className="flex items-center gap-1.5 text-[12px] font-bold text-primary active:opacity-60 transition-opacity">
-                      <Shuffle className="w-3.5 h-3.5" /> Shuffle
+                      <Shuffle className="w-3.5 h-3.5" /> Shuffle everything
                     </button>
                   </div>
-
-                  {/* Refined Contained Hero Card */}
-                  <div className="relative w-full h-[40vh] min-h-[300px] max-h-[420px] overflow-hidden rounded-2xl shadow-xl group border border-white/5">
-                    <motion.div className="absolute inset-0 will-change-transform" style={{ y: heroY, scale: heroScale }}>
-                      {heroSong.cover_url ? (
-                        <img src={heroSong.cover_url} alt="" className="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" loading="eager" />
-                      ) : (
-                        <div className="absolute inset-0 flex items-center justify-center bg-card"><Music className="w-12 h-12 text-muted-foreground" /></div>
-                      )}
-                    </motion.div>
-
-                    {/* Minimalist Scrim */}
-                    <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent" />
-                    
-                    <div className="absolute bottom-0 left-0 right-0 p-6">
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: 0.2 }}
-                      >
-                        <div className="flex items-end justify-between gap-6">
-                          <div className="min-w-0">
-                            <span className="inline-block px-2.5 py-0.5 bg-primary text-white rounded-full text-[10px] font-bold uppercase tracking-wider mb-2">
-                              {heroIsCurrent && isPlaying ? 'Playing' : 'Featured'}
-                            </span>
-                            <h3 className="text-3xl font-black leading-tight text-foreground line-clamp-1 tracking-tight">
-                              {heroSong.title}
-                            </h3>
-                            <p className="text-muted-foreground text-sm font-semibold truncate mt-1 opacity-90">{heroSong.artist}</p>
-                          </div>
-                          <motion.button
-                            onClick={playHero}
-                            whileTap={{ scale: 0.92 }}
-                            transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                            aria-label={heroIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                            className="w-14 h-14 shrink-0 bg-white text-black rounded-full flex items-center justify-center shadow-lg transition-transform hover:scale-105"
-                          >
-                            {heroIsCurrent && isPlaying
-                              ? <Pause className="w-7 h-7 fill-current" />
-                              : <Play className="w-7 h-7 fill-current ml-1" />}
-                          </motion.button>
-                        </div>
-                      </motion.div>
-                    </div>
+                  <div className="px-5">
+                    <FeaturedArtistsSection songs={allSongs} circle />
                   </div>
-                </motion.section>
+                </div>
               )}
+
 
 
 
