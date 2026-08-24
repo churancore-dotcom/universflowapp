@@ -54,7 +54,7 @@ const splitCredits = (raw: string): string[] =>
  * Ranked by how often they appear across the live regional/global charts, which
  * is the actual "who is trending right now" signal (Spotify does the same).
  */
-const FeaturedArtistsSection = ({ songs }: { songs: Song[] }) => {
+const FeaturedArtistsSection = ({ songs, circle = false }: { songs: Song[]; circle?: boolean }) => {
   const navigate = useNavigate();
 
   const baseArtists = useMemo<DisplayArtist[]>(() => {
