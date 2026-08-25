@@ -644,7 +644,7 @@ const Search = () => {
     expandedQueriesRef.current.add(trimmed);
     setLoadingMore(true);
     try {
-      const deeper = await searchYouTubeMusicTracks(trimmed, 400);
+      const deeper = await fetchResilientSearchTracks(trimmed, 400);
       // Deeper pages MUST go through the same ranker/spam filter as page one —
       // appending raw source order is what let junk results reappear on scroll.
       const ranked = rankAndDedupeResults(trimmed, deeper, [], [], false);
