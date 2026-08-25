@@ -592,6 +592,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const nextSongFnRef = useRef<(() => void) | null>(null);
   const nativeFadeSeqRef = useRef<number>(-1);
   const nativeFadeTimerRef = useRef<number | null>(null);
+  const nativeFadeUpTimerRef = useRef<number | null>(null);
   useEffect(() => { crossfadeRef.current = crossfade; }, [crossfade]);
   useEffect(() => { crossfadeDurationRef.current = crossfadeDuration; }, [crossfadeDuration]);
   useEffect(() => { crossfadeCurveRef.current = crossfadeCurve; }, [crossfadeCurve]);
@@ -607,10 +608,32 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  const clearNativeFadeTransition = useCallback((restoreVolume = true) => {
+    if (nativeFadeTimerRef.current != null) {
+      window.clearInterval(nativeFadeTimerRef.current);
+      nativeFadeTimerRef.current = null;
+    }
+    if (nativeFadeUpTimerRef.current != null) {
+      window.clearInterval(nativeFadeUpTimerRef.current);
+      nativeFadeUpTimerRef.current = null;
+    }
+    nativeFadeSeqRef.current = -1;
+    if (restoreVolume && isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.setVolume({ volume: volumeRef.current }).catch(() => undefined);
+    }
+  }, []);
+
   const startNativeFadeTransition = useCallback((seconds: number) => {
     if (nativeFadeTimerRef.current != null) return;
+    if (nativeFadeUpTimerRef.current != null) {
+      window.clearInterval(nativeFadeUpTimerRef.current);
+      nativeFadeUpTimerRef.current = null;
+    }
     const master = volumeRef.current;
-    const total = Math.max(0.5, Math.min(12, seconds));
+    const startSeq = playRequestSeqRef.current;
+    const startIdentity = activeSongIdentityRef.current;
+    const startIndex = currentIndexRef.current;
+    const total = Math.max(0.08, Math.min(12, seconds));
     const steps = Math.max(10, Math.round(total * 20));
     const stepMs = (total * 1000) / steps;
     let step = 0;
@@ -624,19 +647,32 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           clearInterval(nativeFadeTimerRef.current);
           nativeFadeTimerRef.current = null;
         }
+        const stillSameTrack = nativeFadeSeqRef.current === startSeq
+          && playRequestSeqRef.current === startSeq
+          && activeSongIdentityRef.current === startIdentity
+          && currentIndexRef.current === startIndex;
+        if (!stillSameTrack) {
+          clearNativeFadeTransition(true);
+          return;
+        }
         try { nextSongFnRef.current?.(); } catch { /* ignore */ }
         // Ramp back up on the incoming track.
         let up = 0;
         const upSteps = 10;
-        const upTimer = window.setInterval(() => {
+        nativeFadeUpTimerRef.current = window.setInterval(() => {
           up++;
           const g = Math.min(1, up / upSteps);
           void ExoPlayerPlugin.setVolume({ volume: master * g }).catch(() => undefined);
-          if (up >= upSteps) clearInterval(upTimer);
+          if (up >= upSteps && nativeFadeUpTimerRef.current != null) {
+            window.clearInterval(nativeFadeUpTimerRef.current);
+            nativeFadeUpTimerRef.current = null;
+          }
         }, 60);
       }
     }, stepMs);
-  }, [curveGain]);
+  }, [clearNativeFadeTransition, curveGain]);
+
+  useEffect(() => () => clearNativeFadeTransition(false), [clearNativeFadeTransition]);
 
 
 
@@ -1877,6 +1913,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const intendedIdentity = getSongIdentity(song);
     activeSongIdentityRef.current = intendedIdentity;
     nativeRecoveryAttemptedRef.current.delete(intendedIdentity);
+    clearNativeFadeTransition(true);
 
     // Stop whatever is currently playing IMMEDIATELY so we never have two
     // <audio> elements racing to set src and emit events.
@@ -2078,7 +2115,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
-  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent, playbackSettingsVersion]);
+  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent, clearNativeFadeTransition, playbackSettingsVersion]);
 
   // Handle song end and crossfade
   useEffect(() => {
@@ -2552,6 +2589,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           else if (data.state === 'ended') {
             nativeStartupSeqRef.current = null;
             clearNativeStartupTimer();
+            clearNativeFadeTransition(true);
             const activeRepeat = repeatRef.current;
             if (activeRepeat === 'one') {
               void ExoPlayerPlugin.seekTo({ positionMs: 0 }).catch(() => undefined);
@@ -2583,6 +2621,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
           const nextSong = q[nextIdx];
           if (!nextSong) return;
+          clearNativeFadeTransition(true);
           // Native queues advance inside ExoPlayer, bypassing the web `ended`
           // handler where ad cadence is normally counted. Pause immediately on
           // the transition and hand the same track to the ad completion flow.
@@ -2636,7 +2675,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { errorHandle?.remove(); } catch { /* noop */ }
       try { transitionHandle?.remove(); } catch { /* noop */ }
     };
-  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer, startNativeFadeTransition]);
+  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer, clearNativeFadeTransition, startNativeFadeTransition]);
 
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
@@ -3239,6 +3278,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nativeStartupSeqRef.current = null;
         nativeLastPlayIntentAtRef.current = 0;
         clearNativeStartupTimer();
+        clearNativeFadeTransition(true);
         setIsPlaying(false); wasPlayingRef.current = false;
         void ExoPlayerPlugin.pause().catch(() => undefined);
       } else {
@@ -3297,7 +3337,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       markIntentionalPause();
       el.pause();
     }
-  }, [currentSong, isPlaying, showPrerollAd, markIntentionalPause, markNativePlayIntent, clearNativeStartupTimer, playSongAtIndex]);
+  }, [currentSong, isPlaying, showPrerollAd, markIntentionalPause, markNativePlayIntent, clearNativeStartupTimer, clearNativeFadeTransition, playSongAtIndex]);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
@@ -3309,6 +3349,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       nativeStartupSeqRef.current = null;
       nativeLastPlayIntentAtRef.current = 0;
       clearNativeStartupTimer();
+      clearNativeFadeTransition(true);
       void ExoPlayerPlugin.pause().catch(() => undefined);
       return;
     }
@@ -3319,7 +3360,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (audioRef.current) {
       audioRef.current.pause();
     }
-  }, [markIntentionalPause, clearNativeStartupTimer]);
+  }, [markIntentionalPause, clearNativeStartupTimer, clearNativeFadeTransition]);
 
   const play = useCallback(() => {
     if (!currentSong) return;
@@ -3366,6 +3407,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     nativeStartupSeqRef.current = null;
     nativeStartedForSeqRef.current = null;
     clearNativeStartupTimer();
+    clearNativeFadeTransition(true);
 
     if (isNativePlayerAvailable()) {
       void ExoPlayerPlugin.stop().catch(() => undefined);
@@ -3390,14 +3432,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentIndex(0);
     setExpanded(false);
     activeSongIdentityRef.current = null;
-  }, [teardownYouTubePlayback, markIntentionalPause, clearNativeStartupTimer]);
+  }, [teardownYouTubePlayback, markIntentionalPause, clearNativeStartupTimer, clearNativeFadeTransition]);
 
-  const nextSong = useCallback(async () => {
+  const nextSong = useCallback(async (options?: { fromNativeFade?: boolean }) => {
     if (queue.length === 0) return;
     // A staged ad owns the between-track transition. Ignore hardware/media
     // transport commands until it completes instead of starting a hidden song
     // underneath the full-screen ad.
     if (showPrerollAd) return;
+    clearNativeFadeTransition(!options?.fromNativeFade);
 
     // Negative taste signal: a manual skip inside the first 15s means "not for
     // me". Without this the feed only ever learned from plays, so it drifted
@@ -3448,16 +3491,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Loop back to start even if repeat is off when manually pressing next
       playSongAtIndex(0, queue);
     }
-  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, currentSong, getNextIndex, playSongAtIndex]);
+  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, currentSong, getNextIndex, playSongAtIndex, clearNativeFadeTransition]);
 
   // Expose the latest next-track action to the native fade transition.
-  useEffect(() => { nextSongFnRef.current = () => { void nextSong(); }; }, [nextSong]);
+  useEffect(() => { nextSongFnRef.current = () => { void nextSong({ fromNativeFade: true }); }; }, [nextSong]);
 
 
 
   const prevSong = useCallback(async () => {
     if (queue.length === 0) return;
     if (showPrerollAd) return;
+    clearNativeFadeTransition(true);
 
     // Cancel crossfade
     if (crossfadeIntervalRef.current) {
@@ -3488,7 +3532,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const prevIdx = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
       playSongAtIndex(prevIdx, queue);
     }
-  }, [queue, currentIndex, showPrerollAd, playSongAtIndex]);
+  }, [queue, currentIndex, showPrerollAd, playSongAtIndex, clearNativeFadeTransition]);
 
   const seek = useCallback((time: number) => {
     if (isNativePlayerAvailable()) {
@@ -3639,6 +3683,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nativeStartupSeqRef.current = null;
         nativeLastPlayIntentAtRef.current = 0;
         clearNativeStartupTimer();
+        clearNativeFadeTransition(true);
         setIsPlaying(false);
         wasPlayingRef.current = false;
         void ExoPlayerPlugin.pause().catch(() => undefined);
@@ -3679,7 +3724,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setProgress(time);
       }
     },
-  }), [currentSong, queue, currentIndex, shuffle, repeat, getNextIndex, playSongAtIndex, markIntentionalPause, clearNativeStartupTimer]);
+  }), [currentSong, queue, currentIndex, shuffle, repeat, getNextIndex, playSongAtIndex, markIntentionalPause, clearNativeStartupTimer, clearNativeFadeTransition]);
 
   useEffect(() => {
     initNativeBridge(mediaSessionCallbacks.onPause, mediaSessionCallbacks.onPlay);
