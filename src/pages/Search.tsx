@@ -384,8 +384,11 @@ async function searchUploadedArtistSongs(query: string): Promise<UploadedArtistT
 }
 
 function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: IndexedTrack[], tagSets: IndexedTrack[][], allowDiscoveryFallback = false) {
-  const tokens = queryTokens(query);
-  const qNorm = normalizeText(query);
+  const intent = buildResilientSearchIntent(query);
+  const tokens = intent.tokens.length ? intent.tokens : queryTokens(query);
+  const qNorm = normalizeText(intent.genre || query);
+  const phraseVariants = intent.variants.map(normalizeText).filter((variant) => variant.length > 2);
+  const genreIntent = Boolean(intent.genre);
   const allTracks: { track: IndexedTrack; score: number; sourcePriority: number; index: number }[] = [];
 
   const processTrack = (track: IndexedTrack, base: number, index: number, sourcePriority: number) => {
@@ -397,12 +400,12 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const haystack = normalizeText(`${rawTitle} ${rawArtist} ${track.album || ""}`);
     
     const tokenHits = tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
-    const phraseHit = qNorm.length > 2 && haystack.includes(qNorm);
-    if (!allowDiscoveryFallback && tokens.length > 0 && tokenHits === 0 && !phraseHit) return;
+    const phraseHit = phraseVariants.some((variant) => haystack.includes(variant));
+    if (!allowDiscoveryFallback && !genreIntent && tokens.length > 0 && tokenHits === 0 && !phraseHit) return;
 
     // Relevance
     const titleStartsWith = qNorm.length > 1 && title.startsWith(qNorm);
-    const titlePhraseHit = qNorm.length > 2 && title.includes(qNorm);
+    const titlePhraseHit = phraseVariants.some((variant) => title.includes(variant));
     const titleAllTokens = tokens.length > 0 && tokens.every((t) => title.includes(t));
     const titleTokenHits = tokens.reduce((sum, t) => sum + (title.includes(t) ? 1 : 0), 0);
     const artistTokenHits = tokens.reduce((sum, t) => sum + (artist.includes(t) ? 1 : 0), 0);
@@ -442,7 +445,8 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const noiseWords = actualNoise.test(rawTitle) ? 1 : 0;
     const noisePenalty = parenNoise * 40 + noiseWords * 180 + (rawTitle.length > 70 ? 40 : 0);
 
-    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + authority - noisePenalty - index * 0.8;
+    const genreBonus = genreIntent ? 420 : 0;
+    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + authority + genreBonus - noisePenalty - index * 0.8;
     allTracks.push({ track, score, sourcePriority, index });
   };
 
