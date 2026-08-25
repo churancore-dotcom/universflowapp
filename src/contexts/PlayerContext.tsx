@@ -3278,6 +3278,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nativeStartupSeqRef.current = null;
         nativeLastPlayIntentAtRef.current = 0;
         clearNativeStartupTimer();
+        clearNativeFadeTransition(true);
         setIsPlaying(false); wasPlayingRef.current = false;
         void ExoPlayerPlugin.pause().catch(() => undefined);
       } else {
@@ -3336,7 +3337,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       markIntentionalPause();
       el.pause();
     }
-  }, [currentSong, isPlaying, showPrerollAd, markIntentionalPause, markNativePlayIntent, clearNativeStartupTimer, playSongAtIndex]);
+  }, [currentSong, isPlaying, showPrerollAd, markIntentionalPause, markNativePlayIntent, clearNativeStartupTimer, clearNativeFadeTransition, playSongAtIndex]);
 
   const pause = useCallback(() => {
     setIsPlaying(false);
@@ -3348,6 +3349,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       nativeStartupSeqRef.current = null;
       nativeLastPlayIntentAtRef.current = 0;
       clearNativeStartupTimer();
+      clearNativeFadeTransition(true);
       void ExoPlayerPlugin.pause().catch(() => undefined);
       return;
     }
@@ -3358,7 +3360,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (audioRef.current) {
       audioRef.current.pause();
     }
-  }, [markIntentionalPause, clearNativeStartupTimer]);
+  }, [markIntentionalPause, clearNativeStartupTimer, clearNativeFadeTransition]);
 
   const play = useCallback(() => {
     if (!currentSong) return;
@@ -3405,6 +3407,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     nativeStartupSeqRef.current = null;
     nativeStartedForSeqRef.current = null;
     clearNativeStartupTimer();
+    clearNativeFadeTransition(true);
 
     if (isNativePlayerAvailable()) {
       void ExoPlayerPlugin.stop().catch(() => undefined);
@@ -3429,7 +3432,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setCurrentIndex(0);
     setExpanded(false);
     activeSongIdentityRef.current = null;
-  }, [teardownYouTubePlayback, markIntentionalPause, clearNativeStartupTimer]);
+  }, [teardownYouTubePlayback, markIntentionalPause, clearNativeStartupTimer, clearNativeFadeTransition]);
 
   const nextSong = useCallback(async () => {
     if (queue.length === 0) return;
