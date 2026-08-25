@@ -2589,6 +2589,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           else if (data.state === 'ended') {
             nativeStartupSeqRef.current = null;
             clearNativeStartupTimer();
+            clearNativeFadeTransition(true);
             const activeRepeat = repeatRef.current;
             if (activeRepeat === 'one') {
               void ExoPlayerPlugin.seekTo({ positionMs: 0 }).catch(() => undefined);
@@ -2620,6 +2621,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
           const nextSong = q[nextIdx];
           if (!nextSong) return;
+          clearNativeFadeTransition(true);
           // Native queues advance inside ExoPlayer, bypassing the web `ended`
           // handler where ad cadence is normally counted. Pause immediately on
           // the transition and hand the same track to the ad completion flow.
@@ -2673,7 +2675,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { errorHandle?.remove(); } catch { /* noop */ }
       try { transitionHandle?.remove(); } catch { /* noop */ }
     };
-  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer, startNativeFadeTransition]);
+  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer, clearNativeFadeTransition, startNativeFadeTransition]);
 
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
