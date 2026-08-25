@@ -478,6 +478,35 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     .map((candidate) => candidate.track);
 }
 
+async function fetchResilientSearchTracks(query: string, limit: number) {
+  const intent = buildResilientSearchIntent(query);
+  const [youtube, uploaded] = await Promise.all([
+    searchYouTubeMusicTracks(query, limit),
+    searchUploadedArtistSongs(query),
+  ]);
+
+  let expandedYoutube: IndexedTrack[] = [];
+  let tagSets: IndexedTrack[][] = [];
+  const primary = rankAndDedupeResults(query, [...youtube, ...uploaded], [], [], false);
+  const shouldExpand = primary.length < 8 || isGenreSearchIntent(query);
+
+  if (shouldExpand) {
+    const normalizedOriginal = normalizeText(query);
+    const expansionQueries = intent.variants
+      .filter((variant) => normalizeText(variant) !== normalizedOriginal)
+      .slice(0, 5);
+    const genreQueries = intent.genre ? (GENRE_QUERY_ALIASES[intent.genre] || [intent.genre]).slice(0, 4) : [];
+    const [expandedSets, genreSets] = await Promise.all([
+      Promise.all(expansionQueries.map((variant, index) => searchYouTubeMusicTracks(variant, Math.max(80, Math.min(limit, 160)), `resilient-${normalizedOriginal}-${index}`))),
+      Promise.all(genreQueries.map((tag) => getTagTopTracks(tag, 50))),
+    ]);
+    expandedYoutube = expandedSets.flat();
+    tagSets = genreSets;
+  }
+
+  return rankAndDedupeResults(query, [...youtube, ...expandedYoutube, ...uploaded], [], tagSets, false);
+}
+
 const Search = () => {
   const [query, setQuery] = useState('');
   const [indexedResults, setIndexedResults] = useState<IndexedTrack[]>([]);
@@ -547,14 +576,14 @@ const Search = () => {
           }
           return;
         }
-        const youtubeJob = searchYouTubeMusicTracks(trimmedQuery, 200);
-        const uploadedJob = searchUploadedArtistSongs(trimmedQuery);
-
         const artistJob = searchArtistDirectory(trimmedQuery, 30);
-        const [youtube, uploaded, artists] = await Promise.all([youtubeJob, uploadedJob, artistJob]);
+        const [rankedTracks, artists] = await Promise.all([
+          fetchResilientSearchTracks(trimmedQuery, 200),
+          artistJob,
+        ]);
         if (cancelled) return;
 
-        const merged = rankAndDedupeResults(trimmedQuery, [...youtube, ...uploaded], [], [], false)
+        const merged = rankedTracks
           .filter((track) => !isHiddenTrack(track, hiddenResults))
           .slice(0, 300);
 
