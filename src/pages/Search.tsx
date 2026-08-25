@@ -19,7 +19,7 @@ import VirtualList from '@/components/VirtualList';
 
 import { useYtmSuggestions } from '@/hooks/useYtmSuggestions';
 import { supabase } from '@/integrations/supabase/client';
-import { prefetchIndexedTrack, prefetchYouTubeVideoStream, searchYouTubeMusicTracks, searchArtistDirectory, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
+import { prefetchIndexedTrack, prefetchYouTubeVideoStream, searchYouTubeMusicTracks, searchArtistDirectory, getTagTopTracks, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
 // FollowedArtistsRail removed from Search per product decision
 import { clearCache, getCached, setCached } from '@/lib/searchCache';
 import {
