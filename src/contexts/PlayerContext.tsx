@@ -592,6 +592,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const nextSongFnRef = useRef<(() => void) | null>(null);
   const nativeFadeSeqRef = useRef<number>(-1);
   const nativeFadeTimerRef = useRef<number | null>(null);
+  const nativeFadeUpTimerRef = useRef<number | null>(null);
   useEffect(() => { crossfadeRef.current = crossfade; }, [crossfade]);
   useEffect(() => { crossfadeDurationRef.current = crossfadeDuration; }, [crossfadeDuration]);
   useEffect(() => { crossfadeCurveRef.current = crossfadeCurve; }, [crossfadeCurve]);
@@ -607,10 +608,32 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  const clearNativeFadeTransition = useCallback((restoreVolume = true) => {
+    if (nativeFadeTimerRef.current != null) {
+      window.clearInterval(nativeFadeTimerRef.current);
+      nativeFadeTimerRef.current = null;
+    }
+    if (nativeFadeUpTimerRef.current != null) {
+      window.clearInterval(nativeFadeUpTimerRef.current);
+      nativeFadeUpTimerRef.current = null;
+    }
+    nativeFadeSeqRef.current = -1;
+    if (restoreVolume && isNativePlayerAvailable()) {
+      void ExoPlayerPlugin.setVolume({ volume: volumeRef.current }).catch(() => undefined);
+    }
+  }, []);
+
   const startNativeFadeTransition = useCallback((seconds: number) => {
     if (nativeFadeTimerRef.current != null) return;
+    if (nativeFadeUpTimerRef.current != null) {
+      window.clearInterval(nativeFadeUpTimerRef.current);
+      nativeFadeUpTimerRef.current = null;
+    }
     const master = volumeRef.current;
-    const total = Math.max(0.5, Math.min(12, seconds));
+    const startSeq = playRequestSeqRef.current;
+    const startIdentity = activeSongIdentityRef.current;
+    const startIndex = currentIndexRef.current;
+    const total = Math.max(0.08, Math.min(12, seconds));
     const steps = Math.max(10, Math.round(total * 20));
     const stepMs = (total * 1000) / steps;
     let step = 0;
@@ -624,19 +647,32 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           clearInterval(nativeFadeTimerRef.current);
           nativeFadeTimerRef.current = null;
         }
+        const stillSameTrack = nativeFadeSeqRef.current === startSeq
+          && playRequestSeqRef.current === startSeq
+          && activeSongIdentityRef.current === startIdentity
+          && currentIndexRef.current === startIndex;
+        if (!stillSameTrack) {
+          clearNativeFadeTransition(true);
+          return;
+        }
         try { nextSongFnRef.current?.(); } catch { /* ignore */ }
         // Ramp back up on the incoming track.
         let up = 0;
         const upSteps = 10;
-        const upTimer = window.setInterval(() => {
+        nativeFadeUpTimerRef.current = window.setInterval(() => {
           up++;
           const g = Math.min(1, up / upSteps);
           void ExoPlayerPlugin.setVolume({ volume: master * g }).catch(() => undefined);
-          if (up >= upSteps) clearInterval(upTimer);
+          if (up >= upSteps && nativeFadeUpTimerRef.current != null) {
+            window.clearInterval(nativeFadeUpTimerRef.current);
+            nativeFadeUpTimerRef.current = null;
+          }
         }, 60);
       }
     }, stepMs);
-  }, [curveGain]);
+  }, [clearNativeFadeTransition, curveGain]);
+
+  useEffect(() => () => clearNativeFadeTransition(false), [clearNativeFadeTransition]);
 
 
 
