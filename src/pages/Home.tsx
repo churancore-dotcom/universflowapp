@@ -23,7 +23,7 @@ import { greetingForHour, recentSongs } from '@/lib/personalHome';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Play, Pause, User, ListMusic, SlidersHorizontal, Settings as SettingsIcon } from 'lucide-react';
+import { Music, Play, Pause, User, ListMusic, SlidersHorizontal } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { HomeSkeleton } from '@/components/PageSkeletons';
 import SEOHead from '@/components/SEOHead';
