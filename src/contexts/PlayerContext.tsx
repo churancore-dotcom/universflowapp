@@ -3434,12 +3434,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     activeSongIdentityRef.current = null;
   }, [teardownYouTubePlayback, markIntentionalPause, clearNativeStartupTimer, clearNativeFadeTransition]);
 
-  const nextSong = useCallback(async () => {
+  const nextSong = useCallback(async (options?: { fromNativeFade?: boolean }) => {
     if (queue.length === 0) return;
     // A staged ad owns the between-track transition. Ignore hardware/media
     // transport commands until it completes instead of starting a hidden song
     // underneath the full-screen ad.
     if (showPrerollAd) return;
+    clearNativeFadeTransition(!options?.fromNativeFade);
 
     // Negative taste signal: a manual skip inside the first 15s means "not for
     // me". Without this the feed only ever learned from plays, so it drifted
@@ -3490,16 +3491,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Loop back to start even if repeat is off when manually pressing next
       playSongAtIndex(0, queue);
     }
-  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, currentSong, getNextIndex, playSongAtIndex]);
+  }, [queue, currentIndex, shuffle, repeat, showPrerollAd, currentSong, getNextIndex, playSongAtIndex, clearNativeFadeTransition]);
 
   // Expose the latest next-track action to the native fade transition.
-  useEffect(() => { nextSongFnRef.current = () => { void nextSong(); }; }, [nextSong]);
+  useEffect(() => { nextSongFnRef.current = () => { void nextSong({ fromNativeFade: true }); }; }, [nextSong]);
 
 
 
   const prevSong = useCallback(async () => {
     if (queue.length === 0) return;
     if (showPrerollAd) return;
+    clearNativeFadeTransition(true);
 
     // Cancel crossfade
     if (crossfadeIntervalRef.current) {
@@ -3530,7 +3532,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const prevIdx = currentIndex === 0 ? queue.length - 1 : currentIndex - 1;
       playSongAtIndex(prevIdx, queue);
     }
-  }, [queue, currentIndex, showPrerollAd, playSongAtIndex]);
+  }, [queue, currentIndex, showPrerollAd, playSongAtIndex, clearNativeFadeTransition]);
 
   const seek = useCallback((time: number) => {
     if (isNativePlayerAvailable()) {
