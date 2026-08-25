@@ -3683,6 +3683,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         nativeStartupSeqRef.current = null;
         nativeLastPlayIntentAtRef.current = 0;
         clearNativeStartupTimer();
+        clearNativeFadeTransition(true);
         setIsPlaying(false);
         wasPlayingRef.current = false;
         void ExoPlayerPlugin.pause().catch(() => undefined);
@@ -3723,7 +3724,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         setProgress(time);
       }
     },
-  }), [currentSong, queue, currentIndex, shuffle, repeat, getNextIndex, playSongAtIndex, markIntentionalPause, clearNativeStartupTimer]);
+  }), [currentSong, queue, currentIndex, shuffle, repeat, getNextIndex, playSongAtIndex, markIntentionalPause, clearNativeStartupTimer, clearNativeFadeTransition]);
 
   useEffect(() => {
     initNativeBridge(mediaSessionCallbacks.onPause, mediaSessionCallbacks.onPlay);
