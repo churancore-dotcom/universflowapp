@@ -1913,6 +1913,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const intendedIdentity = getSongIdentity(song);
     activeSongIdentityRef.current = intendedIdentity;
     nativeRecoveryAttemptedRef.current.delete(intendedIdentity);
+    clearNativeFadeTransition(true);
 
     // Stop whatever is currently playing IMMEDIATELY so we never have two
     // <audio> elements racing to set src and emit events.
@@ -2114,7 +2115,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         prefetchIndexedTrack(nextSong.artist, nextSong.title);
       }
     }
-  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent, playbackSettingsVersion]);
+  }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent, clearNativeFadeTransition, playbackSettingsVersion]);
 
   // Handle song end and crossfade
   useEffect(() => {
