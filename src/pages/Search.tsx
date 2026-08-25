@@ -19,7 +19,7 @@ import VirtualList from '@/components/VirtualList';
 
 import { useYtmSuggestions } from '@/hooks/useYtmSuggestions';
 import { supabase } from '@/integrations/supabase/client';
-import { prefetchIndexedTrack, prefetchYouTubeVideoStream, searchYouTubeMusicTracks, searchArtistDirectory, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
+import { prefetchIndexedTrack, prefetchYouTubeVideoStream, searchYouTubeMusicTracks, searchArtistDirectory, getTagTopTracks, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
 // FollowedArtistsRail removed from Search per product decision
 import { clearCache, getCached, setCached } from '@/lib/searchCache';
 import {
@@ -48,9 +48,84 @@ const songIdentity = (track: IndexedTrack) => {
   const creditKey = cleanIdentity(credit) || cleanIdentity(track.artist);
   return `${creditKey}::${cleanIdentity(name) || cleanIdentity(track.title)}`;
 };
-const queryTokens = (query: string) => normalizeText(query).split(' ').filter((token) => token.length > 1 && !['song', 'songs', 'music', 'track', 'tracks', 'best', 'top', 'latest', 'new', 'by', 'ft', 'feat', 'featuring', 'from'].includes(token));
+const SEARCH_STOP_WORDS = new Set(['song', 'songs', 'music', 'track', 'tracks', 'best', 'top', 'latest', 'new', 'by', 'ft', 'feat', 'featuring', 'from', 'genre']);
+const queryTokens = (query: string) => normalizeText(query).split(' ').filter((token) => token.length > 1 && !SEARCH_STOP_WORDS.has(token));
+const KNOWN_GENRE_KEYWORDS = ['phonk', 'lofi', 'lo fi', 'edm', 'drill', 'afrobeats', 'amapiano', 'hyperpop', 'trap', 'house', 'techno', 'dubstep', 'jazz', 'rnb', 'hip hop', 'rap', 'rock', 'metal', 'country', 'reggaeton', 'kpop', 'pop', 'indie', 'chill', 'focus', 'hype', 'relax', 'love'];
+const GENRE_QUERY_ALIASES: Record<string, string[]> = {
+  phonk: ['phonk', 'drift phonk', 'phonk music', 'phonk songs'],
+  lofi: ['lofi', 'lo fi', 'lofi beats', 'chillhop'],
+  'lo fi': ['lofi', 'lo fi', 'lofi beats', 'chillhop'],
+  edm: ['edm', 'electronic dance music', 'dance music'],
+  rnb: ['rnb', 'r&b', 'rhythm and blues'],
+  'hip hop': ['hip hop', 'hiphop', 'rap'],
+};
+const COMMON_QUERY_CORRECTIONS: Record<string, string> = {
+  phonks: 'phonk',
+  phonkks: 'phonk',
+  lofii: 'lofi',
+  lofi: 'lofi',
+  hiphop: 'hip hop',
+  rb: 'rnb',
+};
+const stripSimplePlural = (token: string) => token.length > 3 && token.endsWith('s') && !/(ss|us|is)$/.test(token) ? token.slice(0, -1) : token;
+function levenshteinDistance(a: string, b: string) {
+  if (a === b) return 0;
+  if (!a.length) return b.length;
+  if (!b.length) return a.length;
+  const prev = Array.from({ length: b.length + 1 }, (_, index) => index);
+  const curr = Array(b.length + 1).fill(0);
+  for (let i = 1; i <= a.length; i += 1) {
+    curr[0] = i;
+    for (let j = 1; j <= b.length; j += 1) {
+      curr[j] = Math.min(
+        curr[j - 1] + 1,
+        prev[j] + 1,
+        prev[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    prev.splice(0, prev.length, ...curr);
+  }
+  return prev[b.length];
+}
+function findKnownGenre(query: string) {
+  const normalized = normalizeText(query);
+  if (!normalized) return null;
+  const candidates = [
+    normalized,
+    COMMON_QUERY_CORRECTIONS[normalized],
+    normalized.split(' ').map((token) => COMMON_QUERY_CORRECTIONS[token] || stripSimplePlural(token)).join(' '),
+    ...normalized.split(' '),
+    ...normalized.split(' ').map(stripSimplePlural),
+  ].filter(Boolean) as string[];
+  for (const candidate of candidates) {
+    const exact = KNOWN_GENRE_KEYWORDS.find((genre) => normalizeText(genre) === candidate);
+    if (exact) return exact === 'lo fi' ? 'lofi' : exact;
+  }
+  for (const candidate of candidates) {
+    if (candidate.length < 4) continue;
+    const fuzzy = KNOWN_GENRE_KEYWORDS.find((genre) => {
+      const normalizedGenre = normalizeText(genre);
+      const maxDistance = candidate.length >= 6 || normalizedGenre.length >= 6 ? 2 : 1;
+      return Math.abs(candidate.length - normalizedGenre.length) <= maxDistance && levenshteinDistance(candidate, normalizedGenre) <= maxDistance;
+    });
+    if (fuzzy) return fuzzy === 'lo fi' ? 'lofi' : fuzzy;
+  }
+  return null;
+}
+function buildResilientSearchIntent(query: string) {
+  const normalized = normalizeText(query);
+  const corrected = COMMON_QUERY_CORRECTIONS[normalized] || normalized.split(' ').map((token) => COMMON_QUERY_CORRECTIONS[token] || token).join(' ');
+  const singular = corrected.split(' ').map(stripSimplePlural).join(' ');
+  const genre = findKnownGenre(query);
+  const variants = [query.trim(), normalized, corrected, singular, ...(genre ? (GENRE_QUERY_ALIASES[genre] || [genre, `${genre} music`, `${genre} songs`]) : [])]
+    .map((variant) => variant.trim())
+    .filter((variant, index, list) => variant.length > 1 && list.findIndex((item) => normalizeText(item) === normalizeText(variant)) === index);
+  const tokens = [...new Set(variants.flatMap(queryTokens))];
+  return { genre, variants, tokens };
+}
+const isGenreSearchIntent = (query: string) => Boolean(buildResilientSearchIntent(query).genre);
 const HIDDEN_RESULTS_KEY = 'uf_hidden_search_results_v1';
-const SEARCH_CACHE_NAMESPACE = 'stable-search-v14-uploader-authority';
+const SEARCH_CACHE_NAMESPACE = 'stable-search-v15-resilient-genre';
 const SPAM_RESULT_PATTERNS = [
   /\b(top|best)\s*\d+\b/i,
   /\b\d+\s*(top|best|hit|hits|songs)\b/i,
@@ -309,8 +384,11 @@ async function searchUploadedArtistSongs(query: string): Promise<UploadedArtistT
 }
 
 function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: IndexedTrack[], tagSets: IndexedTrack[][], allowDiscoveryFallback = false) {
-  const tokens = queryTokens(query);
-  const qNorm = normalizeText(query);
+  const intent = buildResilientSearchIntent(query);
+  const tokens = intent.tokens.length ? intent.tokens : queryTokens(query);
+  const qNorm = normalizeText(intent.genre || query);
+  const phraseVariants = intent.variants.map(normalizeText).filter((variant) => variant.length > 2);
+  const genreIntent = Boolean(intent.genre);
   const allTracks: { track: IndexedTrack; score: number; sourcePriority: number; index: number }[] = [];
 
   const processTrack = (track: IndexedTrack, base: number, index: number, sourcePriority: number) => {
@@ -322,12 +400,12 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const haystack = normalizeText(`${rawTitle} ${rawArtist} ${track.album || ""}`);
     
     const tokenHits = tokens.reduce((sum, token) => sum + (haystack.includes(token) ? 1 : 0), 0);
-    const phraseHit = qNorm.length > 2 && haystack.includes(qNorm);
-    if (!allowDiscoveryFallback && tokens.length > 0 && tokenHits === 0 && !phraseHit) return;
+    const phraseHit = phraseVariants.some((variant) => haystack.includes(variant));
+    if (!allowDiscoveryFallback && !genreIntent && tokens.length > 0 && tokenHits === 0 && !phraseHit) return;
 
     // Relevance
     const titleStartsWith = qNorm.length > 1 && title.startsWith(qNorm);
-    const titlePhraseHit = qNorm.length > 2 && title.includes(qNorm);
+    const titlePhraseHit = phraseVariants.some((variant) => title.includes(variant));
     const titleAllTokens = tokens.length > 0 && tokens.every((t) => title.includes(t));
     const titleTokenHits = tokens.reduce((sum, t) => sum + (title.includes(t) ? 1 : 0), 0);
     const artistTokenHits = tokens.reduce((sum, t) => sum + (artist.includes(t) ? 1 : 0), 0);
@@ -367,7 +445,8 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const noiseWords = actualNoise.test(rawTitle) ? 1 : 0;
     const noisePenalty = parenNoise * 40 + noiseWords * 180 + (rawTitle.length > 70 ? 40 : 0);
 
-    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + authority - noisePenalty - index * 0.8;
+    const genreBonus = genreIntent ? 420 : 0;
+    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + authority + genreBonus - noisePenalty - index * 0.8;
     allTracks.push({ track, score, sourcePriority, index });
   };
 
@@ -397,6 +476,35 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
   return [...primaryTracks.values()]
     .sort((a, b) => b.score - a.score || b.sourcePriority - a.sourcePriority || a.index - b.index)
     .map((candidate) => candidate.track);
+}
+
+async function fetchResilientSearchTracks(query: string, limit: number) {
+  const intent = buildResilientSearchIntent(query);
+  const [youtube, uploaded] = await Promise.all([
+    searchYouTubeMusicTracks(query, limit),
+    searchUploadedArtistSongs(query),
+  ]);
+
+  let expandedYoutube: IndexedTrack[] = [];
+  let tagSets: IndexedTrack[][] = [];
+  const primary = rankAndDedupeResults(query, [...youtube, ...uploaded], [], [], false);
+  const shouldExpand = primary.length < 8 || isGenreSearchIntent(query);
+
+  if (shouldExpand) {
+    const normalizedOriginal = normalizeText(query);
+    const expansionQueries = intent.variants
+      .filter((variant) => normalizeText(variant) !== normalizedOriginal)
+      .slice(0, 5);
+    const genreQueries = intent.genre ? (GENRE_QUERY_ALIASES[intent.genre] || [intent.genre]).slice(0, 4) : [];
+    const [expandedSets, genreSets] = await Promise.all([
+      Promise.all(expansionQueries.map((variant, index) => searchYouTubeMusicTracks(variant, Math.max(80, Math.min(limit, 160)), `resilient-${normalizedOriginal}-${index}`))),
+      Promise.all(genreQueries.map((tag) => getTagTopTracks(tag, 50))),
+    ]);
+    expandedYoutube = expandedSets.flat();
+    tagSets = genreSets;
+  }
+
+  return rankAndDedupeResults(query, [...youtube, ...expandedYoutube, ...uploaded], [], tagSets, false);
 }
 
 const Search = () => {
@@ -468,14 +576,14 @@ const Search = () => {
           }
           return;
         }
-        const youtubeJob = searchYouTubeMusicTracks(trimmedQuery, 200);
-        const uploadedJob = searchUploadedArtistSongs(trimmedQuery);
-
         const artistJob = searchArtistDirectory(trimmedQuery, 30);
-        const [youtube, uploaded, artists] = await Promise.all([youtubeJob, uploadedJob, artistJob]);
+        const [rankedTracks, artists] = await Promise.all([
+          fetchResilientSearchTracks(trimmedQuery, 200),
+          artistJob,
+        ]);
         if (cancelled) return;
 
-        const merged = rankAndDedupeResults(trimmedQuery, [...youtube, ...uploaded], [], [], false)
+        const merged = rankedTracks
           .filter((track) => !isHiddenTrack(track, hiddenResults))
           .slice(0, 300);
 
@@ -536,7 +644,7 @@ const Search = () => {
     expandedQueriesRef.current.add(trimmed);
     setLoadingMore(true);
     try {
-      const deeper = await searchYouTubeMusicTracks(trimmed, 400);
+      const deeper = await fetchResilientSearchTracks(trimmed, 400);
       // Deeper pages MUST go through the same ranker/spam filter as page one —
       // appending raw source order is what let junk results reappear on scroll.
       const ranked = rankAndDedupeResults(trimmed, deeper, [], [], false);
