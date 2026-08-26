@@ -593,6 +593,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const nativeFadeSeqRef = useRef<number>(-1);
   const nativeFadeTimerRef = useRef<number | null>(null);
   const nativeFadeUpTimerRef = useRef<number | null>(null);
+  const nativeFadeAdvancedAtRef = useRef(0);
   useEffect(() => { crossfadeRef.current = crossfade; }, [crossfade]);
   useEffect(() => { crossfadeDurationRef.current = crossfadeDuration; }, [crossfadeDuration]);
   useEffect(() => { crossfadeCurveRef.current = crossfadeCurve; }, [crossfadeCurve]);
@@ -655,6 +656,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           clearNativeFadeTransition(true);
           return;
         }
+        nativeFadeAdvancedAtRef.current = Date.now();
         try { nextSongFnRef.current?.(); } catch { /* ignore */ }
         // Ramp back up on the incoming track.
         let up = 0;
@@ -2590,6 +2592,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             nativeStartupSeqRef.current = null;
             clearNativeStartupTimer();
             clearNativeFadeTransition(true);
+            // A fade completion has already asked ExoPlayer to advance. Some
+            // devices emit `ended` before the matching media-item transition;
+            // handling both would skip the incoming track.
+            if (Date.now() - nativeFadeAdvancedAtRef.current < 1500) return;
             const activeRepeat = repeatRef.current;
             if (activeRepeat === 'one') {
               void ExoPlayerPlugin.seekTo({ positionMs: 0 }).catch(() => undefined);
@@ -2621,6 +2627,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
           const nextSong = q[nextIdx];
           if (!nextSong) return;
+          nativeFadeAdvancedAtRef.current = 0;
           clearNativeFadeTransition(true);
           // Native queues advance inside ExoPlayer, bypassing the web `ended`
           // handler where ad cadence is normally counted. Pause immediately on
