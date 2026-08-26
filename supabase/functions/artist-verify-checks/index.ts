@@ -49,34 +49,91 @@ function parseJsonish(s: string): Record<string, unknown> | null {
   } catch { return null; }
 }
 
+// --- SSRF hardening -------------------------------------------------------
+// music_platform_url / og:image URLs are attacker-controlled, so every outbound
+// fetch must be restricted to public http(s) endpoints on standard ports, and
+// redirects must be validated hop-by-hop (redirect: "manual").
+
+const BLOCKED_HOSTNAMES = new Set([
+  "localhost", "localhost.localdomain", "metadata", "metadata.google.internal",
+  "instance-data", "0.0.0.0", "[::]", "[::1]",
+]);
+
+function isPrivateIpv4(host: string): boolean {
+  const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
+  if (!m) return false;
+  const [a, b] = [Number(m[1]), Number(m[2])];
+  if ([a, Number(m[2]), Number(m[3]), Number(m[4])].some((n) => n > 255)) return true;
+  if (a === 0 || a === 10 || a === 127) return true;
+  if (a === 169 && b === 254) return true; // link-local / cloud metadata
+  if (a === 172 && b >= 16 && b <= 31) return true;
+  if (a === 192 && b === 168) return true;
+  if (a === 100 && b >= 64 && b <= 127) return true; // CGNAT
+  if (a >= 224) return true; // multicast / reserved
+  return false;
+}
+
+function isSafePublicUrl(raw: string): URL | null {
+  let u: URL;
+  try { u = new URL(raw); } catch { return null; }
+  if (u.protocol !== "http:" && u.protocol !== "https:") return null;
+  if (u.username || u.password) return null;
+  if (u.port && u.port !== "80" && u.port !== "443") return null;
+  const host = u.hostname.toLowerCase();
+  if (!host || BLOCKED_HOSTNAMES.has(host)) return null;
+  if (host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return null;
+  if (host.startsWith("[")) return null; // no raw IPv6 literals (incl. mapped/ULA)
+  if (isPrivateIpv4(host)) return null;
+  if (/^\d+$/.test(host.replace(/\./g, ""))) {
+    // Dotted-decimal or integer IP form that isn't a valid public IPv4.
+    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) return null;
+  }
+  return u;
+}
+
+/** fetch() that refuses private/internal targets on every redirect hop. */
+async function safeFetch(raw: string, headers: Record<string, string>): Promise<Response | null> {
+  let target = isSafePublicUrl(raw);
+  if (!target) return null;
+  for (let hop = 0; hop < 5; hop++) {
+    const r = await fetch(target.toString(), { redirect: "manual", headers });
+    if (r.status >= 300 && r.status < 400) {
+      const loc = r.headers.get("location");
+      if (!loc) return null;
+      const next = isSafePublicUrl(new URL(loc, target).toString());
+      if (!next) return null;
+      target = next;
+      continue;
+    }
+    return r;
+  }
+  return null;
+}
+
 async function fetchPlatformPage(url: string): Promise<{ html: string; ogImage: string | null } | null> {
   try {
-    const r = await fetch(url, {
-      redirect: "follow",
-      headers: {
-        "User-Agent": "Mozilla/5.0 (compatible; UniversflowVerifier/1.0; +https://universflow.in)",
-        "Accept": "text/html,application/xhtml+xml",
-      },
+    const r = await safeFetch(url, {
+      "User-Agent": "Mozilla/5.0 (compatible; UniversflowVerifier/1.0; +https://universflow.in)",
+      "Accept": "text/html,application/xhtml+xml",
     });
-    if (!r.ok) return null;
+    if (!r || !r.ok) return null;
     const html = (await r.text()).slice(0, 500_000);
     const og = html.match(/<meta[^>]+property=["']og:image["'][^>]+content=["']([^"']+)["']/i)?.[1] || null;
-    return { html, ogImage: og };
+    return { html, ogImage: og && isSafePublicUrl(og) ? og : null };
   } catch { return null; }
 }
 
 async function fetchImageAsDataUrl(url: string): Promise<string | null> {
   try {
-    const r = await fetch(url, {
-      redirect: "follow",
-      headers: { "User-Agent": "Mozilla/5.0 (compatible; UniversflowVerifier/1.0)" },
-    });
-    if (!r.ok) return null;
+    const r = await safeFetch(url, { "User-Agent": "Mozilla/5.0 (compatible; UniversflowVerifier/1.0)" });
+    if (!r || !r.ok) return null;
     const blob = await r.blob();
     if (blob.size > 4_000_000) return null; // safety cap
+    if (!/^image\//i.test(blob.type || "")) return null;
     return await blobToDataUrl(blob);
   } catch { return null; }
 }
+
 
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
