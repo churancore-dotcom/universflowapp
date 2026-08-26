@@ -93,12 +93,16 @@ function bestAudio(downloadUrl: SaavnSong['downloadUrl'], capBps?: number): stri
   if (typeof downloadUrl === 'string') return downloadUrl;
   if (Array.isArray(downloadUrl)) {
     const capKbps = Math.max(48, Math.round((capBps ?? getStreamBitrateCap()) / 1000));
+    // JioSaavn has no 256 kbps rendition. Treat the app's High tier as the
+    // provider's next available quality (320) instead of silently dropping to
+    // 160; Saver and Normal remain strictly capped at 96/160.
+    const providerCapKbps = capKbps >= 256 ? 320 : capKbps;
     const parsed = downloadUrl
       .map((u) => ({ u, kbps: Number(String(u.quality ?? '').replace(/[^0-9]/g, '')) || 0 }))
       .filter((e) => !!(e.u.url || e.u.link));
     const withBitrate = parsed.filter((e) => e.kbps > 0).sort((a, b) => a.kbps - b.kbps);
     if (withBitrate.length) {
-      const underCap = withBitrate.filter((e) => e.kbps <= capKbps);
+      const underCap = withBitrate.filter((e) => e.kbps <= providerCapKbps);
       const chosen = (underCap.length ? underCap[underCap.length - 1] : withBitrate[0]).u;
       return chosen.url || chosen.link;
     }
