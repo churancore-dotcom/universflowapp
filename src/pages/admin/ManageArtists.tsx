@@ -4,6 +4,7 @@ import {
   Search, Loader2, BadgeCheck, Music, Users, Play, Heart, Trash2,
   ShieldOff, ExternalLink, Globe, Mail, Calendar, MoreVertical,
 } from 'lucide-react';
+import { safeHref } from '@/lib/safeHref';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -279,8 +280,8 @@ const ManageArtists = () => {
                     <h4 className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Social</h4>
                     <div className="flex flex-wrap gap-2">
                       {Object.entries(selected.social_links).map(([k, v]) =>
-                        typeof v === 'string' && v ? (
-                          <a key={k} href={v} target="_blank" rel="noopener noreferrer" className="text-xs px-2 py-1 rounded-md bg-muted/50 hover:bg-muted">
+                        safeHref(v) ? (
+                          <a key={k} href={safeHref(v)!} target="_blank" rel="noopener noreferrer" className="text-xs px-2 py-1 rounded-md bg-muted/50 hover:bg-muted">
                             {k} <ExternalLink className="w-3 h-3 inline" />
                           </a>
                         ) : null,

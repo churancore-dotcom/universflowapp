@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { safeHref } from '@/lib/safeHref';
 
 type Row = {
   id: string; user_id: string; target_profile_id: string; stage_name: string;
@@ -58,18 +59,19 @@ export default function AdminArtistClaims() {
                     {' · '}{new Date(r.created_at).toLocaleString()}
                   </div>
                   <div className="mt-3 space-y-1.5 text-sm">
-                    {r.proof_music_url && (
-                      <a href={r.proof_music_url} target="_blank" rel="noreferrer"
+                    {safeHref(r.proof_music_url) && (
+                      <a href={safeHref(r.proof_music_url)!} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1.5 text-primary hover:underline">
                         <ExternalLink className="w-3 h-3" /> Music proof
                       </a>
                     )}
-                    {r.proof_social_url && (
-                      <a href={r.proof_social_url} target="_blank" rel="noreferrer"
+                    {safeHref(r.proof_social_url) && (
+                      <a href={safeHref(r.proof_social_url)!} target="_blank" rel="noreferrer"
                         className="flex items-center gap-1.5 text-primary hover:underline">
                         <ExternalLink className="w-3 h-3" /> Social proof
                       </a>
                     )}
+
                     {r.proof_note && <div className="text-muted-foreground italic">"{r.proof_note}"</div>}
                   </div>
                   <Textarea placeholder="Admin note (optional)…"
