@@ -14,6 +14,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { safeHref } from '@/lib/safeHref';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { supabase } from '@/integrations/supabase/client';
@@ -280,9 +281,13 @@ export default function ArtistApplications() {
                 <h3 className="font-semibold mb-3 flex items-center gap-2"><FileCheck2 className="w-4 h-4" /> Music platform proof</h3>
                 {active.music_platform_url ? (
                   <div className="space-y-2 text-sm">
-                    <a href={active.music_platform_url} target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-1 break-all">
-                      Open artist page <ExternalLink className="w-3 h-3" />
-                    </a>
+                    {safeHref(active.music_platform_url) ? (
+                      <a href={safeHref(active.music_platform_url)!} target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-1 break-all">
+                        Open artist page <ExternalLink className="w-3 h-3" />
+                      </a>
+                    ) : (
+                      <span className="break-all text-muted-foreground">{active.music_platform_url} (unsupported link)</span>
+                    )}
                     <p className="text-[12px] text-muted-foreground leading-relaxed">
                       Look for <code className="font-mono text-primary">{active.ownership_code || '—'}</code> in the artist bio.
                       {active.ownership_verified_at
@@ -328,8 +333,8 @@ export default function ArtistApplications() {
                     {Object.entries(active.social_links || {}).filter(([k, v]) => !!v && k !== 'face_shots').map(([k, v]) => (
                       <li key={k} className="flex items-start gap-2">
                         <span className="text-muted-foreground capitalize min-w-20">{k.replace('_', ' ')}</span>
-                        {String(v).startsWith('http') ? (
-                          <a href={String(v)} target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-1 break-all">Open <ExternalLink className="w-3 h-3" /></a>
+                        {safeHref(v) ? (
+                          <a href={safeHref(v)!} target="_blank" rel="noreferrer" className="text-primary underline inline-flex items-center gap-1 break-all">Open <ExternalLink className="w-3 h-3" /></a>
                         ) : <span className="break-words">{String(v)}</span>}
                       </li>
                     ))}
@@ -446,8 +451,8 @@ function DocPreview({ label, url }: { label: string; url?: string }) {
   return (
     <div>
       <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
-      {url ? (
-        <a href={url} target="_blank" rel="noreferrer">
+      {safeHref(url) ? (
+        <a href={safeHref(url)!} target="_blank" rel="noreferrer">
           <img src={url} alt={label} className="w-full aspect-square object-cover rounded-xl border border-white/10" />
         </a>
       ) : (

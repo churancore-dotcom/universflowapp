@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Building2, Check, X, Loader2 } from 'lucide-react';
+import { safeHref } from '@/lib/safeHref';
 
 type Req = {
   id: string; user_id: string; label_name: string; roster: any;
@@ -61,8 +62,8 @@ export default function LabelRequests() {
                 </div>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-[13px] text-white/70">
-                {r.website && <div>Web: <a href={r.website} target="_blank" rel="noreferrer" className="text-[#FF2D55] underline">{r.website}</a></div>}
-                {r.proof_url && <div>Proof: <a href={r.proof_url} target="_blank" rel="noreferrer" className="text-[#FF2D55] underline">{r.proof_url}</a></div>}
+                {r.website && <div>Web: {safeHref(r.website) ? <a href={safeHref(r.website)!} target="_blank" rel="noreferrer" className="text-[#FF2D55] underline">{r.website}</a> : <span className="break-all">{r.website}</span>}</div>}
+                {r.proof_url && <div>Proof: {safeHref(r.proof_url) ? <a href={safeHref(r.proof_url)!} target="_blank" rel="noreferrer" className="text-[#FF2D55] underline">{r.proof_url}</a> : <span className="break-all">{r.proof_url}</span>}</div>}
                 {r.contact_email && <div>Contact: {r.contact_email}</div>}
                 <div>Artists: {roster.map((a: any) => a.name).join(', ') || '—'}</div>
               </div>
