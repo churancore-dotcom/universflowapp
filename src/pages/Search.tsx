@@ -87,31 +87,41 @@ function levenshteinDistance(a: string, b: string) {
   }
   return prev[b.length];
 }
+// Short, generic genre words ('love', 'rock', 'pop', 'chill', 'focus', 'house')
+// double as ordinary song-title words, so fuzzy matching them turns real
+// searches ("Lover", "Rocky") into genre browsing and disables the relevance
+// gate. Fuzzy matching is therefore restricted to distinctive, longer genre
+// names and only applied to the full query — never to individual tokens.
+const GENRE_FUZZY_MIN_LENGTH = 5;
 function findKnownGenre(query: string) {
   const normalized = normalizeText(query);
   if (!normalized) return null;
-  const candidates = [
+  const fullQueryCandidates = [
     normalized,
     COMMON_QUERY_CORRECTIONS[normalized],
     normalized.split(' ').map((token) => COMMON_QUERY_CORRECTIONS[token] || stripSimplePlural(token)).join(' '),
+  ].filter(Boolean) as string[];
+  const candidates = [
+    ...fullQueryCandidates,
     ...normalized.split(' '),
     ...normalized.split(' ').map(stripSimplePlural),
-  ].filter(Boolean) as string[];
+  ];
   for (const candidate of candidates) {
     const exact = KNOWN_GENRE_KEYWORDS.find((genre) => normalizeText(genre) === candidate);
     if (exact) return exact === 'lo fi' ? 'lofi' : exact;
   }
-  for (const candidate of candidates) {
-    if (candidate.length < 4) continue;
+  for (const candidate of fullQueryCandidates) {
+    if (candidate.length < GENRE_FUZZY_MIN_LENGTH) continue;
     const fuzzy = KNOWN_GENRE_KEYWORDS.find((genre) => {
       const normalizedGenre = normalizeText(genre);
-      const maxDistance = candidate.length >= 6 || normalizedGenre.length >= 6 ? 2 : 1;
-      return Math.abs(candidate.length - normalizedGenre.length) <= maxDistance && levenshteinDistance(candidate, normalizedGenre) <= maxDistance;
+      if (normalizedGenre.length < GENRE_FUZZY_MIN_LENGTH) return false;
+      return Math.abs(candidate.length - normalizedGenre.length) <= 1 && levenshteinDistance(candidate, normalizedGenre) <= 1;
     });
     if (fuzzy) return fuzzy === 'lo fi' ? 'lofi' : fuzzy;
   }
   return null;
 }
+
 function buildResilientSearchIntent(query: string) {
   const normalized = normalizeText(query);
   const corrected = COMMON_QUERY_CORRECTIONS[normalized] || normalized.split(' ').map((token) => COMMON_QUERY_CORRECTIONS[token] || token).join(' ');
