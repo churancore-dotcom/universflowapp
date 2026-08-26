@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
+import { safeHref } from '@/lib/safeHref';
 
 type Row = {
   id: string; user_id: string; target_profile_id: string; stage_name: string;

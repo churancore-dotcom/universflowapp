@@ -453,7 +453,7 @@ function DocPreview({ label, url }: { label: string; url?: string }) {
       <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">{label}</p>
       {safeHref(url) ? (
         <a href={safeHref(url)!} target="_blank" rel="noreferrer">
-          <img src={url} alt={label} className="w-full aspect-square object-cover rounded-xl border border-white/10" />
+          <img src={safeHref(url)!} alt={label} className="w-full aspect-square object-cover rounded-xl border border-white/10" />
         </a>
       ) : (
         <div className="w-full aspect-square rounded-xl bg-white/[0.03] border border-white/10 flex items-center justify-center text-xs text-muted-foreground text-center px-2">deleted / none</div>
