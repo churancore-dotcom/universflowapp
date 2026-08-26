@@ -135,7 +135,7 @@ function buildResilientSearchIntent(query: string) {
 }
 const isGenreSearchIntent = (query: string) => Boolean(buildResilientSearchIntent(query).genre);
 const HIDDEN_RESULTS_KEY = 'uf_hidden_search_results_v1';
-const SEARCH_CACHE_NAMESPACE = 'stable-search-v15-resilient-genre';
+const SEARCH_CACHE_NAMESPACE = 'stable-search-v16-strict-genre';
 const SPAM_RESULT_PATTERNS = [
   /\b(top|best)\s*\d+\b/i,
   /\b\d+\s*(top|best|hit|hits|songs)\b/i,
