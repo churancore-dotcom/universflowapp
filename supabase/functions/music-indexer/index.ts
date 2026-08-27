@@ -1593,9 +1593,32 @@ async function innerTubeAttempt(videoId: string, c: ItClient, visitor: string | 
   }
 }
 
+// ── InnerTube egress circuit breaker ───────────────────────────────────────
+// Verified 2026-08-27: the exact same payload/clientVersion resolves `OK` with
+// plain-url adaptiveFormats from a residential address, and LOGIN_REQUIRED from
+// this backend's address — i.e. Google is refusing our datacentre egress, not
+// rejecting our request shape. Retrying cannot fix an IP block, but each attempt
+// still costs the full timeout on every tap, which is what users experience as
+// "it spins for 15-30s and never plays".
+//
+// So: after IT_FAIL_THRESHOLD consecutive whole-client failures we park the
+// InnerTube path for IT_PARK_MS and fail instantly, leaving the budget to
+// JioSaavn / db-cache / mirrors. It self-heals — one success (or the park
+// expiring) puts it straight back in rotation, so if egress is ever unblocked
+// (or a residential proxy is added) nothing needs re-enabling.
+//
+// On-device InnerTube in the Android app is unaffected: it runs on the user's
+// own residential IP and remains the real YouTube path.
+const IT_FAIL_THRESHOLD = 3;
+const IT_PARK_MS = 10 * 60 * 1000;
+let itFailStreak = 0;
+let itParkedUntil = 0;
+
 /** Primary YouTube path: direct InnerTube /player, no mirror, no API key. */
 async function resolveViaInnerTube(videoId: string): Promise<{ streamUrl: string; duration?: number; src: string } | null> {
   if (!/^[\w-]{11}$/.test(videoId)) return null;
+  if (Date.now() < itParkedUntil) return null;
+
   const visitor = await getVisitorData();
   // A stale/bogus visitor token poisons every client at once (LOGIN_REQUIRED),
   // while anonymous requests resolve fine — so each client is raced BOTH with
@@ -1607,6 +1630,7 @@ async function resolveViaInnerTube(videoId: string): Promise<{ streamUrl: string
   );
   try {
     const winner = await Promise.any(attempts);
+    itFailStreak = 0;
     console.log(`[resolve] ✓ ${videoId} via ${winner.src} itag=${winner.itag}`);
     return { streamUrl: winner.streamUrl, duration: winner.duration, src: winner.src };
   } catch (e) {
@@ -1614,10 +1638,20 @@ async function resolveViaInnerTube(videoId: string): Promise<{ streamUrl: string
     // If every attempt says LOGIN_REQUIRED the cached visitor token is suspect;
     // drop it so the next request re-scrapes instead of repeating the failure.
     if (msgs?.includes('LOGIN_REQUIRED')) { itVisitorData = null; itVisitorAt = 0; }
+    itFailStreak += 1;
+    if (itFailStreak >= IT_FAIL_THRESHOLD) {
+      itParkedUntil = Date.now() + IT_PARK_MS;
+      itFailStreak = 0;
+      console.warn(
+        `[resolve] innertube breaker OPEN for ${IT_PARK_MS / 60000}min — ` +
+        'egress appears blocked by YouTube; serving JioSaavn/cache/mirrors only',
+      );
+    }
     console.warn(`[resolve] innertube failed for ${videoId}: ${msgs}`);
     return null;
   }
 }
+
 
 // ── Mirror-fleet circuit breaker ───────────────────────────────────────────
 // While the public Invidious/Piped/Cobalt fleet is down it costs ~4s on EVERY
@@ -1906,7 +1940,8 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
   console.error(
     `[resolve][ALERT] ALL_SOURCES_FAILED artist="${artist}" title="${title}" ` +
     `candidates=${candidates.length} tried=${shortlist.join(',')} ` +
-    `sources=jiosaavn,innertube,mirrors at=${new Date().toISOString()}`,
+    `sources=jiosaavn,innertube${Date.now() < itParkedUntil ? '(parked)' : ''},mirrors ` +
+    `at=${new Date().toISOString()}`,
   );
 
   // YouTube IFrame fallback — guaranteed playback even when no audio host is reachable
