@@ -26,6 +26,7 @@ import {
   IndianRupee,
   Headphones,
   Megaphone,
+  Star,
 } from 'lucide-react';
 
 const navItems = [
