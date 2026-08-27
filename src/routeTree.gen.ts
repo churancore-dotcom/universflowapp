@@ -64,6 +64,7 @@ import { Route as AdminPayoutsRouteImport } from './routes/admin/payouts'
 import { Route as AdminPerformanceRouteImport } from './routes/admin/performance'
 import { Route as AdminPlaylistsRouteImport } from './routes/admin/playlists'
 import { Route as AdminRevenueRouteImport } from './routes/admin/revenue'
+import { Route as AdminReviewsRouteImport } from './routes/admin/reviews'
 import { Route as AdminSecurityRouteImport } from './routes/admin/security'
 import { Route as AdminSongsRouteImport } from './routes/admin/songs'
 import { Route as AdminSubscriptionsRouteImport } from './routes/admin/subscriptions'
@@ -385,6 +386,11 @@ const AdminRevenueRoute = AdminRevenueRouteImport.update({
   path: '/revenue',
   getParentRoute: () => AdminRouteRoute,
 } as any)
+const AdminReviewsRoute = AdminReviewsRouteImport.update({
+  id: '/reviews',
+  path: '/reviews',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminSecurityRoute = AdminSecurityRouteImport.update({
   id: '/security',
   path: '/security',
@@ -660,6 +666,7 @@ export interface FileRoutesByFullPath {
   '/admin/performance': typeof AdminPerformanceRoute
   '/admin/playlists': typeof AdminPlaylistsRoute
   '/admin/revenue': typeof AdminRevenueRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/security': typeof AdminSecurityRoute
   '/admin/songs': typeof AdminSongsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -757,6 +764,7 @@ export interface FileRoutesByTo {
   '/admin/performance': typeof AdminPerformanceRoute
   '/admin/playlists': typeof AdminPlaylistsRoute
   '/admin/revenue': typeof AdminRevenueRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/security': typeof AdminSecurityRoute
   '/admin/songs': typeof AdminSongsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -857,6 +865,7 @@ export interface FileRoutesById {
   '/admin/performance': typeof AdminPerformanceRoute
   '/admin/playlists': typeof AdminPlaylistsRoute
   '/admin/revenue': typeof AdminRevenueRoute
+  '/admin/reviews': typeof AdminReviewsRoute
   '/admin/security': typeof AdminSecurityRoute
   '/admin/songs': typeof AdminSongsRoute
   '/admin/subscriptions': typeof AdminSubscriptionsRoute
@@ -958,6 +967,7 @@ export interface FileRouteTypes {
     | '/admin/performance'
     | '/admin/playlists'
     | '/admin/revenue'
+    | '/admin/reviews'
     | '/admin/security'
     | '/admin/songs'
     | '/admin/subscriptions'
@@ -1055,6 +1065,7 @@ export interface FileRouteTypes {
     | '/admin/performance'
     | '/admin/playlists'
     | '/admin/revenue'
+    | '/admin/reviews'
     | '/admin/security'
     | '/admin/songs'
     | '/admin/subscriptions'
@@ -1154,6 +1165,7 @@ export interface FileRouteTypes {
     | '/admin/performance'
     | '/admin/playlists'
     | '/admin/revenue'
+    | '/admin/reviews'
     | '/admin/security'
     | '/admin/songs'
     | '/admin/subscriptions'
@@ -1639,6 +1651,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminRevenueRouteImport
       parentRoute: typeof AdminRouteRoute
     }
+    '/admin/reviews': {
+      id: '/admin/reviews'
+      path: '/reviews'
+      fullPath: '/admin/reviews'
+      preLoaderRoute: typeof AdminReviewsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
     '/admin/security': {
       id: '/admin/security'
       path: '/security'
@@ -1962,6 +1981,7 @@ interface AdminRouteRouteChildren {
   AdminPerformanceRoute: typeof AdminPerformanceRoute
   AdminPlaylistsRoute: typeof AdminPlaylistsRoute
   AdminRevenueRoute: typeof AdminRevenueRoute
+  AdminReviewsRoute: typeof AdminReviewsRoute
   AdminSecurityRoute: typeof AdminSecurityRoute
   AdminSongsRoute: typeof AdminSongsRoute
   AdminSubscriptionsRoute: typeof AdminSubscriptionsRoute
@@ -1999,6 +2019,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminPerformanceRoute: AdminPerformanceRoute,
   AdminPlaylistsRoute: AdminPlaylistsRoute,
   AdminRevenueRoute: AdminRevenueRoute,
+  AdminReviewsRoute: AdminReviewsRoute,
   AdminSecurityRoute: AdminSecurityRoute,
   AdminSongsRoute: AdminSongsRoute,
   AdminSubscriptionsRoute: AdminSubscriptionsRoute,
