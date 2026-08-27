@@ -2,6 +2,8 @@ import { memo, lazy, Suspense } from 'react';
 import { useLocation } from '@/lib/router-compat';
 import MiniPlayer from './MiniPlayer';
 import PlaybackAnnouncer from './PlaybackAnnouncer';
+import MilestoneCelebration from './MilestoneCelebration';
+import { useListeningTracker } from '@/hooks/useListeningTracker';
 
 
 const FullscreenPlayer = lazy(() => import('./FullscreenPlayer'));
@@ -13,6 +15,9 @@ const FullscreenPlayer = lazy(() => import('./FullscreenPlayer'));
  */
 const GlobalPlayerLayer = memo(function GlobalPlayerLayer() {
   const { pathname } = useLocation();
+
+  // Measures real audible listening time app-wide (feeds streaks + recap).
+  useListeningTracker();
 
   // Hide on routes where the player UI shouldn't appear.
   // NOTE: '/' was previously hidden, which broke the MiniPlayer on the
@@ -33,6 +38,7 @@ const GlobalPlayerLayer = memo(function GlobalPlayerLayer() {
     <>
       <MiniPlayer />
       <PlaybackAnnouncer />
+      <MilestoneCelebration />
       <Suspense fallback={null}>
 
         <FullscreenPlayer />
