@@ -19,6 +19,9 @@ import SEOHead from '@/components/SEOHead';
 import { loadLibrarySongs } from '@/lib/streamSongs';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import RecapModal from '@/components/RecapModal';
+import StreakBadge from '@/components/StreakBadge';
+import { Sparkles } from 'lucide-react';
 
 interface ProfileData {
   username: string | null;
@@ -46,6 +49,7 @@ const Profile = () => {
   const [recentSongs, setRecentSongs] = useState<Song[]>([]);
   const [memberSinceLabel, setMemberSinceLabel] = useState<string>('');
   const [statsReady, setStatsReady] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
 
   const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false });
   const [profileReady, setProfileReady] = useState(false);
@@ -321,19 +325,35 @@ const Profile = () => {
             </div>
           </section>
 
+          <RecapModal isOpen={recapOpen} onClose={() => setRecapOpen(false)} />
           <div className="px-5 pt-6 space-y-7">
             <EmailVerificationCard />
 
             {/* ============ STATS ============ */}
             {profileSettled && user && listenStats.totalPlays > 0 && (
               <section className="neu rounded-[28px] p-4">
-                <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-4 px-1">Listening</h2>
+                <div className="flex items-center justify-between mb-4 px-1">
+                  <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none">Listening</h2>
+                  <StreakBadge streak={listenStats.streak} onClick={() => setRecapOpen(true)} />
+                </div>
                 <div className="grid grid-cols-3 gap-3">
                   <Dial value={fmt(listenStats.minutes)} label="Minutes" />
                   <Dial value={fmt(listenStats.totalPlays)} label="Plays" />
                   <Dial value={`${listenStats.streak}d`} label="Streak" />
                 </div>
 
+                <button
+                  onClick={() => { triggerHaptic('selection'); setRecapOpen(true); }}
+                  className="mt-4 w-full flex items-center gap-3 rounded-[20px] p-4 text-left bg-primary/10 border border-primary/25 active:opacity-80 transition-opacity"
+                >
+                  <span className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
+                    <Sparkles className="w-5 h-5" />
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block font-display text-[18px] uppercase leading-none text-foreground">Your month in music</span>
+                    <span className="block text-[11.5px] text-muted-foreground mt-1">Top artist, top song, your listening personality.</span>
+                  </span>
+                </button>
               </section>
             )}
 

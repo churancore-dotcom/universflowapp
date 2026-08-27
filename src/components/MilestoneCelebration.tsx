@@ -30,7 +30,7 @@ const ICONS = {
  */
 const MilestoneCelebration = () => {
   const { user } = useAuth();
-  const { isPremium, loading: premiumLoading } = usePremium();
+  const { isPremium, isLoading: premiumLoading } = usePremium();
   const navigate = useNavigate();
   const [milestone, setMilestone] = useState<Milestone | null>(null);
   const [premiumLine, setPremiumLine] = useState<string | null>(null);

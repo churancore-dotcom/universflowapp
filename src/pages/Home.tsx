@@ -14,6 +14,7 @@ import { getHomeRailOrder, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 import MadeForYouSection from '@/components/MadeForYouSection';
 import AllSongsSection from '@/components/AllSongsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
+import OnThisDaySection from '@/components/OnThisDaySection';
 import FreshReleasesSection from '@/components/FreshReleasesSection';
 import BottomNav from '@/components/BottomNav';
 import QueueDrawer from '@/components/QueueDrawer';
@@ -409,6 +410,11 @@ const Home = () => {
                   </div>
                 </section>
               )}
+
+              {/* ── ON THIS DAY — real personal memory, hidden when absent ── */}
+              <div className="px-6 mt-11">
+                <OnThisDaySection />
+              </div>
 
               {/* ── SHELVES — three, max ── */}
               <div className="px-6 mt-11 space-y-11 pb-24">

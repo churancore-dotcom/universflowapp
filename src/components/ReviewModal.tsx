@@ -113,16 +113,16 @@ const ReviewModal = ({ isOpen, onClose, onSubmitted }: Props) => {
                 animate={{ scale: 1, opacity: 1 }}
                 className="text-center py-8"
               >
-                <div className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-3" style={{ background: 'linear-gradient(135deg, #FF2D55, #FF6482)' }}>
-                  <Heart className="w-8 h-8 text-white fill-white" />
+                <div className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-3" style={{ background: 'linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 70%, var(--background)))' }}>
+                  <Heart className="w-8 h-8 text-primary-foreground fill-current" />
                 </div>
-                <h3 className="text-xl font-extrabold">Thank you, {displayName.split(' ')[0]}!</h3>
-                <p className="text-sm text-muted-foreground mt-1">Your love keeps Universflow alive ❤️</p>
+                <h3 className="font-display text-[26px] font-black uppercase leading-none">Thank you, {displayName.split(' ')[0]}!</h3>
+                <p className="text-sm text-muted-foreground mt-1">Your love keeps Universflow alive.</p>
               </motion.div>
             ) : (
               <>
-                <h3 className="text-xl font-extrabold text-center">Share your experience</h3>
-                <p className="text-xs text-muted-foreground text-center mt-1">Your honest review helps us grow 🚀</p>
+                <h3 className="font-display text-[28px] font-black uppercase tracking-[0.03em] text-center leading-none">Share your experience</h3>
+                <p className="text-xs text-muted-foreground text-center mt-1">Your honest review helps us grow.</p>
 
                 {/* Stars */}
                 <div className="flex justify-center gap-1.5 my-5">
@@ -135,7 +135,7 @@ const ReviewModal = ({ isOpen, onClose, onSubmitted }: Props) => {
                     >
                       <motion.div whileTap={{ scale: 0.85 }}>
                         <Star
-                          className={`w-9 h-9 ${(hover || rating) >= n ? 'fill-yellow-400 text-yellow-400' : 'text-muted-foreground/40'}`}
+                          className={`w-9 h-9 ${(hover || rating) >= n ? 'fill-amber-400 text-amber-400' : 'text-muted-foreground/40'}`}
                         />
                       </motion.div>
                     </button>
@@ -166,7 +166,7 @@ const ReviewModal = ({ isOpen, onClose, onSubmitted }: Props) => {
                   onClick={handleSubmit}
                   disabled={saving || rating === 0}
                   className="w-full h-12 mt-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, #FF2D55, #FF6482)', color: '#fff' }}
+                  style={{ background: 'linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 70%, var(--background)))', color: 'var(--primary-foreground)' }}
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Post Review'}
                 </button>

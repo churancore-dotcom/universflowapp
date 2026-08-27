@@ -26,6 +26,7 @@ import {
   IndianRupee,
   Headphones,
   Megaphone,
+  Star,
 } from 'lucide-react';
 
 const navItems = [
@@ -46,6 +47,7 @@ const navItems = [
   { icon: IndianRupee, label: 'Artist Payouts', path: '/admin/payouts' },
   { icon: Shield, label: 'Artist Claims', path: '/admin/artist-claims' },
   { icon: Zap, label: 'Engagement', path: '/admin/engagement' },
+  { icon: Star, label: 'App Ratings', path: '/admin/reviews' },
   { icon: Bell, label: 'Push Notifications', path: '/admin/notifications' },
   { icon: Smartphone, label: 'Registered Devices', path: '/admin/devices' },
   { icon: Lock, label: 'Security', path: '/admin/security' },
