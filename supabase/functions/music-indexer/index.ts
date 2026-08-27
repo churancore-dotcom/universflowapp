@@ -1940,7 +1940,8 @@ async function resolveStream(artist: string, title: string, forceRefresh = false
   console.error(
     `[resolve][ALERT] ALL_SOURCES_FAILED artist="${artist}" title="${title}" ` +
     `candidates=${candidates.length} tried=${shortlist.join(',')} ` +
-    `sources=jiosaavn,innertube,mirrors at=${new Date().toISOString()}`,
+    `sources=jiosaavn,innertube${Date.now() < itParkedUntil ? '(parked)' : ''},mirrors ` +
+    `at=${new Date().toISOString()}`,
   );
 
   // YouTube IFrame fallback — guaranteed playback even when no audio host is reachable
