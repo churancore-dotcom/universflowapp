@@ -368,39 +368,50 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
   };
 
   const getSongLink = () => `${appUrl}/song/${song?.id}`;
-  const getShareText = () => `🎵 Check out "${song?.title}" by ${song?.artist} on UniversFlow!`;
+  const getShareText = () => `🎵 "${song?.title}" by ${song?.artist} — playing on UniversFlow\n${getSongLink()}`;
+  const cardName = () => `${song?.title ?? 'track'} - ${song?.artist ?? ''} · UniversFlow`;
 
   const handleDownload = async () => {
     if (!cardUrl || !song) return;
-
-    const link = document.createElement('a');
-    link.download = `${song.title} - ${song.artist}.png`;
-    link.href = cardUrl;
-    link.click();
-    toast.success('Card downloaded! 🎵');
-  };
-
-  const shareToInstagram = async () => {
-    // Instagram doesn't have direct web share, download card and copy link
-    if (cardUrl) {
-      await handleDownload();
-      navigator.clipboard.writeText(getShareText() + '\n' + getSongLink());
-      toast.success('Card downloaded! Link copied - paste in Instagram 📸');
+    try {
+      const how = await saveImageToDevice(cardUrl, cardName());
+      toast.success(how === 'saved' ? 'Saved to your device 📸' : 'Card downloaded 🎵');
+    } catch {
+      toast.error('Could not save the card');
     }
   };
 
-  const shareToWhatsApp = () => {
-    const text = encodeURIComponent(getShareText() + '\n\n' + getSongLink());
-    window.open(`https://wa.me/?text=${text}`, '_blank');
-    toast.success('Opening WhatsApp... 💬');
+  /** Always shares the IMAGE card, not a bare link. */
+  const shareCard = async () => {
+    if (!cardUrl) return;
+    const ok = await shareImage(cardUrl, cardName(), getShareText());
+    if (!ok) {
+      await handleDownload();
+      try { await navigator.clipboard.writeText(getShareText()); } catch { /* ignore */ }
+      toast.success('Card saved & caption copied — paste it in the app 📸');
+    }
   };
 
-  const shareToTwitter = () => {
+  const shareToInstagram = shareCard;
+
+  const shareToWhatsApp = async () => {
+    if (cardUrl) {
+      const ok = await shareImage(cardUrl, cardName(), getShareText());
+      if (ok) return;
+    }
     const text = encodeURIComponent(getShareText());
-    const url = encodeURIComponent(getSongLink());
-    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${url}`, '_blank');
-    toast.success('Opening Twitter... 🐦');
+    window.open(`https://wa.me/?text=${text}`, '_blank');
   };
+
+  const shareToTwitter = async () => {
+    if (cardUrl) {
+      const ok = await shareImage(cardUrl, cardName(), getShareText());
+      if (ok) return;
+    }
+    const text = encodeURIComponent(getShareText());
+    window.open(`https://twitter.com/intent/tweet?text=${text}`, '_blank');
+  };
+
 
   const copyLink = () => {
     navigator.clipboard.writeText(getSongLink());
