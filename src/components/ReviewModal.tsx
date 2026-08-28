@@ -113,9 +113,13 @@ const ReviewModal = ({ isOpen, onClose, onSubmitted }: Props) => {
                 animate={{ scale: 1, opacity: 1 }}
                 className="text-center py-8"
               >
-<div className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-3 bg-gradient-to-br from-primary to-primary/70">
+<div
+                  data-testid="review-thankyou-heart"
+                  className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-3 bg-gradient-to-br from-primary to-primary/70"
+                >
                   <Heart className="w-8 h-8 text-primary-foreground fill-current" />
                 </div>
+
                 <h3 className="font-display text-[26px] font-black uppercase leading-none">Thank you, {displayName.split(' ')[0]}!</h3>
                 <p className="text-sm text-muted-foreground mt-1">Your love keeps Universflow alive.</p>
               </motion.div>
@@ -162,13 +166,18 @@ const ReviewModal = ({ isOpen, onClose, onSubmitted }: Props) => {
                   className="w-full px-4 py-3 rounded-xl bg-muted/40 border border-border/50 text-sm focus:outline-none focus:border-primary/60 resize-none"
                 />
 
-<button
+                <button
+                  type="button"
+                  data-testid="review-submit"
+                  aria-label="Post Review"
+                  aria-busy={saving}
                   onClick={handleSubmit}
                   disabled={saving || rating === 0}
-                  className="w-full h-12 mt-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 bg-gradient-to-br from-primary to-primary/70 text-primary-foreground"
+                  className="w-full h-12 mt-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 bg-gradient-to-br from-primary to-primary/70 text-primary-foreground transition-all duration-200 hover:from-primary hover:to-primary hover:brightness-110 active:scale-[0.98] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-card disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:brightness-100 disabled:active:scale-100"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Post Review'}
                 </button>
+
               </>
             )}
           </motion.div>
