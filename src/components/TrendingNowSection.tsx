@@ -124,11 +124,6 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
       <RailHeader
         title="Trending Now"
         subtitle={`Top in ${countryLabel(servedCountry)}, tuned to your taste`}
-        badge={(
-          <span className="uf-live shrink-0" aria-label="Live chart data">
-            <span className="uf-live-dot" /> Live
-          </span>
-        )}
       />
 
       {/* Lead poster — one dominant visual */}

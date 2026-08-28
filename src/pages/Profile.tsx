@@ -21,7 +21,8 @@ import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import RecapModal from '@/components/RecapModal';
 import StreakBadge from '@/components/StreakBadge';
-import { Sparkles } from 'lucide-react';
+import { loadPlayRecords, computeStreak } from '@/lib/listeningInsights';
+import { readListenLog } from '@/lib/listenLog';
 
 interface ProfileData {
   username: string | null;
@@ -72,6 +73,32 @@ const Profile = () => {
 
 
   useEffect(() => { setStats(prev => ({ ...prev, downloads: downloads.length })); }, [downloads.length]);
+
+  // Minutes and streak from the FULL history (server events + device history +
+  // the measured listen log). The catalog-duration estimate below only knows
+  // uploaded songs, so YouTube/JioSaavn plays used to read as 0 minutes / 0d.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const records = await loadPlayRecords(user?.id ?? null);
+        if (cancelled) return;
+        const log = readListenLog(user?.id ?? null);
+        const measured = log.days.reduce((sum, d) => sum + d.seconds, 0);
+        const estimated = records.reduce((sum, r) => sum + (r.duration && r.duration > 0 ? r.duration : 0), 0);
+        const seconds = Math.max(measured, estimated);
+        const { current } = computeStreak(records, user?.id ?? null);
+        setListenStats((prev) => ({
+          minutes: Math.max(prev.minutes, Math.round(seconds / 60)),
+          streak: Math.max(prev.streak, current),
+          totalPlays: Math.max(prev.totalPlays, records.length),
+        }));
+      } catch {
+        /* stats stay at whatever the server pass produced */
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [user?.id]);
 
   // Recently played comes from the same per-device history the player writes,
   // so every tile carries a real playable snapshot.
@@ -346,9 +373,6 @@ const Profile = () => {
                   onClick={() => { triggerHaptic('selection'); setRecapOpen(true); }}
                   className="mt-4 w-full flex items-center gap-3 rounded-[20px] p-4 text-left bg-primary/10 border border-primary/25 active:opacity-80 transition-opacity"
                 >
-                  <span className="w-10 h-10 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center">
-                    <Sparkles className="w-5 h-5" />
-                  </span>
                   <span className="min-w-0">
                     <span className="block font-display text-[18px] uppercase leading-none text-foreground">Your month in music</span>
                     <span className="block text-[11.5px] text-muted-foreground mt-1">Top artist, top song, your listening personality.</span>

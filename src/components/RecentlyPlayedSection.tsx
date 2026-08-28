@@ -15,7 +15,7 @@ const RecentlyPlayedSection = memo(() => {
   const entries = useLocalRecents(40);
   const songs = useMemo(() => recentSongs(entries).slice(0, 20), [entries]);
 
-  if (songs.length < 3) return null;
+  if (songs.length === 0) return null;
 
   const play = (song: Song) => {
     triggerHaptic('selection');

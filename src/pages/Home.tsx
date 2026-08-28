@@ -15,6 +15,8 @@ import MadeForYouSection from '@/components/MadeForYouSection';
 import AllSongsSection from '@/components/AllSongsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
 import OnThisDaySection from '@/components/OnThisDaySection';
+import RecentlyPlayedSection from '@/components/RecentlyPlayedSection';
+import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import FreshReleasesSection from '@/components/FreshReleasesSection';
 import BottomNav from '@/components/BottomNav';
 import QueueDrawer from '@/components/QueueDrawer';
@@ -411,6 +413,11 @@ const Home = () => {
                 </section>
               )}
 
+              {/* ── RECENTLY PLAYED — real device history ── */}
+              <div className="px-6 mt-11">
+                <RecentlyPlayedSection />
+              </div>
+
               {/* ── ON THIS DAY — real personal memory, hidden when absent ── */}
               <div className="px-6 mt-11">
                 <OnThisDaySection />
@@ -430,6 +437,7 @@ const Home = () => {
                     {rail === 'mix' && <MadeForYouSection />}
                   </motion.div>
                 ))}
+                <FeaturedArtistsSection songs={allSongs} circle />
               </div>
             </>
           )}
