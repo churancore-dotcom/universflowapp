@@ -162,11 +162,10 @@ const ReviewModal = ({ isOpen, onClose, onSubmitted }: Props) => {
                   className="w-full px-4 py-3 rounded-xl bg-muted/40 border border-border/50 text-sm focus:outline-none focus:border-primary/60 resize-none"
                 />
 
-                <button
+<button
                   onClick={handleSubmit}
                   disabled={saving || rating === 0}
-                  className="w-full h-12 mt-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50"
-                  style={{ background: 'linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 70%, var(--background)))', color: 'var(--primary-foreground)' }}
+                  className="w-full h-12 mt-4 rounded-2xl font-semibold text-sm flex items-center justify-center gap-2 disabled:opacity-50 bg-gradient-to-br from-primary to-primary/70 text-primary-foreground"
                 >
                   {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Post Review'}
                 </button>
