@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { X, Share2, Loader2, Crown, ChevronRight } from 'lucide-react';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePremium } from '@/hooks/usePremium';
@@ -142,7 +143,7 @@ const RecapModal = ({ isOpen, onClose, window: recapWindow = 'month' }: Props) =
     }
   };
 
-  return (
+  const overlay = (
     <AnimatePresence>
       {isOpen && (
         <motion.div
@@ -183,7 +184,7 @@ const RecapModal = ({ isOpen, onClose, window: recapWindow = 'month' }: Props) =
             <div
               ref={trackRef}
               onScroll={onScroll}
-              className="flex-1 flex overflow-x-auto snap-x snap-mandatory hide-scrollbar"
+              className="flex-1 min-h-0 flex overflow-x-auto overflow-y-hidden snap-x snap-mandatory hide-scrollbar"
             >
               {slides.map((slide) => (
                 <div key={slide.key} className="w-full shrink-0 snap-center px-6 pb-10">
@@ -191,7 +192,7 @@ const RecapModal = ({ isOpen, onClose, window: recapWindow = 'month' }: Props) =
                     className="relative w-full h-full rounded-[28px] overflow-hidden border border-border/50 flex flex-col justify-end p-6"
                     style={{
                       background:
-                        'linear-gradient(160deg, color-mix(in oklab, var(--primary) 26%, transparent), color-mix(in oklab, var(--primary) 6%, transparent))',
+                        'linear-gradient(160deg, hsl(var(--primary) / 0.28), hsl(var(--card)))',
                     }}
                   >
                     {slide.cover && (
@@ -232,6 +233,11 @@ const RecapModal = ({ isOpen, onClose, window: recapWindow = 'month' }: Props) =
       )}
     </AnimatePresence>
   );
+
+  // Rendered into <body>: Profile's animated containers create a transform
+  // context, which would otherwise trap this `fixed` overlay inside the page.
+  if (typeof document === 'undefined') return null;
+  return createPortal(overlay, document.body);
 };
 
 export default RecapModal;
