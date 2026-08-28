@@ -113,7 +113,7 @@ const ReviewModal = ({ isOpen, onClose, onSubmitted }: Props) => {
                 animate={{ scale: 1, opacity: 1 }}
                 className="text-center py-8"
               >
-                <div className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-3" style={{ background: 'linear-gradient(135deg, var(--primary), color-mix(in oklab, var(--primary) 70%, var(--background)))' }}>
+<div className="inline-flex w-16 h-16 rounded-full items-center justify-center mb-3 bg-gradient-to-br from-primary to-primary/70">
                   <Heart className="w-8 h-8 text-primary-foreground fill-current" />
                 </div>
                 <h3 className="font-display text-[26px] font-black uppercase leading-none">Thank you, {displayName.split(' ')[0]}!</h3>
