@@ -15,6 +15,8 @@ import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
 import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { prewarmSongs } from '@/lib/instantPlay';
+
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -2004,6 +2006,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
         }, 7000);
         reapplyNativeEqSoon();
+        // LOOKAHEAD: warm the next few queue items on-device so the *next* tap
+        // (or auto-advance) hits the resolver cache instead of the network.
+        prewarmSongs(songQueue.slice(index + 1, index + 4), 3);
+
       } catch (err) {
         console.warn('[player/native] failed', (err as Error)?.message);
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;

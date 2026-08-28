@@ -103,8 +103,9 @@ export function prewarmSongs(songs?: Array<WarmableSong | null | undefined> | nu
   // renders several rails at once, so warms are spaced generously and the
   // resolver's own low-priority queue absorbs the rest.
   batch.forEach((song, i) => {
-    window.setTimeout(() => prewarmSong(song), 300 + i * 450);
+    window.setTimeout(() => prewarmSong(song), 60 + i * 180);
   });
+
 }
 
 /** Spread onto any tappable song element to warm on finger-down. */
