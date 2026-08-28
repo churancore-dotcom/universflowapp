@@ -14,8 +14,6 @@ import { getHomeRailOrder, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 import MadeForYouSection from '@/components/MadeForYouSection';
 import AllSongsSection from '@/components/AllSongsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
-import OnThisDaySection from '@/components/OnThisDaySection';
-import RecentlyPlayedSection from '@/components/RecentlyPlayedSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import FreshReleasesSection from '@/components/FreshReleasesSection';
 import BottomNav from '@/components/BottomNav';
