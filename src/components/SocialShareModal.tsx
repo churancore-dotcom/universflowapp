@@ -5,6 +5,7 @@ import { Song } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
 import { iosSpring, iosBounce } from '@/lib/animations';
 import { drawUniversFlowWatermark } from '@/lib/shareWatermark';
+import { saveImageToDevice, shareImage } from '@/lib/nativeShare';
 
 // Social platform icons as SVG components
 const InstagramIcon = () => (
@@ -433,21 +434,21 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
       icon: InstagramIcon, 
       action: shareToInstagram,
       gradient: 'from-purple-500 via-pink-500 to-orange-500',
-      description: 'Download card & copy link'
+      description: 'Share card'
     },
     { 
       name: 'WhatsApp', 
       icon: WhatsAppIcon, 
       action: shareToWhatsApp,
       gradient: 'from-green-500 to-green-600',
-      description: 'Share with contacts'
+      description: 'Send card'
     },
     { 
       name: 'Twitter', 
       icon: TwitterIcon, 
       action: shareToTwitter,
       gradient: 'from-gray-800 to-black',
-      description: 'Tweet this song'
+      description: 'Post card'
     },
   ];
 
@@ -550,7 +551,7 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
                     transition={iosBounce}
                   >
                     <Download className="w-5 h-5" />
-                    Download
+                    Save Card
                   </motion.button>
                   
                   <motion.button
