@@ -191,7 +191,7 @@ const RecapModal = ({ isOpen, onClose, window: recapWindow = 'month' }: Props) =
                     className="relative w-full h-full rounded-[28px] overflow-hidden border border-border/50 flex flex-col justify-end p-6"
                     style={{
                       background:
-                        'linear-gradient(160deg, color-mix(in oklab, var(--primary) 26%, transparent), color-mix(in oklab, var(--primary) 6%, transparent))',
+                        'linear-gradient(160deg, hsl(var(--primary) / 0.28), hsl(var(--card)))',
                     }}
                   >
                     {slide.cover && (
