@@ -447,6 +447,19 @@ object NativeYouTubeResolver {
             })
         } else null
 
+        // WEB — only usable with a proof-of-origin token, which is why it was
+        // absent until now. With a valid poToken it is the one client that
+        // reliably returns non-SABR, non-throttled adaptive audio (yt-dlp's
+        // `web` + po_token path), so it is raced first whenever a token exists.
+        val webPo = if (po != null && visitor != null) JSONObject().apply {
+            put("client", JSONObject().apply {
+                put("clientName", "WEB")
+                put("clientVersion", "2.20250219.01.00")
+                put("visitorData", visitor)
+                put("hl", "en"); put("gl", "US")
+            })
+        } else null
+
         // clientId 28 = ANDROID_VR in YouTube's INNERTUBE_CONTEXT_CLIENT_NAME
         // enum. Sending the wrong numeric id makes the edge distrust the client
         // and reply with SABR-only / 403-prone URLs.
@@ -459,6 +472,16 @@ object NativeYouTubeResolver {
                     useAuth = true,
                 )
             },
+            webPo?.let {
+                ClientCtx(
+                    "WEB_PO", "1", "2.20250219.01.00", it,
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                    needsSts = true,
+                    poToken = po,
+                )
+            },
+
             ClientCtx("ANDROID_VR_1_43", "28", "1.43.32", vr143,
                 "com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12L; GB) gzip"),
             ClientCtx("ANDROID_VR", "28", "1.61.48", vr161,
