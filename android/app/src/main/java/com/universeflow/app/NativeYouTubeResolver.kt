@@ -172,8 +172,12 @@ object NativeYouTubeResolver {
             if (visitorData == null) {
                 try { fetchVisitorData() } catch (_: Throwable) {}
             }
+            // Mint a proof-of-origin token in the background so the WEB client
+            // is available by the time the user taps play.
+            try { WebViewPoTokenProvider.prewarm(visitorData) } catch (_: Throwable) {}
             // Compile player.js now so the FIRST tap doesn't pay for it.
             try { PlayerJsManager.prewarm() } catch (_: Throwable) {}
+
 
         }.start()
     }
