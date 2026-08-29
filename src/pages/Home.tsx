@@ -12,6 +12,8 @@ import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import { getHomeRailOrder, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import MadeForYouSection from '@/components/MadeForYouSection';
+import MoodQuestsSection from '@/components/MoodQuestsSection';
+
 import AllSongsSection from '@/components/AllSongsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
