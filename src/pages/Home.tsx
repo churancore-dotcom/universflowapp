@@ -12,6 +12,8 @@ import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
 import { getHomeRailOrder, type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import MadeForYouSection from '@/components/MadeForYouSection';
+import MoodQuestsSection from '@/components/MoodQuestsSection';
+
 import AllSongsSection from '@/components/AllSongsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
@@ -416,7 +418,9 @@ const Home = () => {
 
               {/* ── SHELVES — three, max ── */}
               <div className="px-6 mt-11 space-y-11 pb-24">
+                <MoodQuestsSection />
                 {railOrder.map((rail, railIdx) => (
+
                   <motion.div
                     key={rail}
                     initial={{ opacity: 0, y: 16 }}
