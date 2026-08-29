@@ -105,8 +105,10 @@ object NativeYouTubeResolver {
     fun attach(ctx: android.content.Context) {
         if (appContext == null) {
             appContext = ctx.applicationContext
+            try { WebViewPoTokenProvider.attach(ctx) } catch (_: Throwable) { /* optional */ }
             try {
                 val prefs = ctx.applicationContext.getSharedPreferences(VISITOR_PREFS, android.content.Context.MODE_PRIVATE)
+
                 val v = prefs.getString(VISITOR_KEY, null)
                 val ts = prefs.getLong(VISITOR_TS_KEY, 0L)
                 if (!v.isNullOrBlank() && System.currentTimeMillis() - ts < VISITOR_MAX_AGE_MS) {
