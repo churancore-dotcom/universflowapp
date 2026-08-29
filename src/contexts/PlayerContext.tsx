@@ -611,10 +611,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
-  const clearNativeFadeTransition = useCallback((restoreVolume = true) => {
+  const clearNativeFadeTransition = useCallback((restoreVolume = true, opts?: { keepRamp?: boolean }) => {
     if (nativeFadeTimerRef.current != null) {
       window.clearInterval(nativeFadeTimerRef.current);
       nativeFadeTimerRef.current = null;
+    }
+    // A running fade-IN on the incoming track must survive the very
+    // mediaItemTransition that our own crossfade triggered — otherwise the new
+    // song slams in at full volume and the transition is not a crossfade.
+    if (opts?.keepRamp && nativeFadeUpTimerRef.current != null) {
+      nativeFadeSeqRef.current = -1;
+      return;
     }
     if (nativeFadeUpTimerRef.current != null) {
       window.clearInterval(nativeFadeUpTimerRef.current);
@@ -659,10 +666,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return;
         }
         nativeFadeAdvancedAtRef.current = Date.now();
-        try { nextSongFnRef.current?.(); } catch { /* ignore */ }
-        // Ramp back up on the incoming track.
+        // Start the fade-IN ramp BEFORE asking for the next track, so the
+        // incoming track can never be audible at full volume for a frame.
         let up = 0;
-        const upSteps = 10;
+        const upSteps = 14;
+        void ExoPlayerPlugin.setVolume({ volume: 0 }).catch(() => undefined);
         nativeFadeUpTimerRef.current = window.setInterval(() => {
           up++;
           const g = Math.min(1, up / upSteps);
@@ -670,11 +678,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (up >= upSteps && nativeFadeUpTimerRef.current != null) {
             window.clearInterval(nativeFadeUpTimerRef.current);
             nativeFadeUpTimerRef.current = null;
+            void ExoPlayerPlugin.setVolume({ volume: volumeRef.current }).catch(() => undefined);
           }
-        }, 60);
+        }, 55);
+        try { nextSongFnRef.current?.(); } catch { /* ignore */ }
       }
     }, stepMs);
   }, [clearNativeFadeTransition, curveGain]);
+
 
   useEffect(() => () => clearNativeFadeTransition(false), [clearNativeFadeTransition]);
 
