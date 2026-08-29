@@ -63,7 +63,10 @@ object NativeYouTubeResolver {
         val needsSts: Boolean = false,
         /** Send the connected account's OAuth bearer token with this request. */
         val useAuth: Boolean = false,
+        /** Proof-of-origin token; required by the WEB family of clients. */
+        val poToken: String? = null,
     )
+
 
 
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
