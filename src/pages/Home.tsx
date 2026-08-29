@@ -418,7 +418,9 @@ const Home = () => {
 
               {/* ── SHELVES — three, max ── */}
               <div className="px-6 mt-11 space-y-11 pb-24">
+                <MoodQuestsSection />
                 {railOrder.map((rail, railIdx) => (
+
                   <motion.div
                     key={rail}
                     initial={{ opacity: 0, y: 16 }}
