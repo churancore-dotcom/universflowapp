@@ -578,14 +578,25 @@ object NativeYouTubeResolver {
                 return null
             }
             val streamingData = json.optJSONObject("streamingData") ?: return null
+
+            // googlevideo also wants the token on the media request itself
+            // (`pot=`) for poToken-bound clients; without it the URL 403s even
+            // though the player call succeeded.
+            fun withPot(p: Pair<String, Int>): Pair<String, Int> {
+                val token = ctx.poToken ?: return p
+                if (p.first.contains("pot=")) return p
+                val sep = if (p.first.contains("?")) "&" else "?"
+                return (p.first + sep + "pot=" + java.net.URLEncoder.encode(token, "UTF-8")) to p.second
+            }
+
             val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
             // Adaptive audio first. The HEAD probe is only worth its round-trip
             // for URLs we had to decipher — a wrong signature is silent and the
             // probe is the only way to catch it. Plain `url=` formats from the
             // mobile clients are served as-is, so probing them just added
             // ~150-400ms of dead air to every single play. Skip it there.
-            pickBestAudio(adaptive, ctx.name)?.let {
-                val needsProbe = it.first.contains("&sig=") || it.first.contains("&signature=")
+            pickBestAudio(adaptive, ctx.name)?.let(::withPot)?.let {
+                val needsProbe = it.first.contains("&sig=") || it.first.contains("&signature=") || ctx.poToken != null
                 if (!needsProbe || validate(it.first, ctx.userAgent)) return it
                 Log.d(TAG, "adaptive URL rejected by CDN for ${ctx.name}")
             }
@@ -594,12 +605,13 @@ object NativeYouTubeResolver {
             // than silence when YouTube ships SABR-only adaptive for this edge.
             // ExoPlayer will demux the audio track from the muxed stream.
             val progressive = streamingData.optJSONArray("formats") ?: JSONArray()
-            pickBestAudio(progressive, ctx.name)?.let { return it }
+            pickBestAudio(progressive, ctx.name)?.let { return withPot(it) }
             for (i in 0 until progressive.length()) {
                 val f = progressive.optJSONObject(i) ?: continue
                 val url = resolveFormatUrl(f) ?: continue
-                return url to f.optInt("itag", 0)
+                return withPot(url to f.optInt("itag", 0))
             }
+
 
             if (streamingData.has("serverAbrStreamingUrl")) {
                 val sabrUrl = streamingData.optString("serverAbrStreamingUrl", "")
