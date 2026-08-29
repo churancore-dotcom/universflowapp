@@ -63,7 +63,10 @@ object NativeYouTubeResolver {
         val needsSts: Boolean = false,
         /** Send the connected account's OAuth bearer token with this request. */
         val useAuth: Boolean = false,
+        /** Proof-of-origin token; required by the WEB family of clients. */
+        val poToken: String? = null,
     )
+
 
 
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
@@ -102,8 +105,10 @@ object NativeYouTubeResolver {
     fun attach(ctx: android.content.Context) {
         if (appContext == null) {
             appContext = ctx.applicationContext
+            try { WebViewPoTokenProvider.attach(ctx) } catch (_: Throwable) { /* optional */ }
             try {
                 val prefs = ctx.applicationContext.getSharedPreferences(VISITOR_PREFS, android.content.Context.MODE_PRIVATE)
+
                 val v = prefs.getString(VISITOR_KEY, null)
                 val ts = prefs.getLong(VISITOR_TS_KEY, 0L)
                 if (!v.isNullOrBlank() && System.currentTimeMillis() - ts < VISITOR_MAX_AGE_MS) {
@@ -167,8 +172,12 @@ object NativeYouTubeResolver {
             if (visitorData == null) {
                 try { fetchVisitorData() } catch (_: Throwable) {}
             }
+            // Mint a proof-of-origin token in the background so the WEB client
+            // is available by the time the user taps play.
+            try { WebViewPoTokenProvider.prewarm(visitorData) } catch (_: Throwable) {}
             // Compile player.js now so the FIRST tap doesn't pay for it.
             try { PlayerJsManager.prewarm() } catch (_: Throwable) {}
+
 
         }.start()
     }
@@ -344,6 +353,11 @@ object NativeYouTubeResolver {
     // No GPL source is reproduced; only public spec values.
     private fun buildClients(): List<ClientCtx> {
         val visitor = visitorData  // may be null on first call; that's fine
+        // Non-null only once BotGuard has produced a token for this session.
+        val po = try {
+            YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, "")
+        } catch (_: Throwable) { null }
+
 
         fun ctxJson(client: JSONObject): JSONObject = JSONObject().apply {
             if (visitor != null) client.put("visitorData", visitor)
