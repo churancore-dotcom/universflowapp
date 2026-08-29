@@ -521,6 +521,12 @@ object NativeYouTubeResolver {
             put("videoId", videoId)
             put("contentCheckOk", true)
             put("racyCheckOk", true)
+            // Proof-of-origin attestation. YouTube reads it from here for the
+            // WEB family; sending it without a matching visitorData is worse
+            // than sending nothing, which is why buildClients pairs them.
+            ctx.poToken?.let { token ->
+                put("serviceIntegrityDimensions", JSONObject().apply { put("poToken", token) })
+            }
             put("playbackContext", JSONObject().apply {
                 put("contentPlaybackContext", JSONObject().apply {
                     put("html5Preference", "HTML5_PREF_WANTS")
@@ -528,6 +534,7 @@ object NativeYouTubeResolver {
                 })
             })
         }.toString()
+
 
         val reqBuilder = Request.Builder()
             .url(ENDPOINT)
