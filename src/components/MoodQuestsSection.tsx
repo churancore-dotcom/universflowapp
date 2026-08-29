@@ -65,7 +65,7 @@ const MoodQuestsSection = memo(() => {
     void version;
     void currentSong?.id;
     const recents = readLocalRecent(user?.id ?? null);
-    return recents.map((r) => `${r.title ?? ''} ${r.artist ?? ''}`.toLowerCase());
+    return recents.map((r) => `${r.song?.title ?? ''} ${r.song?.artist ?? ''}`.toLowerCase());
   }, [user?.id, version, currentSong?.id]);
 
   const ranked = useMemo(() => {
@@ -77,7 +77,7 @@ const MoodQuestsSection = memo(() => {
 
   const start = useCallback(
     async (quest: Quest) => {
-      triggerHaptic('medium');
+      triggerHaptic('impactMedium');
       setLoadingId(quest.id);
       try {
         const tracks = await searchYouTubeMusicTracks(`${quest.query}`, 30, feedRotationSalt());
