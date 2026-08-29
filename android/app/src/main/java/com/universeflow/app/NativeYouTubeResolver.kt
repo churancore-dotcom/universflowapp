@@ -447,6 +447,19 @@ object NativeYouTubeResolver {
             })
         } else null
 
+        // WEB — only usable with a proof-of-origin token, which is why it was
+        // absent until now. With a valid poToken it is the one client that
+        // reliably returns non-SABR, non-throttled adaptive audio (yt-dlp's
+        // `web` + po_token path), so it is raced first whenever a token exists.
+        val webPo = if (po != null && visitor != null) JSONObject().apply {
+            put("client", JSONObject().apply {
+                put("clientName", "WEB")
+                put("clientVersion", "2.20250219.01.00")
+                put("visitorData", visitor)
+                put("hl", "en"); put("gl", "US")
+            })
+        } else null
+
         // clientId 28 = ANDROID_VR in YouTube's INNERTUBE_CONTEXT_CLIENT_NAME
         // enum. Sending the wrong numeric id makes the edge distrust the client
         // and reply with SABR-only / 403-prone URLs.
@@ -459,6 +472,16 @@ object NativeYouTubeResolver {
                     useAuth = true,
                 )
             },
+            webPo?.let {
+                ClientCtx(
+                    "WEB_PO", "1", "2.20250219.01.00", it,
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                        "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                    needsSts = true,
+                    poToken = po,
+                )
+            },
+
             ClientCtx("ANDROID_VR_1_43", "28", "1.43.32", vr143,
                 "com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12L; GB) gzip"),
             ClientCtx("ANDROID_VR", "28", "1.61.48", vr161,
@@ -498,6 +521,12 @@ object NativeYouTubeResolver {
             put("videoId", videoId)
             put("contentCheckOk", true)
             put("racyCheckOk", true)
+            // Proof-of-origin attestation. YouTube reads it from here for the
+            // WEB family; sending it without a matching visitorData is worse
+            // than sending nothing, which is why buildClients pairs them.
+            ctx.poToken?.let { token ->
+                put("serviceIntegrityDimensions", JSONObject().apply { put("poToken", token) })
+            }
             put("playbackContext", JSONObject().apply {
                 put("contentPlaybackContext", JSONObject().apply {
                     put("html5Preference", "HTML5_PREF_WANTS")
@@ -505,6 +534,7 @@ object NativeYouTubeResolver {
                 })
             })
         }.toString()
+
 
         val reqBuilder = Request.Builder()
             .url(ENDPOINT)
@@ -548,14 +578,25 @@ object NativeYouTubeResolver {
                 return null
             }
             val streamingData = json.optJSONObject("streamingData") ?: return null
+
+            // googlevideo also wants the token on the media request itself
+            // (`pot=`) for poToken-bound clients; without it the URL 403s even
+            // though the player call succeeded.
+            fun withPot(p: Pair<String, Int>): Pair<String, Int> {
+                val token = ctx.poToken ?: return p
+                if (p.first.contains("pot=")) return p
+                val sep = if (p.first.contains("?")) "&" else "?"
+                return (p.first + sep + "pot=" + java.net.URLEncoder.encode(token, "UTF-8")) to p.second
+            }
+
             val adaptive = streamingData.optJSONArray("adaptiveFormats") ?: JSONArray()
             // Adaptive audio first. The HEAD probe is only worth its round-trip
             // for URLs we had to decipher — a wrong signature is silent and the
             // probe is the only way to catch it. Plain `url=` formats from the
             // mobile clients are served as-is, so probing them just added
             // ~150-400ms of dead air to every single play. Skip it there.
-            pickBestAudio(adaptive, ctx.name)?.let {
-                val needsProbe = it.first.contains("&sig=") || it.first.contains("&signature=")
+            pickBestAudio(adaptive, ctx.name)?.let(::withPot)?.let {
+                val needsProbe = it.first.contains("&sig=") || it.first.contains("&signature=") || ctx.poToken != null
                 if (!needsProbe || validate(it.first, ctx.userAgent)) return it
                 Log.d(TAG, "adaptive URL rejected by CDN for ${ctx.name}")
             }
@@ -564,12 +605,13 @@ object NativeYouTubeResolver {
             // than silence when YouTube ships SABR-only adaptive for this edge.
             // ExoPlayer will demux the audio track from the muxed stream.
             val progressive = streamingData.optJSONArray("formats") ?: JSONArray()
-            pickBestAudio(progressive, ctx.name)?.let { return it }
+            pickBestAudio(progressive, ctx.name)?.let { return withPot(it) }
             for (i in 0 until progressive.length()) {
                 val f = progressive.optJSONObject(i) ?: continue
                 val url = resolveFormatUrl(f) ?: continue
-                return url to f.optInt("itag", 0)
+                return withPot(url to f.optInt("itag", 0))
             }
+
 
             if (streamingData.has("serverAbrStreamingUrl")) {
                 val sabrUrl = streamingData.optString("serverAbrStreamingUrl", "")
