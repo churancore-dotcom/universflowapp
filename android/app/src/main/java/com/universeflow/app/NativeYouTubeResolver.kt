@@ -353,6 +353,11 @@ object NativeYouTubeResolver {
     // No GPL source is reproduced; only public spec values.
     private fun buildClients(): List<ClientCtx> {
         val visitor = visitorData  // may be null on first call; that's fine
+        // Non-null only once BotGuard has produced a token for this session.
+        val po = try {
+            YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, "")
+        } catch (_: Throwable) { null }
+
 
         fun ctxJson(client: JSONObject): JSONObject = JSONObject().apply {
             if (visitor != null) client.put("visitorData", visitor)
