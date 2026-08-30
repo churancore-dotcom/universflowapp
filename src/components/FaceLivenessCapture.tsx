@@ -417,7 +417,10 @@ export default function FaceLivenessCapture({
         <div>
           <p className="text-[14px] font-semibold">Live face check</p>
           <p className="text-[12px] text-muted-foreground mt-1 leading-relaxed">
-            We'll ask you to blink twice, then smile. This confirms you're a real person — a photo of a photo can't pass.
+            We need camera access to verify your identity as an artist. We'll ask you to blink twice, then smile — this confirms you're a real person, and a photo of a photo can't pass.
+          </p>
+          <p className="text-[11px] text-muted-foreground/80 leading-relaxed">
+            Your phone will ask for camera permission when you start. The video stays on your device; only one photo is uploaded for review.
           </p>
         </div>
         <button
