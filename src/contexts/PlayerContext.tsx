@@ -3485,7 +3485,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // transport commands until it completes instead of starting a hidden song
     // underneath the full-screen ad.
     if (showPrerollAd) return;
-    clearNativeFadeTransition(!options?.fromNativeFade);
+    // Our own crossfade already dropped the volume to 0 and started the
+    // fade-IN ramp before calling us. Clearing that ramp here would leave the
+    // incoming track permanently silent, so keep it alive on this path.
+    const fromNativeFade = options?.fromNativeFade === true;
+    clearNativeFadeTransition(!fromNativeFade, { keepRamp: fromNativeFade });
+    if (fromNativeFade && isNativePlayerAvailable() && nativeFadeUpTimerRef.current == null) {
+      // Ramp already finished (or never started) — never hand the next track a
+      // muted player.
+      void ExoPlayerPlugin.setVolume({ volume: volumeRef.current }).catch(() => undefined);
+    }
 
     // Negative taste signal: a manual skip inside the first 15s means "not for
     // me". Without this the feed only ever learned from plays, so it drifted
