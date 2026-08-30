@@ -45,7 +45,31 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email ?? '').trim().toLowerCase();
-    const redirectTo = String(body?.redirectTo ?? 'https://universflow.in/reset-password');
+    // Never trust a caller-supplied redirect: a recovery token lands on that
+    // URL, so an open redirect here leaks account takeover. Allowlist only.
+    const DEFAULT_REDIRECT = 'https://universflow.in/reset-password';
+    const ALLOWED_REDIRECT_HOSTS = [
+      'universflow.in', 'www.universflow.in',
+      'universflow.cyou', 'www.universflow.cyou',
+      'universflowapp.lovable.app',
+      'localhost',
+    ];
+    const safeRedirect = (value: unknown): string => {
+      if (typeof value !== 'string' || !value) return DEFAULT_REDIRECT;
+      try {
+        const u = new URL(value);
+        if (u.protocol !== 'https:' && !(u.protocol === 'http:' && u.hostname === 'localhost')) {
+          return DEFAULT_REDIRECT;
+        }
+        if (!ALLOWED_REDIRECT_HOSTS.includes(u.hostname.toLowerCase())) return DEFAULT_REDIRECT;
+        if (u.pathname !== '/reset-password') return DEFAULT_REDIRECT;
+        return `${u.origin}/reset-password`;
+      } catch {
+        return DEFAULT_REDIRECT;
+      }
+    };
+    const redirectTo = safeRedirect(body?.redirectTo);
+
 
     if (!isEmail(email)) {
       return new Response(JSON.stringify({ error: 'Invalid email' }), {
