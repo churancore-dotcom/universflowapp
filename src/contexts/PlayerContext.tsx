@@ -2550,15 +2550,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             getRuntimePremium() &&
             isAutoplayEnabled() &&
             queueRef.current.length > 1 &&
-            durSec > 5
+            durSec > 5 &&
+            nativeFadeTimerRef.current == null
           ) {
             const timeLeft = durSec - posSec;
-            const trigger = crossfadeRef.current ? 0.2 : 0.05;
+            const trigger = crossfadeRef.current ? 0.5 : 0.05;
             if (timeLeft > trigger && timeLeft <= nativeTransition && nativeFadeSeqRef.current !== playRequestSeqRef.current) {
+              // Finish the fade with a safety margin before the natural end of
+              // the track. Without it ExoPlayer's own auto-advance and our
+              // hand-over race each other, which is what made crossfade skip a
+              // track or drop into silence.
+              const usable = Math.max(0.3, Math.min(nativeTransition, timeLeft - 0.4));
               nativeFadeSeqRef.current = playRequestSeqRef.current;
-              startNativeFadeTransition(Math.min(nativeTransition, timeLeft));
+              startNativeFadeTransition(usable);
             }
           }
+
         });
 
         const s = await ExoPlayerPlugin.addListener('playbackStateChange', (d) => {
