@@ -2587,8 +2587,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             clearNativeStartupTimer();
             setIsPlaying(true);
             wasPlayingRef.current = true;
+            // Safety: an interrupted crossfade must never leave the player
+            // stuck at a faded-out volume (the "audio goes silent" report).
+            if (nativeFadeTimerRef.current == null && nativeFadeUpTimerRef.current == null) {
+              void ExoPlayerPlugin.setVolume({ volume: volumeRef.current }).catch(() => undefined);
+            }
             reapplyNativeEqSoon();
           }
+
           else if (data.state === 'buffering') {
             if (nativeUserPausedRef.current) return;
             setIsPlaying(true);
