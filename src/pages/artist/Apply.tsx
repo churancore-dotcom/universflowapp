@@ -116,9 +116,22 @@ function FilePicker({
           aria-label={label}
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null;
-            onPick(f);
             e.target.value = '';
+            if (!f) { onPick(null); return; }
+            // Client-side gate: only real raster images, max 10 MB.
+            // (Server-side limits are enforced on the storage bucket too.)
+            const ALLOWED = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif'];
+            if (!ALLOWED.includes(f.type.toLowerCase())) {
+              toast.error('Unsupported file type', { description: 'Please pick a JPG, PNG or WebP image.' });
+              return;
+            }
+            if (f.size > 10 * 1024 * 1024) {
+              toast.error('Image too large', { description: 'Please pick an image under 10 MB.' });
+              return;
+            }
+            onPick(f);
           }}
+
         />
       </label>
     </div>
