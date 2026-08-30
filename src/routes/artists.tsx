@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import AllArtists from "@/pages/AllArtists";
-import { ListenerRoute } from "@/lib/route-guards";
 import { routeSeo } from "@/lib/routeSeo";
 
 export const Route = createFileRoute("/artists")({
