@@ -9,7 +9,7 @@ import { resume as resumeAudioEngine } from '@/lib/audioEngine';
 import { EQ_SETTINGS_KEY, getEQSettings, hasWebAudioEffects, isEqActive } from '@/lib/eqSettings';
 import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { signStorageAudioUrl } from '@/lib/storageAudio';
-import { getRuntimePremium } from '@/lib/premiumState';
+import { getRuntimePremium, subscribeRuntimePremium } from '@/lib/premiumState';
 import { noteSongCompleted, primeAdEngine } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
@@ -1087,28 +1087,31 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   useEffect(() => {
+    // Premium entitlement resolves asynchronously AFTER cold boot. Never write
+    // the user's stored preference here — doing so used to erase Crossfade /
+    // Gapless Pro on every app launch, which is why "settings never stick".
+    // We only gate the in-memory (audible) state; localStorage stays the
+    // user's choice forever until they change it in Settings.
     const syncPremiumAudioTransitions = (premium = getRuntimePremium()) => {
-      if (!premium) {
-        setCrossfade(false);
-        setGaplessPro(false);
-        try {
-          localStorage.setItem('uf_crossfade', 'false');
-          localStorage.setItem('uf_gapless_pro', 'false');
-        } catch { /* noop */ }
-        return;
-      }
       try {
-        setCrossfade(localStorage.getItem('uf_crossfade') === 'true');
-        setGaplessPro(localStorage.getItem('uf_gapless_pro') === 'true');
+        const storedCrossfade = localStorage.getItem('uf_crossfade') === 'true';
+        const storedGaplessPro = localStorage.getItem('uf_gapless_pro') === 'true';
+        setCrossfade(premium && storedCrossfade);
+        setGaplessPro(premium && storedGaplessPro);
       } catch { /* noop */ }
     };
-    if (getRuntimePremium()) syncPremiumAudioTransitions(true);
+    syncPremiumAudioTransitions();
     const onPremiumChanged = (event: Event) => {
       syncPremiumAudioTransitions(Boolean((event as CustomEvent<boolean>).detail));
     };
     window.addEventListener('uf-premium-changed', onPremiumChanged);
-    return () => window.removeEventListener('uf-premium-changed', onPremiumChanged);
+    const onSubscribe = subscribeRuntimePremium((value) => syncPremiumAudioTransitions(value));
+    return () => {
+      window.removeEventListener('uf-premium-changed', onPremiumChanged);
+      onSubscribe();
+    };
   }, []);
+
 
   // Wire the global EQ/audio engine to the live audio element. Persists across modal open/close.
   useGlobalAudioEngine(audioElement);
@@ -2550,15 +2553,22 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             getRuntimePremium() &&
             isAutoplayEnabled() &&
             queueRef.current.length > 1 &&
-            durSec > 5
+            durSec > 5 &&
+            nativeFadeTimerRef.current == null
           ) {
             const timeLeft = durSec - posSec;
-            const trigger = crossfadeRef.current ? 0.2 : 0.05;
+            const trigger = crossfadeRef.current ? 0.5 : 0.05;
             if (timeLeft > trigger && timeLeft <= nativeTransition && nativeFadeSeqRef.current !== playRequestSeqRef.current) {
+              // Finish the fade with a safety margin before the natural end of
+              // the track. Without it ExoPlayer's own auto-advance and our
+              // hand-over race each other, which is what made crossfade skip a
+              // track or drop into silence.
+              const usable = Math.max(0.3, Math.min(nativeTransition, timeLeft - 0.4));
               nativeFadeSeqRef.current = playRequestSeqRef.current;
-              startNativeFadeTransition(Math.min(nativeTransition, timeLeft));
+              startNativeFadeTransition(usable);
             }
           }
+
         });
 
         const s = await ExoPlayerPlugin.addListener('playbackStateChange', (d) => {
@@ -2577,8 +2587,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             clearNativeStartupTimer();
             setIsPlaying(true);
             wasPlayingRef.current = true;
+            // Safety: an interrupted crossfade must never leave the player
+            // stuck at a faded-out volume (the "audio goes silent" report).
+            if (nativeFadeTimerRef.current == null && nativeFadeUpTimerRef.current == null) {
+              void ExoPlayerPlugin.setVolume({ volume: volumeRef.current }).catch(() => undefined);
+            }
             reapplyNativeEqSoon();
           }
+
           else if (data.state === 'buffering') {
             if (nativeUserPausedRef.current) return;
             setIsPlaying(true);
@@ -2644,8 +2660,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
           const nextSong = q[nextIdx];
           if (!nextSong) return;
+          // If this transition is the one our own crossfade asked for, keep the
+          // fade-IN ramp running instead of slamming the incoming track to full
+          // volume.
+          const ownFadeHandover = Date.now() - nativeFadeAdvancedAtRef.current < 3000;
           nativeFadeAdvancedAtRef.current = 0;
-          clearNativeFadeTransition(true);
+          clearNativeFadeTransition(!ownFadeHandover, { keepRamp: ownFadeHandover });
+
           // Native queues advance inside ExoPlayer, bypassing the web `ended`
           // handler where ad cadence is normally counted. Pause immediately on
           // the transition and hand the same track to the ad completion flow.
