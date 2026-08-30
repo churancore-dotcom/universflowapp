@@ -1087,28 +1087,31 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   useEffect(() => {
+    // Premium entitlement resolves asynchronously AFTER cold boot. Never write
+    // the user's stored preference here — doing so used to erase Crossfade /
+    // Gapless Pro on every app launch, which is why "settings never stick".
+    // We only gate the in-memory (audible) state; localStorage stays the
+    // user's choice forever until they change it in Settings.
     const syncPremiumAudioTransitions = (premium = getRuntimePremium()) => {
-      if (!premium) {
-        setCrossfade(false);
-        setGaplessPro(false);
-        try {
-          localStorage.setItem('uf_crossfade', 'false');
-          localStorage.setItem('uf_gapless_pro', 'false');
-        } catch { /* noop */ }
-        return;
-      }
       try {
-        setCrossfade(localStorage.getItem('uf_crossfade') === 'true');
-        setGaplessPro(localStorage.getItem('uf_gapless_pro') === 'true');
+        const storedCrossfade = localStorage.getItem('uf_crossfade') === 'true';
+        const storedGaplessPro = localStorage.getItem('uf_gapless_pro') === 'true';
+        setCrossfade(premium && storedCrossfade);
+        setGaplessPro(premium && storedGaplessPro);
       } catch { /* noop */ }
     };
-    if (getRuntimePremium()) syncPremiumAudioTransitions(true);
+    syncPremiumAudioTransitions();
     const onPremiumChanged = (event: Event) => {
       syncPremiumAudioTransitions(Boolean((event as CustomEvent<boolean>).detail));
     };
     window.addEventListener('uf-premium-changed', onPremiumChanged);
-    return () => window.removeEventListener('uf-premium-changed', onPremiumChanged);
+    const onSubscribe = subscribeRuntimePremium((value) => syncPremiumAudioTransitions(value));
+    return () => {
+      window.removeEventListener('uf-premium-changed', onPremiumChanged);
+      onSubscribe();
+    };
   }, []);
+
 
   // Wire the global EQ/audio engine to the live audio element. Persists across modal open/close.
   useGlobalAudioEngine(audioElement);
