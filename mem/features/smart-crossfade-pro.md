@@ -9,3 +9,5 @@ type: feature
 - Settings UI: curve grid (4 buttons) + Gapless Pro switch under crossfade section; both gated with Crown icon for non-premium and navigate to /premium on tap.
 - Premium FEATURES entry: "Smart Crossfade + Gapless Pro".
 - Zero infra cost — runs entirely client-side using existing dual-audio-element setup.
+- Premium gating NEVER writes localStorage: entitlement resolves async after cold boot, so writing 'false' there erased the user's Crossfade/Gapless Pro choice on every launch. Only in-memory state is gated; stored prefs persist until the user changes them.
+- Android crossfade (single ExoPlayer, volume ramp) finishes ~0.4s BEFORE the natural track end to avoid racing ExoPlayer's own auto-advance (caused skipped track / silence). Fade-in ramp survives the mediaItemTransition it triggered (`clearNativeFadeTransition(false, { keepRamp: true })`), and any `playing` state with no fade running force-restores master volume.
