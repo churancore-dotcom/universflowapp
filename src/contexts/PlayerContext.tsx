@@ -2651,8 +2651,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
           const nextSong = q[nextIdx];
           if (!nextSong) return;
+          // If this transition is the one our own crossfade asked for, keep the
+          // fade-IN ramp running instead of slamming the incoming track to full
+          // volume.
+          const ownFadeHandover = Date.now() - nativeFadeAdvancedAtRef.current < 3000;
           nativeFadeAdvancedAtRef.current = 0;
-          clearNativeFadeTransition(true);
+          clearNativeFadeTransition(!ownFadeHandover, { keepRamp: ownFadeHandover });
+
           // Native queues advance inside ExoPlayer, bypassing the web `ended`
           // handler where ad cadence is normally counted. Pause immediately on
           // the transition and hand the same track to the ad completion flow.
