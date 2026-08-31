@@ -42,6 +42,35 @@ object MasterResolver {
     /** Sentinel pushed by a racer that finished without a usable stream. */
     private val MISS = Resolved("", "miss", 0L)
 
+    /**
+     * How long JioSaavn is held back so the on-device YouTube path (residential
+     * IP, so it actually succeeds on APK unlike the server) gets first shot.
+     */
+    private const val YT_HEAD_START_MS = 750L
+
+    /** Recent resolution outcomes — proof of which source really served audio. */
+    data class LogEntry(
+        val videoId: String?,
+        val label: String,
+        val winner: String,
+        val latencyMs: Long,
+        val ytFailure: String?,
+        val at: Long,
+    )
+
+    private val log = java.util.concurrent.ConcurrentLinkedDeque<LogEntry>()
+
+    fun recentLog(limit: Int = 25): List<LogEntry> = log.take(limit)
+
+    private fun record(
+        videoId: String?, label: String, winner: String, latencyMs: Long, ytFailure: String?,
+    ) {
+        log.addFirst(LogEntry(videoId, label, winner, latencyMs, ytFailure, System.currentTimeMillis()))
+        while (log.size > 50) log.pollLast()
+        Log.i(TAG, "resolved '$label' via $winner in ${latencyMs}ms" +
+            (ytFailure?.let { " (yt failure: $it)" } ?: ""))
+    }
+
     fun resolve(
         videoId: String?,
         title: String?,
@@ -60,24 +89,12 @@ object MasterResolver {
         val canSaavn = !title.isNullOrBlank() && !artist.isNullOrBlank()
         if (!canSaavn && !hasVideo) return null
 
-        val results = LinkedBlockingQueue<Resolved>()
-        var racers = 0
+        val label = listOfNotNull(title, artist).joinToString(" — ").ifBlank { videoId ?: "?" }
+        val startedAt = System.currentTimeMillis()
 
-        if (canSaavn) {
-            racers++
-            pool.execute {
-                val out = try {
-                    JioSaavnClient.searchAndResolve(title!!, artist!!)?.let { saavn ->
-                        Log.d(TAG, "JioSaavn hit for $title / $artist -> ${saavn.bitrateKbps}kbps")
-                        Resolved(saavn.url, "jiosaavn", saavn.expiresAt)
-                    }
-                } catch (t: Throwable) {
-                    Log.w(TAG, "JioSaavn lookup error: ${t.message}")
-                    null
-                }
-                results.offer(out ?: MISS)
-            }
-        }
+        // Tagged results so we can tell the two families apart while draining.
+        val results = LinkedBlockingQueue<Pair<String, Resolved>>()
+        var racers = 0
 
         if (hasVideo) {
             racers++
@@ -90,27 +107,73 @@ object MasterResolver {
                     Log.w(TAG, "InnerTube error: ${t.message}")
                     null
                 }
-                results.offer(out ?: MISS)
+                results.offer("yt" to (out ?: MISS))
             }
         }
 
-        // First genuine success wins; misses only shorten the wait.
-        val deadline = System.currentTimeMillis() + timeoutMs + 800L
+        if (canSaavn) {
+            racers++
+            pool.execute {
+                // Head start: only delay when YouTube is actually in the race.
+                if (hasVideo) {
+                    try { Thread.sleep(YT_HEAD_START_MS) } catch (_: InterruptedException) {}
+                    // YouTube may have already landed and cached during the wait.
+                    if (NativeYouTubeResolver.peek(videoId!!) != null) {
+                        results.offer("saavn" to MISS)
+                        return@execute
+                    }
+                }
+                val out = try {
+                    JioSaavnClient.searchAndResolve(title!!, artist!!)?.let { saavn ->
+                        Log.d(TAG, "JioSaavn hit for $title / $artist -> ${saavn.bitrateKbps}kbps")
+                        Resolved(saavn.url, "jiosaavn", saavn.expiresAt)
+                    }
+                } catch (t: Throwable) {
+                    Log.w(TAG, "JioSaavn lookup error: ${t.message}")
+                    null
+                }
+                results.offer("saavn" to (out ?: MISS))
+            }
+        }
+
+        fun win(r: Resolved, ytFailure: String?): Resolved {
+            if (hasVideo) {
+                try { NativeYouTubeResolver.putCached(videoId!!, r.url, r.source) }
+                catch (_: Throwable) {}
+            }
+            record(videoId, label, r.source, System.currentTimeMillis() - startedAt, ytFailure)
+            return r
+        }
+
+        // YouTube wins outright. A JioSaavn success is parked until YouTube has
+        // genuinely settled (hard failure) or the deadline passes — so we never
+        // downgrade the source just because JioSaavn answered faster.
+        val deadline = startedAt + timeoutMs + 800L
         var settled = 0
+        var parkedSaavn: Resolved? = null
+        var ytFailure: String? = null
+
         while (settled < racers) {
             val remaining = deadline - System.currentTimeMillis()
             if (remaining <= 0) break
             val next = results.poll(remaining, TimeUnit.MILLISECONDS) ?: break
             settled++
-            if (next === MISS || next.url.isBlank()) continue
-            // Seed the videoId cache so ExoPlayer's yt:// resolver and any queued
-            // prefetch reuse this URL instead of resolving the track again.
-            if (hasVideo) {
-                try { NativeYouTubeResolver.putCached(videoId!!, next.url, next.source) }
-                catch (_: Throwable) {}
+            val (who, res) = next
+            val ok = res !== MISS && res.url.isNotBlank()
+
+            if (who == "yt") {
+                if (ok) return win(res, null)
+                ytFailure = try { NativeYouTubeResolver.lastFailure(videoId!!) } catch (_: Throwable) { "UNKNOWN" }
+                // YouTube hard-failed: take JioSaavn now if it is already in hand.
+                parkedSaavn?.let { return win(it, ytFailure) }
+            } else if (ok) {
+                parkedSaavn = res
             }
-            return next
         }
+
+        // Deadline reached (or YouTube never answered) — use the parked fallback.
+        parkedSaavn?.let { return win(it, ytFailure ?: "TIMEOUT") }
+
 
         // Last-resort: stale cache within grace window.
         if (hasVideo) {

@@ -26,7 +26,29 @@ class InnerTubePlugin : Plugin() {
     // is the single biggest cause of "tap play, nothing happens" on age-gated
     // or region-locked tracks. Tokens live only in this app's private prefs.
 
+    /**
+     * Per-track resolution telemetry: which client actually served audio, how
+     * long it took and why YouTube lost when it did. Lets us prove on a real
+     * device that the native YouTube path is winning.
+     */
     @PluginMethod
+    fun resolveLog(call: PluginCall) {
+        val arr = com.getcapacitor.JSArray()
+        MasterResolver.recentLog(call.getInt("limit") ?: 25).forEach { e ->
+            arr.put(JSObject().apply {
+                put("videoId", e.videoId)
+                put("label", e.label)
+                put("winner", e.winner)
+                put("latencyMs", e.latencyMs)
+                put("ytFailure", e.ytFailure)
+                put("at", e.at)
+            })
+        }
+        call.resolve(JSObject().apply { put("entries", arr) })
+    }
+
+    @PluginMethod
+
     fun accountStatus(call: PluginCall) {
         call.resolve(JSObject().apply { put("connected", YouTubeAccount.isSignedIn()) })
     }
