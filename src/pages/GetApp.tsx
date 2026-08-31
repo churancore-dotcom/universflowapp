@@ -14,7 +14,6 @@ const SHOTS = [
   { src: "/screenshots/library.png", alt: "Your Library — liked songs" },
   { src: "/screenshots/playlist.png", alt: "Playlist detail screen" },
   { src: "/screenshots/downloads.png", alt: "Offline downloads screen" },
-  { src: "/screenshots/premium.png", alt: "Universflow Premium plans" },
   { src: "/screenshots/profile.png", alt: "Profile and listening stats" },
   { src: "/screenshots/settings.png", alt: "Playback and download settings" },
 ];
