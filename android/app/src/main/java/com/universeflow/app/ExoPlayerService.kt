@@ -194,13 +194,19 @@ class ExoPlayerService : MediaSessionService() {
                 if (exo.playWhenReady && playbackState == Player.STATE_BUFFERING) acquireLocks()
                 if (playbackState == Player.STATE_ENDED || playbackState == Player.STATE_IDLE) releaseLocks()
                 ensureEffectsBound(forceReapply = playbackState == Player.STATE_READY)
+                if (playbackState == Player.STATE_READY) refreshMediaNotification()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
                 if (isPlaying || (exo.playWhenReady && exo.playbackState == Player.STATE_BUFFERING)) acquireLocks() else releaseLocks()
                 ensureEffectsBound()
+                refreshMediaNotification()
             }
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 ensureEffectsBound()
+            }
+            override fun onMediaMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) {
+                // Title/artwork arrived — repaint the shade/lock-screen player.
+                refreshMediaNotification()
             }
             override fun onMediaItemTransition(
                 mediaItem: androidx.media3.common.MediaItem?,
@@ -210,8 +216,10 @@ class ExoPlayerService : MediaSessionService() {
                 // the ResolvingDataSource never blocks on the network at the
                 // moment of transition (gapless, instant next-track start).
                 preloadUpcoming(exo, 2)
+                refreshMediaNotification()
             }
         })
+
 
 
         val sessionActivity = packageManager.getLaunchIntentForPackage(packageName)?.let {
