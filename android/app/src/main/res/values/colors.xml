@@ -4,4 +4,8 @@
     <color name="colorPrimaryDark">#000000</color>
     <color name="colorAccent">#FF2D55</color>
     <color name="splash_background">#000000</color>
+    <!-- Adaptive launcher icon plate: full black so no white edges ever show
+         behind the logo, on any device mask (circle, squircle, rounded square). -->
+    <color name="ic_launcher_background">#000000</color>
+
 </resources>
