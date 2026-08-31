@@ -358,12 +358,33 @@ class ExoPlayerService : MediaSessionService() {
     }
 
     /**
+     * Force Media3 to (re)publish the MediaStyle notification for the current
+     * session. Without this, the plain "Preparing your music…" placeholder that
+     * promotes the service to the foreground can stay on screen for the whole
+     * session on devices where Media3's own update path does not fire, so the
+     * user gets no transport controls in the shade or on the lock screen.
+     * Posted to the main thread because notification updates must run there.
+     */
+    private fun refreshMediaNotification() {
+        val session = mediaSession ?: return
+        val post = Runnable {
+            try { onUpdateNotification(session, true) } catch (_: Throwable) {}
+        }
+        try {
+            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) post.run()
+            else android.os.Handler(android.os.Looper.getMainLooper()).post(post)
+        } catch (_: Throwable) {}
+    }
+
+    /**
      * Keep the media notification alive while paused so the user can resume
      * from the lock screen / shade instead of the player vanishing on pause.
      */
     override fun onUpdateNotification(session: MediaSession, startInForegroundRequired: Boolean) {
         super.onUpdateNotification(session, true)
     }
+
+
 
 
     /** (Re)bind AudioEffects to the current player's session id. */
