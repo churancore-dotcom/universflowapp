@@ -2,6 +2,7 @@ package com.universeflow.app
 
 import android.util.Log
 import java.util.concurrent.Executors
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
@@ -38,6 +39,14 @@ object MasterResolver {
     private val pool = Executors.newCachedThreadPool { r ->
         Thread(r, "uf-resolve").apply { isDaemon = true }
     }
+
+    /**
+     * Coalesce every request for the same track. Before this guard, a tap could
+     * start one race from playQueue(), another from ResolvingDataSource, and
+     * more from rail/queue prefetch. Those duplicate InnerTube + JioSaavn calls
+     * competed for the same sockets and made the foreground play slower.
+     */
+    private val inFlight = java.util.concurrent.ConcurrentHashMap<String, CompletableFuture<Resolved?>>()
 
     /** Sentinel pushed by a racer that finished without a usable stream. */
     private val MISS = Resolved("", "miss", 0L)
@@ -95,6 +104,39 @@ object MasterResolver {
 
         val canSaavn = !title.isNullOrBlank() && !artist.isNullOrBlank()
         if (!canSaavn && !hasVideo) return null
+
+        val key = videoId?.takeIf { it.length == 11 }
+            ?: "${title.orEmpty().trim().lowercase()}|${artist.orEmpty().trim().lowercase()}"
+        val mine = CompletableFuture<Resolved?>()
+        val existing = inFlight.putIfAbsent(key, mine)
+        if (existing != null) {
+            return try {
+                existing.get(timeoutMs + 1000L, TimeUnit.MILLISECONDS)
+            } catch (_: Throwable) {
+                null
+            }
+        }
+
+        return try {
+            val result = resolveFresh(videoId, title, artist, timeoutMs, hasVideo, canSaavn)
+            mine.complete(result)
+            result
+        } catch (t: Throwable) {
+            mine.completeExceptionally(t)
+            throw t
+        } finally {
+            inFlight.remove(key, mine)
+        }
+    }
+
+    private fun resolveFresh(
+        videoId: String?,
+        title: String?,
+        artist: String?,
+        timeoutMs: Long,
+        hasVideo: Boolean,
+        canSaavn: Boolean,
+    ): Resolved? {
 
         val label = listOfNotNull(title, artist).joinToString(" — ").ifBlank { videoId ?: "?" }
         val startedAt = System.currentTimeMillis()

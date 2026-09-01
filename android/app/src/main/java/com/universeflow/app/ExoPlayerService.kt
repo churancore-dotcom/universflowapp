@@ -166,11 +166,12 @@ class ExoPlayerService : MediaSessionService() {
         // Prewarm the InnerTube connection so first-tap latency is minimal.
         NativeYouTubeResolver.warm()
 
-        // Echo-style load control: a very low `bufferForPlayback` is the single
-        // biggest instant-start lever (playback begins after ~0.75s of audio),
-        // while min == max caps prefetch so long queues never balloon memory.
+        // Start after a small verified audio buffer. 250ms keeps weak mobile
+        // links stable while removing the fixed ~750ms floor from every tap.
+        // Keep a moderate forward buffer so playback does not aggressively
+        // consume bandwidth needed by resolver/prefetch requests.
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(50_000, 50_000, 750, 2_000)
+            .setBufferDurationsMs(15_000, 30_000, 250, 750)
             .build()
 
         val builder = ExoPlayer.Builder(this)

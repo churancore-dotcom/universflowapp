@@ -355,27 +355,6 @@ class ExoPlayerPlugin : Plugin() {
         val firstTrack = tracks[startIndex]
         Log.d("ExoPlayerPlugin", "playQueue() index=$startIndex title=${firstTrack.title}")
 
-        // CRITICAL SPEED FIX: kick off resolution of the first track on a
-        // background thread RIGHT NOW, in parallel with the service-ready wait.
-        // MasterResolver tries JioSaavn first (direct CDN, no cipher) and
-        // falls through to InnerTube. The seeded cache means the moment
-        // ExoPlayer's ResolvingDataSource asks for `yt://<id>` it gets a
-        // ready URL with zero network delay.
-        Thread {
-            MasterResolver.resolve(
-                videoId = firstTrack.videoId,
-                title = firstTrack.title,
-                artist = firstTrack.artist,
-                timeoutMs = 6000L,
-            )
-        }.start()
-        // Also pre-warm the next 2 so back-to-back taps feel instant.
-        tracks.drop(startIndex + 1).take(2).forEach { t ->
-            Thread {
-                MasterResolver.resolve(t.videoId, t.title, t.artist, timeoutMs = 6000L)
-            }.start()
-        }
-
         val performPlay: () -> Unit = performPlay@{
             if (playGeneration.get() != generation) {
                 isStartingUp = false
@@ -414,17 +393,15 @@ class ExoPlayerPlugin : Plugin() {
 
                     call.resolve()
 
-                    // Fire-and-forget background warm of the next few InnerTube
-                    // resolves so their googlevideo URLs are cached before
-                    // ExoPlayer needs them. This is a pure prefetch — does not
-                    // affect playback if it fails.
-                    Thread {
-                        if (playGeneration.get() != generation) return@Thread
-                        tracks.drop(startIndex + 1).take(5).forEach { t ->
-                            if (playGeneration.get() != generation) return@Thread
-                            MasterResolver.resolve(t.videoId, t.title, t.artist, timeoutMs = 5200L)
-                        }
-                    }.start()
+                    // Warm upcoming items only after the tapped track has been
+                    // handed to ExoPlayer. MasterResolver runs these in parallel
+                    // and coalesces duplicates from UI intent prefetch.
+                    if (playGeneration.get() == generation) {
+                        MasterResolver.prefetch(
+                            tracks.drop(startIndex + 1).take(3).map { Triple(it.videoId, it.title, it.artist) },
+                            limit = 3,
+                        )
+                    }
                 }
             }
         }
