@@ -134,7 +134,7 @@ const OnRepeatSection = memo(() => {
             key={row.record.fingerprint}
             type="button"
             onClick={() => start(i)}
-            {...prewarmIntentProps(row.song ? [row.song] : [])}
+            {...prewarmIntentProps(row.song ?? null)}
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ type: 'spring', stiffness: 180, damping: 22, delay: 0.04 * i }}

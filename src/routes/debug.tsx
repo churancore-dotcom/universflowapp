@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
+import ResolverLogPanel from "@/components/ResolverLogPanel";
 
 export const Route = createFileRoute("/debug")({
   head: () => ({
@@ -30,7 +31,10 @@ function DebugRoute() {
           <p className="text-[11px] text-muted-foreground">Live on this device · nothing uploaded</p>
         </div>
       </div>
-      <DebugPanel />
+      <div className="space-y-4">
+        <ResolverLogPanel />
+        <DebugPanel />
+      </div>
     </div>
   );
 }
