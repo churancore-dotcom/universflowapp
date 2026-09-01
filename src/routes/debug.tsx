@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { Link } from "@tanstack/react-router";
 import { ChevronLeft } from "lucide-react";
 import DebugPanel from "@/components/DebugPanel";
+import ResolverLogPanel from "@/components/ResolverLogPanel";
 
 export const Route = createFileRoute("/debug")({
   head: () => ({
