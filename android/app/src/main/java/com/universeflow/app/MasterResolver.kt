@@ -46,7 +46,14 @@ object MasterResolver {
      * How long JioSaavn is held back so the on-device YouTube path (residential
      * IP, so it actually succeeds on APK unlike the server) gets first shot.
      */
-    private const val YT_HEAD_START_MS = 750L
+    private const val YT_HEAD_START_MS = 300L
+
+    /**
+     * Hard cap on how long a *ready* JioSaavn URL is parked waiting for YouTube.
+     * Past this point playback start matters more than the source, so we ship
+     * the fallback immediately instead of sitting on the full YouTube timeout.
+     */
+    private const val YT_PATIENCE_MS = 1500L
 
     /** Recent resolution outcomes — proof of which source really served audio. */
     data class LogEntry(
@@ -154,7 +161,9 @@ object MasterResolver {
         var ytFailure: String? = null
 
         while (settled < racers) {
-            val remaining = deadline - System.currentTimeMillis()
+            // A ready fallback only waits YT_PATIENCE_MS for YouTube to settle.
+            val limit = if (parkedSaavn != null) minOf(deadline, startedAt + YT_PATIENCE_MS) else deadline
+            val remaining = limit - System.currentTimeMillis()
             if (remaining <= 0) break
             val next = results.poll(remaining, TimeUnit.MILLISECONDS) ?: break
             settled++
