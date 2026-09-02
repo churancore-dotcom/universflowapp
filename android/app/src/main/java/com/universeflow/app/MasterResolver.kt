@@ -55,8 +55,14 @@ object MasterResolver {
      * Hard cap on how long a *ready* JioSaavn URL is parked waiting for YouTube.
      * Past this point playback start matters more than the source, so we ship
      * the fallback immediately instead of sitting on the full YouTube timeout.
+     *
+     * 1000ms was too tight: a YouTube attempt that has to mint/attach a
+     * PoToken cannot finish inside it, so diagnostics showed a wall of uniform
+     * ~1000ms "TIMEOUT" rows that were really our own cut-off, not YouTube
+     * failing. 2400ms still starts audio fast but lets YouTube actually settle.
      */
-    private const val YT_PATIENCE_MS = 1000L
+    private const val YT_PATIENCE_MS = 2400L
+
 
     /** Recent resolution outcomes — proof of which source really served audio. */
     data class LogEntry(
