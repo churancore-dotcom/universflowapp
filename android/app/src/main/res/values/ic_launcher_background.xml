@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Adaptive launcher icon background. Kept in its own file (matching the
+         Capacitor template filename) so a regenerated android/ project
+         overwrites it instead of creating a duplicate resource clash with
+         values/colors.xml. -->
+    <color name="ic_launcher_background">#000000</color>
+</resources>
