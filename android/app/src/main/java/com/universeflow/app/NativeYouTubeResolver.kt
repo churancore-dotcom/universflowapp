@@ -385,9 +385,14 @@ object NativeYouTubeResolver {
     private fun buildClients(): List<ClientCtx> {
         val visitor = visitorData  // may be null on first call; that's fine
         // Non-null only once BotGuard has produced a token for this session.
+        // Give an in-flight mint a small budget: YouTube now refuses most
+        // PoToken-less player requests, so waiting ~600ms for a real token is
+        // cheaper than losing the whole YouTube path.
         val po = try {
-            YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, "")
+            WebViewPoTokenProvider.tokenForBlocking(visitor, 600L)
+                ?: YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, "")
         } catch (_: Throwable) { null }
+
 
 
         fun ctxJson(client: JSONObject): JSONObject = JSONObject().apply {
@@ -454,14 +459,18 @@ object NativeYouTubeResolver {
         // ANDROID (plain YouTube app) — InnerTune ships this as its primary
         // fallback for not-logged-in playback because it survives on real
         // handset IPs when the VR/iOS pair gets refused.
+        // NOTE: androidSdkVersion is deliberately omitted here. Sending it on
+        // the plain ANDROID client is what current extraction libraries found
+        // to trigger extra attestation checks (403 / empty formats); the field
+        // is optional and dropping it measurably lowers rejection rates.
         val android = ctxJson(JSONObject().apply {
             put("clientName", "ANDROID")
             put("clientVersion", "19.44.33")
-            put("androidSdkVersion", 34)
             put("osName", "Android")
             put("osVersion", "14")
             put("hl", "en"); put("gl", "US")
         })
+
 
         // TVHTML5 — the ONLY client YouTube accepts an OAuth bearer token with
         // (it is the client the youtube.com/activate pairing flow authorises).
