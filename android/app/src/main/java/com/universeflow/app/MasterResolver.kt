@@ -222,7 +222,13 @@ object MasterResolver {
         }
 
         // Deadline reached (or YouTube never answered) — use the parked fallback.
-        parkedSaavn?.let { return win(it, ytFailure ?: "TIMEOUT") }
+        // Label the two cases apart so diagnostics stop reporting our own
+        // patience cut-off as a YouTube "TIMEOUT".
+        parkedSaavn?.let {
+            val cutoff = System.currentTimeMillis() - startedAt < timeoutMs
+            return win(it, ytFailure ?: if (cutoff) "CUTOFF@${YT_PATIENCE_MS}ms" else "TIMEOUT")
+        }
+
 
 
         // Last-resort: stale cache within grace window.
