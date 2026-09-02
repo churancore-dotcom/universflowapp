@@ -52,17 +52,11 @@ object MasterResolver {
     private val MISS = Resolved("", "miss", 0L)
 
     /**
-     * How long JioSaavn is held back so the on-device YouTube path (residential
-     * IP, so it actually succeeds on APK unlike the server) gets first shot.
-     */
-    private const val YT_HEAD_START_MS = 300L
-
-    /**
      * Hard cap on how long a *ready* JioSaavn URL is parked waiting for YouTube.
      * Past this point playback start matters more than the source, so we ship
      * the fallback immediately instead of sitting on the full YouTube timeout.
      */
-    private const val YT_PATIENCE_MS = 1500L
+    private const val YT_PATIENCE_MS = 1000L
 
     /** Recent resolution outcomes — proof of which source really served audio. */
     data class LogEntry(
@@ -163,10 +157,9 @@ object MasterResolver {
         if (canSaavn) {
             racers++
             pool.execute {
-                // Head start: only delay when YouTube is actually in the race.
                 if (hasVideo) {
-                    try { Thread.sleep(YT_HEAD_START_MS) } catch (_: InterruptedException) {}
-                    // YouTube may have already landed and cached during the wait.
+                    // Both providers start immediately. A YouTube cache hit can
+                    // still cancel this fallback before it spends a request.
                     if (NativeYouTubeResolver.peek(videoId!!) != null) {
                         results.offer("saavn" to MISS)
                         return@execute
