@@ -79,11 +79,18 @@ object WebViewPoTokenProvider : PoTokenProvider {
     private fun mint(ident: String) {
         val ctx = appContext ?: return
         val now = System.currentTimeMillis()
-        val started = inFlight[ident] ?: 0L
         // One generation at a time per identifier; a stuck WebView unblocks
         // after 60s rather than wedging the feature for the whole session.
-        if (now - started < 60_000L) return
-        inFlight[ident] = now
+        while (true) {
+            val started = inFlight[ident]
+            if (started != null && now - started < 60_000L) return
+            val claimed = if (started == null) {
+                inFlight.putIfAbsent(ident, now) == null
+            } else {
+                inFlight.replace(ident, started, now)
+            }
+            if (claimed) break
+        }
 
         Handler(Looper.getMainLooper()).post {
             try {

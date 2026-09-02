@@ -13,6 +13,7 @@ import org.json.JSONObject
 import java.net.URLDecoder
 import java.net.URLEncoder
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
@@ -70,9 +71,13 @@ object NativeYouTubeResolver {
 
 
     private val streamCache = java.util.concurrent.ConcurrentHashMap<String, CachedStream>()
+    private val inFlight = java.util.concurrent.ConcurrentHashMap<String, CompletableFuture<NativeResolvedStream?>>()
     private val clientCooldowns = java.util.concurrent.ConcurrentHashMap<String, Long>()
     private val lastFailures = java.util.concurrent.ConcurrentHashMap<String, String>()
-    private val raceExecutor = Executors.newFixedThreadPool(6)
+    // The active client set can contain eight clients. Keeping one worker per
+    // client preserves the intended first-success race instead of queueing the
+    // final clients behind slower requests.
+    private val raceExecutor = Executors.newFixedThreadPool(8)
     private val consecutiveAllClientFailures = AtomicInteger(0)
 
     private val http: OkHttpClient by lazy {
@@ -191,8 +196,34 @@ object NativeYouTubeResolver {
 
     fun lastFailure(videoId: String): String = lastFailures[videoId] ?: "NO_PLAYABLE_STREAM"
 
-    fun resolve(videoId: String, timeoutMs: Long = 5200L): NativeResolvedStream? =
-        resolveInternal(videoId, timeoutMs, allowVisitorRefresh = true)
+    fun resolve(videoId: String, timeoutMs: Long = 5200L): NativeResolvedStream? {
+        if (videoId.length != 11) return null
+        getCached(videoId)?.let { return NativeResolvedStream(it.url, it.itag, it.client) }
+
+        // InnerTubePlugin, MasterResolver and queue prefetch can all ask for the
+        // same ID at once. Share one native race so the foreground request does
+        // not sit behind duplicate client calls in the fixed executor.
+        val mine = CompletableFuture<NativeResolvedStream?>()
+        val existing = inFlight.putIfAbsent(videoId, mine)
+        if (existing != null) {
+            return try {
+                existing.get(timeoutMs + 1000L, TimeUnit.MILLISECONDS)
+            } catch (_: Throwable) {
+                null
+            }
+        }
+
+        return try {
+            val result = resolveInternal(videoId, timeoutMs, allowVisitorRefresh = true)
+            mine.complete(result)
+            result
+        } catch (t: Throwable) {
+            mine.completeExceptionally(t)
+            throw t
+        } finally {
+            inFlight.remove(videoId, mine)
+        }
+    }
 
     private fun resolveInternal(
         videoId: String,

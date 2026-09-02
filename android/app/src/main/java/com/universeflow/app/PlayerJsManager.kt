@@ -105,17 +105,17 @@ object PlayerJsManager {
             // which means the regex misidentified the function. Treat as failure.
             if (out.startsWith("enhanced_except_") || out == n || out.isBlank()) {
                 Log.w(TAG, "n-fn produced suspicious output, ignoring")
-                nMisses++
-                if (nMisses >= 3) {
+                val misses = nMisses.incrementAndGet()
+                if (misses >= 3) {
                     // Proven ineffective: stop paying Rhino cost for the rest of
                     // the session. Callers already fall back to the un-rewritten
                     // (possibly throttled but playable) URL.
                     nDisabledForSession = true
-                    Log.w(TAG, "n-transform disabled for session after $nMisses misses")
+                    Log.w(TAG, "n-transform disabled for session after $misses misses")
                 }
                 return null
             }
-            nMisses = 0
+            nMisses.set(0)
             nCache[n] = out
             out
         } catch (t: Throwable) {
@@ -124,7 +124,7 @@ object PlayerJsManager {
         }
     }
 
-    @Volatile private var nMisses = 0
+    private val nMisses = java.util.concurrent.atomic.AtomicInteger(0)
 
     /**
      * Call this when the CDN rejects (403) a URL we deciphered. A wrong-but-
@@ -153,7 +153,7 @@ object PlayerJsManager {
         val previousId = current?.playerId
         current = null
         nDisabledForSession = false
-        nMisses = 0
+        nMisses.set(0)
         val refreshed = try { downloadAndExtract() } catch (_: Throwable) { null }
         if (refreshed != null) {
             current = refreshed
