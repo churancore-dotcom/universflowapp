@@ -385,9 +385,14 @@ object NativeYouTubeResolver {
     private fun buildClients(): List<ClientCtx> {
         val visitor = visitorData  // may be null on first call; that's fine
         // Non-null only once BotGuard has produced a token for this session.
+        // Give an in-flight mint a small budget: YouTube now refuses most
+        // PoToken-less player requests, so waiting ~600ms for a real token is
+        // cheaper than losing the whole YouTube path.
         val po = try {
-            YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, "")
+            WebViewPoTokenProvider.tokenForBlocking(visitor, 600L)
+                ?: YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, "")
         } catch (_: Throwable) { null }
+
 
 
         fun ctxJson(client: JSONObject): JSONObject = JSONObject().apply {
