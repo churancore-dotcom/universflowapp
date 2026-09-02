@@ -68,6 +68,25 @@ object WebViewPoTokenProvider : PoTokenProvider {
         return null
     }
 
+    /**
+     * Same as [tokenFor] but gives an in-flight mint a short budget to finish.
+     * Without this the very first taps of a session always skipped the WEB_PO
+     * client (the only PoToken-bound client we have), because minting runs on
+     * the main looper WebView and never completes inside one resolve.
+     */
+    fun tokenForBlocking(visitorData: String?, waitMs: Long): String? {
+        val ident = visitorData?.takeIf { it.isNotBlank() } ?: return null
+        tokenFor(ident, "")?.let { return it }
+        val deadline = System.currentTimeMillis() + waitMs
+        while (System.currentTimeMillis() < deadline) {
+            try { Thread.sleep(40L) } catch (_: InterruptedException) { return null }
+            val hit = tokens[ident] ?: continue
+            if (System.currentTimeMillis() - hit.at < TOKEN_TTL_MS) return hit.token
+        }
+        return null
+    }
+
+
     /** Kick off generation early (app warm-up) so the first tap can use it. */
     fun prewarm(visitorData: String?) {
         val ident = visitorData?.takeIf { it.isNotBlank() } ?: return
