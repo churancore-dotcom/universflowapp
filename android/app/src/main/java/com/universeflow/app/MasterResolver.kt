@@ -56,12 +56,12 @@ object MasterResolver {
      * Past this point playback start matters more than the source, so we ship
      * the fallback immediately instead of sitting on the full YouTube timeout.
      *
-     * 1000ms was too tight: a YouTube attempt that has to mint/attach a
-     * PoToken cannot finish inside it, so diagnostics showed a wall of uniform
-     * ~1000ms "TIMEOUT" rows that were really our own cut-off, not YouTube
-     * failing. 2400ms still starts audio fast but lets YouTube actually settle.
+     * 1200ms is the balance point: InnerTube clients that are going to answer
+     * do so well inside it (diagnostics showed real failures at ~450-560ms),
+     * while 2400ms only made taps feel slow. PoToken minting no longer blocks
+     * the resolve, so YouTube no longer needs the extra second of patience.
      */
-    private const val YT_PATIENCE_MS = 2400L
+    private const val YT_PATIENCE_MS = 1200L
 
 
     /** Recent resolution outcomes — proof of which source really served audio. */
