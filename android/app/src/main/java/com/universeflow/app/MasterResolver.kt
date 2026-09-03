@@ -61,7 +61,7 @@ object MasterResolver {
      * ~1000ms "TIMEOUT" rows that were really our own cut-off, not YouTube
      * failing. 2400ms still starts audio fast but lets YouTube actually settle.
      */
-    private const val YT_PATIENCE_MS = 2400L
+    private const val YT_PATIENCE_MS = 1200L
 
 
     /** Recent resolution outcomes — proof of which source really served audio. */
