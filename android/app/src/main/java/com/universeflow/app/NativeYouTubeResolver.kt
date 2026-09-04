@@ -121,6 +121,10 @@ object NativeYouTubeResolver {
                     Log.d(TAG, "rehydrated visitorData from disk")
                 }
             } catch (_: Throwable) { /* best effort */ }
+            // MainActivity may call warm() before a Context is attached. Start
+            // BotGuard here as well so that early call cannot permanently skip
+            // PoToken initialization for the rest of this process.
+            try { WebViewPoTokenProvider.prewarm(visitorData) } catch (_: Throwable) {}
         }
     }
 
