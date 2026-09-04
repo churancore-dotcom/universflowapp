@@ -8,31 +8,24 @@ import { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { SlidersHorizontal } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { loadEqSettings } from '@/lib/eqSettings';
+import { getEQPresetLabel, useEQSettings } from '@/lib/eqSettings';
 
 const BAR_COUNT = 12;
 
 const EqTeaserCard = memo(({ onOpen }: { onOpen: () => void }) => {
-  const { heights, label } = useMemo(() => {
-    let gains: number[] = [];
-    let presetLabel = 'Flat';
-    try {
-      const saved = loadEqSettings();
-      const raw = (saved as unknown as { gains?: number[]; bands?: number[]; preset?: string }) || {};
-      gains = raw.gains || raw.bands || [];
-      if (raw.preset) presetLabel = String(raw.preset).replace(/[-_]/g, ' ');
-    } catch {
-      /* fall back to the neutral curve */
-    }
+  const settings = useEQSettings();
+  const label = getEQPresetLabel(settings);
 
-    const base = Array.from({ length: BAR_COUNT }, (_, i) => {
-      const g = gains.length ? gains[Math.floor((i / BAR_COUNT) * gains.length)] || 0 : 0;
-      // 0 dB sits mid-height; ±12 dB spans the card.
-      return Math.max(0.18, Math.min(1, 0.5 + g / 24));
-    });
-
-    return { heights: base, label: presetLabel };
-  }, []);
+  const heights = useMemo(
+    () =>
+      Array.from({ length: BAR_COUNT }, (_, i) => {
+        const bands = settings.bands || [];
+        const gain = bands.length ? bands[Math.floor((i / BAR_COUNT) * bands.length)] || 0 : 0;
+        // 0 dB sits mid-height; the ±12 dB range spans the card.
+        return Math.max(0.18, Math.min(1, 0.5 + gain / 24));
+      }),
+    [settings.bands],
+  );
 
   return (
     <motion.button
