@@ -237,7 +237,7 @@ const GENRE_HINTS: Record<string, string[]> = {
   Party: ['party', 'dance', 'nasha', 'banger'],
 };
 
-function inferGenre(records: PlayRecord[]): string | null {
+export function inferGenre(records: PlayRecord[]): string | null {
   const scores = new Map<string, number>();
   for (const r of records) {
     const hay = `${r.title} ${r.artist}`.toLowerCase();
