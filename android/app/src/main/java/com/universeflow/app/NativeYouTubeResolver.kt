@@ -32,9 +32,8 @@ data class NativeResolvedStream(val url: String, val itag: Int, val client: Stri
  * Strategy (updated 2026):
  *  - Race ANDROID_VR (1.61.48 + 1.43.32), IOS (21.03.x), ANDROID (19.44.33),
  *    ANDROID_MUSIC, ANDROID_CREATOR on-device in parallel. All are PoToken-free.
- *  - WEB / WEB_REMIX are NOT in the race: YouTube now returns SABR-only
- *    responses for those clients, requires PoToken from a BotGuard WebView,
- *    and the effort/quality tradeoff isn't worth it for audio-only playback.
+ *  - Race WEB first whenever its video-bound PoToken has already been minted
+ *    by the persistent BotGuard WebView; token creation never blocks resolve.
  *  - Each request carries X-YouTube-Client-Name / -Version / X-Goog-Visitor-Id
  *    headers so YouTube's edge routes it as a genuine mobile client.
  *  - visitorData is fetched once at warm-up and cached for process lifetime.
@@ -124,7 +123,7 @@ object NativeYouTubeResolver {
             // MainActivity may call warm() before a Context is attached. Start
             // BotGuard here as well so that early call cannot permanently skip
             // PoToken initialization for the rest of this process.
-            try { WebViewPoTokenProvider.prewarm(visitorData) } catch (_: Throwable) {}
+            try { WebViewPoTokenProvider.warmSession() } catch (_: Throwable) {}
         }
     }
 
@@ -181,9 +180,9 @@ object NativeYouTubeResolver {
             if (visitorData == null) {
                 try { fetchVisitorData() } catch (_: Throwable) {}
             }
-            // Mint a proof-of-origin token in the background so the WEB client
-            // is available by the time the user taps play.
-            try { WebViewPoTokenProvider.prewarm(visitorData) } catch (_: Throwable) {}
+            // Initialize the proof-token minter in the background so per-video
+            // tokens can be generated as soon as tracks enter the queue.
+            try { WebViewPoTokenProvider.warmSession() } catch (_: Throwable) {}
             // Compile player.js now so the FIRST tap doesn't pay for it.
             try { PlayerJsManager.prewarm() } catch (_: Throwable) {}
 
@@ -389,10 +388,8 @@ object NativeYouTubeResolver {
     // No GPL source is reproduced; only public spec values.
     private fun buildClients(videoId: String): List<ClientCtx> {
         val visitor = visitorData  // may be null on first call; that's fine
-        // Non-null only once BotGuard has produced a token for this session.
-        // Never block on minting: a WebView + CDN + WAA challenge cannot finish
-        // inside a resolve, so waiting only delays audio. We read the cache and
-        // let prewarm/minting benefit the *next* tap instead.
+        // Non-null only once BotGuard has produced a token bound to this exact
+        // video. Never block here: queue/intent prewarming fills this cache.
         val po = try {
             YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, videoId)
         } catch (_: Throwable) { null }

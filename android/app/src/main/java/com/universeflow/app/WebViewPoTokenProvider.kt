@@ -48,7 +48,7 @@ object WebViewPoTokenProvider : PoTokenProvider {
     }
 
     /** Initialize the persistent BotGuard VM at app startup. */
-    fun prewarm(visitorData: String?) {
+    fun warmSession() {
         ensureWebView()
     }
 
