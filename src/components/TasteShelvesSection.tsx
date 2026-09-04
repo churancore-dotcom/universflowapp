@@ -16,6 +16,27 @@ import { cleanRail, diversifyByArtist, songFingerprint } from '@/lib/railQuality
 import { isSuppressed, rerank } from '@/lib/feedPersonalizer';
 import { buildTasteShelves, type ShelfSpec } from '@/lib/tasteClusters';
 
+/**
+ * Accent per shelf, drifting away from the rose base so consecutive shelves
+ * don't read as the same card repeated. Chosen from the shelf's own meaning
+ * where the words give one away (late night, chill…), otherwise by position.
+ */
+const ACCENTS = [
+  { dot: 'bg-primary', text: 'text-primary', ring: 'border-primary/35', glow: 'from-primary/12' },
+  { dot: 'bg-amber-400', text: 'text-amber-400', ring: 'border-amber-400/35', glow: 'from-amber-400/12' },
+  { dot: 'bg-sky-400', text: 'text-sky-400', ring: 'border-sky-400/35', glow: 'from-sky-400/12' },
+  { dot: 'bg-violet-400', text: 'text-violet-400', ring: 'border-violet-400/35', glow: 'from-violet-400/12' },
+  { dot: 'bg-emerald-400', text: 'text-emerald-400', ring: 'border-emerald-400/35', glow: 'from-emerald-400/12' },
+] as const;
+
+const accentFor = (title: string, index: number) => {
+  const t = title.toLowerCase();
+  if (/late night|night|sleep/.test(t)) return ACCENTS[1];
+  if (/chill|lofi|lo-fi|calm|relax/.test(t)) return ACCENTS[2];
+  if (/hype|party|dance|edm|phonk/.test(t)) return ACCENTS[3];
+  return ACCENTS[index % ACCENTS.length];
+};
+
 const MIN_TRACKS = 4;
 const MAX_TRACKS = 12;
 
@@ -121,8 +142,15 @@ const TasteShelvesSection = memo(() => {
 
   return (
     <div className="space-y-10">
-      {shelves.map((shelf, shelfIdx) => (
+      {shelves.map((shelf, shelfIdx) => {
+        const accent = accentFor(shelf.title, shelfIdx);
+        return (
         <section key={shelf.id} className="relative">
+          <div className={`absolute -inset-x-5 -top-4 h-24 bg-gradient-to-b ${accent.glow} to-transparent pointer-events-none rounded-[28px]`} />
+          <div className="relative flex items-center gap-2 mb-1">
+            <span className={`w-1.5 h-1.5 rounded-full ${accent.dot}`} />
+            <span className={`text-[10px] font-bold uppercase tracking-[0.2em] ${accent.text}`}>Your sound</span>
+          </div>
           <RailHeader title={shelf.title} subtitle={shelf.subtitle} />
           <div className="flex gap-4 overflow-x-auto scrollbar-hide -mx-5 px-5 pb-1 snap-x snap-mandatory">
             {shelf.songs.map((song, idx) => {
@@ -146,7 +174,7 @@ const TasteShelvesSection = memo(() => {
                   {...prewarmIntentProps(song)}
                   className="shrink-0 w-[132px] text-left snap-start"
                 >
-                  <div className="relative w-[132px] h-[132px] rounded-[14px] overflow-hidden bg-muted border border-border/40">
+                  <div className={`relative w-[132px] h-[132px] rounded-[14px] overflow-hidden bg-muted border ${accent.ring}`}>
                     <OptimizedImage
                       src={song.cover_url || ''}
                       alt={song.title}
@@ -155,7 +183,7 @@ const TasteShelvesSection = memo(() => {
                   </div>
                   <p
                     className={`mt-2.5 text-[13px] font-bold leading-tight line-clamp-2 ${
-                      isPlaying ? 'text-primary' : 'text-foreground'
+                      isPlaying ? accent.text : 'text-foreground'
                     }`}
                   >
                     {song.title}
@@ -168,7 +196,8 @@ const TasteShelvesSection = memo(() => {
             })}
           </div>
         </section>
-      ))}
+        );
+      })}
     </div>
   );
 });
