@@ -123,7 +123,7 @@ object NativeYouTubeResolver {
             // MainActivity may call warm() before a Context is attached. Start
             // BotGuard here as well so that early call cannot permanently skip
             // PoToken initialization for the rest of this process.
-            try { WebViewPoTokenProvider.prewarm(visitorData) } catch (_: Throwable) {}
+            try { WebViewPoTokenProvider.warmSession() } catch (_: Throwable) {}
         }
     }
 
@@ -182,7 +182,7 @@ object NativeYouTubeResolver {
             }
             // Initialize the proof-token minter in the background so per-video
             // tokens can be generated as soon as tracks enter the queue.
-            try { WebViewPoTokenProvider.prewarm(visitorData) } catch (_: Throwable) {}
+            try { WebViewPoTokenProvider.warmSession() } catch (_: Throwable) {}
             // Compile player.js now so the FIRST tap doesn't pay for it.
             try { PlayerJsManager.prewarm() } catch (_: Throwable) {}
 
