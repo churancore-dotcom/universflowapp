@@ -234,7 +234,7 @@ object NativeYouTubeResolver {
         getCached(videoId)?.let { return NativeResolvedStream(it.url, it.itag, it.client) }
 
         val now = System.currentTimeMillis()
-        val allClients = buildClients()
+        val allClients = buildClients(videoId)
         val readyClients = allClients.filter { (clientCooldowns[it.name] ?: 0L) <= now }
         val clients = if (readyClients.isNotEmpty()) readyClients else allClients
         val latch = CountDownLatch(1)
@@ -282,6 +282,7 @@ object NativeYouTubeResolver {
             failureCodes.contains("HTTP_429") -> "RATE_LIMITED"
             failureCodes.contains("HTTP_403") -> "STREAM_REJECTED"
             failureCodes.contains("DECIPHER_FAILED") -> "DECIPHER_FAILED"
+            failureCodes.contains("EMPTY_FORMATS") -> "EMPTY_FORMATS"
             else -> "NO_PLAYABLE_STREAM"
         }
         val failures = consecutiveAllClientFailures.incrementAndGet()
@@ -382,14 +383,14 @@ object NativeYouTubeResolver {
     //   • clientVersion strings match current shipping mobile apps
     //   • userAgent strings follow Google's documented app UA format
     // No GPL source is reproduced; only public spec values.
-    private fun buildClients(): List<ClientCtx> {
+    private fun buildClients(videoId: String): List<ClientCtx> {
         val visitor = visitorData  // may be null on first call; that's fine
         // Non-null only once BotGuard has produced a token for this session.
         // Never block on minting: a WebView + CDN + WAA challenge cannot finish
         // inside a resolve, so waiting only delays audio. We read the cache and
         // let prewarm/minting benefit the *next* tap instead.
         val po = try {
-            YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, "")
+            YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, videoId)
         } catch (_: Throwable) { null }
 
 
@@ -616,7 +617,10 @@ object NativeYouTubeResolver {
                 if (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE") coolDownClient(ctx.name, status)
                 return null
             }
-            val streamingData = json.optJSONObject("streamingData") ?: return null
+            val streamingData = json.optJSONObject("streamingData") ?: run {
+                failureCodes.add("EMPTY_FORMATS")
+                return null
+            }
 
             // googlevideo also wants the token on the media request itself
             // (`pot=`) for poToken-bound clients; without it the URL 403s even
@@ -660,6 +664,8 @@ object NativeYouTubeResolver {
                 Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
                 failureCodes.add("SABR_ONLY")
                 coolDownClient(ctx.name, "SABR_ONLY")
+            } else {
+                failureCodes.add("EMPTY_FORMATS")
             }
             return null
         }
