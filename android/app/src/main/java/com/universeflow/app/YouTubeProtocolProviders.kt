@@ -6,6 +6,7 @@ package com.universeflow.app
  */
 interface PoTokenProvider {
     fun tokenFor(visitorData: String?, videoId: String): String?
+    fun prewarm(videoId: String) {}
 }
 
 interface SabrPlaybackProvider {

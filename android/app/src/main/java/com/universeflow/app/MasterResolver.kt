@@ -246,7 +246,18 @@ object MasterResolver {
      * Used by ExoPlayerPlugin.preloadQueue / playQueue warm-up.
      */
     fun prefetch(tracks: List<Triple<String?, String?, String?>>, limit: Int = 5) {
-        tracks.take(limit).forEach { (vid, title, artist) ->
+        val selected = tracks.take(limit)
+        // Token minting is cheap once the persistent BotGuard VM is ready. Ask
+        // for every queued video's content-bound token before scheduling the
+        // heavier stream lookups, so WEB_PO is ready by the time playback gets
+        // to that item without ever sleeping on a user tap.
+        selected.forEach { (vid, _, _) ->
+            if (vid?.length == 11) {
+                try { YouTubeProtocolProviders.poTokenProvider?.prewarm(vid) }
+                catch (_: Throwable) {}
+            }
+        }
+        selected.forEach { (vid, title, artist) ->
             pool.execute {
                 try { resolve(vid, title, artist, timeoutMs = 5200L) }
                 catch (_: Throwable) {}
