@@ -55,7 +55,7 @@ const Card = ({ className = '', children }: { className?: string; children: Reac
   <div className={`rounded-[28px] border border-border/60 bg-card/70 overflow-hidden ${className}`}>{children}</div>
 );
 
-const HomeBento = ({ songs }: { songs: Song[] }) => {
+const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalArtist?: string | null }) => {
   const navigate = useNavigate();
   const country = useUserCountry();
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
