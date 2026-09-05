@@ -25,8 +25,6 @@ import OptimizedImage from '@/components/OptimizedImage';
 import { greetingForHour, recentSongs } from '@/lib/personalHome';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
-import HomeQuickActions, { type QuickAction } from '@/components/HomeQuickActions';
-import EqTeaserCard from '@/components/EqTeaserCard';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import RecapModal from '@/components/RecapModal';
 import HomeBento from '@/components/HomeBento';
@@ -243,31 +241,6 @@ const Home = () => {
       ? `You've played ${insights.weekPlays} ${plural} this week — mostly ${flavour}.`
       : `You've played ${insights.weekPlays} ${plural} this week.`;
   }, [insights]);
-
-  const quickActions = useMemo<QuickAction[]>(() => {
-    const out: QuickAction[] = [];
-    const used = new Set<string>();
-    const push = (key: QuickAction['key'], label: string, song?: Song, queue?: Song[]) => {
-      if (!song || used.has(song.id)) return;
-      used.add(song.id);
-      out.push({ key, label, song, queue: queue && queue.length ? queue : [song, ...clean] });
-    };
-
-    push('continue', currentSong ? 'Now playing' : 'Continue listening', currentSong || stage?.song, [
-      ...(currentSong ? [currentSong] : stage?.song ? [stage.song] : []),
-      ...clean,
-    ]);
-    push('jump', 'Jump back in', history.find((s) => !used.has(s.id)), history);
-    if (insights.streak.current > 0) {
-      const top = insights.weekTopArtist?.toLowerCase();
-      const streakSong = top
-        ? history.find((s) => !used.has(s.id) && (s.artist || '').toLowerCase().includes(top))
-        : undefined;
-      push('streak', `${insights.streak.current} day streak`, streakSong, history);
-    }
-    return out;
-  }, [currentSong, stage?.song, history, clean, insights.streak.current, insights.weekTopArtist]);
-
 
   // Quick picks — four compact rows from history first, then the live chart.
   const quickPicks = useMemo(() => {
