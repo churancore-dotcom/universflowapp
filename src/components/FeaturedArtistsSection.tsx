@@ -149,7 +149,10 @@ const FeaturedArtistsSection = ({
                 )}
               </div>
               <p className="mt-2 text-[12px] font-bold text-foreground truncate">{artist.name}</p>
-            </motion.button>
+              {relation(artist.name) && (
+                <p className="text-[10.5px] font-semibold text-primary truncate">{relation(artist.name)}</p>
+              )}
+
           ))}
         </div>
       </section>
