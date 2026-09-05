@@ -29,6 +29,50 @@ interface AuthContextType {
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
+/**
+ * Confirms the stored session is genuinely revoked before clearing it.
+ *
+ * `getUser()` is used instead of `refreshSession()` because it does not consume
+ * or rotate the refresh token, so it cannot race the SDK's own auto-refresh.
+ * A network/timeout failure keeps the session; only two consecutive definitive
+ * rejections (401/403 or an explicit invalid-token message) sign out — and then
+ * locally, so other devices keep their sessions.
+ */
+async function validateSessionOrSignOut(): Promise<void> {
+  const isDefinitiveRejection = (error: unknown): boolean => {
+    if (!error || typeof error !== 'object') return false;
+    const status = (error as { status?: number }).status;
+    if (status === 401 || status === 403) return true;
+    const message = String((error as { message?: string }).message || '').toLowerCase();
+    if (!message) return false;
+    if (message.includes('failed to fetch') || message.includes('network')) return false;
+    return (
+      message.includes('invalid refresh token') ||
+      message.includes('refresh token not found') ||
+      message.includes('user not found') ||
+      message.includes('jwt expired')
+    );
+  };
+
+  try {
+    const first = await supabase.auth.getUser();
+    if (!first.error) return;
+    if (!isDefinitiveRejection(first.error)) return;
+
+    // Second opinion after a short delay — a single rejection during a cold
+    // WebView start is not enough evidence to log someone out.
+    await new Promise((resolve) => setTimeout(resolve, 2500));
+    const second = await supabase.auth.getUser();
+    if (!second.error) return;
+    if (!isDefinitiveRejection(second.error)) return;
+
+    await supabase.auth.signOut({ scope: 'local' });
+  } catch {
+    // Offline or aborted — keep the cached session.
+  }
+}
+
+
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -223,15 +267,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           loadEmailVerified(existingSession.user.id),
         ]);
 
-        // Validate the refresh token while online. If it's invalid (signed out
-        // elsewhere, rotated keys, stale session), sign out cleanly instead of
-        // looping on 401s from authenticated edge functions like music-indexer.
+        // Validate the session while online, but NEVER sign out on a transient
+        // failure. The old code called refreshSession() on every boot and signed
+        // out on any error — inside the Capacitor WebView that fires constantly
+        // (cold-start with no network yet, DNS not ready, VPN handoff, or the
+        // SDK's own autoRefreshToken rotating the token first → "Already Used").
+        // The APK therefore booted signed-out, which emptied Home, avatars,
+        // recently played and blocked authenticated stream URLs, while the web
+        // build kept working. Only a confirmed, repeated auth rejection signs out.
         if (navigator.onLine) {
-          void supabase.auth.refreshSession().then(({ error: refreshErr }) => {
-            if (refreshErr) return supabase.auth.signOut().then(() => undefined).catch(() => undefined);
-            return undefined;
-          });
+          void validateSessionOrSignOut();
         }
+
       }
 
       setIsLoading(false);
