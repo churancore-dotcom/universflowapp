@@ -380,9 +380,9 @@ const Home = () => {
               <HomeBento songs={clean.length ? clean : allSongs} personalArtist={insights.weekTopArtist} />
 
               {/* ── QUICK ACTIONS — distinct chips, real signals only ── */}
-              {quickActions.length > 0 && (
+              {quickActions.some((a) => a.key !== 'continue') && (
                 <section className="px-6 mt-4">
-                  <HomeQuickActions actions={quickActions} />
+                  <HomeQuickActions actions={quickActions.filter((a) => a.key !== 'continue')} />
                 </section>
               )}
 
