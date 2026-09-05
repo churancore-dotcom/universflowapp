@@ -25,8 +25,6 @@ import OptimizedImage from '@/components/OptimizedImage';
 import { greetingForHour, recentSongs } from '@/lib/personalHome';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
-import HomeQuickActions, { type QuickAction } from '@/components/HomeQuickActions';
-import EqTeaserCard from '@/components/EqTeaserCard';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import RecapModal from '@/components/RecapModal';
 import HomeBento from '@/components/HomeBento';
@@ -244,31 +242,6 @@ const Home = () => {
       : `You've played ${insights.weekPlays} ${plural} this week.`;
   }, [insights]);
 
-  const quickActions = useMemo<QuickAction[]>(() => {
-    const out: QuickAction[] = [];
-    const used = new Set<string>();
-    const push = (key: QuickAction['key'], label: string, song?: Song, queue?: Song[]) => {
-      if (!song || used.has(song.id)) return;
-      used.add(song.id);
-      out.push({ key, label, song, queue: queue && queue.length ? queue : [song, ...clean] });
-    };
-
-    push('continue', currentSong ? 'Now playing' : 'Continue listening', currentSong || stage?.song, [
-      ...(currentSong ? [currentSong] : stage?.song ? [stage.song] : []),
-      ...clean,
-    ]);
-    push('jump', 'Jump back in', history.find((s) => !used.has(s.id)), history);
-    if (insights.streak.current > 0) {
-      const top = insights.weekTopArtist?.toLowerCase();
-      const streakSong = top
-        ? history.find((s) => !used.has(s.id) && (s.artist || '').toLowerCase().includes(top))
-        : undefined;
-      push('streak', `${insights.streak.current} day streak`, streakSong, history);
-    }
-    return out;
-  }, [currentSong, stage?.song, history, clean, insights.streak.current, insights.weekTopArtist]);
-
-
   // Quick picks — four compact rows from history first, then the live chart.
   const quickPicks = useMemo(() => {
     const seen = new Set<string>([stage?.song?.id || '']);
@@ -379,17 +352,8 @@ const Home = () => {
               {/* ── BENTO — Continue Listening, top artist, jump back in, moods, new release ── */}
               <HomeBento songs={clean.length ? clean : allSongs} personalArtist={insights.weekTopArtist} />
 
-              {/* ── QUICK ACTIONS — distinct chips, real signals only ── */}
-              {quickActions.some((a) => a.key !== 'continue') && (
-                <section className="px-6 mt-4">
-                  <HomeQuickActions actions={quickActions.filter((a) => a.key !== 'continue')} />
-                </section>
-              )}
-
-              {/* ── EQ teaser + recap progress — real differentiators ── */}
+              {/* ── Recap progress — real differentiator ── */}
               <section className="px-6 mt-5 space-y-3">
-
-                <EqTeaserCard onOpen={() => setEqOpen(true)} />
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => setRecapOpen(true)} />
               </section>
 
