@@ -110,7 +110,7 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
       if (row) row.hits += 1; else counts.set(key, { name, hits: 1 });
     }
     return [...counts.values()].sort((a, b) => b.hits - a.hits)[0]?.name || null;
-  }, [songs]);
+  }, [songs, personalArtist]);
 
   const { data: portraits } = useQuery({
     queryKey: ['artist-portraits', 'aotw', topArtist],
@@ -204,7 +204,7 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-background/10" />
-                <p className="absolute top-4 left-4 right-4 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
+                <p className="absolute top-4 left-4 right-4 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">{personalArtist ? 'Your Top Artist' : 'Artist of the Week'}</p>
                 <p className="absolute bottom-4 left-4 right-4 font-display text-[20px] leading-tight uppercase text-foreground line-clamp-2">
                   {topArtist}
                 </p>
