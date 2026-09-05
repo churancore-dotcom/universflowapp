@@ -223,15 +223,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           loadEmailVerified(existingSession.user.id),
         ]);
 
-        // Validate the refresh token while online. If it's invalid (signed out
-        // elsewhere, rotated keys, stale session), sign out cleanly instead of
-        // looping on 401s from authenticated edge functions like music-indexer.
+        // Validate the session while online, but NEVER sign out on a transient
+        // failure. The old code called refreshSession() on every boot and signed
+        // out on any error — inside the Capacitor WebView that fires constantly
+        // (cold-start with no network yet, DNS not ready, VPN handoff, or the
+        // SDK's own autoRefreshToken rotating the token first → "Already Used").
+        // The APK therefore booted signed-out, which emptied Home, avatars,
+        // recently played and blocked authenticated stream URLs, while the web
+        // build kept working. Only a confirmed, repeated auth rejection signs out.
         if (navigator.onLine) {
-          void supabase.auth.refreshSession().then(({ error: refreshErr }) => {
-            if (refreshErr) return supabase.auth.signOut().then(() => undefined).catch(() => undefined);
-            return undefined;
-          });
+          void validateSessionOrSignOut();
         }
+
       }
 
       setIsLoading(false);
