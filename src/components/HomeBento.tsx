@@ -12,20 +12,21 @@
  * Nothing is fabricated — a card self-hides (or falls back to a prompt) when
  * its signal is missing, and listener counts are never invented.
  */
-import { memo, useMemo } from 'react';
+import { memo, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
-import { Play, Pause, Music, Sparkles } from 'lucide-react';
+import { Play, Pause, Music, Sparkles, Loader2 } from 'lucide-react';
 import { useNavigate } from '@/lib/router-compat';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
-import { recentSongs } from '@/lib/personalHome';
+import { recentSongs, jumpBackInGroups } from '@/lib/personalHome';
 import { useYtmNewReleases } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
-import { cachedArtistPortrait, enrichArtistImages } from '@/lib/musicIndexer';
+import { cachedArtistPortrait, enrichArtistImages, searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { cleanRail } from '@/lib/railQuality';
+import { isSpamSong } from '@/pages/Search';
 
 const PLAYER_SNAPSHOT_KEY = 'player_queue_state';
 
@@ -51,9 +52,20 @@ const readSnapshot = (): Snapshot | null => {
 
 const MOODS = ['Focus', 'Hype', 'Chill', 'Late Night', 'Relax', 'Love'] as const;
 
+/** Real search terms behind each mood chip — these actually fetch and play. */
+const MOOD_QUERIES: Record<string, string> = {
+  Focus: 'focus instrumental study songs',
+  Hype: 'high energy hype party songs',
+  Chill: 'chill relaxed songs',
+  'Late Night': 'late night slow songs',
+  Relax: 'calm soothing songs',
+  Love: 'romantic love songs',
+};
+
 const Card = ({ className = '', children }: { className?: string; children: React.ReactNode }) => (
   <div className={`rounded-[28px] border border-border/60 bg-card/70 overflow-hidden ${className}`}>{children}</div>
 );
+
 
 const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalArtist?: string | null }) => {
   const navigate = useNavigate();
