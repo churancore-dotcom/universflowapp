@@ -24,6 +24,12 @@ import EqualizerModal from '@/components/EqualizerModal';
 import OptimizedImage from '@/components/OptimizedImage';
 import { greetingForHour, recentSongs } from '@/lib/personalHome';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
+import { useHomeInsights } from '@/hooks/useHomeInsights';
+import HomeQuickActions, { type QuickAction } from '@/components/HomeQuickActions';
+import EqTeaserCard from '@/components/EqTeaserCard';
+import RecapProgressCard from '@/components/RecapProgressCard';
+import RecapModal from '@/components/RecapModal';
+
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
 import { Music, Play, Pause, User, ListMusic, SlidersHorizontal } from 'lucide-react';
@@ -104,6 +110,8 @@ const Home = () => {
   const claimVersion = useRailClaimVersion();
   const [queueOpen, setQueueOpen] = useState(false);
   const [eqOpen, setEqOpen] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
+
 
   // Artist users land on their Studio dashboard, not the listener home.
   useEffect(() => {
@@ -217,20 +225,48 @@ const Home = () => {
   useEffect(() => { if (stage?.song) claimRailSongs('hero', [stage.song]); }, [stage?.song?.id]);
   useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
 
-  const stageIsCurrent = !!stage && !!currentSong && stage.song.id === currentSong.id;
-  const pct = stage && stage.total > 0 ? Math.min(100, (stage.at / stage.total) * 100) : 0;
-
   const playTile = useCallback((song?: Song, queue?: Song[]) => {
     if (!song) return;
     triggerHaptic('selection');
     playSong(song, null, (queue || clean).slice(0, 40));
   }, [playSong, clean]);
 
-  const playStage = () => {
-    if (!stage) return;
-    if (stageIsCurrent) { triggerHaptic('selection'); togglePlay(); return; }
-    playTile(stage.song, [stage.song, ...clean]);
-  };
+  // ── Real personal stats for the header, chips and recap card ─────────────
+  const insights = useHomeInsights();
+
+  const headline = useMemo(() => {
+    if (insights.loading || insights.weekPlays < 3) return null;
+    const flavour = insights.weekTopArtist || insights.topGenre;
+    const plural = insights.weekPlays === 1 ? 'song' : 'songs';
+    return flavour
+      ? `You've played ${insights.weekPlays} ${plural} this week — mostly ${flavour}.`
+      : `You've played ${insights.weekPlays} ${plural} this week.`;
+  }, [insights]);
+
+  const quickActions = useMemo<QuickAction[]>(() => {
+    const out: QuickAction[] = [];
+    const used = new Set<string>();
+    const push = (key: QuickAction['key'], label: string, song?: Song, queue?: Song[]) => {
+      if (!song || used.has(song.id)) return;
+      used.add(song.id);
+      out.push({ key, label, song, queue: queue && queue.length ? queue : [song, ...clean] });
+    };
+
+    push('continue', currentSong ? 'Now playing' : 'Continue listening', currentSong || stage?.song, [
+      ...(currentSong ? [currentSong] : stage?.song ? [stage.song] : []),
+      ...clean,
+    ]);
+    push('jump', 'Jump back in', history.find((s) => !used.has(s.id)), history);
+    if (insights.streak.current > 0) {
+      const top = insights.weekTopArtist?.toLowerCase();
+      const streakSong = top
+        ? history.find((s) => !used.has(s.id) && (s.artist || '').toLowerCase().includes(top))
+        : undefined;
+      push('streak', `${insights.streak.current} day streak`, streakSong, history);
+    }
+    return out;
+  }, [currentSong, stage?.song, history, clean, insights.streak.current, insights.weekTopArtist]);
+
 
   // Quick picks — four compact rows from history first, then the live chart.
   const quickPicks = useMemo(() => {
@@ -265,17 +301,24 @@ const Home = () => {
           }}
         />
 
-        {/* ── Header: quiet, one line, no boxes ── */}
+        {/* ── Header: real personal stat, no generic greeting ── */}
         <header className="flex-shrink-0 z-30 px-6 pt-6 pb-4 safe-area-pt">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/70">
                 {hydrated ? greetingForHour(signals.hour) : 'Welcome'}
+                {insights.streak.current > 0 && (
+                  <span className="text-primary"> — {insights.streak.current} day streak 🔥</span>
+                )}
               </p>
               <h1 className="font-display text-[26px] leading-none tracking-[0.06em] uppercase text-foreground mt-1.5">
                 Universflow
               </h1>
+              {headline && (
+                <p className="text-[12px] font-medium text-muted-foreground mt-1.5 truncate">{headline}</p>
+              )}
             </div>
+
 
             <button
               onClick={() => { triggerHaptic('selection'); setQueueOpen(true); }}
@@ -308,6 +351,8 @@ const Home = () => {
 
         <QueueDrawer isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
         <EqualizerModal isOpen={eqOpen} onClose={() => setEqOpen(false)} />
+        <RecapModal isOpen={recapOpen} onClose={() => setRecapOpen(false)} window="month" />
+
 
         <main
           ref={scrollRef}
@@ -330,61 +375,19 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
           ) : (
             <>
-              {/* ── STAGE — one big artwork card, nothing else competing ── */}
-              {stage && (
-                <motion.section
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: 'spring', stiffness: 130, damping: 20 }}
-                  className="px-6"
-                >
-                  <div className="relative rounded-[28px] overflow-hidden bg-card border border-border/50">
-                    <div className="relative aspect-[4/5] w-full">
-                      <OptimizedImage
-                        src={stage.song.cover_url}
-                        alt={stage.song.title}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
-
-                      <div className="absolute left-5 right-5 bottom-5">
-                        <p className="text-[10.5px] font-bold uppercase tracking-[0.22em] text-primary">
-                          {stage.label}
-                        </p>
-                        <h2 className="font-display text-[34px] leading-[0.95] uppercase text-foreground line-clamp-2 mt-2">
-                          {stage.song.title}
-                        </h2>
-                        <p className="text-[13px] font-medium text-muted-foreground truncate mt-1">
-                          {stage.song.artist}
-                        </p>
-
-                        <div className="flex items-center gap-4 mt-5">
-                          <button
-                            onClick={playStage}
-                            aria-label={stageIsCurrent && isPlaying ? 'Pause' : `Play ${stage.song.title}`}
-                            className="w-14 h-14 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95 transition-transform"
-                          >
-                            {stageIsCurrent && isPlaying
-                              ? <Pause className="w-6 h-6 fill-current" />
-                              : <Play className="w-6 h-6 fill-current ml-0.5" />}
-                          </button>
-                          {pct > 0 && (
-                            <div className="min-w-0 flex-1">
-                              <div className="h-[3px] rounded-full bg-foreground/15 overflow-hidden">
-                                <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-                              </div>
-                              <div className="flex justify-between text-[11px] font-medium text-muted-foreground mt-1.5">
-                                <span>{fmt(stage.at)}</span>
-                                <span>{stage.total > 0 ? fmt(stage.total) : '--:--'}</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.section>
+              {/* ── QUICK ACTIONS — distinct chips, real signals only ── */}
+              {quickActions.length > 0 && (
+                <section className="px-6">
+                  <HomeQuickActions actions={quickActions} />
+                </section>
               )}
+
+              {/* ── EQ teaser + recap progress — real differentiators ── */}
+              <section className="px-6 mt-5 space-y-3">
+                <EqTeaserCard onOpen={() => setEqOpen(true)} />
+                <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => setRecapOpen(true)} />
+              </section>
+
 
               {/* ── QUICK PICKS — four calm rows, no cards ── */}
               {quickPicks.length >= 4 && (
@@ -432,7 +435,7 @@ const Home = () => {
                     {rail === 'mix' && <MadeForYouSection />}
                   </motion.div>
                 ))}
-                <FeaturedArtistsSection songs={allSongs} circle />
+                <FeaturedArtistsSection songs={allSongs} circle playsByArtist={insights.playsByArtist} />
               </div>
             </>
           )}
