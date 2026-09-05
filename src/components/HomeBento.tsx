@@ -270,32 +270,38 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
             </Card>
           )}
 
-          {jumpBackIn.length > 0 && (
+          {jumpGroups.length > 0 && (
             <Card className="p-4 flex flex-col">
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Jump Back In</p>
               <div className="mt-3 space-y-3">
-                {jumpBackIn.map((song) => (
+                {jumpGroups.map((group) => (
                   <button
-                    key={song.id}
-                    onClick={() => { triggerHaptic('selection'); playSong(song, null, [song, ...history.slice(0, 20)]); }}
-                    className="flex items-center gap-2.5 w-full text-left"
+                    key={group.id}
+                    onClick={() => {
+                      triggerHaptic('selection');
+                      playSong(group.songs[0], null, [...group.songs, ...history.slice(0, 20)]);
+                    }}
+                    className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
                   >
                     <div className="w-10 h-10 shrink-0 rounded-[14px] overflow-hidden bg-muted">
-                      {song.cover_url ? (
-                        <img src={song.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" />
+                      {group.cover_url ? (
+                        <img src={group.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4 text-muted-foreground" /></div>
                       )}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{song.title}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">{song.artist}</p>
+                      <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{group.title}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {group.songs.length > 1 ? `${group.songs.length} tracks · ${group.subtitle}` : group.subtitle}
+                      </p>
                     </div>
                   </button>
                 ))}
               </div>
             </Card>
           )}
+
         </div>
       )}
 
