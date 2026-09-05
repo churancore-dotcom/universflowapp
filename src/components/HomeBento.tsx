@@ -313,34 +313,46 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
             {MOODS.map((mood) => (
               <button
                 key={mood}
-                onClick={() => { triggerHaptic('selection'); navigate(`/search?q=${encodeURIComponent(`${mood} mix`)}`); }}
-                className="rounded-full border border-border/70 bg-muted/40 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-foreground active:bg-primary active:text-primary-foreground transition-colors"
+                onClick={() => void playMood(mood)}
+                disabled={!!moodLoading}
+                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-foreground active:bg-primary active:text-primary-foreground transition-colors disabled:opacity-50"
               >
+                {moodLoading === mood && <Loader2 className="w-3 h-3 animate-spin" />}
                 {mood}
               </button>
             ))}
           </div>
         </Card>
 
-        {newRelease ? (
-          <Card className="p-4 flex flex-col justify-between">
-            <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">New Release</p>
-            <div className="flex items-center gap-3 mt-3">
-              <div className="w-14 h-14 shrink-0 rounded-[14px] overflow-hidden bg-muted">
-                {newRelease.cover_url && <img src={newRelease.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" />}
-              </div>
-              <div className="min-w-0">
-                <p className="text-[12.5px] font-bold text-foreground line-clamp-2 leading-tight">{newRelease.title}</p>
-                <p className="text-[11px] text-muted-foreground truncate">{newRelease.artist}</p>
-              </div>
+        {newReleases.length > 0 ? (
+          <Card className="p-4 flex flex-col">
+            <div className="flex items-baseline justify-between">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">New Releases</p>
+              <button
+                onClick={() => { triggerHaptic('selection'); playSong(releasePool[0], null, releasePool.slice(0, 30)); }}
+                aria-label="Play new releases"
+                className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95 transition-transform"
+              >
+                <Play className="w-3 h-3 fill-current ml-0.5" />
+              </button>
             </div>
-            <button
-              onClick={() => { triggerHaptic('selection'); playSong(newRelease, null, cleanRail(releases as Song[], { requireCover: true }).slice(0, 30)); }}
-              aria-label={`Play ${newRelease.title}`}
-              className="mt-3 self-end w-10 h-10 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95 transition-transform"
-            >
-              <Play className="w-4 h-4 fill-current ml-0.5" />
-            </button>
+            <div className="mt-3 space-y-3">
+              {newReleases.map((song, i) => (
+                <button
+                  key={song.id}
+                  onClick={() => { triggerHaptic('selection'); playSong(song, null, releasePool.slice(i).concat(releasePool.slice(0, i)).slice(0, 30)); }}
+                  className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
+                >
+                  <div className="w-10 h-10 shrink-0 rounded-[14px] overflow-hidden bg-muted">
+                    {song.cover_url && <img src={song.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" />}
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{song.title}</p>
+                    <p className="text-[11px] text-muted-foreground truncate">{song.artist}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
           </Card>
         ) : (
           <Card className="p-4 flex flex-col items-center justify-center text-center">
@@ -348,6 +360,7 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
             <p className="text-[11px] font-semibold text-muted-foreground">New releases load in a moment</p>
           </Card>
         )}
+
       </div>
     </div>
   );
