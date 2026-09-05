@@ -375,15 +375,19 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
           ) : (
             <>
+              {/* ── BENTO — Continue Listening, top artist, jump back in, moods, new release ── */}
+              <HomeBento songs={clean.length ? clean : allSongs} personalArtist={insights.weekTopArtist} />
+
               {/* ── QUICK ACTIONS — distinct chips, real signals only ── */}
               {quickActions.length > 0 && (
-                <section className="px-6">
+                <section className="px-6 mt-4">
                   <HomeQuickActions actions={quickActions} />
                 </section>
               )}
 
               {/* ── EQ teaser + recap progress — real differentiators ── */}
               <section className="px-6 mt-5 space-y-3">
+
                 <EqTeaserCard onOpen={() => setEqOpen(true)} />
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => setRecapOpen(true)} />
               </section>
