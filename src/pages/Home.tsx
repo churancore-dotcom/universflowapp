@@ -29,6 +29,7 @@ import HomeQuickActions, { type QuickAction } from '@/components/HomeQuickAction
 import EqTeaserCard from '@/components/EqTeaserCard';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import RecapModal from '@/components/RecapModal';
+import HomeBento from '@/components/HomeBento';
 
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
