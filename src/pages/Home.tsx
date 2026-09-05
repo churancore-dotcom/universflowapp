@@ -435,7 +435,7 @@ const Home = () => {
                     {rail === 'mix' && <MadeForYouSection />}
                   </motion.div>
                 ))}
-                <FeaturedArtistsSection songs={allSongs} circle />
+                <FeaturedArtistsSection songs={allSongs} circle playsByArtist={insights.playsByArtist} />
               </div>
             </>
           )}
