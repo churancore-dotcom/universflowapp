@@ -110,6 +110,8 @@ const Home = () => {
   const claimVersion = useRailClaimVersion();
   const [queueOpen, setQueueOpen] = useState(false);
   const [eqOpen, setEqOpen] = useState(false);
+  const [recapOpen, setRecapOpen] = useState(false);
+
 
   // Artist users land on their Studio dashboard, not the listener home.
   useEffect(() => {
