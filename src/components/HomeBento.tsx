@@ -245,7 +245,8 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
       </motion.div>
 
       {/* ROW — Artist of the Week / Jump Back In */}
-      {(topArtist || jumpBackIn.length > 0) && (
+      {(topArtist || jumpGroups.length > 0) && (
+
         <div className="grid grid-cols-2 gap-3">
           {topArtist && (
             <Card className="relative aspect-[3/4]">
