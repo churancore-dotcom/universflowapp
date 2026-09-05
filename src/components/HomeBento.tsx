@@ -12,7 +12,7 @@
  * Nothing is fabricated — a card self-hides (or falls back to a prompt) when
  * its signal is missing, and listener counts are never invented.
  */
-import { memo, useMemo, useState } from 'react';
+import { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery } from '@tanstack/react-query';
 import { Play, Pause, Music, Sparkles, Loader2 } from 'lucide-react';
