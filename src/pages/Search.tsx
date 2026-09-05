@@ -135,8 +135,12 @@ function buildResilientSearchIntent(query: string) {
 }
 const isGenreSearchIntent = (query: string) => Boolean(buildResilientSearchIntent(query).genre);
 const HIDDEN_RESULTS_KEY = 'uf_hidden_search_results_v1';
-const SEARCH_CACHE_NAMESPACE = 'stable-search-v16-strict-genre';
+const SEARCH_CACHE_NAMESPACE = 'stable-search-v17-strict-genre';
+/** Titles the owner has banned app-wide — never surfaced anywhere. */
+const BANNED_TITLE_PATTERNS = [/\bbarba+d+i\b/i, /\bbarbaadi\b/i];
 const SPAM_RESULT_PATTERNS = [
+  ...BANNED_TITLE_PATTERNS,
+
   /\b(top|best)\s*\d+\b/i,
   /\b\d+\s*(top|best|hit|hits|songs)\b/i,
   /\b(non\s*stop|jukebox|mashup|medley|playlist|compilation|collection|mixtape|full\s*album|all\s*songs)\b/i,
