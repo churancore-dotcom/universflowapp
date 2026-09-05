@@ -55,7 +55,7 @@ const Card = ({ className = '', children }: { className?: string; children: Reac
   <div className={`rounded-[28px] border border-border/60 bg-card/70 overflow-hidden ${className}`}>{children}</div>
 );
 
-const HomeBento = ({ songs }: { songs: Song[] }) => {
+const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalArtist?: string | null }) => {
   const navigate = useNavigate();
   const country = useUserCountry();
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
@@ -100,6 +100,7 @@ const HomeBento = ({ songs }: { songs: Song[] }) => {
 
   // ── Artist of the Week — most-charting artist in the live pool ─────────
   const topArtist = useMemo(() => {
+    if (personalArtist && personalArtist.trim().length > 1) return personalArtist.trim();
     const counts = new Map<string, { name: string; hits: number }>();
     for (const s of songs) {
       const name = (s.artist || '').split(/,|&|feat\.?|ft\.?/i)[0].trim();
@@ -109,7 +110,7 @@ const HomeBento = ({ songs }: { songs: Song[] }) => {
       if (row) row.hits += 1; else counts.set(key, { name, hits: 1 });
     }
     return [...counts.values()].sort((a, b) => b.hits - a.hits)[0]?.name || null;
-  }, [songs]);
+  }, [songs, personalArtist]);
 
   const { data: portraits } = useQuery({
     queryKey: ['artist-portraits', 'aotw', topArtist],
@@ -203,7 +204,7 @@ const HomeBento = ({ songs }: { songs: Song[] }) => {
                   </div>
                 )}
                 <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-background/10" />
-                <p className="absolute top-4 left-4 right-4 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
+                <p className="absolute top-4 left-4 right-4 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">{personalArtist ? 'Your Top Artist' : 'Artist of the Week'}</p>
                 <p className="absolute bottom-4 left-4 right-4 font-display text-[20px] leading-tight uppercase text-foreground line-clamp-2">
                   {topArtist}
                 </p>
