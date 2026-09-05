@@ -54,8 +54,23 @@ const splitCredits = (raw: string): string[] =>
  * Ranked by how often they appear across the live regional/global charts, which
  * is the actual "who is trending right now" signal (Spotify does the same).
  */
-const FeaturedArtistsSection = ({ songs, circle = false }: { songs: Song[]; circle?: boolean }) => {
+const FeaturedArtistsSection = ({
+  songs,
+  circle = false,
+  playsByArtist,
+}: {
+  songs: Song[];
+  circle?: boolean;
+  /** Real per-artist play counts from this listener's history (lowercased key). */
+  playsByArtist?: Record<string, number>;
+}) => {
   const navigate = useNavigate();
+  const relation = (name: string) => {
+    const plays = playsByArtist?.[name.toLowerCase()] || 0;
+    if (plays <= 0) return null;
+    return plays === 1 ? 'You played 1 song' : `You played ${plays} songs`;
+  };
+
 
   const baseArtists = useMemo<DisplayArtist[]>(() => {
     const counts = new Map<string, { name: string; hits: number; first: number }>();
