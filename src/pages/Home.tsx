@@ -265,17 +265,24 @@ const Home = () => {
           }}
         />
 
-        {/* ── Header: quiet, one line, no boxes ── */}
+        {/* ── Header: real personal stat, no generic greeting ── */}
         <header className="flex-shrink-0 z-30 px-6 pt-6 pb-4 safe-area-pt">
           <div className="flex items-center gap-3">
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/70">
                 {hydrated ? greetingForHour(signals.hour) : 'Welcome'}
+                {insights.streak.current > 0 && (
+                  <span className="text-primary"> — {insights.streak.current} day streak 🔥</span>
+                )}
               </p>
               <h1 className="font-display text-[26px] leading-none tracking-[0.06em] uppercase text-foreground mt-1.5">
                 Universflow
               </h1>
+              {headline && (
+                <p className="text-[12px] font-medium text-muted-foreground mt-1.5 truncate">{headline}</p>
+              )}
             </div>
+
 
             <button
               onClick={() => { triggerHaptic('selection'); setQueueOpen(true); }}
