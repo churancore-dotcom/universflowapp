@@ -70,9 +70,11 @@ const Card = ({ className = '', children }: { className?: string; children: Reac
 const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalArtist?: string | null }) => {
   const navigate = useNavigate();
   const country = useUserCountry();
-  const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
+  const { currentSong, isPlaying, playSong, togglePlay, seek } = usePlayer();
   const { progress, duration } = usePlayerProgress();
-  const recents = useLocalRecents(30);
+  const recents = useLocalRecents(60);
+  const [moodLoading, setMoodLoading] = useState<string | null>(null);
+  const [pendingSeek, setPendingSeek] = useState<{ id: string; at: number } | null>(null);
 
   const history = useMemo(() => recentSongs(recents), [recents]);
 
@@ -94,11 +96,23 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
 
   const resumeIsCurrent = !!resume && !!currentSong && resume.song.id === currentSong.id;
 
+  // Resuming really resumes: once the track we asked for is loaded and its
+  // duration is known, jump to the exact saved position.
+  useEffect(() => {
+    if (!pendingSeek || !currentSong || currentSong.id !== pendingSeek.id) return;
+    if (!duration || duration <= 0) return;
+    if (pendingSeek.at >= duration - 5) { setPendingSeek(null); return; }
+    seek(pendingSeek.at);
+    setPendingSeek(null);
+  }, [pendingSeek, currentSong?.id, duration, seek]);
+
   const playResume = () => {
     if (!resume) return;
     triggerHaptic('selection');
     if (resumeIsCurrent) { togglePlay(); return; }
-    playSong(resume.song, null, [resume.song, ...songs.slice(0, 30)]);
+    const at = Math.max(0, Math.floor(resume.at || 0));
+    if (at > 5) setPendingSeek({ id: resume.song.id, at });
+    playSong(resume.song, null, [resume.song, ...history.slice(0, 20), ...songs.slice(0, 30)]);
   };
 
   const startListening = () => {
@@ -109,6 +123,34 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
   };
 
   const pct = resume && resume.total > 0 ? Math.min(100, (resume.at / resume.total) * 100) : 0;
+
+  // ── Moods — a real fetch + real queue, not a link that looks like one ────
+  const playMood = async (mood: string) => {
+    if (moodLoading) return;
+    triggerHaptic('selection');
+    setMoodLoading(mood);
+    try {
+      const raw = await searchYouTubeMusicTracks(MOOD_QUERIES[mood] || `${mood} songs`, 40);
+      const pool = cleanRail(
+        (raw as unknown as Song[])
+          .map((t) => ({
+            ...t,
+            audio_url: t.audio_url || (t as { videoId?: string }).videoId ? t.audio_url || `yt-video:${(t as { videoId?: string }).videoId}` : 'resolving',
+          }))
+          .filter((s) => !isSpamSong(s)),
+        { requireCover: true },
+      );
+      if (pool.length) {
+        playSong(pool[0], null, pool.slice(0, 40));
+        return;
+      }
+      navigate(`/search?q=${encodeURIComponent(`${mood} mix`)}`);
+    } catch {
+      navigate(`/search?q=${encodeURIComponent(`${mood} mix`)}`);
+    } finally {
+      setMoodLoading(null);
+    }
+  };
 
   // ── Artist of the Week — most-charting artist in the live pool ─────────
   const topArtist = useMemo(() => {
@@ -132,14 +174,17 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
   });
   const artistImage = topArtist ? (portraits?.[topArtist] ?? cachedArtistPortrait(topArtist)) : null;
 
-  // ── New Release — existing rail, first clean entry ─────────────────────
-  const { data: releases = [] } = useYtmNewReleases(country, 12, songs.length > 0);
-  const newRelease = useMemo(
-    () => cleanRail(releases as Song[], { requireCover: true })[0] || null,
+  // ── New Releases — a real list, not a single token track ────────────────
+  const { data: releases = [] } = useYtmNewReleases(country, 24, songs.length > 0);
+  const releasePool = useMemo(
+    () => cleanRail((releases as Song[]).filter((s) => !isSpamSong(s)), { requireCover: true }),
     [releases],
   );
+  const newReleases = releasePool.slice(0, 3);
 
-  const jumpBackIn = history.slice(0, 3);
+  // ── Jump Back In — real album/artist sets the listener was working through
+  const jumpGroups = useMemo(() => jumpBackInGroups(recents, 1).slice(0, 3), [recents]);
+
 
   return (
     <div className="px-5 space-y-3">
