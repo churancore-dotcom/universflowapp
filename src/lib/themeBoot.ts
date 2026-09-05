@@ -69,25 +69,26 @@ export const THEMES: Record<ThemeMode, ThemeTokens> = {
     bodyBg: '#ffffff',
     statusBar: '#ffffff',
   },
-  // ====== Onyx — pure black (OLED) ======
+  // ====== Onyx — 100% pure black (OLED) ======
   black: {
-    background: '240 5% 11%', foreground: '240 8% 94%',
-    card: '240 5% 13%', cardForeground: '240 8% 94%',
-    muted: '240 5% 16%', mutedForeground: '240 5% 62%',
-    popover: '240 5% 14%', popoverForeground: '240 8% 94%',
-    secondary: '240 5% 15%', secondaryForeground: '240 8% 94%',
-    border: '240 6% 18%', input: '240 5% 10%',
+    background: '0 0% 0%', foreground: '0 0% 98%',
+    card: '0 0% 4%', cardForeground: '0 0% 98%',
+    muted: '0 0% 9%', mutedForeground: '0 0% 62%',
+    popover: '0 0% 4%', popoverForeground: '0 0% 98%',
+    secondary: '0 0% 7%', secondaryForeground: '0 0% 98%',
+    border: '0 0% 13%', input: '0 0% 8%',
     primary: '350 100% 62%', primaryForeground: '0 0% 100%',
     accent: '330 100% 66%', accentForeground: '0 0% 100%',
     ring: '350 100% 62%',
     destructive: '0 84% 60%', destructiveForeground: '0 0% 100%',
-    sidebar: '240 5% 10%', sidebarForeground: '240 8% 92%',
+    sidebar: '0 0% 0%', sidebarForeground: '0 0% 96%',
     sidebarPrimary: '350 100% 62%', sidebarPrimaryForeground: '0 0% 100%',
-    sidebarAccent: '240 5% 15%', sidebarAccentForeground: '240 8% 92%',
-    sidebarBorder: '240 6% 18%', sidebarRing: '350 100% 62%',
-    bodyBg: 'hsl(240 5% 11%)',
-    statusBar: '#1b1b1f',
+    sidebarAccent: '0 0% 8%', sidebarAccentForeground: '0 0% 96%',
+    sidebarBorder: '0 0% 13%', sidebarRing: '350 100% 62%',
+    bodyBg: '#000000',
+    statusBar: '#000000',
   },
+
 };
 
 export const applyTheme = (_theme: ThemeMode) => {
