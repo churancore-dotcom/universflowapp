@@ -29,6 +29,7 @@ import HomeQuickActions, { type QuickAction } from '@/components/HomeQuickAction
 import EqTeaserCard from '@/components/EqTeaserCard';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import RecapModal from '@/components/RecapModal';
+import HomeBento from '@/components/HomeBento';
 
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
@@ -375,15 +376,19 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
           ) : (
             <>
+              {/* ── BENTO — Continue Listening, top artist, jump back in, moods, new release ── */}
+              <HomeBento songs={clean.length ? clean : allSongs} personalArtist={insights.weekTopArtist} />
+
               {/* ── QUICK ACTIONS — distinct chips, real signals only ── */}
-              {quickActions.length > 0 && (
-                <section className="px-6">
-                  <HomeQuickActions actions={quickActions} />
+              {quickActions.some((a) => a.key !== 'continue') && (
+                <section className="px-6 mt-4">
+                  <HomeQuickActions actions={quickActions.filter((a) => a.key !== 'continue')} />
                 </section>
               )}
 
               {/* ── EQ teaser + recap progress — real differentiators ── */}
               <section className="px-6 mt-5 space-y-3">
+
                 <EqTeaserCard onOpen={() => setEqOpen(true)} />
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => setRecapOpen(true)} />
               </section>
