@@ -24,6 +24,12 @@ import EqualizerModal from '@/components/EqualizerModal';
 import OptimizedImage from '@/components/OptimizedImage';
 import { greetingForHour, recentSongs } from '@/lib/personalHome';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
+import { useHomeInsights } from '@/hooks/useHomeInsights';
+import HomeQuickActions, { type QuickAction } from '@/components/HomeQuickActions';
+import EqTeaserCard from '@/components/EqTeaserCard';
+import RecapProgressCard from '@/components/RecapProgressCard';
+import RecapModal from '@/components/RecapModal';
+
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
 import { Music, Play, Pause, User, ListMusic, SlidersHorizontal } from 'lucide-react';
