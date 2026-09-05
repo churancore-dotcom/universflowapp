@@ -330,61 +330,19 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
           ) : (
             <>
-              {/* ── STAGE — one big artwork card, nothing else competing ── */}
-              {stage && (
-                <motion.section
-                  initial={{ opacity: 0, y: 18 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ type: 'spring', stiffness: 130, damping: 20 }}
-                  className="px-6"
-                >
-                  <div className="relative rounded-[28px] overflow-hidden bg-card border border-border/50">
-                    <div className="relative aspect-[4/5] w-full">
-                      <OptimizedImage
-                        src={stage.song.cover_url}
-                        alt={stage.song.title}
-                        className="absolute inset-0 w-full h-full object-cover"
-                      />
-                      <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
-
-                      <div className="absolute left-5 right-5 bottom-5">
-                        <p className="text-[10.5px] font-bold uppercase tracking-[0.22em] text-primary">
-                          {stage.label}
-                        </p>
-                        <h2 className="font-display text-[34px] leading-[0.95] uppercase text-foreground line-clamp-2 mt-2">
-                          {stage.song.title}
-                        </h2>
-                        <p className="text-[13px] font-medium text-muted-foreground truncate mt-1">
-                          {stage.song.artist}
-                        </p>
-
-                        <div className="flex items-center gap-4 mt-5">
-                          <button
-                            onClick={playStage}
-                            aria-label={stageIsCurrent && isPlaying ? 'Pause' : `Play ${stage.song.title}`}
-                            className="w-14 h-14 shrink-0 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95 transition-transform"
-                          >
-                            {stageIsCurrent && isPlaying
-                              ? <Pause className="w-6 h-6 fill-current" />
-                              : <Play className="w-6 h-6 fill-current ml-0.5" />}
-                          </button>
-                          {pct > 0 && (
-                            <div className="min-w-0 flex-1">
-                              <div className="h-[3px] rounded-full bg-foreground/15 overflow-hidden">
-                                <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
-                              </div>
-                              <div className="flex justify-between text-[11px] font-medium text-muted-foreground mt-1.5">
-                                <span>{fmt(stage.at)}</span>
-                                <span>{stage.total > 0 ? fmt(stage.total) : '--:--'}</span>
-                              </div>
-                            </div>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </motion.section>
+              {/* ── QUICK ACTIONS — distinct chips, real signals only ── */}
+              {quickActions.length > 0 && (
+                <section className="px-6">
+                  <HomeQuickActions actions={quickActions} />
+                </section>
               )}
+
+              {/* ── EQ teaser + recap progress — real differentiators ── */}
+              <section className="px-6 mt-5 space-y-3">
+                <EqTeaserCard onOpen={() => setEqOpen(true)} />
+                <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => setRecapOpen(true)} />
+              </section>
+
 
               {/* ── QUICK PICKS — four calm rows, no cards ── */}
               {quickPicks.length >= 4 && (
