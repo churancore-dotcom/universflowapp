@@ -100,6 +100,7 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
 
   // ── Artist of the Week — most-charting artist in the live pool ─────────
   const topArtist = useMemo(() => {
+    if (personalArtist && personalArtist.trim().length > 1) return personalArtist.trim();
     const counts = new Map<string, { name: string; hits: number }>();
     for (const s of songs) {
       const name = (s.artist || '').split(/,|&|feat\.?|ft\.?/i)[0].trim();
