@@ -379,17 +379,8 @@ const Home = () => {
               {/* ── BENTO — Continue Listening, top artist, jump back in, moods, new release ── */}
               <HomeBento songs={clean.length ? clean : allSongs} personalArtist={insights.weekTopArtist} />
 
-              {/* ── QUICK ACTIONS — distinct chips, real signals only ── */}
-              {quickActions.some((a) => a.key !== 'continue') && (
-                <section className="px-6 mt-4">
-                  <HomeQuickActions actions={quickActions.filter((a) => a.key !== 'continue')} />
-                </section>
-              )}
-
-              {/* ── EQ teaser + recap progress — real differentiators ── */}
+              {/* ── Recap progress — real differentiator ── */}
               <section className="px-6 mt-5 space-y-3">
-
-                <EqTeaserCard onOpen={() => setEqOpen(true)} />
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => setRecapOpen(true)} />
               </section>
 
