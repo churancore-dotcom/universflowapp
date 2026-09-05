@@ -351,6 +351,8 @@ const Home = () => {
 
         <QueueDrawer isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
         <EqualizerModal isOpen={eqOpen} onClose={() => setEqOpen(false)} />
+        <RecapModal isOpen={recapOpen} onClose={() => setRecapOpen(false)} window="month" />
+
 
         <main
           ref={scrollRef}
