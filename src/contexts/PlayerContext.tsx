@@ -1415,7 +1415,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               if (!id || existing.has(id)) continue;
               if (isDuplicate({ title: t.title, artist: t.artist })) continue;
               if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
-            if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
               existing.add(id);
               markSeen({ title: t.title, artist: t.artist });
               pool.push({
