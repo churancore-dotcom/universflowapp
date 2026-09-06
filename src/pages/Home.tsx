@@ -255,39 +255,8 @@ const Home = () => {
     return out;
   }, [history, clean, stage?.song?.id]);
 
-  // ── Quick actions strip — every chip backed by real state ────────────────
-  const quickActions = useMemo<QuickAction[]>(() => {
-    const out: QuickAction[] = [];
-    const used = new Set<string>();
-    const push = (key: QuickAction['key'], label: string, song?: Song, queue?: Song[]) => {
-      if (!song || used.has(song.id)) return;
-      used.add(song.id);
-      out.push({ key, label, song, queue: (queue && queue.length ? queue : [song, ...history, ...clean]) });
-    };
 
-    // Continue: whatever is actually loaded in the player, else newest history.
-    push('continue', currentSong ? 'Continue listening' : 'Pick up again', currentSong || history[0], [
-      ...(currentSong ? [currentSong] : []),
-      ...history,
-      ...clean,
-    ]);
-    // Jump back in: next-most-recent distinct track from device history.
-    push('jump', 'Jump back in', history.find((s) => !used.has(s.id)), history);
 
-    // Streak pick: the track repeated most across recorded history.
-    if (insights.streak.current > 0) {
-      const counts = new Map<string, number>();
-      for (const entry of recentEntries) {
-        if (!entry.song_id) continue;
-        counts.set(entry.song_id, (counts.get(entry.song_id) || 0) + 1);
-      }
-      const topId = [...counts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-      const song = history.find((s) => s.id === topId && !used.has(s.id));
-      push('streak', `${insights.streak.current} day streak`, song, history);
-    }
-
-    return out;
-  }, [currentSong, history, clean, recentEntries, insights.streak.current]);
 
   const scrollRef = useRef<HTMLElement | null>(null);
 
