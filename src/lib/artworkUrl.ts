@@ -28,6 +28,8 @@ export function artworkCandidates(url?: string | null, size = 320): string[] {
       `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
       `https://i.ytimg.com/vi/${id}/hq720.jpg`,
       `https://i.ytimg.com/vi/${id}/mqdefault.jpg`,
+      `https://i.ytimg.com/vi/${id}/hqdefault.jpg`,
+      src,
     ];
   }
 
