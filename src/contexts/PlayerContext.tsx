@@ -16,6 +16,7 @@ import { Capacitor } from '@capacitor/core';
 import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { prewarmSongs } from '@/lib/instantPlay';
+import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
 
 import { toast } from 'sonner';
 
@@ -143,6 +144,8 @@ interface PlayerContextType {
   setCrossfadeCurve: (curve: 'linear' | 'equal-power' | 'smooth' | 'exponential') => void;
   toggleGaplessPro: () => void;
   onPrerollAdComplete: () => void;
+  /** Top up the queue with a real smart mix built around what's playing. */
+  fillSmartQueue: () => Promise<number>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -1333,6 +1336,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (!r?.id || existing.has(r.id)) continue;
           if (!r.audio_url) continue;
           if (isDuplicate({ title: r.title, artist: r.artist ?? undefined })) continue;
+          if (isAiGeneratedTrack({ title: r.title, artist: r.artist ?? undefined })) continue;
           existing.add(r.id);
           markSeen({ title: r.title, artist: r.artist ?? undefined });
           pool.push(mapSongRow(r));
@@ -1371,6 +1375,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const id = `ytm-${t.videoId}`;
             if (existing.has(id)) continue;
             if (isDuplicate({ title: t.title, artist: t.artist })) continue;
+            if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
             existing.add(id);
             markSeen({ title: t.title, artist: t.artist });
             pool.push({
@@ -1409,6 +1414,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const id = t.id || (t.videoId ? `ytm-${t.videoId}` : '');
               if (!id || existing.has(id)) continue;
               if (isDuplicate({ title: t.title, artist: t.artist })) continue;
+              if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
+            if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
               existing.add(id);
               markSeen({ title: t.title, artist: t.artist });
               pool.push({
@@ -3929,6 +3936,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCrossfadeCurve: setCrossfadeCurveFn,
       toggleGaplessPro,
       onPrerollAdComplete,
+      fillSmartQueue,
     }}>
       {children}
     </PlayerContext.Provider>

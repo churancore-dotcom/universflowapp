@@ -22,6 +22,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { prefetchIndexedTrack, prefetchYouTubeVideoStream, searchYouTubeMusicTracks, searchArtistDirectory, getTagTopTracks, type IndexedArtistInfo, type IndexedTrack } from '@/lib/musicIndexer';
 // FollowedArtistsRail removed from Search per product decision
 import { clearCache, getCached, setCached } from '@/lib/searchCache';
+import { AI_SLOP_ARTIST_PATTERNS, AI_SLOP_TITLE_PATTERNS } from '@/lib/aiSlopFilter';
 import {
   getSongHistory,
   removeSongFromHistory,
@@ -135,11 +136,13 @@ function buildResilientSearchIntent(query: string) {
 }
 const isGenreSearchIntent = (query: string) => Boolean(buildResilientSearchIntent(query).genre);
 const HIDDEN_RESULTS_KEY = 'uf_hidden_search_results_v1';
-const SEARCH_CACHE_NAMESPACE = 'stable-search-v17-strict-genre';
+const SEARCH_CACHE_NAMESPACE = 'stable-search-v18-no-ai-slop';
 /** Titles the owner has banned app-wide — never surfaced anywhere. */
 const BANNED_TITLE_PATTERNS = [/\bbarba+d+i\b/i, /\bbarbaadi\b/i];
 const SPAM_RESULT_PATTERNS = [
   ...BANNED_TITLE_PATTERNS,
+  // AI-generated uploads (Suno/Udio/voice clones) are never real music.
+  ...AI_SLOP_TITLE_PATTERNS,
 
   /\b(top|best)\s*\d+\b/i,
   /\b\d+\s*(top|best|hit|hits|songs)\b/i,
@@ -153,6 +156,7 @@ const SPAM_RESULT_PATTERNS = [
   /\b(dj\s*remix|remix\s*by|club\s*mix|extended\s*mix|edm\s*remix|trap\s*remix|phonk\s*remix)\b/i,
 ];
 const SPAM_ARTIST_PATTERNS = [
+  ...AI_SLOP_ARTIST_PATTERNS,
   /\b(speed\s*songs?|slowed\s*songs?|reverb\s*nation|nightcore|lofi\s*girl|ai\s*cover|topic\s*music|music\s*lover\s*\d+)\b/i,
   /\b(remix\s*king|remix\s*world|karaoke\s*world|cover\s*world|status\s*king|whatsapp\s*status)\b/i,
   /\b(7clouds|cloudx|wave\s*music|unique\s*vibes|lyrics?|lyrical|lyric\s*zone|status|ringtone|sped\s*up|slowed)\b/i,
