@@ -17,6 +17,7 @@ import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativ
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { prewarmSongs } from '@/lib/instantPlay';
 import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
+import { markAudible, markPlayStage, startPlayTrace } from '@/lib/playTrace';
 
 import { toast } from 'sonner';
 
@@ -959,6 +960,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       });
     };
     const handlePlaying = (event: Event) => {
+      markAudible();
       if (waitingTimer != null) { clearTimeout(waitingTimer); waitingTimer = null; }
       const el = (event.currentTarget ?? event.target) as HTMLAudioElement & { __ufStartedAt?: number };
       const startedAt = el?.__ufStartedAt;
@@ -1944,6 +1946,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (!song || !audioRef.current) return;
 
     // Claim this play request — any earlier in-flight playback must abort.
+    startPlayTrace(`${song.artist ?? ''} - ${song.title ?? ''}`);
     const mySeq = ++playRequestSeqRef.current;
     const intendedIdentity = getSongIdentity(song);
     activeSongIdentityRef.current = intendedIdentity;
@@ -2124,6 +2127,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     audioRef.current.currentTime = 0;
     
     audioRef.current.load();
+    markPlayStage('src');
     const playPromise = audioRef.current.play();
     if (playPromise) {
       playPromise.catch(err => {
@@ -2978,6 +2982,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Claim this play request. If the user taps another song before resolveAudioUrl
     // resolves, this seq will be stale and we MUST abort — otherwise the late
     // resolver wins and a different song plays than the one the user tapped.
+    startPlayTrace(`${song.artist ?? ''} - ${song.title ?? ''}`);
     const mySeq = ++playRequestSeqRef.current;
     const intendedIdentity = getSongIdentity(song);
     activeSongIdentityRef.current = intendedIdentity;
@@ -3009,14 +3014,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setIsPlaying(true);
     wasPlayingRef.current = true;
     void publishNativeMusicControls(song, true, song.duration);
-    
+    markPlayStage('ui');
+
     let playbackSource = offlineUrl || song.audio_url;
 
     // `yt-video:` can play through the YouTube iframe, but iframe audio cannot
     // be connected to WebAudio. Resolve it to a real stream before playback so
     // Premium EQ/effects can attach to the normal <audio> element.
     if (!isNativePlayerAvailable() && !offlineUrl && (!isPlayableUrl(playbackSource) || isYouTubeFallbackUrl(playbackSource))) {
+      markPlayStage('resolve:start');
       const resolved = await resolveAudioUrl(song);
+      markPlayStage('resolve:end');
       if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return; // user tapped another song first
       if (!resolved) {
         const fallbackVideoId = getYouTubeFallbackVideoId(song.audio_url);
@@ -3177,6 +3185,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Load and play immediately
     audioRef.current.load();
+    markPlayStage('src');
     const playPromise = audioRef.current.play();
     if (playPromise) {
       playPromise.catch(err => {
