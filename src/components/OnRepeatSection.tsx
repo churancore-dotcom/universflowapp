@@ -78,8 +78,11 @@ const OnRepeatSection = memo(() => {
       }
     }
 
-    const ranked = [...counts.values()]
-      .filter((c) => c.plays >= 2) // "on repeat" means actually repeated
+    const all = [...counts.values()];
+    // "On repeat" prefers genuinely repeated tracks, but a listener with real
+    // history and no repeats yet still sees their real most-played list.
+    const repeated = all.filter((c) => c.plays >= 2);
+    const ranked = (repeated.length >= 3 ? repeated : all)
       .sort((a, b) => b.plays - a.plays || b.record.at - a.record.at)
       .slice(0, MAX_ROWS)
       .map<Row>((c) => ({ ...c, song: songFor(c.record, byFingerprint) }))
