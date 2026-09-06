@@ -9,6 +9,7 @@ import type { Song } from '@/contexts/PlayerContext';
 import type { LocalRecentEntry } from '@/lib/localRecentlyPlayed';
 import type { TasteProfile } from '@/lib/feedPersonalizer';
 import { songFingerprint } from '@/lib/railQuality';
+import { isBlockedTrack } from '@/lib/blockedTracks';
 
 /** Recent plays → playable songs, most recent first, de-duplicated. */
 export function recentSongs(entries: LocalRecentEntry[]): Song[] {
@@ -17,6 +18,7 @@ export function recentSongs(entries: LocalRecentEntry[]): Song[] {
   for (const entry of entries) {
     const snap = entry.song;
     if (!snap?.title || !snap?.artist) continue;
+    if (isBlockedTrack(snap.title, snap.artist)) continue;
     const fp = songFingerprint(snap);
     if (seen.has(fp)) continue;
     seen.add(fp);
