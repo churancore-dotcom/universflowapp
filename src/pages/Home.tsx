@@ -28,9 +28,6 @@ import { useHomeInsights } from '@/hooks/useHomeInsights';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import RecapModal from '@/components/RecapModal';
 import HomeBento from '@/components/HomeBento';
-import HomeQuickActions, { type QuickAction } from '@/components/HomeQuickActions';
-import EqTeaserCard from '@/components/EqTeaserCard';
-import TasteShelvesSection from '@/components/TasteShelvesSection';
 
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
@@ -389,17 +386,9 @@ const Home = () => {
               {/* ── BENTO — Continue Listening, top artist, jump back in, moods, new release ── */}
               <HomeBento songs={clean.length ? clean : allSongs} personalArtist={insights.weekTopArtist} />
 
-              {/* ── Quick actions — distinct, tappable, real state ── */}
-              {quickActions.length > 0 && (
-                <section className="px-6 mt-5">
-                  <HomeQuickActions actions={quickActions} />
-                </section>
-              )}
-
-              {/* ── Recap progress + inline Studio EQ — real differentiators ── */}
-              <section className="px-6 mt-5 space-y-3">
+              {/* ── Recap progress — real differentiator ── */}
+              <section className="px-6 mt-5">
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => setRecapOpen(true)} />
-                <EqTeaserCard onOpen={() => { setEqOpen(true); }} />
               </section>
 
 
@@ -436,8 +425,6 @@ const Home = () => {
               {/* ── SHELVES — three, max ── */}
               <div className="px-6 mt-11 space-y-11 pb-24">
                 <OnRepeatSection />
-                {/* ── YOUR SOUND — taste-cluster shelves, each with its own accent ── */}
-                <TasteShelvesSection />
                 {railOrder.map((rail, railIdx) => (
 
                   <motion.div
