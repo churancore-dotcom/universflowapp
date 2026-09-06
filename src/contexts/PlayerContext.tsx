@@ -1495,6 +1495,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
   }, []);
 
+  // Manual smart-mix top-up (Up Next sheet). Uses the current track as the
+  // seed and returns how many real tracks were appended.
+  const fillSmartQueue = useCallback(async () => {
+    const seed = currentSongRef.current || queueRef.current[currentIndexRef.current] || null;
+    if (!seed) return 0;
+    const added = await extendQueueWithMix(seed);
+    return added.length;
+  }, [extendQueueWithMix]);
+
+
+
   // Reset the auto-mix dedupe set whenever the user manually loads a new queue
   // from a different entry point (so they get fresh recommendations).
   useEffect(() => {
