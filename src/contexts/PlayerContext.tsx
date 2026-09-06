@@ -2982,6 +2982,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Claim this play request. If the user taps another song before resolveAudioUrl
     // resolves, this seq will be stale and we MUST abort — otherwise the late
     // resolver wins and a different song plays than the one the user tapped.
+    startPlayTrace(`${song.artist ?? ''} - ${song.title ?? ''}`);
     const mySeq = ++playRequestSeqRef.current;
     const intendedIdentity = getSongIdentity(song);
     activeSongIdentityRef.current = intendedIdentity;
@@ -3184,6 +3185,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Load and play immediately
     audioRef.current.load();
+    markPlayStage('src');
     const playPromise = audioRef.current.play();
     if (playPromise) {
       playPromise.catch(err => {
