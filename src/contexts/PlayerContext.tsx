@@ -3993,6 +3993,7 @@ const INERT_PLAYER: PlayerContextType = {
   setCrossfadeCurve: noop,
   toggleGaplessPro: noop,
   onPrerollAdComplete: noop,
+  fillSmartQueue: async () => 0,
 };
 
 let warnedMissingProvider = false;
