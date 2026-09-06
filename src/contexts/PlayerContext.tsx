@@ -16,6 +16,7 @@ import { Capacitor } from '@capacitor/core';
 import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack } from '@/lib/nativePlayer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { prewarmSongs } from '@/lib/instantPlay';
+import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
 
 import { toast } from 'sonner';
 
@@ -143,6 +144,8 @@ interface PlayerContextType {
   setCrossfadeCurve: (curve: 'linear' | 'equal-power' | 'smooth' | 'exponential') => void;
   toggleGaplessPro: () => void;
   onPrerollAdComplete: () => void;
+  /** Top up the queue with a real smart mix built around what's playing. */
+  fillSmartQueue: () => Promise<number>;
 }
 
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
@@ -1333,6 +1336,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (!r?.id || existing.has(r.id)) continue;
           if (!r.audio_url) continue;
           if (isDuplicate({ title: r.title, artist: r.artist ?? undefined })) continue;
+          if (isAiGeneratedTrack({ title: r.title, artist: r.artist ?? undefined })) continue;
           existing.add(r.id);
           markSeen({ title: r.title, artist: r.artist ?? undefined });
           pool.push(mapSongRow(r));
@@ -1371,6 +1375,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             const id = `ytm-${t.videoId}`;
             if (existing.has(id)) continue;
             if (isDuplicate({ title: t.title, artist: t.artist })) continue;
+            if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
             existing.add(id);
             markSeen({ title: t.title, artist: t.artist });
             pool.push({
@@ -1409,6 +1414,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               const id = t.id || (t.videoId ? `ytm-${t.videoId}` : '');
               if (!id || existing.has(id)) continue;
               if (isDuplicate({ title: t.title, artist: t.artist })) continue;
+              if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
               existing.add(id);
               markSeen({ title: t.title, artist: t.artist });
               pool.push({
@@ -1488,6 +1494,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       autoMixInFlightRef.current = false;
     }
   }, []);
+
+  // Manual smart-mix top-up (Up Next sheet). Uses the current track as the
+  // seed and returns how many real tracks were appended.
+  const fillSmartQueue = useCallback(async () => {
+    const seed = currentSongRef.current || queueRef.current[currentIndexRef.current] || null;
+    if (!seed) return 0;
+    const added = await extendQueueWithMix(seed);
+    return added.length;
+  }, [extendQueueWithMix]);
+
+
 
   // Reset the auto-mix dedupe set whenever the user manually loads a new queue
   // from a different entry point (so they get fresh recommendations).
@@ -3929,6 +3946,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       setCrossfadeCurve: setCrossfadeCurveFn,
       toggleGaplessPro,
       onPrerollAdComplete,
+      fillSmartQueue,
     }}>
       {children}
     </PlayerContext.Provider>
@@ -3975,6 +3993,7 @@ const INERT_PLAYER: PlayerContextType = {
   setCrossfadeCurve: noop,
   toggleGaplessPro: noop,
   onPrerollAdComplete: noop,
+  fillSmartQueue: async () => 0,
 };
 
 let warnedMissingProvider = false;
