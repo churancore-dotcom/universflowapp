@@ -96,9 +96,9 @@ const OptimizedImage = memo(({
     <div ref={containerRef} className={cn("relative overflow-hidden", className)}>
       {/* Placeholder skeleton */}
       {!isLoaded && (
-        <div 
+        <div
           className={cn(
-            "absolute inset-0 bg-muted/50 animate-pulse",
+            "absolute inset-0 bg-muted animate-pulse",
             placeholderClassName
           )}
         />
