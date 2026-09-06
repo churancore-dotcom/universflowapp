@@ -70,14 +70,25 @@ const OptimizedImage = memo(({
     setIsLoaded(true);
   };
 
+  // A thumbnail that never answers (blocked host, dead CDN edge) used to leave a
+  // pure-black hole in the card. After 6s we show the real fallback tile.
+  useEffect(() => {
+    if (!shouldLoad || isLoaded || hasError) return;
+    const t = window.setTimeout(() => { setHasError(true); setIsLoaded(true); }, 6000);
+    return () => window.clearTimeout(t);
+  }, [shouldLoad, isLoaded, hasError, candidateIndex]);
+
+  const fallbackTile = (
+    <div className="absolute inset-0 bg-gradient-to-br from-primary/35 via-primary/10 to-accent/25 flex items-center justify-center">
+      <span className="text-foreground/70 text-2xl font-semibold">
+        {(alt || '♪').trim().charAt(0).toUpperCase() || '♪'}
+      </span>
+    </div>
+  );
+
   if (!src) {
     return (
-      <div 
-        className={cn(
-          "bg-gradient-to-br from-primary/20 to-accent/20",
-          className
-        )}
-      />
+      <div className={cn("relative overflow-hidden", className)}>{fallbackTile}</div>
     );
   }
 
