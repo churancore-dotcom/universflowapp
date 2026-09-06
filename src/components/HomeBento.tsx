@@ -27,6 +27,7 @@ import { cachedArtistPortrait, enrichArtistImages, searchYouTubeMusicTracks } fr
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { cleanRail } from '@/lib/railQuality';
 import { isSpamSong } from '@/pages/Search';
+import OptimizedImage from './OptimizedImage';
 
 const PLAYER_SNAPSHOT_KEY = 'player_queue_state';
 
@@ -224,11 +225,7 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
               </div>
 
               <div className="w-[112px] h-[112px] shrink-0 rounded-[14px] overflow-hidden bg-background/30">
-                {resume.song.cover_url ? (
-                  <img src={resume.song.cover_url} alt="" className="w-full h-full object-cover" loading="eager" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center"><Music className="w-7 h-7 text-primary-foreground/70" /></div>
-                )}
+                <OptimizedImage src={resume.song.cover_url} alt={resume.song.title} eager className="w-full h-full" />
               </div>
             </div>
           </div>
@@ -258,7 +255,7 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
                 className="absolute inset-0 text-left"
               >
                 {artistImage ? (
-                  <img src={artistImage} alt={`${topArtist} portrait`} className="absolute inset-0 w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  <OptimizedImage src={artistImage} alt={`${topArtist} portrait`} eager className="absolute inset-0 w-full h-full" />
                 ) : (
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-background flex items-center justify-center">
                     <span className="font-display text-4xl uppercase text-foreground/60">{topArtist.slice(0, 2)}</span>
@@ -287,11 +284,7 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
                     className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
                   >
                     <div className="w-10 h-10 shrink-0 rounded-[14px] overflow-hidden bg-muted">
-                      {group.cover_url ? (
-                        <img src={group.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center"><Music className="w-4 h-4 text-muted-foreground" /></div>
-                      )}
+                      <OptimizedImage src={group.cover_url} alt={group.title} className="w-full h-full" />
                     </div>
                     <div className="min-w-0">
                       <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{group.title}</p>
@@ -347,7 +340,7 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
                   className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
                 >
                   <div className="w-10 h-10 shrink-0 rounded-[14px] overflow-hidden bg-muted">
-                    {song.cover_url && <img src={song.cover_url} alt="" className="w-full h-full object-cover" loading="lazy" />}
+                    <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full" />
                   </div>
                   <div className="min-w-0">
                     <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{song.title}</p>
