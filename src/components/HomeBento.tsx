@@ -135,7 +135,10 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
         (raw as unknown as Song[])
           .map((t) => ({
             ...t,
-            audio_url: t.audio_url || (t as { videoId?: string }).videoId ? t.audio_url || `yt-video:${(t as { videoId?: string }).videoId}` : 'resolving',
+            audio_url:
+              t.audio_url ||
+              ((t as { videoId?: string }).videoId ? `yt-video:${(t as { videoId?: string }).videoId}` : 'resolving'),
+
           }))
           .filter((s) => !isSpamSong(s)),
         { requireCover: true },
