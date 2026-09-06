@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useState } from 'react';
 import { motion, AnimatePresence, Reorder, useMotionValue, useTransform, useDragControls, PanInfo } from 'framer-motion';
-import { X, GripVertical, Play, Pause, Trash2 } from 'lucide-react';
+import { X, GripVertical, Play, Pause, Trash2, Sparkles, Loader2 } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import SongArtwork from './SongArtwork';
 import { iosSpring } from '@/lib/animations';
@@ -95,7 +95,7 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
         </span>
 
         <motion.button
-          className="relative w-11 h-11 rounded-xl overflow-hidden flex-shrink-0"
+          className="relative w-14 h-14 rounded-[14px] overflow-hidden flex-shrink-0 bg-muted"
           onClick={onPlay}
           whileTap={{ scale: 0.9 }}
           aria-label={isActive && isPlaying ? `Pause ${song.title}` : `Play ${song.title}`}
@@ -103,7 +103,7 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
 
           {/* Full artwork ladder (provider → YouTube sd/hq/mq → note tile)
               so a mix track without cover_url still shows real art. */}
-          <SongArtwork song={song} size={56} className="w-full h-full" />
+          <SongArtwork song={song} size={112} className="w-full h-full object-cover" />
 
           {/* Keep the overlay light so the cover stays clearly visible. */}
           <div className="absolute inset-0 flex items-center justify-center bg-black/20">
@@ -141,7 +141,19 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
 QueueItem.displayName = 'QueueItem';
 
 const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
-  const { queue, setQueue, currentSong, isPlaying, playSong, togglePlay } = usePlayer();
+  const { queue, setQueue, currentSong, isPlaying, playSong, togglePlay, fillSmartQueue } = usePlayer();
+  const [isMixing, setIsMixing] = useState(false);
+
+  const handleSmartMix = useCallback(async () => {
+    if (isMixing) return;
+    setIsMixing(true);
+    triggerHaptic('impactLight');
+    try {
+      await fillSmartQueue();
+    } finally {
+      setIsMixing(false);
+    }
+  }, [fillSmartQueue, isMixing]);
 
   const handlePlay = useCallback((song: Song) => {
     if (currentSong?.id === song.id) {
@@ -209,6 +221,16 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
             <h2 className="text-xl font-bold">Up Next</h2>
 
             <div className="flex items-center gap-2">
+              <motion.button
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-primary/20 text-primary text-sm font-medium disabled:opacity-60"
+                onClick={handleSmartMix}
+                disabled={isMixing || !currentSong}
+                whileTap={{ scale: 0.95 }}
+                aria-label="Add smart mix to queue"
+              >
+                {isMixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                Smart Mix
+              </motion.button>
               {queue.length > 0 && (
                 <motion.button
                   className="px-3 py-1.5 rounded-full bg-destructive/20 text-destructive text-sm font-medium"
@@ -238,8 +260,19 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
                 </div>
                 <p className="text-muted-foreground">Queue is empty</p>
                 <p className="text-sm text-muted-foreground/60 mt-1">
-                  Add songs to start playing
+                  Add songs, or build a mix around what you're playing
                 </p>
+                {currentSong && (
+                  <motion.button
+                    className="mt-4 flex items-center gap-2 px-4 py-2 rounded-full bg-primary text-primary-foreground text-sm font-semibold"
+                    onClick={handleSmartMix}
+                    disabled={isMixing}
+                    whileTap={{ scale: 0.95 }}
+                  >
+                    {isMixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    Build Smart Mix
+                  </motion.button>
+                )}
               </div>
             ) : (
               <Reorder.Group
