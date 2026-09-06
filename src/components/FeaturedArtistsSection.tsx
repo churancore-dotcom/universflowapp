@@ -1,5 +1,6 @@
 import React, { memo, useMemo } from 'react';
 import { motion } from 'framer-motion';
+import OptimizedImage from './OptimizedImage';
 import { useNavigate } from '@/lib/router-compat';
 import { ChevronRight } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
@@ -141,7 +142,7 @@ const FeaturedArtistsSection = ({
             >
               <div className="w-[92px] h-[92px] mx-auto rounded-full overflow-hidden border-2 border-primary/70">
                 {artist.image ? (
-                  <img src={artist.image} alt={`${artist.name} artist profile`} className="w-full h-full object-cover" loading="lazy" decoding="async" referrerPolicy="no-referrer" />
+                  <OptimizedImage src={artist.image} alt={`${artist.name} artist profile`} className="w-full h-full" />
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-primary/25 to-background flex items-center justify-center">
                     <span className="text-xl font-black uppercase text-foreground/70">{artist.name.slice(0, 2)}</span>
@@ -183,7 +184,7 @@ const FeaturedArtistsSection = ({
               className="relative block w-[132px] h-[168px] text-left rounded-lg overflow-hidden border border-white/5 group"
             >
               {artist.image ? (
-                <img src={artist.image} alt={`${artist.name} artist profile`} className="absolute inset-0 w-full h-full object-cover" loading="eager" decoding="async" referrerPolicy="no-referrer" />
+                <OptimizedImage src={artist.image} alt={`${artist.name} artist profile`} eager className="absolute inset-0 w-full h-full" />
               ) : (
 
                 <div className="absolute inset-0 bg-gradient-to-br from-primary/25 to-background flex items-center justify-center">
