@@ -136,11 +136,7 @@ const OptimizedImage = memo(({
       })()}
 
       {/* Error fallback */}
-      {hasError && (
-        <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-          <span className="text-muted-foreground/50 text-2xl">♪</span>
-        </div>
-      )}
+      {hasError && fallbackTile}
     </div>
   );
 });
