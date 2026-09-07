@@ -28,6 +28,7 @@ import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as OfflinePlayerRouteImport } from './routes/offline-player'
 import { Route as PremiumRouteImport } from './routes/premium'
 import { Route as ProfileRouteImport } from './routes/profile'
+import { Route as RecapRouteImport } from './routes/recap'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
@@ -201,6 +202,11 @@ const PremiumRoute = PremiumRouteImport.update({
 const ProfileRoute = ProfileRouteImport.update({
   id: '/profile',
   path: '/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RecapRoute = RecapRouteImport.update({
+  id: '/recap',
+  path: '/recap',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -630,6 +636,7 @@ export interface FileRoutesByFullPath {
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
+  '/recap': typeof RecapRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -729,6 +736,7 @@ export interface FileRoutesByTo {
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
+  '/recap': typeof RecapRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -829,6 +837,7 @@ export interface FileRoutesById {
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
   '/profile': typeof ProfileRoute
+  '/recap': typeof RecapRoute
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
@@ -931,6 +940,7 @@ export interface FileRouteTypes {
     | '/offline-player'
     | '/premium'
     | '/profile'
+    | '/recap'
     | '/reset-password'
     | '/search'
     | '/settings'
@@ -1030,6 +1040,7 @@ export interface FileRouteTypes {
     | '/offline-player'
     | '/premium'
     | '/profile'
+    | '/recap'
     | '/reset-password'
     | '/search'
     | '/settings'
@@ -1129,6 +1140,7 @@ export interface FileRouteTypes {
     | '/offline-player'
     | '/premium'
     | '/profile'
+    | '/recap'
     | '/reset-password'
     | '/search'
     | '/settings'
@@ -1230,6 +1242,7 @@ export interface RootRouteChildren {
   OfflinePlayerRoute: typeof OfflinePlayerRoute
   PremiumRoute: typeof PremiumRoute
   ProfileRoute: typeof ProfileRoute
+  RecapRoute: typeof RecapRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
@@ -1397,6 +1410,13 @@ declare module '@tanstack/react-router' {
       path: '/profile'
       fullPath: '/profile'
       preLoaderRoute: typeof ProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/recap': {
+      id: '/recap'
+      path: '/recap'
+      fullPath: '/recap'
+      preLoaderRoute: typeof RecapRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -2088,6 +2108,7 @@ const rootRouteChildren: RootRouteChildren = {
   OfflinePlayerRoute: OfflinePlayerRoute,
   PremiumRoute: PremiumRoute,
   ProfileRoute: ProfileRoute,
+  RecapRoute: RecapRoute,
   ResetPasswordRoute: ResetPasswordRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
