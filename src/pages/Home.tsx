@@ -9,15 +9,11 @@ import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
-import { getHomeRailOrder, type HomeFeedSignals } from '@/lib/homeFeedOrder';
-
-import MadeForYouSection from '@/components/MadeForYouSection';
-import OnRepeatSection from '@/components/OnRepeatSection';
+import { type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import AllSongsSection from '@/components/AllSongsSection';
-import TrendingNowSection from '@/components/TrendingNowSection';
-import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
-import FreshReleasesSection from '@/components/FreshReleasesSection';
+import HistoryPlaylistsSection from '@/components/HistoryPlaylistsSection';
+import YourArtistsSection from '@/components/YourArtistsSection';
 import BottomNav from '@/components/BottomNav';
 import QueueDrawer from '@/components/QueueDrawer';
 import EqualizerModal from '@/components/EqualizerModal';
@@ -26,7 +22,6 @@ import { greetingForHour, recentSongs } from '@/lib/personalHome';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
 import RecapProgressCard from '@/components/RecapProgressCard';
-import RecapModal from '@/components/RecapModal';
 import HomeBento from '@/components/HomeBento';
 
 import OfflineIndicator from '@/components/OfflineIndicator';
@@ -109,7 +104,6 @@ const Home = () => {
   const claimVersion = useRailClaimVersion();
   const [queueOpen, setQueueOpen] = useState(false);
   const [eqOpen, setEqOpen] = useState(false);
-  const [recapOpen, setRecapOpen] = useState(false);
 
 
   // Artist users land on their Studio dashboard, not the listener home.
@@ -180,13 +174,6 @@ const Home = () => {
     };
   }, [hydrated, recentVersion, user?.id]);
 
-  // Only three shelves ever render below the stage — trending, fresh, and the
-  // personal mix. Order still comes from the personalisation scorer.
-  const railOrder = useMemo(
-    () => getHomeRailOrder(signals).filter((r) => r === 'trending' || r === 'fresh' || r === 'mix'),
-    [signals],
-  );
-
   const pullToRefresh = usePullToRefresh({
     onRefresh: async () => {
       triggerHaptic('impactMedium');
@@ -242,18 +229,6 @@ const Home = () => {
       : `You've played ${insights.weekPlays} ${plural} this week.`;
   }, [insights]);
 
-  // Quick picks — four compact rows from history first, then the live chart.
-  const quickPicks = useMemo(() => {
-    const seen = new Set<string>([stage?.song?.id || '']);
-    const out: Song[] = [];
-    for (const s of [...history, ...clean]) {
-      if (seen.has(s.id)) continue;
-      seen.add(s.id);
-      out.push(s);
-      if (out.length === 4) break;
-    }
-    return out;
-  }, [history, clean, stage?.song?.id]);
 
 
 
@@ -328,7 +303,6 @@ const Home = () => {
 
         <QueueDrawer isOpen={queueOpen} onClose={() => setQueueOpen(false)} />
         <EqualizerModal isOpen={eqOpen} onClose={() => setEqOpen(false)} />
-        <RecapModal isOpen={recapOpen} onClose={() => setRecapOpen(false)} window="month" />
 
 
         <main
