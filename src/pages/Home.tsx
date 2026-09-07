@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo, memo, useRef } from 'react';
+import React, { useEffect, useState, useMemo, memo, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,7 +17,6 @@ import YourArtistsSection from '@/components/YourArtistsSection';
 import BottomNav from '@/components/BottomNav';
 import QueueDrawer from '@/components/QueueDrawer';
 import EqualizerModal from '@/components/EqualizerModal';
-import OptimizedImage from '@/components/OptimizedImage';
 import { greetingForHour, recentSongs } from '@/lib/personalHome';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
@@ -26,7 +25,7 @@ import HomeBento from '@/components/HomeBento';
 
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
-import { Music, Play, Pause, User, ListMusic, SlidersHorizontal } from 'lucide-react';
+import { Music, User, ListMusic, SlidersHorizontal } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { HomeSkeleton } from '@/components/PageSkeletons';
 import SEOHead from '@/components/SEOHead';
@@ -210,12 +209,6 @@ const Home = () => {
 
   useEffect(() => { if (stage?.song) claimRailSongs('hero', [stage.song]); }, [stage?.song?.id]);
   useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
-
-  const playTile = useCallback((song?: Song, queue?: Song[]) => {
-    if (!song) return;
-    triggerHaptic('selection');
-    playSong(song, null, (queue || clean).slice(0, 40));
-  }, [playSong, clean]);
 
   // ── Real personal stats for the header, chips and recap card ─────────────
   const insights = useHomeInsights();
