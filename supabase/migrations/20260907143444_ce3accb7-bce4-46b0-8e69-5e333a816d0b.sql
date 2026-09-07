@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.idx_stream_songs_artist_last_seen;
