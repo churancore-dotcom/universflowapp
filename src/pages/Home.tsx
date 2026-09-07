@@ -352,62 +352,18 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
           ) : (
             <>
-              {/* ── BENTO — Continue Listening, top artist, jump back in, moods, new release ── */}
-              <HomeBento songs={clean.length ? clean : allSongs} personalArtist={insights.weekTopArtist} />
+              {/* ── Continue Listening + Jump Back In, both from real history ── */}
+              <HomeBento songs={clean.length ? clean : allSongs} />
 
-              {/* ── Recap progress — real differentiator ── */}
+              {/* ── Recap progress — leads to the real recap screen ── */}
               <section className="px-6 mt-5">
-                <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => setRecapOpen(true)} />
+                <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => { window.location.href = '/recap'; }} />
               </section>
 
-
-              {/* ── QUICK PICKS — four calm rows, no cards ── */}
-              {quickPicks.length >= 4 && (
-                <section className="px-6 mt-9">
-                  <h3 className="text-[13px] font-bold uppercase tracking-[0.18em] text-muted-foreground/70 mb-4">
-                    Quick picks
-                  </h3>
-                  <div className="divide-y divide-border/40">
-                    {quickPicks.map((song) => (
-                      <button
-                        key={song.id}
-                        onClick={() => playTile(song, [song, ...quickPicks, ...clean])}
-                        className="flex items-center gap-3.5 w-full text-left py-2.5 active:opacity-60 transition-opacity"
-                      >
-                        <div className="w-12 h-12 shrink-0 rounded-[14px] overflow-hidden bg-muted">
-                          <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="text-[14px] font-semibold text-foreground truncate">{song.title}</p>
-                          <p className="text-[12px] text-muted-foreground truncate mt-0.5">{song.artist}</p>
-                        </div>
-                        <Play className="w-4 h-4 shrink-0 text-muted-foreground fill-current" />
-                      </button>
-                    ))}
-                  </div>
-                </section>
-              )}
-
-
-
-
-              {/* ── SHELVES — three, max ── */}
-              <div className="px-6 mt-11 space-y-11 pb-24">
-                <OnRepeatSection />
-                {railOrder.map((rail, railIdx) => (
-
-                  <motion.div
-                    key={rail}
-                    initial={{ opacity: 0, y: 16 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ type: 'spring', stiffness: 130, damping: 20, delay: 0.05 * railIdx }}
-                  >
-                    {rail === 'trending' && <TrendingNowSection songs={allSongs} enabled={homeReady} />}
-                    {rail === 'fresh' && <FreshReleasesSection songs={allSongs} enabled={homeReady} />}
-                    {rail === 'mix' && <MadeForYouSection />}
-                  </motion.div>
-                ))}
-                <FeaturedArtistsSection songs={allSongs} circle playsByArtist={insights.playsByArtist} />
+              {/* ── Playlists + artists, built only from tracks actually played ── */}
+              <div className="px-6 mt-9 space-y-11 pb-24">
+                <HistoryPlaylistsSection />
+                <YourArtistsSection />
               </div>
             </>
           )}
