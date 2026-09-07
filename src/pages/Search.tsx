@@ -572,10 +572,17 @@ const Search = () => {
       return;
     }
 
-    // INSTANT skeleton: flip to "searching" + clear previous rows the moment
-    // the user types, so they always see the loading state — never stale hits.
-    setSearching(true);
-    setIndexedResults([]);
+    // Instant paint: a query we've already run (this session or a previous app
+    // launch, via the on-device cache) renders synchronously — no skeleton, no
+    // network wait. Only genuinely new queries show the loading state.
+    const cachedNow = getCached<IndexedTrack[]>(SEARCH_CACHE_NAMESPACE, trimmedQuery);
+    if (cachedNow?.length) {
+      setIndexedResults(cachedNow.filter((track) => !isHiddenTrack(track, hiddenResults)));
+      setSearching(false);
+    } else {
+      setSearching(true);
+      setIndexedResults([]);
+    }
     setVisibleCount(40);
     expandedQueriesRef.current.delete(trimmedQuery);
 
@@ -584,16 +591,23 @@ const Search = () => {
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const cached = getCached<IndexedTrack[]>(SEARCH_CACHE_NAMESPACE, trimmedQuery);
-        if (cached) {
-          const uploaded = await searchUploadedArtistSongs(trimmedQuery);
-          if (!cancelled) {
-            setIndexedResults(rankAndDedupeResults(trimmedQuery, [...cached, ...uploaded], [], [], false)
-              .filter((track) => !isHiddenTrack(track, hiddenResults)));
-            setSearching(false);
-          }
-          return;
+        // Stage 1 — fast pass. One YT Music query + uploaded songs, rendered as
+        // soon as it lands so results appear in a few hundred ms instead of
+        // after every expansion/genre query has finished.
+        const [fastTracks, uploaded] = await Promise.all([
+          searchYouTubeMusicTracks(trimmedQuery, 50),
+          searchUploadedArtistSongs(trimmedQuery),
+        ]);
+        if (cancelled) return;
+        const fastRanked = rankAndDedupeResults(trimmedQuery, [...fastTracks, ...uploaded], [], [], false)
+          .filter((track) => !isHiddenTrack(track, hiddenResults));
+        if (fastRanked.length) {
+          setIndexedResults(fastRanked);
+          setSearching(false);
         }
+
+        // Stage 2 — full resilient pass (expansions, genre aliases, deeper
+        // page) merged in behind the already-visible rows.
         const artistJob = searchArtistDirectory(trimmedQuery, 30);
         const [rankedTracks, artists] = await Promise.all([
           fetchResilientSearchTracks(trimmedQuery, 200),
@@ -605,7 +619,7 @@ const Search = () => {
           .filter((track) => !isHiddenTrack(track, hiddenResults))
           .slice(0, 300);
 
-        setCached(SEARCH_CACHE_NAMESPACE, trimmedQuery, merged);
+        if (merged.length) setCached(SEARCH_CACHE_NAMESPACE, trimmedQuery, merged);
         // Artist tab only: require a strong artist-name match. Do NOT allow
         // substring/plural matches like "Headlight" -> "Headlights" because that
         // hijacked song searches and surfaced fake-looking artist cards.
@@ -626,14 +640,15 @@ const Search = () => {
           return nameMatches && hasListeners;
         });
         setArtistResults(verifiedArtists.slice(0, 24));
-        setIndexedResults(merged);
+        if (merged.length || !fastRanked.length) setIndexedResults(merged);
         setSearchHistory(getSongHistory());
       } catch {
-        if (!cancelled) { setIndexedResults([]); setArtistResults([]); }
+        if (!cancelled && !cachedNow?.length) { setIndexedResults([]); setArtistResults([]); }
       } finally {
         if (!cancelled) setSearching(false);
       }
-    }, 250);
+    }, 130);
+
 
     return () => {
       cancelled = true;
