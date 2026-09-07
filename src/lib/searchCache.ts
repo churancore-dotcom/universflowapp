@@ -38,12 +38,67 @@ const getStore = <T>(namespace: string): Map<string, Entry<T>> => {
 
 const normalize = (key: string) => key.trim().toLowerCase().replace(/\s+/g, ' ');
 
+/**
+ * On-device (localStorage) mirror of the memory cache.
+ *
+ * The memory cache dies with the process, which on the APK means every cold
+ * start re-queries the network for searches the user just ran. Mirroring a
+ * trimmed copy to disk makes repeat searches paint instantly offline/online.
+ */
+const DISK_PREFIX = `ufsearch:${CACHE_VERSION}:`;
+const DISK_MAX_ITEMS = 60;   // rows kept per query — enough for the first screens
+const DISK_MAX_QUERIES = 40; // bounded so storage stays small on mobile
+
+const diskKey = (namespace: string, key: string) => `${DISK_PREFIX}${namespace}:${key}`;
+
+const readDisk = <T>(namespace: string, key: string): T | undefined => {
+  try {
+    const raw = localStorage.getItem(diskKey(namespace, key));
+    if (!raw) return undefined;
+    const parsed = JSON.parse(raw) as { v: T; e: number };
+    if (!parsed || parsed.e < Date.now()) {
+      localStorage.removeItem(diskKey(namespace, key));
+      return undefined;
+    }
+    return parsed.v;
+  } catch {
+    return undefined;
+  }
+};
+
+const writeDisk = <T>(namespace: string, key: string, value: T): void => {
+  try {
+    const trimmed = (Array.isArray(value) ? value.slice(0, DISK_MAX_ITEMS) : value) as T;
+    localStorage.setItem(diskKey(namespace, key), JSON.stringify({ v: trimmed, e: Date.now() + TTL_MS }));
+    // Drop older-format entries and keep the query count bounded.
+    const keys: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      if (!k) continue;
+      if (k.startsWith('ufsearch:') && !k.startsWith(DISK_PREFIX)) { localStorage.removeItem(k); continue; }
+      if (k.startsWith(DISK_PREFIX)) keys.push(k);
+    }
+    if (keys.length > DISK_MAX_QUERIES) {
+      keys.slice(0, keys.length - DISK_MAX_QUERIES).forEach((k) => localStorage.removeItem(k));
+    }
+  } catch {
+    /* quota or private mode — memory cache still works */
+  }
+};
+
 export const getCached = <T>(namespace: string, key: string): T | undefined => {
   if (!cachesEnabled()) return undefined;
   const store = getStore<T>(namespace);
   const k = normalize(key);
   const hit = store.get(k);
-  if (!hit) return undefined;
+  if (!hit) {
+    const disk = readDisk<T>(namespace, k);
+    if (disk !== undefined) {
+      store.set(k, { value: disk, expiresAt: Date.now() + TTL_MS });
+      return disk;
+    }
+    return undefined;
+  }
   if (hit.expiresAt < Date.now()) {
     store.delete(k);
     return undefined;
@@ -59,6 +114,7 @@ export const setCached = <T>(namespace: string, key: string, value: T): void => 
   const store = getStore<T>(namespace);
   const k = normalize(key);
   store.set(k, { value, expiresAt: Date.now() + TTL_MS });
+  writeDisk(namespace, k, value);
   // LRU eviction
   while (store.size > MAX_ENTRIES) {
     const oldestKey = store.keys().next().value;
@@ -70,4 +126,12 @@ export const setCached = <T>(namespace: string, key: string, value: T): void => 
 export const clearCache = (namespace?: string): void => {
   if (namespace) stores.get(namespaceKey(namespace))?.clear();
   else stores.clear();
+  try {
+    for (let i = localStorage.length - 1; i >= 0; i -= 1) {
+      const k = localStorage.key(i);
+      if (!k?.startsWith(DISK_PREFIX)) continue;
+      if (!namespace || k.startsWith(`${DISK_PREFIX}${namespace}:`)) localStorage.removeItem(k);
+    }
+  } catch { /* ignore */ }
 };
+
