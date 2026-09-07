@@ -1,32 +1,22 @@
 /**
- * Bento-style Home surface: Continue Listening hero + two 2-up rows
- * (Artist of the Week / Jump Back In, Moods / New Release).
+ * Home surface, simplified: Continue Listening + Jump Back In.
  *
- * Every value shown here comes from data the app already has:
+ * Every value comes from data the app already has:
  *  - Continue Listening: the live player, or the persisted player snapshot
  *    (`player_queue_state`), or the newest device play-history entry.
- *  - Artist of the Week / Featured artists: the live regional chart pool,
- *    with portraits resolved through the existing artist-image enrichment.
  *  - Jump Back In: device play history (localStorage snapshots).
- *  - New Release: the existing YT Music new-releases rail.
- * Nothing is fabricated — a card self-hides (or falls back to a prompt) when
- * its signal is missing, and listener counts are never invented.
+ * Nothing is fabricated — a card self-hides when its signal is missing, and no
+ * chart/editorial cards live here any more.
  */
 import { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { useQuery } from '@tanstack/react-query';
-import { Play, Pause, Music, Sparkles, Loader2 } from 'lucide-react';
-import { useNavigate } from '@/lib/router-compat';
+import { Play, Pause } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { recentSongs, jumpBackInGroups } from '@/lib/personalHome';
-import { useYtmNewReleases } from '@/lib/ytmRails';
-import { useUserCountry } from '@/hooks/useUserCountry';
-import { cachedArtistPortrait, enrichArtistImages, searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { cleanRail } from '@/lib/railQuality';
-import { isSpamSong } from '@/pages/Search';
 import OptimizedImage from './OptimizedImage';
 
 const PLAYER_SNAPSHOT_KEY = 'player_queue_state';
@@ -51,30 +41,14 @@ const readSnapshot = (): Snapshot | null => {
   }
 };
 
-const MOODS = ['Focus', 'Hype', 'Chill', 'Late Night', 'Relax', 'Love'] as const;
-
-/** Real search terms behind each mood chip — these actually fetch and play. */
-const MOOD_QUERIES: Record<string, string> = {
-  Focus: 'focus instrumental study songs',
-  Hype: 'high energy hype party songs',
-  Chill: 'chill relaxed songs',
-  'Late Night': 'late night slow songs',
-  Relax: 'calm soothing songs',
-  Love: 'romantic love songs',
-};
-
 const Card = ({ className = '', children }: { className?: string; children: React.ReactNode }) => (
   <div className={`rounded-[28px] border border-border/60 bg-card/70 overflow-hidden ${className}`}>{children}</div>
 );
 
-
-const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalArtist?: string | null }) => {
-  const navigate = useNavigate();
-  const country = useUserCountry();
+const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null }) => {
   const { currentSong, isPlaying, playSong, togglePlay, seek } = usePlayer();
   const { progress, duration } = usePlayerProgress();
   const recents = useLocalRecents(60);
-  const [moodLoading, setMoodLoading] = useState<string | null>(null);
   const [pendingSeek, setPendingSeek] = useState<{ id: string; at: number } | null>(null);
 
   const history = useMemo(() => recentSongs(recents), [recents]);
@@ -125,70 +99,8 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
 
   const pct = resume && resume.total > 0 ? Math.min(100, (resume.at / resume.total) * 100) : 0;
 
-  // ── Moods — a real fetch + real queue, not a link that looks like one ────
-  const playMood = async (mood: string) => {
-    if (moodLoading) return;
-    triggerHaptic('selection');
-    setMoodLoading(mood);
-    try {
-      const raw = await searchYouTubeMusicTracks(MOOD_QUERIES[mood] || `${mood} songs`, 40);
-      const pool = cleanRail(
-        (raw as unknown as Song[])
-          .map((t) => ({
-            ...t,
-            audio_url:
-              t.audio_url ||
-              ((t as { videoId?: string }).videoId ? `yt-video:${(t as { videoId?: string }).videoId}` : 'resolving'),
-
-          }))
-          .filter((s) => !isSpamSong(s)),
-        { requireCover: true },
-      );
-      if (pool.length) {
-        playSong(pool[0], null, pool.slice(0, 40));
-        return;
-      }
-      navigate(`/search?q=${encodeURIComponent(`${mood} mix`)}`);
-    } catch {
-      navigate(`/search?q=${encodeURIComponent(`${mood} mix`)}`);
-    } finally {
-      setMoodLoading(null);
-    }
-  };
-
-  // ── Artist of the Week — most-charting artist in the live pool ─────────
-  const topArtist = useMemo(() => {
-    if (personalArtist && personalArtist.trim().length > 1) return personalArtist.trim();
-    const counts = new Map<string, { name: string; hits: number }>();
-    for (const s of songs) {
-      const name = (s.artist || '').split(/,|&|feat\.?|ft\.?/i)[0].trim();
-      if (name.length < 2) continue;
-      const key = name.toLowerCase();
-      const row = counts.get(key);
-      if (row) row.hits += 1; else counts.set(key, { name, hits: 1 });
-    }
-    return [...counts.values()].sort((a, b) => b.hits - a.hits)[0]?.name || null;
-  }, [songs, personalArtist]);
-
-  const { data: portraits } = useQuery({
-    queryKey: ['artist-portraits', 'aotw', topArtist],
-    enabled: !!topArtist,
-    staleTime: 24 * 60 * 60 * 1000,
-    queryFn: () => enrichArtistImages([topArtist as string]),
-  });
-  const artistImage = topArtist ? (portraits?.[topArtist] ?? cachedArtistPortrait(topArtist)) : null;
-
-  // ── New Releases — a real list, not a single token track ────────────────
-  const { data: releases = [] } = useYtmNewReleases(country, 24, songs.length > 0);
-  const releasePool = useMemo(
-    () => cleanRail((releases as Song[]).filter((s) => !isSpamSong(s)), { requireCover: true }),
-    [releases],
-  );
-  const newReleases = releasePool.slice(0, 3);
-
   // ── Jump Back In — real album/artist sets the listener was working through
-  const jumpGroups = useMemo(() => jumpBackInGroups(recents, 1).slice(0, 3), [recents]);
-
+  const jumpGroups = useMemo(() => jumpBackInGroups(recents, 1).slice(0, 6), [recents]);
 
   return (
     <div className="px-5 space-y-3">
@@ -244,120 +156,34 @@ const HomeBento = ({ songs, personalArtist = null }: { songs: Song[]; personalAr
         )}
       </motion.div>
 
-      {/* ROW — Artist of the Week / Jump Back In */}
-      {(topArtist || jumpGroups.length > 0) && (
-
-        <div className="grid grid-cols-2 gap-3">
-          {topArtist && (
-            <Card className="relative aspect-[3/4]">
-              <button
-                onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(topArtist)}`); }}
-                className="absolute inset-0 text-left"
-              >
-                {artistImage ? (
-                  <OptimizedImage src={artistImage} alt={`${topArtist} portrait`} eager className="absolute inset-0 w-full h-full" />
-                ) : (
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/30 to-background flex items-center justify-center">
-                    <span className="font-display text-4xl uppercase text-foreground/60">{topArtist.slice(0, 2)}</span>
-                  </div>
-                )}
-                <div className="absolute inset-0 bg-gradient-to-t from-background via-background/40 to-background/10" />
-                <p className="absolute top-4 left-4 right-4 text-[10px] font-bold uppercase tracking-[0.18em] text-primary">{personalArtist ? 'Your Top Artist' : 'Artist of the Week'}</p>
-                <p className="absolute bottom-4 left-4 right-4 font-display text-[20px] leading-tight uppercase text-foreground line-clamp-2">
-                  {topArtist}
-                </p>
-              </button>
-            </Card>
-          )}
-
-          {jumpGroups.length > 0 && (
-            <Card className="p-4 flex flex-col">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Jump Back In</p>
-              <div className="mt-3 space-y-3">
-                {jumpGroups.map((group) => (
-                  <button
-                    key={group.id}
-                    onClick={() => {
-                      triggerHaptic('selection');
-                      playSong(group.songs[0], null, [...group.songs, ...history.slice(0, 20)]);
-                    }}
-                    className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
-                  >
-                    <div className="w-10 h-10 shrink-0 rounded-[14px] overflow-hidden bg-muted">
-                      <OptimizedImage src={group.cover_url} alt={group.title} className="w-full h-full" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{group.title}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {group.songs.length > 1 ? `${group.songs.length} tracks · ${group.subtitle}` : group.subtitle}
-                      </p>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </Card>
-          )}
-
-        </div>
-      )}
-
-      {/* ROW — Moods / New Release */}
-      <div className="grid grid-cols-2 gap-3">
+      {/* JUMP BACK IN — real album/artist sets from history */}
+      {jumpGroups.length > 0 && (
         <Card className="p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Moods</p>
-          <div className="mt-3 flex flex-wrap gap-2">
-            {MOODS.map((mood) => (
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Jump Back In</p>
+          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
+            {jumpGroups.map((group) => (
               <button
-                key={mood}
-                onClick={() => void playMood(mood)}
-                disabled={!!moodLoading}
-                className="inline-flex items-center gap-1.5 rounded-full border border-border/70 bg-muted/40 px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide text-foreground active:bg-primary active:text-primary-foreground transition-colors disabled:opacity-50"
+                key={group.id}
+                onClick={() => {
+                  triggerHaptic('selection');
+                  playSong(group.songs[0], null, [...group.songs, ...history.slice(0, 20)]);
+                }}
+                className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
               >
-                {moodLoading === mood && <Loader2 className="w-3 h-3 animate-spin" />}
-                {mood}
+                <div className="w-11 h-11 shrink-0 rounded-[14px] overflow-hidden bg-muted">
+                  <OptimizedImage src={group.cover_url} alt={group.title} className="w-full h-full" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{group.title}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">
+                    {group.songs.length > 1 ? `${group.songs.length} tracks` : group.subtitle}
+                  </p>
+                </div>
               </button>
             ))}
           </div>
         </Card>
-
-        {newReleases.length > 0 ? (
-          <Card className="p-4 flex flex-col">
-            <div className="flex items-baseline justify-between">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">New Releases</p>
-              <button
-                onClick={() => { triggerHaptic('selection'); playSong(releasePool[0], null, releasePool.slice(0, 30)); }}
-                aria-label="Play new releases"
-                className="w-7 h-7 rounded-full bg-primary text-primary-foreground flex items-center justify-center active:scale-95 transition-transform"
-              >
-                <Play className="w-3 h-3 fill-current ml-0.5" />
-              </button>
-            </div>
-            <div className="mt-3 space-y-3">
-              {newReleases.map((song, i) => (
-                <button
-                  key={song.id}
-                  onClick={() => { triggerHaptic('selection'); playSong(song, null, releasePool.slice(i).concat(releasePool.slice(0, i)).slice(0, 30)); }}
-                  className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
-                >
-                  <div className="w-10 h-10 shrink-0 rounded-[14px] overflow-hidden bg-muted">
-                    <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{song.title}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{song.artist}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </Card>
-        ) : (
-          <Card className="p-4 flex flex-col items-center justify-center text-center">
-            <Sparkles className="w-5 h-5 text-primary mb-2" />
-            <p className="text-[11px] font-semibold text-muted-foreground">New releases load in a moment</p>
-          </Card>
-        )}
-
-      </div>
+      )}
     </div>
   );
 };
