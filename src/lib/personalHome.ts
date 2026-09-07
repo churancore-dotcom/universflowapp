@@ -166,3 +166,82 @@ export function tasteLine(entries: LocalRecentEntry[], taste: TasteProfile): str
   if (entries.length >= 1) return 'Pick up where you left off';
   return null;
 }
+
+/* --------------------------------------------------- history playlists */
+
+export interface HistoryPlaylist {
+  id: string;
+  title: string;
+  subtitle: string;
+  cover_url?: string;
+  songs: Song[];
+  kind: 'mood' | 'artist';
+}
+
+/** Keyword buckets used to sort *already played* tracks into mood playlists. */
+const MOOD_KEYS: { id: string; title: string; keys: RegExp }[] = [
+  { id: 'late-night', title: 'Late Night', keys: /\b(night|raat|midnight|nocturn|sleep|lofi|lo-fi|slowed|reverb)\b/i },
+  { id: 'love', title: 'Love Songs', keys: /\b(love|pyaar|pyar|ishq|dil|heart|romantic|mohabbat|jaan)\b/i },
+  { id: 'hype', title: 'Hype', keys: /\b(party|dance|club|banger|hype|drill|trap|phonk|rap|remix|bass)\b/i },
+  { id: 'chill', title: 'Chill', keys: /\b(chill|calm|acoustic|unplugged|soft|slow|piano|relax|vibe)\b/i },
+  { id: 'sad', title: 'Feelings', keys: /\b(sad|broken|bewafa|judai|alone|tears|cry|yaad|dard)\b/i },
+];
+
+const moodOf = (song: Song): { id: string; title: string } | null => {
+  const hay = `${song.title || ''} ${song.album || ''}`;
+  for (const bucket of MOOD_KEYS) if (bucket.keys.test(hay)) return { id: bucket.id, title: bucket.title };
+  return null;
+};
+
+/**
+ * Playlists built from tracks the listener has ACTUALLY played — grouped by
+ * mood (from track titles) and by artist. Nothing is fetched or invented; a
+ * group only exists when enough real plays back it.
+ */
+export function historyPlaylists(
+  entries: LocalRecentEntry[],
+  taste: TasteProfile,
+  opts: { minMood?: number; minArtist?: number; max?: number } = {},
+): HistoryPlaylist[] {
+  const { minMood = 3, minArtist = 3, max = 12 } = opts;
+  const songs = recentSongs(entries);
+  if (!songs.length) return [];
+
+  const moods = new Map<string, HistoryPlaylist>();
+  for (const song of songs) {
+    const mood = moodOf(song);
+    if (!mood) continue;
+    const existing = moods.get(mood.id);
+    if (existing) {
+      existing.songs.push(song);
+      if (!existing.cover_url) existing.cover_url = song.cover_url;
+      continue;
+    }
+    moods.set(mood.id, {
+      id: `mood:${mood.id}`,
+      title: mood.title,
+      subtitle: 'From your plays',
+      cover_url: song.cover_url,
+      songs: [song],
+      kind: 'mood',
+    });
+  }
+
+  const artists: HistoryPlaylist[] = topArtistRows(entries, taste, 20)
+    .filter((row) => row.songs.length >= minArtist)
+    .map((row) => ({
+      id: `artist:${row.name.toLowerCase()}`,
+      title: row.name,
+      subtitle: `${row.songs.length} track${row.songs.length === 1 ? '' : 's'} you played`,
+      cover_url: row.cover_url,
+      songs: row.songs,
+      kind: 'artist' as const,
+    }));
+
+  return [
+    ...[...moods.values()].filter((m) => m.songs.length >= minMood),
+    ...artists,
+  ]
+    .sort((a, b) => b.songs.length - a.songs.length)
+    .slice(0, max);
+}
