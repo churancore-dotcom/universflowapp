@@ -102,7 +102,7 @@ const Recap = () => {
   return (
     <TabTransition>
       <div className="h-[100dvh] bg-background flex flex-col overflow-hidden">
-        <SEOHead title="Your Recap — Universflow" description="Your listening recap: minutes, top artists and every track you played this month." path="/recap" noindex />
+        <SEOHead title="Your Recap — Universflow" description="Your listening recap: minutes, top artists and every track you played this month." path="/recap" />
 
         <header className="flex-shrink-0 px-6 pt-6 pb-3 safe-area-pt flex items-center gap-3">
           <button onClick={() => navigate(-1)} aria-label="Go back" className="w-9 h-9 rounded-full bg-card border border-border/60 flex items-center justify-center active:scale-90 transition-transform">
