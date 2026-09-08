@@ -1387,7 +1387,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               // Radio rows sometimes ship without a thumbnail, which is why
               // queue rows showed an empty tile. Fall back to the canonical
               // YouTube artwork for that videoId.
-              cover_url: t.cover_url || `https://i.ytimg.com/vi/${t.videoId}/hqdefault.jpg`,
+              // `maxresdefault` is bar-free and full size; the artwork ladder
+              // walks down to hq720/mq if it's missing. `hqdefault` used to be
+              // the fallback, which is what made queue covers look blurry.
+              cover_url: t.cover_url || `https://i.ytimg.com/vi/${t.videoId}/maxresdefault.jpg`,
+
               audio_url: t.audio_url || `yt-video:${t.videoId}`,
               duration: t.duration || undefined,
               source: 'indexed',
