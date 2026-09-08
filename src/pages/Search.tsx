@@ -30,6 +30,7 @@ import {
   clearSongHistory,
   type SongHistoryEntry,
 } from '@/lib/songHistory';
+import { getArtistAffinity, artistAffinityBonus } from '@/lib/artistAffinity';
 
 type SearchSource = 'songs' | 'artists';
 
