@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from '@/lib/router-compat';
 import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2, UserSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { prewarmSong } from '@/lib/instantPlay';
+import { readRecentQueries, rememberQuery, forgetQuery } from '@/lib/recentQueries';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
 import { useDownloads } from '@/contexts/DownloadContext';
 import BottomNav from '@/components/BottomNav';
