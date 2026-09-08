@@ -5,6 +5,7 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import SongArtwork from './SongArtwork';
 import { iosSpring } from '@/lib/animations';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { toast } from 'sonner';
 
 interface QueueDrawerProps {
   isOpen: boolean;
@@ -103,10 +104,10 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
 
           {/* Full artwork ladder (provider → YouTube sd/hq/mq → note tile)
               so a mix track without cover_url still shows real art. */}
-          <SongArtwork song={song} size={112} className="w-full h-full object-cover" />
+          <SongArtwork song={song} size={160} className="w-full h-full object-cover" />
 
           {/* Keep the overlay light so the cover stays clearly visible. */}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/15">
             {isActive && isPlaying ? (
               <Pause className="w-4 h-4 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" fill="white" />
             ) : (
@@ -149,7 +150,11 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
     setIsMixing(true);
     triggerHaptic('impactLight');
     try {
-      await fillSmartQueue();
+      const added = await fillSmartQueue();
+      if (added > 0) toast.success(`Added ${added} song${added === 1 ? '' : 's'} to Up Next`);
+      else toast.error("Couldn't build a mix right now — try again in a moment");
+    } catch {
+      toast.error("Couldn't build a mix right now — try again in a moment");
     } finally {
       setIsMixing(false);
     }
