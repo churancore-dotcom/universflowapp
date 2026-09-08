@@ -29,7 +29,7 @@ function rowToSong(r: TrendingRow): Song | null {
     id: r.track_id,
     title: r.title,
     artist: r.artist || 'Unknown',
-    cover_url: r.cover_url || (videoId ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg` : undefined),
+    cover_url: r.cover_url || (videoId ? `https://i.ytimg.com/vi/${videoId}/maxresdefault.jpg` : undefined),
     audio_url: videoId ? `yt-video:${videoId}` : '',
     source: 'indexed',
   } as Song;

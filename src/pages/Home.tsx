@@ -57,7 +57,7 @@ const fmt = (s?: number) => {
 const upgradeThumb = (url?: string) => {
   if (!url) return undefined;
   if (url.includes('googleusercontent.com')) return url.replace(/=w\d+-h\d+[^&]*/i, '=w544-h544-l90-rj');
-  return url.replace(/\/default\.jpg/i, '/hqdefault.jpg').replace(/\/mqdefault\.jpg/i, '/hqdefault.jpg');
+  return url.replace(/\/(default|hqdefault|mqdefault|sddefault)\.jpg/i, '/maxresdefault.jpg');
 };
 
 const fetchHomeSongs = async (country: string): Promise<Song[]> => {

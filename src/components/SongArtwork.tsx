@@ -70,7 +70,7 @@ const SongArtwork = memo(({ song, className, size = 44, alt }: Props) => {
             // 404; upscaling it is exactly the blur users reported. Fall
             // through to the next candidate when a better one exists.
             const img = e.currentTarget;
-            if (img.naturalWidth > 0 && img.naturalWidth <= 130 && index < sources.length - 1) {
+            if (img.naturalWidth > 0 && img.naturalWidth <= 200 && index < sources.length - 1) {
               setIndex((i) => i + 1);
               return;
             }
