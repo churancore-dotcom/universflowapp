@@ -1,6 +1,6 @@
 import React, { memo, useCallback, useState } from 'react';
 import { motion, AnimatePresence, Reorder, useMotionValue, useTransform, useDragControls, PanInfo } from 'framer-motion';
-import { X, GripVertical, Play, Pause, Trash2, Sparkles, Loader2 } from 'lucide-react';
+import { X, GripVertical, Play, Pause, Trash2, Shuffle, Loader2 } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import SongArtwork from './SongArtwork';
 import { iosSpring } from '@/lib/animations';
@@ -228,7 +228,7 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
                 whileTap={{ scale: 0.95 }}
                 aria-label="Add smart mix to queue"
               >
-                {isMixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                {isMixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />}
                 Smart Mix
               </motion.button>
               {queue.length > 0 && (
@@ -269,7 +269,7 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
                     disabled={isMixing}
                     whileTap={{ scale: 0.95 }}
                   >
-                    {isMixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    {isMixing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Shuffle className="w-4 h-4" />}
                     Build Smart Mix
                   </motion.button>
                 )}

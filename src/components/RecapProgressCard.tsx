@@ -5,7 +5,7 @@
  */
 import { memo } from 'react';
 import { motion } from 'framer-motion';
-import { Sparkles, ChevronRight } from 'lucide-react';
+import { BarChart3, ChevronRight } from 'lucide-react';
 import { triggerHaptic } from '@/hooks/useHaptics';
 
 /** Recap needs a real amount of listening behind it to be worth showing. */
@@ -35,7 +35,7 @@ const RecapProgressCard = memo(({ monthPlays, onOpen }: Props) => {
     >
       <div className="flex items-center gap-3">
         <span className="w-9 h-9 shrink-0 rounded-full bg-primary/15 text-primary flex items-center justify-center">
-          <Sparkles className="w-4 h-4" />
+          <BarChart3 className="w-4 h-4" />
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-[13px] font-bold text-foreground truncate">

@@ -1427,7 +1427,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
                 id,
                 title: t.title,
                 artist: t.artist || 'Unknown',
-                cover_url: t.cover_url || (t.videoId ? `https://i.ytimg.com/vi/${t.videoId}/hqdefault.jpg` : undefined),
+                cover_url: t.cover_url || (t.videoId ? `https://i.ytimg.com/vi/${t.videoId}/maxresdefault.jpg` : undefined),
                 audio_url: t.audio_url || (t.videoId ? `yt-video:${t.videoId}` : ''),
                 duration: t.duration || undefined,
                 source: 'indexed',
