@@ -10,7 +10,7 @@
  */
 import { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause, Sparkle } from 'lucide-react';
+import { Play, Pause } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
