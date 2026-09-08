@@ -16,7 +16,10 @@ import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { recentSongs, jumpBackInGroups } from '@/lib/personalHome';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { cleanRail } from '@/lib/railQuality';
+import { cleanRail, songFingerprint } from '@/lib/railQuality';
+import { useYtmNewReleases } from '@/lib/ytmRails';
+import { useUserCountry } from '@/hooks/useUserCountry';
+import { isSpamSong } from '@/pages/Search';
 import OptimizedImage from './OptimizedImage';
 
 const PLAYER_SNAPSHOT_KEY = 'player_queue_state';
@@ -102,6 +105,35 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
   // ── Jump Back In — real album/artist sets the listener was working through
   const jumpGroups = useMemo(() => jumpBackInGroups(recents, 1).slice(0, 6), [recents]);
 
+  // ── Artist of the Week — the artist the listener actually played most ──
+  const artistOfWeek = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const byArtist = new Map<string, { name: string; plays: number; songs: Song[] }>();
+    for (const entry of recents) {
+      if (entry.played_at < cutoff) continue;
+      const song = entry.song as Song | undefined;
+      if (!song?.artist) continue;
+      const key = song.artist.trim().toLowerCase();
+      const bucket = byArtist.get(key) || { name: song.artist.trim(), plays: 0, songs: [] };
+      bucket.plays += 1;
+      if (!bucket.songs.some((s) => songFingerprint(s) === songFingerprint(song))) bucket.songs.push(song);
+      byArtist.set(key, bucket);
+    }
+    let best: { name: string; plays: number; songs: Song[] } | null = null;
+    for (const bucket of byArtist.values()) {
+      if (!best || bucket.plays > best.plays) best = bucket;
+    }
+    return best && best.plays >= 2 ? best : null;
+  }, [recents]);
+
+  // ── New Release — the freshest real single from the live release feed ──
+  const country = useUserCountry();
+  const { data: releasePool = [] } = useYtmNewReleases(country, 8, true);
+  const newRelease = useMemo(
+    () => cleanRail(releasePool.filter((s) => !isSpamSong(s)), { requireCover: true })[0] || null,
+    [releasePool],
+  );
+
   return (
     <div className="px-5 space-y-3">
       {/* HERO — Continue Listening */}
@@ -155,6 +187,50 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
           </Card>
         )}
       </motion.div>
+
+      {/* ARTIST OF THE WEEK + NEW RELEASE — real signals, side by side */}
+      {(artistOfWeek || newRelease) && (
+        <div className="grid grid-cols-2 gap-3">
+          {artistOfWeek && (
+            <motion.button
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.05 }}
+              onClick={() => {
+                triggerHaptic('selection');
+                playSong(artistOfWeek.songs[0], null, [...artistOfWeek.songs, ...history.slice(0, 20)]);
+              }}
+              className="text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
+              <div className="w-14 h-14 rounded-full overflow-hidden bg-muted mt-3">
+                <OptimizedImage src={artistOfWeek.songs[0]?.cover_url} alt={artistOfWeek.name} className="w-full h-full" />
+              </div>
+              <p className="text-[13px] font-bold text-foreground truncate leading-tight mt-2.5">{artistOfWeek.name}</p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                You played {artistOfWeek.plays} {artistOfWeek.plays === 1 ? 'track' : 'tracks'} this week
+              </p>
+            </motion.button>
+          )}
+
+          {newRelease && (
+            <motion.button
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.1 }}
+              onClick={() => { triggerHaptic('selection'); playSong(newRelease, null, releasePool); }}
+              className="text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">New Release</p>
+              <div className="w-14 h-14 rounded-[14px] overflow-hidden bg-muted mt-3">
+                <OptimizedImage src={newRelease.cover_url} alt={newRelease.title} className="w-full h-full" />
+              </div>
+              <p className="text-[13px] font-bold text-foreground truncate leading-tight mt-2.5">{newRelease.title}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{newRelease.artist}</p>
+            </motion.button>
+          )}
+        </div>
+      )}
 
       {/* JUMP BACK IN — real album/artist sets from history */}
       {jumpGroups.length > 0 && (
