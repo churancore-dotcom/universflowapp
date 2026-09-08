@@ -14,6 +14,12 @@ import { type HomeFeedSignals } from '@/lib/homeFeedOrder';
 import AllSongsSection from '@/components/AllSongsSection';
 import HistoryPlaylistsSection from '@/components/HistoryPlaylistsSection';
 import YourArtistsSection from '@/components/YourArtistsSection';
+import TrendingNowSection from '@/components/TrendingNowSection';
+import FreshReleasesSection from '@/components/FreshReleasesSection';
+import MadeForYouSection from '@/components/MadeForYouSection';
+import OnRepeatSection from '@/components/OnRepeatSection';
+import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
+
 import BottomNav from '@/components/BottomNav';
 import QueueDrawer from '@/components/QueueDrawer';
 import EqualizerModal from '@/components/EqualizerModal';
@@ -327,11 +333,17 @@ const Home = () => {
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => { window.location.href = '/recap'; }} />
               </section>
 
-              {/* ── Playlists + artists, built only from tracks actually played ── */}
+              {/* ── The full feed: charts, fresh music, personal rails ── */}
               <div className="px-6 mt-9 space-y-11 pb-24">
+                <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
+                <FreshReleasesSection enabled={homeReady} />
+                <OnRepeatSection />
+                <MadeForYouSection />
                 <HistoryPlaylistsSection />
                 <YourArtistsSection />
+                <FeaturedArtistsSection songs={clean.length ? clean : allSongs} circle />
               </div>
+
             </>
           )}
         </main>
