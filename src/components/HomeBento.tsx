@@ -188,9 +188,11 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
         )}
       </motion.div>
 
-      {/* ARTIST OF THE WEEK + NEW RELEASE — real signals, side by side */}
+      {/* ARTIST OF THE WEEK + NEW RELEASE — scrollable on phone widths so cards
+          stay narrow and text stays big instead of squeezing into half a screen */}
       {(artistOfWeek || newRelease) && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+          <div className="flex gap-3 w-max">
           {artistOfWeek && (
             <motion.button
               initial={{ opacity: 0, y: 14 }}
@@ -200,14 +202,14 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
                 triggerHaptic('selection');
                 playSong(artistOfWeek.songs[0], null, [...artistOfWeek.songs, ...history.slice(0, 20)]);
               }}
-              className="text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
+              className="snap-start w-[176px] shrink-0 text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
             >
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
-              <div className="w-14 h-14 rounded-full overflow-hidden bg-muted mt-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
+              <div className="w-20 h-20 rounded-full overflow-hidden bg-muted mt-3">
                 <OptimizedImage src={artistOfWeek.songs[0]?.cover_url} alt={artistOfWeek.name} className="w-full h-full" />
               </div>
-              <p className="text-[13px] font-bold text-foreground truncate leading-tight mt-2.5">{artistOfWeek.name}</p>
-              <p className="text-[11px] text-muted-foreground truncate">
+              <p className="text-[16px] font-bold text-foreground truncate leading-tight mt-3">{artistOfWeek.name}</p>
+              <p className="text-[12px] text-muted-foreground truncate mt-0.5">
                 You played {artistOfWeek.plays} {artistOfWeek.plays === 1 ? 'track' : 'tracks'} this week
               </p>
             </motion.button>
@@ -219,46 +221,48 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.1 }}
               onClick={() => { triggerHaptic('selection'); playSong(newRelease, null, releasePool); }}
-              className="text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
+              className="snap-start w-[176px] shrink-0 text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
             >
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">New Release</p>
-              <div className="w-14 h-14 rounded-[14px] overflow-hidden bg-muted mt-3">
+              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">New Release</p>
+              <div className="w-20 h-20 rounded-[14px] overflow-hidden bg-muted mt-3">
                 <OptimizedImage src={newRelease.cover_url} alt={newRelease.title} className="w-full h-full" />
               </div>
-              <p className="text-[13px] font-bold text-foreground truncate leading-tight mt-2.5">{newRelease.title}</p>
-              <p className="text-[11px] text-muted-foreground truncate">{newRelease.artist}</p>
+              <p className="text-[16px] font-bold text-foreground truncate leading-tight mt-3">{newRelease.title}</p>
+              <p className="text-[12px] text-muted-foreground truncate mt-0.5">{newRelease.artist}</p>
             </motion.button>
           )}
+          </div>
         </div>
       )}
 
-      {/* JUMP BACK IN — real album/artist sets from history */}
+      {/* JUMP BACK IN — real album/artist sets from history, horizontally
+          scrollable so titles get full width instead of a cramped 2-up grid */}
       {jumpGroups.length > 0 && (
-        <Card className="p-4">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Jump Back In</p>
-          <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
-            {jumpGroups.map((group) => (
-              <button
-                key={group.id}
-                onClick={() => {
-                  triggerHaptic('selection');
-                  playSong(group.songs[0], null, [...group.songs, ...history.slice(0, 20)]);
-                }}
-                className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
-              >
-                <div className="w-11 h-11 shrink-0 rounded-[14px] overflow-hidden bg-muted">
-                  <OptimizedImage src={group.cover_url} alt={group.title} className="w-full h-full" />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-[12.5px] font-bold text-foreground truncate leading-tight">{group.title}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">
+        <div>
+          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary mb-3">Jump Back In</p>
+          <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide snap-x">
+            <div className="flex gap-3 w-max">
+              {jumpGroups.map((group) => (
+                <button
+                  key={group.id}
+                  onClick={() => {
+                    triggerHaptic('selection');
+                    playSong(group.songs[0], null, [...group.songs, ...history.slice(0, 20)]);
+                  }}
+                  className="snap-start w-[132px] shrink-0 text-left active:opacity-60 transition-opacity"
+                >
+                  <div className="w-[132px] h-[132px] rounded-[14px] overflow-hidden bg-muted">
+                    <OptimizedImage src={group.cover_url} alt={group.title} className="w-full h-full" />
+                  </div>
+                  <p className="text-[14px] font-bold text-foreground truncate leading-tight mt-2">{group.title}</p>
+                  <p className="text-[12px] text-muted-foreground truncate">
                     {group.songs.length > 1 ? `${group.songs.length} tracks` : group.subtitle}
                   </p>
-                </div>
-              </button>
-            ))}
+                </button>
+              ))}
+            </div>
           </div>
-        </Card>
+        </div>
       )}
     </div>
   );
