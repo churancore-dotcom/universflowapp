@@ -542,6 +542,8 @@ const Search = () => {
   // actually triggered a search (we don't want it covering results).
   const [suggestActive, setSuggestActive] = useState(true);
   const suggestions = useYtmSuggestions(query, suggestActive && isFocused);
+  const [recentQueries, setRecentQueries] = useState<string[]>([]);
+  useEffect(() => { setRecentQueries(readRecentQueries()); }, []);
 
   const expandedQueriesRef = useRef<Set<string>>(new Set());
   const { playSong, currentSong, isPlaying } = usePlayer();
