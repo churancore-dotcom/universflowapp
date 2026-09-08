@@ -656,11 +656,19 @@ const Search = () => {
     };
   }, [query, hiddenResults]);
 
+  // Pre-resolve streams for the rows the listener can actually reach without
+  // scrolling far. Staggered so a fresh result set never floods the network,
+  // and wide enough that tapping row 8 is as instant as tapping row 1.
   useEffect(() => {
-    indexedResults.slice(0, 6).forEach((track) => {
-      if (track.videoId) prefetchYouTubeVideoStream(track.videoId, { title: track.title, artist: track.artist });
-      else prefetchIndexedTrack(track.artist, track.title);
-    });
+    const batch = indexedResults.slice(0, 12);
+    if (!batch.length) return;
+    const timers = batch.map((track, i) =>
+      window.setTimeout(() => {
+        if (track.videoId) prefetchYouTubeVideoStream(track.videoId, { title: track.title, artist: track.artist });
+        else prefetchIndexedTrack(track.artist, track.title);
+      }, i * 120),
+    );
+    return () => timers.forEach(clearTimeout);
   }, [indexedResults]);
 
   const libraryResults: Song[] = [];
