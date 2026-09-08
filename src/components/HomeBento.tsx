@@ -105,6 +105,35 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
   // ── Jump Back In — real album/artist sets the listener was working through
   const jumpGroups = useMemo(() => jumpBackInGroups(recents, 1).slice(0, 6), [recents]);
 
+  // ── Artist of the Week — the artist the listener actually played most ──
+  const artistOfWeek = useMemo(() => {
+    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    const byArtist = new Map<string, { name: string; plays: number; songs: Song[] }>();
+    for (const entry of recents) {
+      if (entry.played_at < cutoff) continue;
+      const song = entry.song as Song | undefined;
+      if (!song?.artist) continue;
+      const key = song.artist.trim().toLowerCase();
+      const bucket = byArtist.get(key) || { name: song.artist.trim(), plays: 0, songs: [] };
+      bucket.plays += 1;
+      if (!bucket.songs.some((s) => songFingerprint(s) === songFingerprint(song))) bucket.songs.push(song);
+      byArtist.set(key, bucket);
+    }
+    let best: { name: string; plays: number; songs: Song[] } | null = null;
+    for (const bucket of byArtist.values()) {
+      if (!best || bucket.plays > best.plays) best = bucket;
+    }
+    return best && best.plays >= 2 ? best : null;
+  }, [recents]);
+
+  // ── New Release — the freshest real single from the live release feed ──
+  const country = useUserCountry();
+  const { data: releasePool = [] } = useYtmNewReleases(country, 8, true);
+  const newRelease = useMemo(
+    () => cleanRail(releasePool.filter((s) => !isSpamSong(s)), { requireCover: true })[0] || null,
+    [releasePool],
+  );
+
   return (
     <div className="px-5 space-y-3">
       {/* HERO — Continue Listening */}
