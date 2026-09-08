@@ -33,29 +33,49 @@ const publish = () => {
   (window as unknown as { __ufPlayTraces?: unknown }).__ufPlayTraces = traces;
 };
 
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
 export function startPlayTrace(label: string): void {
   if (typeof performance === 'undefined') return;
+  // Close any previous unfinished trace so its measured stages are not lost.
+  if (current && !current.done) finishPlayTrace();
   current = { label, startedAt: performance.now(), marks: [], done: false };
   markPlayStage('tap');
+  if (flushTimer) clearTimeout(flushTimer);
+  flushTimer = setTimeout(() => finishPlayTrace(), 10_000);
 }
 
 export function markPlayStage(stage: PlayStage): void {
   if (!current || current.done) return;
   current.marks.push({ stage, at: performance.now() });
+  // Publish a running snapshot so a play that never becomes audible (codec
+  // error, dead stream, user skipped) still leaves real stage timings behind.
+  publishSnapshot();
   if (stage === 'audible') finishPlayTrace();
+}
+
+function summarize(trace: Trace, suffix = ''): Record<string, number | string> {
+  const row: Record<string, number | string> = { song: trace.label + suffix };
+  let prev = trace.startedAt;
+  for (const mark of trace.marks) {
+    row[mark.stage] = Math.round(mark.at - prev);
+    prev = mark.at;
+  }
+  row.total = Math.round(prev - trace.startedAt);
+  return row;
+}
+
+function publishSnapshot(): void {
+  if (!current || current.done) return;
+  if (typeof window === 'undefined') return;
+  (window as unknown as { __ufPlayTraceCurrent?: unknown }).__ufPlayTraceCurrent =
+    summarize(current, ' (in progress)');
 }
 
 function finishPlayTrace(): void {
   if (!current || current.done) return;
   current.done = true;
-  const { label, startedAt, marks } = current;
-  const row: Record<string, number | string> = { song: label };
-  let prev = startedAt;
-  for (const mark of marks) {
-    row[mark.stage] = Math.round(mark.at - prev);
-    prev = mark.at;
-  }
-  row.total = Math.round(prev - startedAt);
+  const row = summarize(current);
   traces.unshift(row);
   if (traces.length > MAX_TRACES) traces.pop();
   publish();
