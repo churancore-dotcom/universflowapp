@@ -10,13 +10,16 @@
  */
 import { memo, useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Play, Pause } from 'lucide-react';
+import { Play, Pause, Sparkle } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { recentSongs, jumpBackInGroups } from '@/lib/personalHome';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { cleanRail } from '@/lib/railQuality';
+import { cleanRail, songFingerprint } from '@/lib/railQuality';
+import { useYtmNewReleases } from '@/lib/ytmRails';
+import { useUserCountry } from '@/hooks/useUserCountry';
+import { isSpamSong } from '@/pages/Search';
 import OptimizedImage from './OptimizedImage';
 
 const PLAYER_SNAPSHOT_KEY = 'player_queue_state';
