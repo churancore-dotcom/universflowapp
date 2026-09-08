@@ -800,6 +800,17 @@ const Search = () => {
             <Input value={query} onChange={(e) => { setQuery(e.target.value); setSuggestActive(true); }}
               onFocus={() => setIsFocused(true)}
               onBlur={() => setTimeout(() => setIsFocused(false), 150)}
+              onKeyDown={(e) => {
+                if (e.key !== 'Enter') return;
+                setSuggestActive(false);
+                if (query.trim().length >= 2) setRecentQueries(rememberQuery(query));
+                (e.target as HTMLInputElement).blur();
+              }}
+              enterKeyHint="search"
+              inputMode="search"
+              autoComplete="off"
+              autoCorrect="off"
+              spellCheck={false}
               placeholder="Any song, artist, or album worldwide"
               aria-label="Search songs, artists, or albums"
               className="pl-10 pr-8 h-12 text-sm rounded-3xl border-0 bg-card"
