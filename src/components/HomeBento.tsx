@@ -188,6 +188,50 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
         )}
       </motion.div>
 
+      {/* ARTIST OF THE WEEK + NEW RELEASE — real signals, side by side */}
+      {(artistOfWeek || newRelease) && (
+        <div className="grid grid-cols-2 gap-3">
+          {artistOfWeek && (
+            <motion.button
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.05 }}
+              onClick={() => {
+                triggerHaptic('selection');
+                playSong(artistOfWeek.songs[0], null, [...artistOfWeek.songs, ...history.slice(0, 20)]);
+              }}
+              className="text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
+              <div className="w-14 h-14 rounded-full overflow-hidden bg-muted mt-3">
+                <OptimizedImage src={artistOfWeek.songs[0]?.cover_url} alt={artistOfWeek.name} className="w-full h-full" />
+              </div>
+              <p className="text-[13px] font-bold text-foreground truncate leading-tight mt-2.5">{artistOfWeek.name}</p>
+              <p className="text-[11px] text-muted-foreground truncate">
+                You played {artistOfWeek.plays} {artistOfWeek.plays === 1 ? 'track' : 'tracks'} this week
+              </p>
+            </motion.button>
+          )}
+
+          {newRelease && (
+            <motion.button
+              initial={{ opacity: 0, y: 14 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.1 }}
+              onClick={() => { triggerHaptic('selection'); playSong(newRelease, null, releasePool); }}
+              className="text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
+            >
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">New Release</p>
+              <div className="w-14 h-14 rounded-[14px] overflow-hidden bg-muted mt-3">
+                <OptimizedImage src={newRelease.cover_url} alt={newRelease.title} className="w-full h-full" />
+              </div>
+              <p className="text-[13px] font-bold text-foreground truncate leading-tight mt-2.5">{newRelease.title}</p>
+              <p className="text-[11px] text-muted-foreground truncate">{newRelease.artist}</p>
+            </motion.button>
+          )}
+        </div>
+      )}
+
       {/* JUMP BACK IN — real album/artist sets from history */}
       {jumpGroups.length > 0 && (
         <Card className="p-4">
