@@ -408,6 +408,7 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
   const qNorm = normalizeText(intent.genre || query);
   const phraseVariants = intent.variants.map(normalizeText).filter((variant) => variant.length > 2);
   const genreIntent = Boolean(intent.genre);
+  const affinity = getArtistAffinity();
   const allTracks: { track: IndexedTrack; score: number; sourcePriority: number; index: number }[] = [];
 
   const processTrack = (track: IndexedTrack, base: number, index: number, sourcePriority: number) => {
