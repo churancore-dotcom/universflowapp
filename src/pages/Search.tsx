@@ -885,6 +885,38 @@ const Search = () => {
             <motion.div key="browse" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}>
 
+                {/* Recent searches — one tap to run them again */}
+                {recentQueries.length > 0 && (
+                  <div className="mb-5">
+                    <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 flex items-center gap-2">
+                      <SearchIcon className="w-4 h-4 text-primary" /> Recent Searches
+                    </h2>
+                    <div className="flex flex-wrap gap-2">
+                      {recentQueries.map((term) => (
+                        <div
+                          key={term}
+                          className="flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full bg-card/70 border border-border/60"
+                        >
+                          <button
+                            onClick={() => { setQuery(term); setSuggestActive(false); }}
+                            className="text-[12px] font-semibold text-foreground max-w-[9rem] truncate"
+                          >
+                            {term}
+                          </button>
+                          <button
+                            onClick={() => setRecentQueries(forgetQuery(term))}
+                            aria-label={`Remove ${term} from recent searches`}
+                            className="w-5 h-5 rounded-full flex items-center justify-center text-muted-foreground active:bg-foreground/10"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+
 
                 {/* Recently Played (song-based history, Spotify-style) */}
                 {searchHistory.length > 0 && (
