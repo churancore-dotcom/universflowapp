@@ -1503,12 +1503,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Manual smart-mix top-up (Up Next sheet). Uses the current track as the
   // seed and returns how many real tracks were appended.
+  //
+  // The background auto-refill holds `autoMixInFlightRef`, and a tap that
+  // landed during it used to return 0 instantly — the button looked broken.
+  // Wait for the in-flight build to finish, then run the manual one.
   const fillSmartQueue = useCallback(async () => {
     const seed = currentSongRef.current || queueRef.current[currentIndexRef.current] || null;
     if (!seed) return 0;
+    for (let attempt = 0; attempt < 12 && autoMixInFlightRef.current; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+    const before = queueRef.current.length;
     const added = await extendQueueWithMix(seed);
-    return added.length;
+    if (added.length > 0) return added.length;
+    // The wait may have been satisfied by the background refill itself.
+    return Math.max(0, queueRef.current.length - before);
   }, [extendQueueWithMix]);
+
 
 
 
