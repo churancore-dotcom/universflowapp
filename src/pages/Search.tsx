@@ -466,7 +466,10 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const noisePenalty = parenNoise * 40 + noiseWords * 180 + (rawTitle.length > 70 ? 40 : 0);
 
     const genreBonus = genreIntent ? 420 : 0;
-    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + authority + genreBonus - noisePenalty - index * 0.8;
+    // Personal listening weight: artists this listener actually plays rise above
+    // merely globally-popular results for the same query.
+    const personalBonus = artistAffinityBonus(rawArtist, affinity);
+    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + authority + genreBonus + personalBonus - noisePenalty - index * 0.8;
     allTracks.push({ track, score, sourcePriority, index });
   };
 
