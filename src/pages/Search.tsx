@@ -645,6 +645,7 @@ const Search = () => {
         setArtistResults(verifiedArtists.slice(0, 24));
         if (merged.length || !fastRanked.length) setIndexedResults(merged);
         setSearchHistory(getSongHistory());
+        if (merged.length || fastRanked.length) setRecentQueries(rememberQuery(trimmedQuery));
       } catch {
         if (!cancelled && !cachedNow?.length) { setIndexedResults([]); setArtistResults([]); }
       } finally {
