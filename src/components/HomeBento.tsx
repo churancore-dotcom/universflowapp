@@ -191,7 +191,7 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
       {/* ARTIST OF THE WEEK + NEW RELEASE — scrollable on phone widths so cards
           stay narrow and text stays big instead of squeezing into half a screen */}
       {(artistOfWeek || newRelease) && (
-        <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide snap-x snap-mandatory">
+        <div className="-mx-4 px-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory">
           <div className="flex gap-3 w-max">
           {artistOfWeek && (
             <motion.button
@@ -240,7 +240,7 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
       {jumpGroups.length > 0 && (
         <div>
           <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary mb-3">Jump Back In</p>
-          <div className="-mx-4 px-4 overflow-x-auto scrollbar-hide snap-x">
+          <div className="-mx-4 px-4 overflow-x-auto hide-scrollbar snap-x">
             <div className="flex gap-3 w-max">
               {jumpGroups.map((group) => (
                 <button
