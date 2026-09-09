@@ -424,6 +424,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setIsAdmin(false);
       setEmailVerified(null);
+      try { localStorage.removeItem('uf_email_verified'); } catch { /* private mode */ }
     }
   }, []);
 
