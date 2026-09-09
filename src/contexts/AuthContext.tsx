@@ -77,7 +77,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [emailVerified, setEmailVerified] = useState<boolean | null>(null);
+  // Remember the last known verification result. Offline (airplane mode, APK
+  // cold start with no network) the profile lookup can never answer, and a null
+  // value freezes protected routes on a blank screen or bounces to /auth —
+  // which is what looked like being "logged out" when opening downloads.
+  const [emailVerified, setEmailVerified] = useState<boolean | null>(() => {
+    try {
+      const cached = localStorage.getItem('uf_email_verified');
+      return cached === '1' ? true : cached === '0' ? false : null;
+    } catch { return null; }
+  });
   const [isLoading, setIsLoading] = useState(true);
   // Trust navigator.onLine only for the "true" (online) signal. It reports
   // false positives constantly (Capacitor webviews, brief network transitions,
@@ -186,13 +195,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, []);
 
   const loadEmailVerified = useCallback(async (userId: string) => {
+    const remember = (value: boolean) => {
+      try { localStorage.setItem('uf_email_verified', value ? '1' : '0'); } catch { /* private mode */ }
+      setEmailVerified(value);
+    };
+    // Never let a hanging offline request keep the app on a blank screen.
+    const guard = setTimeout(() => {
+      setEmailVerified(prev => (prev === null ? true : prev));
+    }, 3500);
     try {
       // Admins bypass the verification gate entirely — they manage the platform
       // and must always reach /admin (and the app) even if their profile row
       // hasn't been flipped (seeded accounts, magic-link logins, etc.).
       try {
         const { data: adminFlag } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
-        if (adminFlag) { setEmailVerified(true); return; }
+        if (adminFlag) { remember(true); return; }
       } catch { /* fall through to normal check */ }
 
       const { data } = await supabase
@@ -202,9 +219,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
       // Treat NULL as verified so legacy accounts aren't blocked. Only explicit
       // `false` triggers the verification gate.
-      setEmailVerified(data && data.email_verified === false ? false : true);
+      remember(!(data && data.email_verified === false));
     } catch {
-      setEmailVerified(true);
+      // Offline or unreachable: keep the last known answer instead of gating.
+      setEmailVerified(prev => (prev === null ? true : prev));
+    } finally {
+      clearTimeout(guard);
     }
   }, []);
 
@@ -404,6 +424,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setSession(null);
       setIsAdmin(false);
       setEmailVerified(null);
+      try { localStorage.removeItem('uf_email_verified'); } catch { /* private mode */ }
     }
   }, []);
 
