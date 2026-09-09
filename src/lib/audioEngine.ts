@@ -51,6 +51,12 @@ interface Engine {
   preGain: GainNode | null;
   dryGain: GainNode | null;
   wetGain: GainNode | null;
+  // Per-space tone shaping on the reverb send. A room is not just "wetness":
+  // a stadium is dull and boomy, a cathedral is bright and airy, a club is
+  // thick in the low mids. These three filters give each space its real voice.
+  wetHp: BiquadFilterNode | null;
+  wetTone: BiquadFilterNode | null;
+  wetLp: BiquadFilterNode | null;
   convolver: ConvolverNode | null;
   stereoPanner: StereoPannerNode | null;
   panLfo: OscillatorNode | null;
@@ -104,6 +110,9 @@ const engine: Engine = {
   preGain: null,
   dryGain: null,
   wetGain: null,
+  wetHp: null,
+  wetTone: null,
+  wetLp: null,
   convolver: null,
   stereoPanner: null,
   panLfo: null,
@@ -264,6 +273,41 @@ const SPACE_PROFILES: Record<Exclude<StudioSpaceId, 'off'>, SpaceProfile> = {
 
 
 
+/**
+ * The VOICE of each space, applied to the reverb send only (the dry track is
+ * untouched). Real rooms filter what they reflect: concrete stadiums swallow
+ * treble and boom in the low mids; stone cathedrals ring bright and thin;
+ * a club's walls are close and thick; a vinyl cut is dark and narrow.
+ *
+ * hp/lp are corner frequencies in Hz; toneHz/toneDb is one peaking band.
+ * `hall` (Concert Hall) is intentionally neutral — its voicing is left alone.
+ */
+const SPACE_TONE: Record<Exclude<StudioSpaceId, 'off'>, { hp: number; lp: number; toneHz: number; toneDb: number }> = {
+  vinyl:     { hp: 140, lp: 4500,  toneHz: 900,  toneDb: -2.5 },
+  studio:    { hp: 90,  lp: 12000, toneHz: 3000, toneDb: 1.5 },
+  bedroom:   { hp: 120, lp: 7000,  toneHz: 400,  toneDb: 2.0 },
+  hall:      { hp: 20,  lp: 20000, toneHz: 250,  toneDb: 0 },
+  cathedral: { hp: 180, lp: 11000, toneHz: 2200, toneDb: 3.0 },
+  stadium:   { hp: 60,  lp: 3500,  toneHz: 160,  toneDb: 5.0 },
+  club:      { hp: 70,  lp: 6000,  toneHz: 220,  toneDb: 4.5 },
+  arena:     { hp: 70,  lp: 5000,  toneHz: 180,  toneDb: 3.5 },
+  chapel:    { hp: 200, lp: 13000, toneHz: 2600, toneDb: 2.5 },
+  opera:     { hp: 130, lp: 14000, toneHz: 1800, toneDb: 2.0 },
+  canyon:    { hp: 220, lp: 4200,  toneHz: 800,  toneDb: -3.0 },
+};
+
+function applySpaceTone(spaceId: StudioSpaceId) {
+  if (!engine.ctx || !engine.wetHp || !engine.wetTone || !engine.wetLp) return;
+  const now = engine.ctx.currentTime;
+  const tone = spaceId === 'off'
+    ? { hp: 20, lp: 20000, toneHz: 250, toneDb: 0 }
+    : SPACE_TONE[spaceId];
+  engine.wetHp.frequency.setTargetAtTime(tone.hp, now, SMOOTH);
+  engine.wetLp.frequency.setTargetAtTime(tone.lp, now, SMOOTH);
+  engine.wetTone.frequency.setTargetAtTime(tone.toneHz, now, SMOOTH);
+  engine.wetTone.gain.setTargetAtTime(tone.toneDb, now, SMOOTH);
+}
+
 let currentSpaceId: StudioSpaceId = 'off';
 let currentReverbPercent = 0;
 
@@ -394,6 +438,7 @@ export function setStudioSpace(spaceId: StudioSpaceId) {
   if (engine.mode !== 'processed' || !engine.ctx || !engine.convolver || !engine.dryGain || !engine.wetGain) return;
   const ctx = engine.ctx;
   const now = ctx.currentTime;
+  applySpaceTone(spaceId);
   if (spaceId === 'off') {
     engine.convolver.buffer = getReverbIR(ctx);
     applyReverbMix(currentReverbPercent);
@@ -415,6 +460,7 @@ function disconnectAll() {
   const nodes: (AudioNode | null)[] = [
     engine.source, ...engine.filters, engine.preGain,
     engine.dryGain, engine.wetGain, engine.convolver,
+    engine.wetHp, engine.wetTone, engine.wetLp,
     engine.stereoPanner, engine.panLfoGain,
     engine.stemsSplitter, engine.stemsMerger,
     engine.stemsDirectGain, engine.stemsMatrixGain,
@@ -472,6 +518,15 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
 
   const convolver = ctx.createConvolver();
   convolver.buffer = getReverbIR(ctx);
+
+  // Reverb-send tone stage (see SPACE_TONE). Neutral by default, so with no
+  // Studio Space selected the reverb send is exactly as before.
+  const wetHp = ctx.createBiquadFilter();
+  wetHp.type = 'highpass'; wetHp.frequency.value = 20; wetHp.Q.value = 0.7;
+  const wetTone = ctx.createBiquadFilter();
+  wetTone.type = 'peaking'; wetTone.frequency.value = 250; wetTone.Q.value = 0.8; wetTone.gain.value = 0;
+  const wetLp = ctx.createBiquadFilter();
+  wetLp.type = 'lowpass'; wetLp.frequency.value = 20000; wetLp.Q.value = 0.7;
 
   const stereoPanner = ctx.createStereoPanner();
   stereoPanner.pan.value = 0;
@@ -562,7 +617,10 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   filters[filters.length - 1].connect(preGain);
 
   preGain.connect(dryGain);
-  preGain.connect(convolver);
+  preGain.connect(wetHp);
+  wetHp.connect(wetTone);
+  wetTone.connect(wetLp);
+  wetLp.connect(convolver);
   convolver.connect(wetGain);
 
   dryGain.connect(stereoPanner);
@@ -592,6 +650,9 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   engine.dryGain = dryGain;
   engine.wetGain = wetGain;
   engine.convolver = convolver;
+  engine.wetHp = wetHp;
+  engine.wetTone = wetTone;
+  engine.wetLp = wetLp;
   engine.stereoPanner = stereoPanner;
   engine.surroundSplitter = surroundSplitter;
   engine.surroundMerger = surroundMerger;
@@ -734,6 +795,22 @@ export function getHeadphoneSurround(): boolean {
  * Re-tunes the always-on limiter into a transparent night compressor +
  * makeup gain. Off restores brick-wall protection only.
  */
+/**
+ * Automatic headroom. Boosting bands or bass raises peak level, which used to
+ * slam the limiter and make heavy EQ sound squashed and distorted instead of
+ * loud. We trim the pre-limiter gain by roughly the boost the user dialled in,
+ * so a boosted curve keeps its shape and stays clean.
+ */
+let bandHeadroom = 1;
+
+function applyGainStaging() {
+  if (!engine.ctx || !engine.preGain) return;
+  const now = engine.ctx.currentTime;
+  const base = engine.lateNightEnabled ? 2.4 : 0.92;
+  engine.preGain.gain.cancelScheduledValues(now);
+  engine.preGain.gain.setTargetAtTime(base * bandHeadroom, now, SMOOTH);
+}
+
 function applyLateNightToLimiter() {
   if (!engine.ctx || !engine.limiter || !engine.preGain) return;
   const ctx = engine.ctx;
@@ -749,15 +826,14 @@ function applyLateNightToLimiter() {
     c.ratio.setTargetAtTime(14, now, SMOOTH);
     c.attack.setTargetAtTime(0.006, now, SMOOTH);
     c.release.setTargetAtTime(0.22, now, SMOOTH);
-    engine.preGain.gain.setTargetAtTime(2.4, now, SMOOTH);
   } else {
     c.threshold.setTargetAtTime(-6, now, SMOOTH);
     c.knee.setTargetAtTime(12, now, SMOOTH);
     c.ratio.setTargetAtTime(4, now, SMOOTH);
     c.attack.setTargetAtTime(0.01, now, SMOOTH);
     c.release.setTargetAtTime(0.18, now, SMOOTH);
-    engine.preGain.gain.setTargetAtTime(0.92, now, SMOOTH);
   }
+  applyGainStaging();
 }
 
 export function setLateNight(enabled: boolean) {
@@ -778,6 +854,9 @@ function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext
   engine.dryGain = null;
   engine.wetGain = null;
   engine.convolver = null;
+  engine.wetHp = null;
+  engine.wetTone = null;
+  engine.wetLp = null;
   engine.stereoPanner = null;
   engine.surroundSplitter = null;
   engine.surroundMerger = null;
@@ -949,6 +1028,7 @@ export function setBands(gainsDb: number[], bassBoostPercent = 0) {
   const subBoost = pct * 10;   // 32Hz sub — felt as physical thump
   const punchBoost = pct * 7;  // 64Hz — the "thump" frequency
   const kickBoost  = pct * 3;  // 125Hz — slight body, no vocal muddiness
+  let maxBoostDb = 0;
 
   for (let i = 0; i < engine.filters.length; i++) {
     let g = gainsDb[i] ?? 0;
@@ -956,10 +1036,16 @@ export function setBands(gainsDb: number[], bassBoostPercent = 0) {
     else if (i === 1) g += punchBoost;
     else if (i === 2) g += kickBoost;
     g = Math.max(-15, Math.min(15, g));
+    if (g > maxBoostDb) maxBoostDb = g;
     const param = engine.filters[i].gain;
     param.cancelScheduledValues(now);
     param.setTargetAtTime(g, now, SMOOTH);
   }
+
+  // Trim by ~70% of the largest boost so heavy curves stay clean instead of
+  // being crushed by the limiter.
+  bandHeadroom = Math.pow(10, (-maxBoostDb * 0.7) / 20);
+  applyGainStaging();
 }
 
 /** 0..100 wet mix. Capped at 35% wet so vocals stay intelligible. */
