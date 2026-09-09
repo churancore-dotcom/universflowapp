@@ -342,6 +342,33 @@ export interface NativeSpaceGeometry {
   size: number;
 }
 
+/**
+ * Combine a 10-band web EQ curve into ONE native band level.
+ *
+ * The old code picked only the single nearest web slider for each native band.
+ * Android exposes 5 bands, so five of the ten sliders (32Hz, 125Hz, 500Hz,
+ * 2kHz, 8kHz) were silently thrown away — moving them did nothing at all on
+ * the phone. Now every slider contributes, weighted by how close it sits to
+ * the native band centre (one octave away counts half), so the curve the user
+ * draws is the curve they hear.
+ */
+export function blendWebBandsForNativeBand(
+  webBands: number[],
+  webFrequenciesHz: number[],
+  nativeCenterHz: number,
+): number {
+  let weighted = 0;
+  let weight = 0;
+  for (let i = 0; i < webFrequenciesHz.length; i++) {
+    const octaves = Math.abs(Math.log2(Math.max(1, webFrequenciesHz[i]) / Math.max(1, nativeCenterHz)));
+    if (octaves > 2) continue;
+    const w = 1 / (1 + octaves);
+    weighted += (webBands[i] ?? 0) * w;
+    weight += w;
+  }
+  return weight > 0 ? weighted / weight : 0;
+}
+
 export async function applyNativeAudioEffects(opts: {
 
   enabled: boolean;
@@ -371,13 +398,8 @@ export async function applyNativeAudioEffects(opts: {
   const minLevel = usable ? usable.minLevel : -1500;
   const maxLevel = usable ? usable.maxLevel : 1500;
   const bands = nativeBands.map((native, bi) => {
-    let best = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < opts.webFrequenciesHz.length; i++) {
-      const distance = Math.abs(Math.log2(Math.max(1, opts.webFrequenciesHz[i] / Math.max(1, native.centerFrequencyHz))));
-      if (distance < bestDist) { bestDist = distance; best = i; }
-    }
-    const level = Math.round((opts.webBands[best] ?? 0) * 100) + (opts.nativeOffsetsMb?.[bi] ?? 0);
+    const dB = blendWebBandsForNativeBand(opts.webBands, opts.webFrequenciesHz, native.centerFrequencyHz);
+    const level = Math.round(dB * 100) + (opts.nativeOffsetsMb?.[bi] ?? 0);
     return { band: native.index, levelMillibels: Math.max(minLevel, Math.min(maxLevel, level)) };
   });
   try {
@@ -436,14 +458,7 @@ export async function pushNativeEQFromWebBands(
   const updates: Array<{ band: number; levelMillibels: number }> = [];
   for (let bi = 0; bi < nativeBands.length; bi++) {
     const native = nativeBands[bi];
-    const target = native.centerFrequencyHz;
-    let best = 0;
-    let bestDist = Infinity;
-    for (let i = 0; i < webFrequenciesHz.length; i++) {
-      const d = Math.abs(Math.log2(Math.max(1, webFrequenciesHz[i] / Math.max(1, target))));
-      if (d < bestDist) { bestDist = d; best = i; }
-    }
-    const dB = webBands[best] ?? 0;
+    const dB = blendWebBandsForNativeBand(webBands, webFrequenciesHz, native.centerFrequencyHz);
     const offset = nativeOffsetsMb?.[bi] ?? 0;
     const mb = Math.max(minLevel, Math.min(maxLevel, Math.round(dB * 100) + offset));
     updates.push({ band: native.index, levelMillibels: mb });
