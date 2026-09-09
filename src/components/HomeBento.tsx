@@ -48,6 +48,17 @@ const Card = ({ className = '', children }: { className?: string; children: Reac
   <div className={`rounded-[28px] border border-border/60 bg-card/70 overflow-hidden ${className}`}>{children}</div>
 );
 
+// Mood chips run a real catalogue search and play the result queue — no
+// hardcoded track lists, no fake playlists.
+const MOODS: Array<{ label: string; query: string }> = [
+  { label: 'Focus', query: 'focus instrumental study music' },
+  { label: 'Hype', query: 'hype party bangers' },
+  { label: 'Chill', query: 'chill lofi songs' },
+  { label: 'Late Night', query: 'late night slow songs' },
+  { label: 'Relax', query: 'relaxing acoustic songs' },
+  { label: 'Love', query: 'romantic love songs' },
+];
+
 const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null }) => {
   const { currentSong, isPlaying, playSong, togglePlay, seek } = usePlayer();
   const { progress, duration } = usePlayerProgress();
@@ -134,6 +145,28 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
     [releasePool],
   );
 
+  // ── Moods — each chip searches the real catalogue and plays what comes back
+  const [loadingMood, setLoadingMood] = useState<string | null>(null);
+  const playMood = async (mood: { label: string; query: string }) => {
+    if (loadingMood) return;
+    triggerHaptic('selection');
+    setLoadingMood(mood.label);
+    try {
+      const { searchYouTubeMusicTracks } = await import('@/lib/musicIndexer');
+      const found = await searchYouTubeMusicTracks(mood.query, 30);
+      const pool = cleanRail(
+        (found as unknown as Song[]).filter((s) => !isSpamSong(s)),
+        { requireCover: true },
+      );
+      if (!pool.length) return;
+      playSong(pool[0], null, pool.slice(0, 40));
+    } catch {
+      /* keep the card quiet on failure — nothing fake is shown */
+    } finally {
+      setLoadingMood(null);
+    }
+  };
+
   return (
     <div className="px-5 space-y-3">
       {/* HERO — Continue Listening */}
@@ -188,11 +221,9 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
         )}
       </motion.div>
 
-      {/* ARTIST OF THE WEEK + NEW RELEASE — scrollable on phone widths so cards
-          stay narrow and text stays big instead of squeezing into half a screen */}
-      {(artistOfWeek || newRelease) && (
-        <div className="-mx-4 px-4 overflow-x-auto hide-scrollbar snap-x snap-mandatory">
-          <div className="flex gap-3 w-max">
+      {/* ROW 1 — ARTIST OF THE WEEK (portrait) + JUMP BACK IN (3-row list) */}
+      {(artistOfWeek || jumpGroups.length > 0) && (
+        <div className="grid grid-cols-2 gap-3 items-stretch">
           {artistOfWeek && (
             <motion.button
               initial={{ opacity: 0, y: 14 }}
@@ -202,68 +233,116 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
                 triggerHaptic('selection');
                 playSong(artistOfWeek.songs[0], null, [...artistOfWeek.songs, ...history.slice(0, 20)]);
               }}
-              className="snap-start w-[176px] shrink-0 text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
+              className="relative rounded-[28px] overflow-hidden border border-border/60 bg-card/70 text-left active:opacity-80 transition-opacity min-h-[268px]"
             >
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
-              <div className="w-20 h-20 rounded-full overflow-hidden bg-muted mt-3">
-                <OptimizedImage src={artistOfWeek.songs[0]?.cover_url} alt={artistOfWeek.name} className="w-full h-full" />
+              <OptimizedImage
+                src={artistOfWeek.songs[0]?.cover_url}
+                alt={artistOfWeek.name}
+                className="absolute inset-0 w-full h-full"
+              />
+              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/10" />
+              <div className="relative h-full flex flex-col justify-between p-4">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
+                <div className="min-w-0">
+                  <p className="font-display text-[20px] leading-[1.05] uppercase text-foreground truncate">{artistOfWeek.name}</p>
+                  <p className="text-[11px] text-muted-foreground truncate mt-1">
+                    You played {artistOfWeek.plays} {artistOfWeek.plays === 1 ? 'track' : 'tracks'} this week
+                  </p>
+                </div>
               </div>
-              <p className="text-[16px] font-bold text-foreground truncate leading-tight mt-3">{artistOfWeek.name}</p>
-              <p className="text-[12px] text-muted-foreground truncate mt-0.5">
-                You played {artistOfWeek.plays} {artistOfWeek.plays === 1 ? 'track' : 'tracks'} this week
-              </p>
             </motion.button>
           )}
 
-          {newRelease && (
-            <motion.button
+          {jumpGroups.length > 0 && (
+            <motion.div
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.1 }}
-              onClick={() => { triggerHaptic('selection'); playSong(newRelease, null, releasePool); }}
-              className="snap-start w-[176px] shrink-0 text-left rounded-[28px] border border-border/60 bg-card/70 p-4 active:opacity-70 transition-opacity"
+              transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.08 }}
+              className={`rounded-[28px] border border-border/60 bg-card/70 p-4 min-h-[268px] ${artistOfWeek ? '' : 'col-span-2'}`}
             >
-              <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary">New Release</p>
-              <div className="w-20 h-20 rounded-[14px] overflow-hidden bg-muted mt-3">
-                <OptimizedImage src={newRelease.cover_url} alt={newRelease.title} className="w-full h-full" />
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Jump Back In</p>
+              <div className="mt-3 space-y-3">
+                {jumpGroups.slice(0, 3).map((group) => (
+                  <button
+                    key={group.id}
+                    onClick={() => {
+                      triggerHaptic('selection');
+                      playSong(group.songs[0], null, [...group.songs, ...history.slice(0, 20)]);
+                    }}
+                    className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
+                  >
+                    <div className="w-11 h-11 shrink-0 rounded-[10px] overflow-hidden bg-muted">
+                      <OptimizedImage src={group.cover_url} alt={group.title} className="w-full h-full" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-[13px] font-bold text-foreground truncate leading-tight">{group.title}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {group.songs.length > 1 ? `${group.songs.length} tracks` : group.subtitle}
+                      </p>
+                    </div>
+                  </button>
+                ))}
               </div>
-              <p className="text-[16px] font-bold text-foreground truncate leading-tight mt-3">{newRelease.title}</p>
-              <p className="text-[12px] text-muted-foreground truncate mt-0.5">{newRelease.artist}</p>
-            </motion.button>
+            </motion.div>
           )}
-          </div>
         </div>
       )}
 
-      {/* JUMP BACK IN — real album/artist sets from history, horizontally
-          scrollable so titles get full width instead of a cramped 2-up grid */}
-      {jumpGroups.length > 0 && (
-        <div>
-          <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-primary mb-3">Jump Back In</p>
-          <div className="-mx-4 px-4 overflow-x-auto hide-scrollbar snap-x">
-            <div className="flex gap-3 w-max">
-              {jumpGroups.map((group) => (
-                <button
-                  key={group.id}
-                  onClick={() => {
-                    triggerHaptic('selection');
-                    playSong(group.songs[0], null, [...group.songs, ...history.slice(0, 20)]);
-                  }}
-                  className="snap-start w-[132px] shrink-0 text-left active:opacity-60 transition-opacity"
-                >
-                  <div className="w-[132px] h-[132px] rounded-[14px] overflow-hidden bg-muted">
-                    <OptimizedImage src={group.cover_url} alt={group.title} className="w-full h-full" />
-                  </div>
-                  <p className="text-[14px] font-bold text-foreground truncate leading-tight mt-2">{group.title}</p>
-                  <p className="text-[12px] text-muted-foreground truncate">
-                    {group.songs.length > 1 ? `${group.songs.length} tracks` : group.subtitle}
-                  </p>
-                </button>
-              ))}
-            </div>
+      {/* ROW 2 — MOODS (real searches) + NEW RELEASE */}
+      <div className="grid grid-cols-2 gap-3 items-stretch">
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.1 }}
+          className="rounded-[28px] border border-border/60 bg-card/70 p-4"
+        >
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Moods</p>
+          <div className="flex flex-wrap gap-2 mt-3">
+            {MOODS.map((mood) => (
+              <button
+                key={mood.label}
+                onClick={() => playMood(mood)}
+                disabled={loadingMood !== null}
+                className={`rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors disabled:opacity-60 ${
+                  loadingMood === mood.label
+                    ? 'bg-primary text-primary-foreground'
+                    : 'bg-foreground/5 text-foreground/80 border border-border/60 active:bg-primary/20'
+                }`}
+              >
+                {loadingMood === mood.label ? '…' : mood.label}
+              </button>
+            ))}
           </div>
-        </div>
-      )}
+        </motion.div>
+
+        {newRelease ? (
+          <motion.button
+            initial={{ opacity: 0, y: 14 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.12 }}
+            onClick={() => { triggerHaptic('selection'); playSong(newRelease, null, releasePool); }}
+            className="relative rounded-[28px] overflow-hidden border border-border/60 bg-card/70 text-left active:opacity-80 transition-opacity"
+          >
+            <OptimizedImage src={newRelease.cover_url} alt={newRelease.title} className="absolute inset-0 w-full h-full" />
+            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
+            <div className="relative h-full flex flex-col justify-between p-4 min-h-[180px]">
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">New Release</p>
+              <div className="flex items-end gap-2">
+                <div className="w-14 h-14 shrink-0 rounded-[10px] overflow-hidden bg-muted">
+                  <OptimizedImage src={newRelease.cover_url} alt={newRelease.title} className="w-full h-full" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-[13px] font-bold text-foreground truncate leading-tight">{newRelease.title}</p>
+                  <p className="text-[11px] text-muted-foreground truncate">{newRelease.artist}</p>
+                </div>
+                <span className="w-8 h-8 shrink-0 rounded-full bg-primary text-primary-foreground grid place-items-center">
+                  <Play className="w-4 h-4 fill-current ml-0.5" />
+                </span>
+              </div>
+            </div>
+          </motion.button>
+        ) : null}
+      </div>
     </div>
   );
 };
