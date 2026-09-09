@@ -145,6 +145,28 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
     [releasePool],
   );
 
+  // ── Moods — each chip searches the real catalogue and plays what comes back
+  const [loadingMood, setLoadingMood] = useState<string | null>(null);
+  const playMood = async (mood: { label: string; query: string }) => {
+    if (loadingMood) return;
+    triggerHaptic('selection');
+    setLoadingMood(mood.label);
+    try {
+      const { searchYouTubeMusicTracks } = await import('@/lib/musicIndexer');
+      const found = await searchYouTubeMusicTracks(mood.query, 30);
+      const pool = cleanRail(
+        (found as unknown as Song[]).filter((s) => !isSpamSong(s)),
+        { requireCover: true },
+      );
+      if (!pool.length) return;
+      playSong(pool[0], null, pool.slice(0, 40));
+    } catch {
+      /* keep the card quiet on failure — nothing fake is shown */
+    } finally {
+      setLoadingMood(null);
+    }
+  };
+
   return (
     <div className="px-5 space-y-3">
       {/* HERO — Continue Listening */}
