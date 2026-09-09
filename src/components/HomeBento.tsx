@@ -48,6 +48,17 @@ const Card = ({ className = '', children }: { className?: string; children: Reac
   <div className={`rounded-[28px] border border-border/60 bg-card/70 overflow-hidden ${className}`}>{children}</div>
 );
 
+// Mood chips run a real catalogue search and play the result queue — no
+// hardcoded track lists, no fake playlists.
+const MOODS: Array<{ label: string; query: string }> = [
+  { label: 'Focus', query: 'focus instrumental study music' },
+  { label: 'Hype', query: 'hype party bangers' },
+  { label: 'Chill', query: 'chill lofi songs' },
+  { label: 'Late Night', query: 'late night slow songs' },
+  { label: 'Relax', query: 'relaxing acoustic songs' },
+  { label: 'Love', query: 'romantic love songs' },
+];
+
 const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null }) => {
   const { currentSong, isPlaying, playSong, togglePlay, seek } = usePlayer();
   const { progress, duration } = usePlayerProgress();
