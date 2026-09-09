@@ -7,6 +7,7 @@ import { getRuntimePremium } from '@/lib/premiumState';
 import { supabase } from '@/integrations/supabase/client';
 import { isNativePlayerAvailable, resolveNativeMetadataStream } from '@/lib/nativePlayer';
 import { retry } from '@/utils/retry';
+import { deleteOfflineAudioFile, offlineAudioFileExists, saveOfflineAudioFile } from '@/lib/offlineFiles';
 
 
 // Build a proxy URL for cross-origin streams that fail direct fetch.
@@ -146,6 +147,12 @@ interface DownloadedSong extends Song {
   downloadedAt: string;
   blobUrl: string;
   size: number;
+  /**
+   * Android only: a real `file://` copy of the audio. ExoPlayer lives outside
+   * the WebView and cannot open `blob:` URLs, so offline playback in the APK
+   * uses this path instead.
+   */
+  nativeUrl?: string | null;
 }
 
 interface DownloadProgress {
@@ -368,8 +375,23 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           try {
             const blobUrl = URL.createObjectURL(audioBlob);
             const coverBlobUrl = coverBlob ? URL.createObjectURL(coverBlob) : null;
-            urls[song.id] = blobUrl;
-            songs.push({ ...song, blobUrl, cover_url: coverBlobUrl || song.cover_url });
+
+            // Android: play the real file, not the blob URL. Songs downloaded
+            // before this existed get their file written now, so old downloads
+            // start working offline without re-downloading anything.
+            let nativeUrl = song.nativeUrl ?? null;
+            if (isNativePlayerAvailable()) {
+              if (!(await offlineAudioFileExists(nativeUrl))) {
+                nativeUrl = await saveOfflineAudioFile(song.id, audioBlob);
+                if (nativeUrl) {
+                  void saveToDB({ ...song, nativeUrl }, audioBlob, coverBlob ?? null).catch(() => {});
+                }
+              }
+            }
+
+            const playableUrl = nativeUrl || blobUrl;
+            urls[song.id] = playableUrl;
+            songs.push({ ...song, blobUrl: playableUrl, nativeUrl, cover_url: coverBlobUrl || song.cover_url });
           } catch (e) {
             console.warn('Failed to create blob URL for song:', song.id);
           }
@@ -522,11 +544,16 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
+      // Android needs a real file for ExoPlayer; the web keeps the blob URL.
+      const nativeUrl = await saveOfflineAudioFile(song.id, blob);
+      const playableUrl = nativeUrl || blobUrl;
+
       const downloadedSong: DownloadedSong = {
         ...downloadableSong,
         cover_url: offlineCoverUrl,
         downloadedAt: new Date().toISOString(),
-        blobUrl,
+        blobUrl: playableUrl,
+        nativeUrl,
         size: blob.size,
       };
 
@@ -535,7 +562,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // Update state
       setDownloads(prev => [...prev, downloadedSong]);
-      setBlobUrls(prev => ({ ...prev, [song.id]: blobUrl }));
+      setBlobUrls(prev => ({ ...prev, [song.id]: playableUrl }));
 
       setDownloadProgress(prev => ({
         ...prev,
@@ -597,6 +624,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const removeSong = useCallback(async (songId: string) => {
     try {
+      const existing = downloads.find(d => d.id === songId);
+      await deleteOfflineAudioFile(existing?.nativeUrl ?? null);
       await deleteFromDB(songId);
       
       // Revoke blob URL
@@ -618,7 +647,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('Failed to remove song:', error);
       toast.error('Could not remove this download. Please try again.');
     }
-  }, [blobUrls]);
+  }, [blobUrls, downloads]);
 
   const isDownloaded = useCallback((songId: string) => {
     return downloads.some(d => d.id === songId);
@@ -636,6 +665,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
   const clearAllDownloads = useCallback(async () => {
     try {
+      await Promise.all(downloads.map(d => deleteOfflineAudioFile(d.nativeUrl ?? null)));
       await clearDB();
       Object.values(blobUrls).forEach(url => {
         try {
