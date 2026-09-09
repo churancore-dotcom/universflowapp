@@ -336,7 +336,16 @@ export function useGlobalAudioEngine(
 
     // User toggled EQ in modal — apply in the same event turn. The graph is
     // already attached, so this is only a set of AudioParam updates.
+    let lastSpaceId = getEQSettings().studioSpace;
     const onEqChanged = () => {
+      // Switching Studio Space must rebuild the native room reverb right away.
+      // Without forgetting the last snapshot the change could be deduped and
+      // the new space wouldn't be heard until the next track.
+      const nextSpace = getEQSettings().studioSpace;
+      if (nextSpace !== lastSpaceId) {
+        lastSpaceId = nextSpace;
+        invalidateNativeSnapshot();
+      }
       reapplyNow();
       scheduleRecoveryBurst();
     };
