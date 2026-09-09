@@ -248,6 +248,8 @@ interface SpaceProfile {
   predelay: number;   // initial silence in seconds (room size cue)
   density: number;    // 0..1 — early reflection density
   damping: number;    // 0..1 — high-frequency damping (0 = bright, 1 = dark)
+  /** Concert Hall keeps the original generator — the user asked not to change it. */
+  legacy?: boolean;
   wet: number;        // recommended wet mix 0..1
   dry: number;        // recommended dry gain
 }
@@ -259,7 +261,7 @@ const SPACE_PROFILES: Record<Exclude<StudioSpaceId, 'off'>, SpaceProfile> = {
   vinyl:     { duration: 0.5,  decay: 3.6, predelay: 0.002, density: 0.95, damping: 0.75, wet: 0.30, dry: 0.98 },
   studio:    { duration: 0.9,  decay: 2.8, predelay: 0.006, density: 0.9,  damping: 0.35, wet: 0.34, dry: 0.98 },
   bedroom:   { duration: 1.3,  decay: 2.4, predelay: 0.011, density: 0.75, damping: 0.60, wet: 0.42, dry: 0.97 },
-  hall:      { duration: 3.2,  decay: 1.5, predelay: 0.032, density: 0.55, damping: 0.28, wet: 0.62, dry: 0.95 },
+  hall:      { duration: 3.2,  decay: 1.5, predelay: 0.032, density: 0.55, damping: 0.28, wet: 0.62, dry: 0.95, legacy: true },
   cathedral: { duration: 5.6,  decay: 1.0, predelay: 0.055, density: 0.40, damping: 0.14, wet: 0.72, dry: 0.94 },
   stadium:   { duration: 4.2,  decay: 1.3, predelay: 0.105, density: 0.32, damping: 0.40, wet: 0.68, dry: 0.94 },
   // Real, distinct venues — each one is a different geometry, not a wetness step.
@@ -365,12 +367,11 @@ function applyReverbMix(percent: number) {
  *      spread slightly differently per channel so the space feels wide;
  *   2. a damped diffuse tail with exponential decay.
  */
-function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
+function buildLegacySpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
   const sr = ctx.sampleRate;
   const length = Math.floor(sr * p.duration);
   const predelaySamples = Math.floor(sr * p.predelay);
   const buf = ctx.createBuffer(2, length, sr);
-  // Bigger rooms => later, sparser early reflections.
   const spread = Math.max(0.004, p.predelay * 1.9 + 0.012);
   const reflectionCount = Math.round(6 + (1 - p.density) * 10);
   for (let ch = 0; ch < 2; ch++) {
@@ -380,7 +381,6 @@ function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
       seed = (seed * 9301 + 49297) % 233280;
       return seed / 233280;
     };
-    // --- diffuse tail ---
     let lpState = 0;
     const lpCoef = 1 - p.damping * 0.75;
     for (let i = predelaySamples; i < length; i++) {
@@ -390,16 +390,112 @@ function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
       lpState = lpState + lpCoef * (sample - lpState);
       data[i] = lpState * decay * 0.5;
     }
-    // --- early reflections on top ---
     let offset = predelaySamples + Math.floor(sr * spread * (0.6 + ch * 0.35));
     let amp = 0.85;
     for (let r = 0; r < reflectionCount && offset < length - 2; r++) {
       const polarity = rand() < 0.5 ? -1 : 1;
       data[offset] += polarity * amp * (0.65 + rand() * 0.35);
-      // Slight smear so a tap is a reflection, not a click.
       data[offset + 1] += polarity * amp * 0.35;
       amp *= 0.68 + p.density * 0.18;
       offset += Math.floor(sr * spread * (0.55 + rand() * 0.9));
+    }
+  }
+  return buf;
+}
+
+/**
+ * Physically-informed room response.
+ *
+ * Three things make a reverb sound like an actual place rather than generic
+ * "echo", and the old generator had none of them:
+ *
+ *  1. FREQUENCY-DEPENDENT DECAY — in every real room the treble dies long
+ *     before the bass (air absorption + soft surfaces). We run the noise tail
+ *     through a one-pole lowpass whose cutoff closes as the tail ages, plus a
+ *     parallel low band that decays slower. That is what makes a stadium
+ *     rumble and a chapel shimmer instead of both being white-noise clouds.
+ *  2. GEOMETRY-BASED EARLY REFLECTIONS — discrete taps at times derived from
+ *     the room's pre-delay (its size), decorrelated per ear so the room has
+ *     width, with a real slap-back for very large concrete venues.
+ *  3. LEVEL MATCHING — the tail is energy-normalised so switching spaces
+ *     changes the PLACE, not the loudness.
+ */
+function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
+  if (p.legacy) return buildLegacySpaceIR(ctx, p);
+
+  const sr = ctx.sampleRate;
+  const length = Math.max(64, Math.floor(sr * p.duration));
+  const predelaySamples = Math.floor(sr * p.predelay);
+  const buf = ctx.createBuffer(2, length, sr);
+  // Room size cue: bigger pre-delay => reflections arrive later and sparser.
+  const spread = Math.max(0.004, p.predelay * 1.9 + 0.012);
+  const reflectionCount = Math.round(7 + (1 - p.density) * 13);
+  // How much faster the treble dies than the bass in this room.
+  const hfLoss = 0.35 + p.damping * 0.6;
+
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch);
+    let seed = (ch + 1) * 22571 + Math.round(p.duration * 1000);
+    const rand = () => {
+      seed = (seed * 1103515245 + 12345) & 0x7fffffff;
+      return seed / 0x7fffffff;
+    };
+
+    // --- diffuse tail with frequency-dependent decay ---
+    let hfState = 0;
+    let lfState = 0;
+    const tailLen = Math.max(1, length - predelaySamples);
+    for (let i = predelaySamples; i < length; i++) {
+      const t = (i - predelaySamples) / tailLen;
+      const noise = rand() < p.density ? rand() * 2 - 1 : 0;
+      // Cutoff closes over time: bright at the onset, dark in the tail.
+      const coef = Math.max(0.02, (1 - p.damping * 0.6) * (1 - t * hfLoss));
+      hfState += coef * (noise - hfState);
+      // Slower-moving low band, decaying later than the highs.
+      lfState += 0.06 * (noise - lfState);
+      const hiDecay = Math.pow(1 - t, p.decay * 1.35);
+      const loDecay = Math.pow(1 - t, p.decay * 0.75);
+      data[i] = hfState * hiDecay * 0.45 + lfState * loDecay * 0.55 * (0.4 + p.damping * 0.8);
+    }
+
+    // --- discrete early reflections (the room's shape) ---
+    let offset = predelaySamples + Math.floor(sr * spread * (0.55 + ch * 0.4));
+    let amp = 0.9;
+    for (let r = 0; r < reflectionCount && offset < length - 3; r++) {
+      const polarity = rand() < 0.5 ? -1 : 1;
+      const g = amp * (0.6 + rand() * 0.4);
+      data[offset] += polarity * g;
+      data[offset + 1] += polarity * g * 0.45;
+      data[offset + 2] += polarity * g * 0.18;
+      amp *= 0.66 + p.density * 0.2;
+      offset += Math.floor(sr * spread * (0.5 + rand() * 1.1));
+    }
+
+    // --- slap-back: huge hard venues throw one late, distinct return ---
+    if (p.predelay > 0.06) {
+      const slap = predelaySamples + Math.floor(sr * p.predelay * (2.1 + ch * 0.25));
+      if (slap < length - 3) {
+        const g = 0.5 * (1 - p.damping * 0.5);
+        data[slap] += g;
+        data[slap + 1] += g * 0.5;
+        data[slap + 2] += g * 0.2;
+      }
+    }
+  }
+
+  // --- energy normalisation, so a space change is not a volume change ---
+  let sum = 0;
+  let count = 0;
+  for (let ch = 0; ch < 2; ch++) {
+    const data = buf.getChannelData(ch);
+    for (let i = 0; i < data.length; i += 8) { sum += data[i] * data[i]; count++; }
+  }
+  const rms = Math.sqrt(sum / Math.max(1, count));
+  if (rms > 0.0001) {
+    const gain = Math.min(4, 0.075 / rms);
+    for (let ch = 0; ch < 2; ch++) {
+      const data = buf.getChannelData(ch);
+      for (let i = 0; i < data.length; i++) data[i] *= gain;
     }
   }
   return buf;
