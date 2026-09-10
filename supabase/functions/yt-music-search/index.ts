@@ -523,7 +523,12 @@ function parseSearchPage(json: any, query: string, out: SearchResult[], seen: Se
 }
 
 
-async function ytMusicSearch(query: string, params: string, targetCount = 80): Promise<SearchResult[]> {
+async function ytMusicSearch(
+  query: string,
+  params: string,
+  targetCount = 80,
+  maxPages = 5,
+): Promise<SearchResult[]> {
   const resp = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
     method: 'POST',
     headers: YTM_HEADERS,
@@ -541,7 +546,7 @@ async function ytMusicSearch(query: string, params: string, targetCount = 80): P
   // Follow continuation tokens for deeper results (Innertube paginates ~20/page).
   let continuation = findContinuationToken(json);
   let pages = 0;
-  while (continuation && out.length < targetCount && pages < 5) {
+  while (continuation && out.length < targetCount && pages < maxPages) {
     pages += 1;
     try {
       const cResp = await fetch(
@@ -638,7 +643,7 @@ serve(async (req) => {
       });
     }
 
-    const { query, limit: requestedLimit, mode, country } = await req.json();
+    const { query, limit: requestedLimit, mode, country, depth } = await req.json();
     const limit = Math.max(1, Math.min(200, typeof requestedLimit === 'number' ? requestedLimit : 50));
 
     if (mode === 'new-releases') {
