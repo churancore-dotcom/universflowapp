@@ -546,7 +546,7 @@ async function ytMusicSearch(
   // Follow continuation tokens for deeper results (Innertube paginates ~20/page).
   let continuation = findContinuationToken(json);
   let pages = 0;
-  while (continuation && out.length < targetCount && pages < 5) {
+  while (continuation && out.length < targetCount && pages < maxPages) {
     pages += 1;
     try {
       const cResp = await fetch(
