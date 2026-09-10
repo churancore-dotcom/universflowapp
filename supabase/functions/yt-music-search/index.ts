@@ -523,7 +523,12 @@ function parseSearchPage(json: any, query: string, out: SearchResult[], seen: Se
 }
 
 
-async function ytMusicSearch(query: string, params: string, targetCount = 80): Promise<SearchResult[]> {
+async function ytMusicSearch(
+  query: string,
+  params: string,
+  targetCount = 80,
+  maxPages = 5,
+): Promise<SearchResult[]> {
   const resp = await fetch('https://music.youtube.com/youtubei/v1/search?prettyPrint=false', {
     method: 'POST',
     headers: YTM_HEADERS,
