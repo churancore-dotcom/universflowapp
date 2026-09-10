@@ -676,14 +676,19 @@ const Search = () => {
   useEffect(() => {
     const batch = indexedResults.slice(0, prewarmDepth).filter((track) => !prewarmedRef.current.has(track.id));
     if (!batch.length) return;
+    // Measured tap-to-play on a signed-in session: UI flips in 1ms, and 632ms
+    // of a 640ms tap was stream resolution alone. So the first rows — the ones
+    // actually tapped — are resolved with NO delay; deeper rows stay staggered
+    // so they don't fight the visible ones for bandwidth.
     const timers = batch.map((track, i) =>
       window.setTimeout(() => {
         prewarmedRef.current.add(track.id);
         if (track.videoId) prefetchYouTubeVideoStream(track.videoId, { title: track.title, artist: track.artist });
         else prefetchIndexedTrack(track.artist, track.title);
-      }, i * 90),
+      }, i < 6 ? 0 : (i - 5) * 90),
     );
     return () => timers.forEach(clearTimeout);
+
   }, [indexedResults, prewarmDepth]);
 
   const libraryResults: Song[] = [];
