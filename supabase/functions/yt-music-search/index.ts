@@ -643,7 +643,7 @@ serve(async (req) => {
       });
     }
 
-    const { query, limit: requestedLimit, mode, country } = await req.json();
+    const { query, limit: requestedLimit, mode, country, depth } = await req.json();
     const limit = Math.max(1, Math.min(200, typeof requestedLimit === 'number' ? requestedLimit : 50));
 
     if (mode === 'new-releases') {
