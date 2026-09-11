@@ -120,6 +120,119 @@ class ExoPlayerService : MediaSessionService() {
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
 
+    // ---- Lock-screen / Control-Center mini player extras ----
+    @Volatile private var liked: Boolean = false
+    @Volatile private var shuffleOn: Boolean = false
+    /** "off" | "all" | "one" */
+    @Volatile private var repeatMode: String = "off"
+
+    private fun customCommand(action: String) =
+        SessionCommand(action, android.os.Bundle.EMPTY)
+
+    /**
+     * Premium transport row shown next to play/pause in the shade and on the
+     * lock screen: shuffle, like, repeat — each reflecting the app's real
+     * state so the notification is a full mini player, not just play/skip.
+     */
+    private fun buildCustomLayout(): ImmutableList<CommandButton> {
+        val shuffleButton = CommandButton.Builder()
+            .setDisplayName(if (shuffleOn) "Shuffle on" else "Shuffle")
+            .setIconResId(R.drawable.ic_uf_shuffle)
+            .setSessionCommand(customCommand(NativeMediaEvents.ACTION_SHUFFLE))
+            .setEnabled(true)
+            .build()
+        val likeButton = CommandButton.Builder()
+            .setDisplayName(if (liked) "Liked" else "Like")
+            .setIconResId(if (liked) R.drawable.ic_uf_heart_filled else R.drawable.ic_uf_heart)
+            .setSessionCommand(customCommand(NativeMediaEvents.ACTION_LIKE))
+            .setEnabled(true)
+            .build()
+        val repeatButton = CommandButton.Builder()
+            .setDisplayName(
+                when (repeatMode) {
+                    "one" -> "Repeat one"
+                    "all" -> "Repeat all"
+                    else -> "Repeat"
+                },
+            )
+            .setIconResId(
+                if (repeatMode == "one") R.drawable.ic_uf_repeat_one else R.drawable.ic_uf_repeat,
+            )
+            .setSessionCommand(customCommand(NativeMediaEvents.ACTION_REPEAT))
+            .setEnabled(true)
+            .build()
+        return ImmutableList.of(likeButton, shuffleButton, repeatButton)
+    }
+
+    private val sessionCallback = object : MediaSession.Callback {
+        override fun onConnect(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+        ): MediaSession.ConnectionResult {
+            val available = MediaSession.ConnectionResult.DEFAULT_SESSION_COMMANDS.buildUpon()
+                .add(customCommand(NativeMediaEvents.ACTION_LIKE))
+                .add(customCommand(NativeMediaEvents.ACTION_SHUFFLE))
+                .add(customCommand(NativeMediaEvents.ACTION_REPEAT))
+                .build()
+            return MediaSession.ConnectionResult.AcceptedResultBuilder(session)
+                .setAvailableSessionCommands(available)
+                .setCustomLayout(buildCustomLayout())
+                .build()
+        }
+
+        override fun onCustomCommand(
+            session: MediaSession,
+            controller: MediaSession.ControllerInfo,
+            customCommand: SessionCommand,
+            args: android.os.Bundle,
+        ): ListenableFuture<SessionResult> {
+            when (customCommand.customAction) {
+                NativeMediaEvents.ACTION_LIKE -> {
+                    liked = !liked
+                    NativeMediaEvents.emit(NativeMediaEvents.ACTION_LIKE)
+                }
+                NativeMediaEvents.ACTION_SHUFFLE -> {
+                    shuffleOn = !shuffleOn
+                    NativeMediaEvents.emit(NativeMediaEvents.ACTION_SHUFFLE)
+                }
+                NativeMediaEvents.ACTION_REPEAT -> {
+                    repeatMode = when (repeatMode) {
+                        "off" -> "all"
+                        "all" -> "one"
+                        else -> "off"
+                    }
+                    NativeMediaEvents.emit(NativeMediaEvents.ACTION_REPEAT)
+                }
+            }
+            publishCustomLayout()
+            return Futures.immediateFuture(SessionResult(SessionResult.RESULT_SUCCESS))
+        }
+    }
+
+    private fun publishCustomLayout() {
+        val session = mediaSession ?: return
+        val post = Runnable {
+            try {
+                session.setCustomLayout(buildCustomLayout())
+            } catch (_: Throwable) {
+            }
+            refreshMediaNotification()
+        }
+        try {
+            if (android.os.Looper.myLooper() == android.os.Looper.getMainLooper()) post.run()
+            else android.os.Handler(android.os.Looper.getMainLooper()).post(post)
+        } catch (_: Throwable) {}
+    }
+
+    /** Pushed from the web layer so the notification mirrors in-app state. */
+    fun setMiniPlayerState(liked: Boolean?, shuffle: Boolean?, repeat: String?) {
+        liked?.let { this.liked = it }
+        shuffle?.let { this.shuffleOn = it }
+        repeat?.let { if (it == "off" || it == "all" || it == "one") this.repeatMode = it }
+        publishCustomLayout()
+    }
+
+
     override fun onCreate() {
         super.onCreate()
 
