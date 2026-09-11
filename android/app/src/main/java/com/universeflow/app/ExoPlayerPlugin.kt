@@ -155,6 +155,26 @@ class ExoPlayerPlugin : Plugin() {
     override fun load() {
         super.load()
         ensureServiceAvailable()
+        // Lock-screen / Control-Center mini player buttons (like, shuffle,
+        // repeat) are handled by the MediaSession; forward each press to the
+        // web layer so in-app state stays in sync.
+        NativeMediaEvents.onAction = { action ->
+            try {
+                notifyListeners("mediaButton", JSObject().put("action", action))
+            } catch (_: Throwable) {}
+        }
+    }
+
+    /** Mirror in-app like / shuffle / repeat state onto the notification. */
+    @PluginMethod
+    fun setMiniPlayerState(call: PluginCall) {
+        val liked = if (call.hasOption("liked")) call.getBoolean("liked") else null
+        val shuffle = if (call.hasOption("shuffle")) call.getBoolean("shuffle") else null
+        val repeat = call.getString("repeat")
+        runOnMain {
+            service()?.setMiniPlayerState(liked, shuffle, repeat)
+        }
+        call.resolve()
     }
 
     private fun serviceIntent(ctx: Context): Intent = Intent(ctx, ExoPlayerService::class.java).apply {
