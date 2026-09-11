@@ -493,6 +493,10 @@ class ExoPlayerPlugin : Plugin() {
                 val metadata = MediaMetadata.Builder()
                     .setTitle(title)
                     .setArtist(artist)
+                    .setAlbumArtist(artist)
+                    .setMediaType(MediaMetadata.MEDIA_TYPE_MUSIC)
+                    .setIsBrowsable(false)
+                    .setIsPlayable(true)
                     .apply { if (!artwork.isNullOrBlank()) setArtworkUri(Uri.parse(artwork)) }
                     .build()
                 val item = MediaItem.Builder()
