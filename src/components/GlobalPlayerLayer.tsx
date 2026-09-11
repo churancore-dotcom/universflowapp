@@ -38,6 +38,7 @@ const GlobalPlayerLayer = memo(function GlobalPlayerLayer() {
   return (
     <>
       <MiniPlayer />
+      <NativeLikeSync />
       <PlaybackAnnouncer />
       <MilestoneCelebration />
       <Suspense fallback={null}>
