@@ -1,6 +1,25 @@
 apply plugin: 'com.android.application'
 
+// Play Store upload signing. CI writes android/keystore.properties from
+// repository secrets; when the file is absent (local/dev builds) the release
+// build simply stays unsigned instead of failing.
+def ufKeystoreProps = new Properties()
+def ufKeystoreFile = rootProject.file("keystore.properties")
+if (ufKeystoreFile.exists()) {
+    ufKeystoreProps.load(new FileInputStream(ufKeystoreFile))
+}
+
 android {
+    signingConfigs {
+        ufRelease {
+            if (ufKeystoreProps['storeFile']) {
+                storeFile file(ufKeystoreProps['storeFile'])
+                storePassword ufKeystoreProps['storePassword']
+                keyAlias ufKeystoreProps['keyAlias']
+                keyPassword ufKeystoreProps['keyPassword']
+            }
+        }
+    }
     namespace "com.universeflow.app"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
@@ -8,7 +27,7 @@ android {
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
-        versionName "1.0"
+        versionName "1.0.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
             // Files and dirs to omit from the packaged assets dir, modified to accommodate
@@ -18,6 +37,7 @@ android {
     }
     buildTypes {
         release {
+            signingConfig ufKeystoreProps['storeFile'] ? signingConfigs.ufRelease : null
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }

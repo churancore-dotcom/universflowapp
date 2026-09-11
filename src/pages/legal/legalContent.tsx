@@ -51,25 +51,40 @@ export const UserPrivacyBody = (): ReactNode => (
       <li><strong>Payments:</strong> if you buy Premium via UPI, we record the transaction reference, amount and plan. We never see your bank or UPI PIN.</li>
     </ul>
 
-    <h2>2. How we use it</h2>
+    <h2>2. Device permissions we ask for</h2>
+    <ul>
+      <li><strong>Notifications:</strong> to show the playback controls on your lock screen and to send app updates you opted into. You can refuse or revoke this at any time; music still plays.</li>
+      <li><strong>Camera:</strong> requested <em>only</em> if you apply for a verified Artist account, to take a live selfie that proves you are a real person. It is never used for anything else, never records video, and denying it only blocks the artist application.</li>
+      <li><strong>Storage / offline files:</strong> used to save songs you explicitly download so they play without internet. We do not read your existing photos, files, or media.</li>
+    </ul>
+    <p>We do not collect contacts, precise GPS location, SMS, call logs, microphone audio, or the list of other apps on your device.</p>
+
+    <h2>3. How we use it</h2>
     <p>To run the service (playlists, downloads, recommendations), keep it secure, send important notifications, and improve features. Aggregate, non-personal stats may be shown publicly (e.g. global top charts).</p>
 
-    <h2>3. Sharing</h2>
-    <p>We share data only with: (a) infrastructure providers needed to run the App (database, push notifications, email), (b) authorities when legally required. We do not sell your data.</p>
+    <h2>4. Sharing</h2>
+    <p>We share data only with: (a) infrastructure providers needed to run the App (database, push notifications, email), (b) authorities when legally required. We do not sell your data and we do not share it with data brokers or advertising networks.</p>
 
-    <h2>4. Retention</h2>
+    <h2>5. Retention</h2>
     <p>Account data lives until you delete the account. Listening history is kept to power your recommendations and can be cleared from Settings.</p>
 
-    <h2>5. Your rights</h2>
+    <h2>6. Deleting your account and data</h2>
+    <p>You can delete your account and all of its data at any time from <strong>Settings &rarr; Delete account</strong> inside the App. This permanently removes your profile, listening history, likes, playlists, downloads records and any verification data. It cannot be undone.</p>
+    <p>If you can no longer sign in, email {SUPPORT_EMAIL} from your registered address and we will delete the account within 30 days. Basic payment records may be retained where the law requires it.</p>
+
+    <h2>7. Your rights</h2>
     <p>You can access, export, or delete your data by emailing {SUPPORT_EMAIL}. Under GDPR and India's DPDP Act you have rights of access, correction, deletion, and objection.</p>
 
-    <h2>6. Children</h2>
-    <p>The App is not directed at children under 13.</p>
+    <h2>8. Children</h2>
+    <p>The App is not directed at children under 13 and we do not knowingly collect their data. If you believe a child has created an account, email {SUPPORT_EMAIL} and we will remove it.</p>
 
-    <h2>7. Security</h2>
+    <h2>9. Security</h2>
     <p>We use industry-standard encryption in transit and at rest. No system is perfect — please use a strong password.</p>
 
-    <h2>8. Contact</h2>
+    <h2>10. Changes to this policy</h2>
+    <p>We may update this policy. Material changes will be announced in the App, and the date at the top of this page will change.</p>
+
+    <h2>11. Contact</h2>
     <p>Privacy questions: {SUPPORT_EMAIL}.</p>
   </>
 );

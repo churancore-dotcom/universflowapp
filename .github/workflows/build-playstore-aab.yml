@@ -1,0 +1,117 @@
+name: Build Play Store AAB (signed)
+
+# Produces a signed Android App Bundle (.aab) ready to upload to the
+# Google Play Console. Requires four repository secrets:
+#
+#   ANDROID_KEYSTORE_BASE64  - your upload keystore (.jks) encoded with:
+#                              base64 -w0 upload-keystore.jks
+#   ANDROID_KEYSTORE_PASSWORD
+#   ANDROID_KEY_ALIAS
+#   ANDROID_KEY_PASSWORD
+#
+# Keep a permanent backup of the keystore file and its passwords. If the
+# upload key is lost, the app can never be updated on Play again.
+
+on:
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version shown to users (e.g. 1.0.0)'
+        required: true
+        default: '1.0.0'
+      version_code:
+        description: 'Play version code — must be higher than every previous upload'
+        required: true
+        default: '2'
+
+jobs:
+  aab:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Fail early if signing secrets are missing
+        env:
+          KS: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          KSP: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          KA: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KP: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          MISSING=0
+          for V in KS KSP KA KP; do
+            if [ -z "${!V}" ]; then echo "::error::Missing signing secret ($V)"; MISSING=1; fi
+          done
+          exit "$MISSING"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm install --legacy-peer-deps
+
+      - name: Build web assets (native shell)
+        env:
+          NATIVE_BUILD: '1'
+        run: |
+          npm run build
+          node scripts/build-native-shell.mjs || true
+
+      - name: Sync Capacitor Android project
+        run: npx cap sync android
+
+      - name: Apply version + write signing config
+        env:
+          VERSION_NAME: ${{ github.event.inputs.version_name }}
+          VERSION_CODE: ${{ github.event.inputs.version_code }}
+        run: |
+          APP_GRADLE="android/app/build.gradle"
+          sed -i "s|versionCode .*|versionCode ${VERSION_CODE}|" "$APP_GRADLE"
+          sed -i "s|versionName .*|versionName \"${VERSION_NAME}\"|" "$APP_GRADLE"
+
+          echo "${{ secrets.ANDROID_KEYSTORE_BASE64 }}" | base64 -d > android/app/upload-keystore.jks
+
+          cat > android/keystore.properties <<EOF
+          storeFile=upload-keystore.jks
+          storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          keyAlias=${{ secrets.ANDROID_KEY_ALIAS }}
+          keyPassword=${{ secrets.ANDROID_KEY_PASSWORD }}
+          EOF
+
+          grep -n "versionCode\|versionName" "$APP_GRADLE"
+
+      - name: Build signed AAB
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew bundleRelease --no-daemon
+
+      - name: Verify the bundle is signed
+        run: |
+          AAB="android/app/build/outputs/bundle/release/app-release.aab"
+          test -f "$AAB" || { echo "::error::No AAB produced"; exit 1; }
+          unzip -l "$AAB" | grep -q "META-INF" || { echo "::error::AAB is not signed"; exit 1; }
+          ls -la "$AAB"
+
+      - name: Upload AAB artifact
+        uses: actions/upload-artifact@v5
+        with:
+          name: Univers Flow Play Store AAB
+          path: android/app/build/outputs/bundle/release/app-release.aab
+          retention-days: 30
+
+      - name: Remove signing material from the runner
+        if: always()
+        run: rm -f android/app/upload-keystore.jks android/keystore.properties
