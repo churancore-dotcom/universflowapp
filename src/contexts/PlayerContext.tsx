@@ -3935,6 +3935,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     };
   }, [isPlaying]);
 
+  // Keep the Android lock-screen / Control-Center mini player in sync and
+  // react to its like / shuffle / repeat buttons.
+  useEffect(() => {
+    void setNativeMiniPlayerState({ shuffle, repeat });
+  }, [shuffle, repeat]);
+
+  useEffect(() => {
+    let dispose: (() => void) | null = null;
+    void onNativeMediaButton((action) => {
+      if (action === 'uf.shuffle') toggleShuffle();
+      else if (action === 'uf.repeat') toggleRepeat();
+      else if (action === 'uf.like') {
+        window.dispatchEvent(new CustomEvent('uf:native-like-toggle'));
+      }
+    }).then((off) => { dispose = off; });
+    return () => { dispose?.(); };
+  }, [toggleShuffle, toggleRepeat]);
+
   return (
     <PlayerContext.Provider value={{
       currentSong,
