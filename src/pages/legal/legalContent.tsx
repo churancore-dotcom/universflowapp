@@ -62,22 +62,29 @@ export const UserPrivacyBody = (): ReactNode => (
     <h2>3. How we use it</h2>
     <p>To run the service (playlists, downloads, recommendations), keep it secure, send important notifications, and improve features. Aggregate, non-personal stats may be shown publicly (e.g. global top charts).</p>
 
-    <h2>3. Sharing</h2>
-    <p>We share data only with: (a) infrastructure providers needed to run the App (database, push notifications, email), (b) authorities when legally required. We do not sell your data.</p>
+    <h2>4. Sharing</h2>
+    <p>We share data only with: (a) infrastructure providers needed to run the App (database, push notifications, email), (b) authorities when legally required. We do not sell your data and we do not share it with data brokers or advertising networks.</p>
 
-    <h2>4. Retention</h2>
+    <h2>5. Retention</h2>
     <p>Account data lives until you delete the account. Listening history is kept to power your recommendations and can be cleared from Settings.</p>
 
-    <h2>5. Your rights</h2>
+    <h2>6. Deleting your account and data</h2>
+    <p>You can delete your account and all of its data at any time from <strong>Settings &rarr; Delete account</strong> inside the App. This permanently removes your profile, listening history, likes, playlists, downloads records and any verification data. It cannot be undone.</p>
+    <p>If you can no longer sign in, email {SUPPORT_EMAIL} from your registered address and we will delete the account within 30 days. Basic payment records may be retained where the law requires it.</p>
+
+    <h2>7. Your rights</h2>
     <p>You can access, export, or delete your data by emailing {SUPPORT_EMAIL}. Under GDPR and India's DPDP Act you have rights of access, correction, deletion, and objection.</p>
 
-    <h2>6. Children</h2>
-    <p>The App is not directed at children under 13.</p>
+    <h2>8. Children</h2>
+    <p>The App is not directed at children under 13 and we do not knowingly collect their data. If you believe a child has created an account, email {SUPPORT_EMAIL} and we will remove it.</p>
 
-    <h2>7. Security</h2>
+    <h2>9. Security</h2>
     <p>We use industry-standard encryption in transit and at rest. No system is perfect — please use a strong password.</p>
 
-    <h2>8. Contact</h2>
+    <h2>10. Changes to this policy</h2>
+    <p>We may update this policy. Material changes will be announced in the App, and the date at the top of this page will change.</p>
+
+    <h2>11. Contact</h2>
     <p>Privacy questions: {SUPPORT_EMAIL}.</p>
   </>
 );
