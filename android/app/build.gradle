@@ -1,6 +1,25 @@
 apply plugin: 'com.android.application'
 
+// Play Store upload signing. CI writes android/keystore.properties from
+// repository secrets; when the file is absent (local/dev builds) the release
+// build simply stays unsigned instead of failing.
+def ufKeystoreProps = new Properties()
+def ufKeystoreFile = rootProject.file("keystore.properties")
+if (ufKeystoreFile.exists()) {
+    ufKeystoreProps.load(new FileInputStream(ufKeystoreFile))
+}
+
 android {
+    signingConfigs {
+        ufRelease {
+            if (ufKeystoreProps['storeFile']) {
+                storeFile file(ufKeystoreProps['storeFile'])
+                storePassword ufKeystoreProps['storePassword']
+                keyAlias ufKeystoreProps['keyAlias']
+                keyPassword ufKeystoreProps['keyPassword']
+            }
+        }
+    }
     namespace "com.universeflow.app"
     compileSdk rootProject.ext.compileSdkVersion
     defaultConfig {
