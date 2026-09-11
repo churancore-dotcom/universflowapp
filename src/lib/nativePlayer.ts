@@ -472,3 +472,32 @@ export async function pushNativeEQFromWebBands(
   await setNativeEQBands(updates);
 }
 
+
+/**
+ * Mirror the app's like / shuffle / repeat state onto the Android lock-screen
+ * and Control-Center mini player so its buttons show real state.
+ */
+export async function setNativeMiniPlayerState(state: {
+  liked?: boolean;
+  shuffle?: boolean;
+  repeat?: 'off' | 'all' | 'one';
+}): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await ExoPlayerPlugin.setMiniPlayerState(state); } catch { /* older shell */ }
+}
+
+/** Subscribe to mini player button presses coming from the notification. */
+export async function onNativeMediaButton(
+  cb: (action: 'uf.like' | 'uf.shuffle' | 'uf.repeat') => void,
+): Promise<(() => void) | null> {
+  if (!isNativePlayerAvailable()) return null;
+  try {
+    const handle = await ExoPlayerPlugin.addListener('mediaButton', (data) => {
+      const action = (data as ExoMediaButton)?.action;
+      if (action) cb(action);
+    });
+    return () => { void handle.remove(); };
+  } catch {
+    return null;
+  }
+}
