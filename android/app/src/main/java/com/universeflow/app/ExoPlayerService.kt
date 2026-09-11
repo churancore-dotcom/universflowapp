@@ -354,6 +354,8 @@ class ExoPlayerService : MediaSessionService() {
 
         val sessionBuilder = MediaSession.Builder(this, exo)
             .setId("universflow")
+            .setCallback(sessionCallback)
+            .setCustomLayout(buildCustomLayout())
         sessionActivity?.let { sessionBuilder.setSessionActivity(it) }
 
         // Rich Spotify-style artwork on the lock screen / shade notification:

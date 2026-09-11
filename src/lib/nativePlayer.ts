@@ -119,10 +119,16 @@ interface ExoPlayerPluginShape {
   }) => Promise<void>;
 
   setPlaybackSpeed: (opts: { speed: number }) => Promise<void>;
+  setMiniPlayerState: (opts: { liked?: boolean; shuffle?: boolean; repeat?: 'off' | 'all' | 'one' }) => Promise<void>;
   addListener: (
-    event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
-    cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition) => void,
+    event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition' | 'mediaButton',
+    cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition | ExoMediaButton) => void,
   ) => Promise<PluginListenerHandle>;
+}
+
+/** Lock-screen / Control-Center mini player button press. */
+export interface ExoMediaButton {
+  action: 'uf.like' | 'uf.shuffle' | 'uf.repeat';
 }
 
 export interface NativeEQBandInfo {
@@ -466,3 +472,32 @@ export async function pushNativeEQFromWebBands(
   await setNativeEQBands(updates);
 }
 
+
+/**
+ * Mirror the app's like / shuffle / repeat state onto the Android lock-screen
+ * and Control-Center mini player so its buttons show real state.
+ */
+export async function setNativeMiniPlayerState(state: {
+  liked?: boolean;
+  shuffle?: boolean;
+  repeat?: 'off' | 'all' | 'one';
+}): Promise<void> {
+  if (!isNativePlayerAvailable()) return;
+  try { await ExoPlayerPlugin.setMiniPlayerState(state); } catch { /* older shell */ }
+}
+
+/** Subscribe to mini player button presses coming from the notification. */
+export async function onNativeMediaButton(
+  cb: (action: 'uf.like' | 'uf.shuffle' | 'uf.repeat') => void,
+): Promise<(() => void) | null> {
+  if (!isNativePlayerAvailable()) return null;
+  try {
+    const handle = await ExoPlayerPlugin.addListener('mediaButton', (data) => {
+      const action = (data as ExoMediaButton)?.action;
+      if (action) cb(action);
+    });
+    return () => { void handle.remove(); };
+  } catch {
+    return null;
+  }
+}
