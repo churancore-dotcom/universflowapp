@@ -119,10 +119,16 @@ interface ExoPlayerPluginShape {
   }) => Promise<void>;
 
   setPlaybackSpeed: (opts: { speed: number }) => Promise<void>;
+  setMiniPlayerState: (opts: { liked?: boolean; shuffle?: boolean; repeat?: 'off' | 'all' | 'one' }) => Promise<void>;
   addListener: (
-    event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition',
-    cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition) => void,
+    event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition' | 'mediaButton',
+    cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition | ExoMediaButton) => void,
   ) => Promise<PluginListenerHandle>;
+}
+
+/** Lock-screen / Control-Center mini player button press. */
+export interface ExoMediaButton {
+  action: 'uf.like' | 'uf.shuffle' | 'uf.repeat';
 }
 
 export interface NativeEQBandInfo {
