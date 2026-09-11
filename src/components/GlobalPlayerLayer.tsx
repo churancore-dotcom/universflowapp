@@ -3,6 +3,7 @@ import { useLocation } from '@/lib/router-compat';
 import MiniPlayer from './MiniPlayer';
 import PlaybackAnnouncer from './PlaybackAnnouncer';
 import MilestoneCelebration from './MilestoneCelebration';
+import NativeLikeSync from './NativeLikeSync';
 import { useListeningTracker } from '@/hooks/useListeningTracker';
 
 
