@@ -763,7 +763,10 @@ serve(async (req) => {
       });
     }
 
-    await persistSearchResults(adminClient, results);
+    // The catalog upsert must never delay the response the user is waiting on.
+    const persist = persistSearchResults(adminClient, results).catch(() => {});
+    const waitUntil = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime?.waitUntil;
+    if (typeof waitUntil === 'function') waitUntil(persist);
     return new Response(JSON.stringify({ success: true, results, source }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
