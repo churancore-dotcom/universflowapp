@@ -27,3 +27,8 @@ dist-ssr
 .env
 .env.*
 !.env.example
+
+# Android upload signing material — never commit
+android/keystore.properties
+android/app/*.jks
+android/app/*.keystore
