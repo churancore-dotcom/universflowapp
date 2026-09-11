@@ -699,11 +699,17 @@ serve(async (req) => {
     // PRIMARY: YouTube Music Innertube. Run songs + videos + "all" in parallel,
     // each following continuation tokens so we return 100-200 hits, not 20.
     const PARAMS_ALL = '';
-    const target = Math.max(limit, 100);
+    // depth 'fast' (default): first page only from each shelf -> one round trip
+    // (~500ms) instead of up to 6 chained Innertube calls (~4s). Deep paging is
+    // reserved for the explicit 'deep' request the client fires in the
+    // background / on infinite scroll.
+    const deep = depth === 'deep';
+    const target = deep ? Math.max(limit, 100) : limit;
+    const maxPages = deep ? 5 : 0;
     const [songs, videos, all] = await Promise.all([
-      ytMusicSearch(cleanQuery, PARAMS_SONGS, target).catch(() => []),
-      ytMusicSearch(cleanQuery, PARAMS_VIDEOS, target).catch(() => []),
-      ytMusicSearch(cleanQuery, PARAMS_ALL, target).catch(() => []),
+      ytMusicSearch(cleanQuery, PARAMS_SONGS, target, maxPages).catch(() => []),
+      ytMusicSearch(cleanQuery, PARAMS_VIDEOS, target, maxPages).catch(() => []),
+      ytMusicSearch(cleanQuery, PARAMS_ALL, target, maxPages).catch(() => []),
     ]);
 
     const merged: Array<SearchResult & { _score?: number; _kind: 'song' | 'video' }> = [];
@@ -757,7 +763,10 @@ serve(async (req) => {
       });
     }
 
-    await persistSearchResults(adminClient, results);
+    // The catalog upsert must never delay the response the user is waiting on.
+    const persist = persistSearchResults(adminClient, results).catch(() => {});
+    const waitUntil = (globalThis as unknown as { EdgeRuntime?: { waitUntil?: (p: Promise<unknown>) => void } }).EdgeRuntime?.waitUntil;
+    if (typeof waitUntil === 'function') waitUntil(persist);
     return new Response(JSON.stringify({ success: true, results, source }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });

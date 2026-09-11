@@ -505,24 +505,59 @@ export function feedRotationSalt(): string {
   return `${bucket}-${SESSION_SALT}`;
 }
 
+const deepSearchInFlight = new Set<string>();
+
+/**
+ * Fast search: one Innertube page per shelf (~0.5s) instead of chained
+ * continuations (~4s). Right after the fast answer lands we kick off a deep
+ * request in the background that overwrites the same cache key, so scrolling
+ * and the next identical query get the long list without anyone waiting.
+ */
 export async function searchYouTubeMusicTracks(
   query: string,
   limit = 50,
   cacheBust?: string,
+  depth: 'fast' | 'deep' = 'fast',
 ): Promise<IndexedTrack[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  return cachedSearch(searchKey('youtube', cacheBust ? `${q}#${cacheBust}` : q, limit), async () => {
+  const key = searchKey('youtube', cacheBust ? `${q}#${cacheBust}` : q, limit);
+  const results = await cachedSearch(key, async () => {
     try {
       const data = await requestFunction<YoutubeSearchResponse>('yt-music-search', {
         query: q,
         limit,
+        depth,
       });
       return Array.isArray(data.results) ? data.results : [];
     } catch {
       return [];
     }
   });
+
+  if (depth === 'fast' && results.length > 0 && !deepSearchInFlight.has(key)) {
+    deepSearchInFlight.add(key);
+    void (async () => {
+      try {
+        const data = await requestFunction<YoutubeSearchResponse>('yt-music-search', {
+          query: q,
+          limit,
+          depth: 'deep',
+        });
+        const deepResults = Array.isArray(data.results) ? data.results : [];
+        if (deepResults.length > results.length) {
+          searchCache.set(key, { data: deepResults, expiresAt: Date.now() + SEARCH_CACHE_TTL });
+          persistSearchCache();
+        }
+      } catch {
+        /* background enrichment is best effort */
+      } finally {
+        deepSearchInFlight.delete(key);
+      }
+    })();
+  }
+
+  return results;
 }
 
 export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Promise<IndexedTrack[]> {
