@@ -51,7 +51,15 @@ export const UserPrivacyBody = (): ReactNode => (
       <li><strong>Payments:</strong> if you buy Premium via UPI, we record the transaction reference, amount and plan. We never see your bank or UPI PIN.</li>
     </ul>
 
-    <h2>2. How we use it</h2>
+    <h2>2. Device permissions we ask for</h2>
+    <ul>
+      <li><strong>Notifications:</strong> to show the playback controls on your lock screen and to send app updates you opted into. You can refuse or revoke this at any time; music still plays.</li>
+      <li><strong>Camera:</strong> requested <em>only</em> if you apply for a verified Artist account, to take a live selfie that proves you are a real person. It is never used for anything else, never records video, and denying it only blocks the artist application.</li>
+      <li><strong>Storage / offline files:</strong> used to save songs you explicitly download so they play without internet. We do not read your existing photos, files, or media.</li>
+    </ul>
+    <p>We do not collect contacts, precise GPS location, SMS, call logs, microphone audio, or the list of other apps on your device.</p>
+
+    <h2>3. How we use it</h2>
     <p>To run the service (playlists, downloads, recommendations), keep it secure, send important notifications, and improve features. Aggregate, non-personal stats may be shown publicly (e.g. global top charts).</p>
 
     <h2>3. Sharing</h2>
