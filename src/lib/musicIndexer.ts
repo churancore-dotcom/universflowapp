@@ -505,59 +505,56 @@ export function feedRotationSalt(): string {
   return `${bucket}-${SESSION_SALT}`;
 }
 
-const deepSearchInFlight = new Set<string>();
-
 /**
- * Fast search: one Innertube page per shelf (~0.5s) instead of chained
- * continuations (~4s). Right after the fast answer lands we kick off a deep
- * request in the background that overwrites the same cache key, so scrolling
- * and the next identical query get the long list without anyone waiting.
+ * Catalog search — JioSaavn + Audius, in parallel.
+ *
+ * YouTube has been removed as a source: it was blocked at the datacenter IP
+ * level, needed PoTokens on device, and streaming it from our own player broke
+ * YouTube's terms. Both remaining sources return a *directly playable* audio
+ * URL inside the search response, so a tap needs zero extra resolution calls —
+ * this is what makes playback instant.
+ *
+ * The exported name is unchanged so every rail/search caller keeps working.
  */
 export async function searchYouTubeMusicTracks(
   query: string,
   limit = 50,
   cacheBust?: string,
-  depth: 'fast' | 'deep' = 'fast',
+  _depth: 'fast' | 'deep' = 'fast',
 ): Promise<IndexedTrack[]> {
   const q = query.trim();
   if (q.length < 2) return [];
-  const key = searchKey('youtube', cacheBust ? `${q}#${cacheBust}` : q, limit);
-  const results = await cachedSearch(key, async () => {
-    try {
-      const data = await requestFunction<YoutubeSearchResponse>('yt-music-search', {
-        query: q,
-        limit,
-        depth,
-      });
-      return Array.isArray(data.results) ? data.results : [];
-    } catch {
-      return [];
-    }
+  const key = searchKey('catalog', cacheBust ? `${q}#${cacheBust}` : q, limit);
+  return cachedSearch(key, async () => {
+    const [saavn, audius] = await Promise.all([
+      import('./jiosaavn').then((m) => m.searchSongsAsTracks(q, Math.min(40, limit))).catch(() => []),
+      import('./audius').then((m) => m.searchAudiusTracks(q, Math.min(25, limit))).catch(() => []),
+    ]);
+    return mergeTrackSources(saavn, audius).slice(0, limit);
   });
+}
 
-  if (depth === 'fast' && results.length > 0 && !deepSearchInFlight.has(key)) {
-    deepSearchInFlight.add(key);
-    void (async () => {
-      try {
-        const data = await requestFunction<YoutubeSearchResponse>('yt-music-search', {
-          query: q,
-          limit,
-          depth: 'deep',
-        });
-        const deepResults = Array.isArray(data.results) ? data.results : [];
-        if (deepResults.length > results.length) {
-          searchCache.set(key, { data: deepResults, expiresAt: Date.now() + SEARCH_CACHE_TTL });
-          persistSearchCache();
-        }
-      } catch {
-        /* background enrichment is best effort */
-      } finally {
-        deepSearchInFlight.delete(key);
-      }
-    })();
+/**
+ * Interleave sources so neither one dominates the list, de-duplicating on
+ * title+artist so the same song from both providers appears once.
+ */
+function mergeTrackSources(...lists: IndexedTrack[][]): IndexedTrack[] {
+  const seen = new Set<string>();
+  const out: IndexedTrack[] = [];
+  const fingerprint = (t: IndexedTrack) =>
+    `${(t.title || '').toLowerCase().replace(/[^a-z0-9]+/g, '')}|${(t.artist || '').toLowerCase().replace(/[^a-z0-9]+/g, '').slice(0, 24)}`;
+  const max = Math.max(...lists.map((l) => l.length), 0);
+  for (let i = 0; i < max; i += 1) {
+    for (const list of lists) {
+      const track = list[i];
+      if (!track) continue;
+      const fp = fingerprint(track);
+      if (!fp || fp === '|' || seen.has(fp)) continue;
+      seen.add(fp);
+      out.push(track);
+    }
   }
-
-  return results;
+  return out;
 }
 
 export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Promise<IndexedTrack[]> {
