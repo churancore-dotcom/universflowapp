@@ -1353,55 +1353,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // deterministic RDAMVM mix, i.e. the exact same up-next list every
       // session. Rotate the seed across the current track plus recent queue /
       // history entries so repeated sessions build genuinely different mixes.
-      const seedCandidates = (() => {
-        const ids: string[] = [];
-        const push = (id?: string) => {
-          if (!id?.startsWith('ytm-')) return;
-          const vid = id.slice(4);
-          if (vid && !ids.includes(vid)) ids.push(vid);
-        };
-        push(seed.id);
-        queueRef.current.slice(-8).forEach((s) => push(s.id));
-        readLocalRecent(null).slice(0, 8).forEach((e) => push(e.song_id || e.song?.id));
-        return ids;
-      })();
-      const seedVideoId = seedCandidates.length
-        ? seedCandidates[Math.floor(Math.random() * seedCandidates.length)]
-        : undefined;
-      if (seedVideoId) {
-        try {
-          const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId: seedVideoId } });
-          const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
-          for (const t of tracks) {
-            if (!t?.videoId) continue;
-            const id = `ytm-${t.videoId}`;
-            if (existing.has(id)) continue;
-            if (isDuplicate({ title: t.title, artist: t.artist })) continue;
-            if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
-            existing.add(id);
-            markSeen({ title: t.title, artist: t.artist });
-            pool.push({
-              id,
-              title: t.title,
-              artist: t.artist || 'Unknown',
-              // Radio rows sometimes ship without a thumbnail, which is why
-              // queue rows showed an empty tile. Fall back to the canonical
-              // YouTube artwork for that videoId.
-              // `maxresdefault` is bar-free and full size; the artwork ladder
-              // walks down to hq720/mq if it's missing. `hqdefault` used to be
-              // the fallback, which is what made queue covers look blurry.
-              cover_url: t.cover_url || `https://i.ytimg.com/vi/${t.videoId}/maxresdefault.jpg`,
+      // YOUTUBE REMOVED: the auto-mix no longer calls the YouTube radio
+      // endpoint. Step 2 below builds the mix from the licensed catalog
+      // (JioSaavn + Audius), where every row already has a playable URL.
 
-              audio_url: t.audio_url || `yt-video:${t.videoId}`,
-              duration: t.duration || undefined,
-              source: 'indexed',
-            } as Song);
-            if (pool.length >= 25) break;
-          }
-        } catch (e) {
-          console.warn('[autoMix] ytm-radio failed', e);
-        }
-      }
 
 
       // 2) Taste-aware search mix — same artist / similar sound from the live
