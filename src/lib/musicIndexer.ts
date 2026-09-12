@@ -752,13 +752,21 @@ export async function resolveIndexedTrack(
       } as ResolveTrackResponse) : null))
       .catch(() => null);
 
-    const edgeP: Promise<ResolveTrackResponse | null> = isSourceDown('music-indexer')
-      ? Promise.resolve(null)
-      : trackResolver('music-indexer', cacheKey, resolveViaEdgeFunction(
-      artist, title, cacheKey, opts.forceRefresh === true, priority,
-    )).catch(() => null);
+    // Audius replaces the old YouTube-backed edge resolver: keyless, licensed,
+    // CORS-clean, and it hands back a directly playable URL.
+    const audiusP: Promise<ResolveTrackResponse | null> = trackResolver('audius', cacheKey, import('./audius')
+      .then((m) => m.findAudiusStream(title, artist))
+      .then((t) => t?.audio_url ? ({
+        success: true,
+        streamUrl: t.audio_url,
+        title: t.title || title,
+        artist: t.artist || artist,
+        cover_url: t.cover_url,
+        duration: t.duration,
+      } as ResolveTrackResponse) : null))
+      .catch(() => null);
 
-    const racers = [dbP, saavnP, edgeP];
+    const racers = [dbP, saavnP, audiusP];
     const first = await new Promise<ResolveTrackResponse | null>((resolve) => {
       let settled = false;
       let remaining = racers.length;
