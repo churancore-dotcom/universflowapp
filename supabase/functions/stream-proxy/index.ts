@@ -18,6 +18,16 @@ const ALLOWED_HOST_SUFFIXES = [
   '.saavncdn.com',
   'saavncdn.com',
   'jiosaavn-api.universflow.workers.dev',
+  // Audius (open, licensed network) — discovery hosts, the creator/content
+  // nodes the /v1/tracks/{id}/stream endpoint redirects to, and the signed
+  // object-storage hop those nodes hand back.
+  'api.audius.co',
+  '.audius.co',
+  '.theblueprint.xyz',
+  '.figment.io',
+  '.altego.net',
+  '.monophonic.digital',
+  '.r2.cloudflarestorage.com',
   // YouTube / Invidious mirrors
   '.googlevideo.com',
   '.youtube.com',

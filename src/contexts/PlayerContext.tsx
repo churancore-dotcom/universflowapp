@@ -13,7 +13,7 @@ import { getRuntimePremium, subscribeRuntimePremium } from '@/lib/premiumState';
 import { noteSongCompleted, primeAdEngine } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
-import { isNativePlayerAvailable, InnerTubePlugin, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack, setNativeMiniPlayerState, onNativeMediaButton } from '@/lib/nativePlayer';
+import { isNativePlayerAvailable, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack, setNativeMiniPlayerState, onNativeMediaButton } from '@/lib/nativePlayer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { prewarmSongs } from '@/lib/instantPlay';
 import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
@@ -1353,55 +1353,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // deterministic RDAMVM mix, i.e. the exact same up-next list every
       // session. Rotate the seed across the current track plus recent queue /
       // history entries so repeated sessions build genuinely different mixes.
-      const seedCandidates = (() => {
-        const ids: string[] = [];
-        const push = (id?: string) => {
-          if (!id?.startsWith('ytm-')) return;
-          const vid = id.slice(4);
-          if (vid && !ids.includes(vid)) ids.push(vid);
-        };
-        push(seed.id);
-        queueRef.current.slice(-8).forEach((s) => push(s.id));
-        readLocalRecent(null).slice(0, 8).forEach((e) => push(e.song_id || e.song?.id));
-        return ids;
-      })();
-      const seedVideoId = seedCandidates.length
-        ? seedCandidates[Math.floor(Math.random() * seedCandidates.length)]
-        : undefined;
-      if (seedVideoId) {
-        try {
-          const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId: seedVideoId } });
-          const tracks = Array.isArray(data?.tracks) ? data.tracks : [];
-          for (const t of tracks) {
-            if (!t?.videoId) continue;
-            const id = `ytm-${t.videoId}`;
-            if (existing.has(id)) continue;
-            if (isDuplicate({ title: t.title, artist: t.artist })) continue;
-            if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
-            existing.add(id);
-            markSeen({ title: t.title, artist: t.artist });
-            pool.push({
-              id,
-              title: t.title,
-              artist: t.artist || 'Unknown',
-              // Radio rows sometimes ship without a thumbnail, which is why
-              // queue rows showed an empty tile. Fall back to the canonical
-              // YouTube artwork for that videoId.
-              // `maxresdefault` is bar-free and full size; the artwork ladder
-              // walks down to hq720/mq if it's missing. `hqdefault` used to be
-              // the fallback, which is what made queue covers look blurry.
-              cover_url: t.cover_url || `https://i.ytimg.com/vi/${t.videoId}/maxresdefault.jpg`,
+      // YOUTUBE REMOVED: the auto-mix no longer calls the YouTube radio
+      // endpoint. Step 2 below builds the mix from the licensed catalog
+      // (JioSaavn + Audius), where every row already has a playable URL.
 
-              audio_url: t.audio_url || `yt-video:${t.videoId}`,
-              duration: t.duration || undefined,
-              source: 'indexed',
-            } as Song);
-            if (pool.length >= 25) break;
-          }
-        } catch (e) {
-          console.warn('[autoMix] ytm-radio failed', e);
-        }
-      }
 
 
       // 2) Taste-aware search mix — same artist / similar sound from the live
@@ -1608,62 +1563,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return await signStorageAudioUrl(song.audio_url!);
       }
 
-      // Single attempt that tries extract-audio (and music-indexer) once.
+      // YOUTUBE REMOVED — a legacy `yt-video:` placeholder is no longer resolved
+      // against YouTube at all (blocked IPs, PoTokens, terms violation). We go
+      // straight to the licensed sources by title/artist, which answer in a few
+      // hundred milliseconds from the CDN.
       const attempt = async (forceRefresh: boolean): Promise<string | null> => {
-        if (ytFallback) {
-          const videoId = getYouTubeFallbackVideoId(ytFallback);
-          if (videoId) {
-            // NATIVE-FIRST on Android: the on-device Kotlin InnerTube resolver
-            // uses the phone's residential IP and returns a direct googlevideo
-            // URL in ~300-600ms — no Supabase round-trip, no datacenter-IP
-            // block. This is the Echo Music / NewPipe approach.
-            const tryNative = async (budgetMs: number): Promise<string | null> => {
-              if (opts.skipNative || !isNativePlayerAvailable()) return null;
-              try {
-                const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
-                const { getStreamBitrateCap } = await import('@/lib/userPrefs');
-                const native = await Promise.race([
-                  resolveYouTubeStreamOnDevice(videoId, { bitrateCap: getStreamBitrateCap() }),
-                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), budgetMs)),
-                ]);
-                if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
-                  markNativeResolvedStreamUrl(native.streamUrl, videoId);
-                  return native.streamUrl;
-                }
-              } catch { /* fall through */ }
-              return null;
-            };
-
-            // On the APK, on-device InnerTube is the ONLY path that reliably
-            // returns real YouTube audio (residential IP + local cipher
-            // deciphering). Cold start has to fetch and compile player.js, which
-            // takes longer than the old 1.5s cap — that cap was silently killing
-            // YouTube on Android and dumping every track onto the Saavn
-            // fallback. Give it a real budget, and retry once (player.js is
-            // cached by then, so the retry is fast).
-            const nativeBudgetMs = isNativePlayerAvailable() ? 5500 : 1500;
-            const firstNative = await tryNative(nativeBudgetMs);
-            if (firstNative) return firstNative;
-
-            // FALLBACK: Supabase edge resolver + stream-proxy (web users, or
-            // when on-device resolution failed for this particular videoId).
-            try {
-              if (forceRefresh) invalidateYouTubeStream(videoId);
-              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh, title: song.title, artist: song.artist });
-              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
-                return resolved.streamUrl;
-              }
-            } catch { /* fall through to indexed track lookup */ }
-
-            // SECOND on-device pass: the edge chain is datacenter-IP blocked, so
-            // when it also fails the device is still the best shot. player.js is
-            // warm now, so this attempt is typically sub-second.
-            if (isNativePlayerAvailable()) {
-              const secondNative = await tryNative(4000);
-              if (secondNative) return secondNative;
-            }
-          }
-        }
         if (song.artist && song.title) {
           try {
             const result = await resolveIndexedTrack(song.artist, song.title, { forceRefresh });
@@ -1671,6 +1575,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               return result.streamUrl;
             }
           } catch { /* fall through */ }
+        }
+        if (ytFallback) {
+          const videoId = getYouTubeFallbackVideoId(ytFallback);
+          if (videoId) {
+            try {
+              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh, title: song.title, artist: song.artist });
+              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
+                return resolved.streamUrl;
+              }
+            } catch { /* nothing left */ }
+          }
         }
         return null;
       };
@@ -1721,41 +1636,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .catch(() => never);
     const candidates: Promise<string | null>[] = [];
 
-    if (videoId && !opts.skipNativeFastPath) {
+    // YOUTUBE REMOVED on the APK too: no InnerTube candidate, and therefore no
+    // artificial head-start penalty for the licensed sources. The native
+    // metadata resolver (JioSaavn on device) and the JS resolver race flat out,
+    // which is why playback now starts in a few hundred milliseconds.
+    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && song.title) {
       candidates.push(playable(
-        InnerTubePlugin.resolveAudio({ videoId }).then((result) => {
-          if (!result?.url || isYouTubeFallbackUrl(result.url)) return null;
-          markNativeResolvedStreamUrl(result.url, videoId);
-          return result.url;
-        }),
+        resolveNativeMetadataStream({ title: song.title, artist: song.artist }),
       ));
     }
-    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && (videoId || song.title)) {
-      candidates.push(playable(
-        resolveNativeMetadataStream({ videoId: videoId || undefined, title: song.title, artist: song.artist })
-          .then((url) => {
-            if (url && videoId) markNativeResolvedStreamUrl(url, videoId);
-            return url;
-          }),
-      ));
-    }
-    // On the APK we WANT the real YouTube stream, so the cloud/Saavn candidate
-    // gets a head-start penalty: without it, a fast Saavn match beats on-device
-    // InnerTube every time and users hear a cover/remix instead of the track
-    // they picked. If InnerTube wins first the delayed candidate is ignored.
-    const cloudDelayMs = isNativePlayerAvailable() && (videoId && !opts.skipNativeFastPath) ? 1800 : 0;
     candidates.push(playable(
-      (cloudDelayMs
-        ? new Promise<void>((resolve) => window.setTimeout(resolve, cloudDelayMs))
-        : Promise.resolve()
-      ).then(() => resolveAudioUrl(song, { forceRefresh: true, skipNative: true }))
+      resolveAudioUrl(song, { skipNative: true })
         .then((url) => url ? buildNativeExoPlayerUrl(url) : null),
     ));
 
     if (candidates.length > 0) {
       const resolved = await Promise.race([
         ...candidates,
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), isNativePlayerAvailable() ? 8500 : 6200)),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 5000)),
       ]);
       if (resolved) return resolved;
     }
