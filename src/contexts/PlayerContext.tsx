@@ -1681,41 +1681,24 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .catch(() => never);
     const candidates: Promise<string | null>[] = [];
 
-    if (videoId && !opts.skipNativeFastPath) {
+    // YOUTUBE REMOVED on the APK too: no InnerTube candidate, and therefore no
+    // artificial head-start penalty for the licensed sources. The native
+    // metadata resolver (JioSaavn on device) and the JS resolver race flat out,
+    // which is why playback now starts in a few hundred milliseconds.
+    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && song.title) {
       candidates.push(playable(
-        InnerTubePlugin.resolveAudio({ videoId }).then((result) => {
-          if (!result?.url || isYouTubeFallbackUrl(result.url)) return null;
-          markNativeResolvedStreamUrl(result.url, videoId);
-          return result.url;
-        }),
+        resolveNativeMetadataStream({ title: song.title, artist: song.artist }),
       ));
     }
-    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && (videoId || song.title)) {
-      candidates.push(playable(
-        resolveNativeMetadataStream({ videoId: videoId || undefined, title: song.title, artist: song.artist })
-          .then((url) => {
-            if (url && videoId) markNativeResolvedStreamUrl(url, videoId);
-            return url;
-          }),
-      ));
-    }
-    // On the APK we WANT the real YouTube stream, so the cloud/Saavn candidate
-    // gets a head-start penalty: without it, a fast Saavn match beats on-device
-    // InnerTube every time and users hear a cover/remix instead of the track
-    // they picked. If InnerTube wins first the delayed candidate is ignored.
-    const cloudDelayMs = isNativePlayerAvailable() && (videoId && !opts.skipNativeFastPath) ? 1800 : 0;
     candidates.push(playable(
-      (cloudDelayMs
-        ? new Promise<void>((resolve) => window.setTimeout(resolve, cloudDelayMs))
-        : Promise.resolve()
-      ).then(() => resolveAudioUrl(song, { forceRefresh: true, skipNative: true }))
+      resolveAudioUrl(song, { skipNative: true })
         .then((url) => url ? buildNativeExoPlayerUrl(url) : null),
     ));
 
     if (candidates.length > 0) {
       const resolved = await Promise.race([
         ...candidates,
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), isNativePlayerAvailable() ? 8500 : 6200)),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 5000)),
       ]);
       if (resolved) return resolved;
     }
