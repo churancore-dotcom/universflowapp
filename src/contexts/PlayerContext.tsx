@@ -1608,62 +1608,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return await signStorageAudioUrl(song.audio_url!);
       }
 
-      // Single attempt that tries extract-audio (and music-indexer) once.
+      // YOUTUBE REMOVED — a legacy `yt-video:` placeholder is no longer resolved
+      // against YouTube at all (blocked IPs, PoTokens, terms violation). We go
+      // straight to the licensed sources by title/artist, which answer in a few
+      // hundred milliseconds from the CDN.
       const attempt = async (forceRefresh: boolean): Promise<string | null> => {
-        if (ytFallback) {
-          const videoId = getYouTubeFallbackVideoId(ytFallback);
-          if (videoId) {
-            // NATIVE-FIRST on Android: the on-device Kotlin InnerTube resolver
-            // uses the phone's residential IP and returns a direct googlevideo
-            // URL in ~300-600ms — no Supabase round-trip, no datacenter-IP
-            // block. This is the Echo Music / NewPipe approach.
-            const tryNative = async (budgetMs: number): Promise<string | null> => {
-              if (opts.skipNative || !isNativePlayerAvailable()) return null;
-              try {
-                const { resolveYouTubeStreamOnDevice } = await import('@/lib/nativeStreamResolver');
-                const { getStreamBitrateCap } = await import('@/lib/userPrefs');
-                const native = await Promise.race([
-                  resolveYouTubeStreamOnDevice(videoId, { bitrateCap: getStreamBitrateCap() }),
-                  new Promise<null>((resolve) => window.setTimeout(() => resolve(null), budgetMs)),
-                ]);
-                if (native?.streamUrl && !isYouTubeFallbackUrl(native.streamUrl)) {
-                  markNativeResolvedStreamUrl(native.streamUrl, videoId);
-                  return native.streamUrl;
-                }
-              } catch { /* fall through */ }
-              return null;
-            };
-
-            // On the APK, on-device InnerTube is the ONLY path that reliably
-            // returns real YouTube audio (residential IP + local cipher
-            // deciphering). Cold start has to fetch and compile player.js, which
-            // takes longer than the old 1.5s cap — that cap was silently killing
-            // YouTube on Android and dumping every track onto the Saavn
-            // fallback. Give it a real budget, and retry once (player.js is
-            // cached by then, so the retry is fast).
-            const nativeBudgetMs = isNativePlayerAvailable() ? 5500 : 1500;
-            const firstNative = await tryNative(nativeBudgetMs);
-            if (firstNative) return firstNative;
-
-            // FALLBACK: Supabase edge resolver + stream-proxy (web users, or
-            // when on-device resolution failed for this particular videoId).
-            try {
-              if (forceRefresh) invalidateYouTubeStream(videoId);
-              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh, title: song.title, artist: song.artist });
-              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
-                return resolved.streamUrl;
-              }
-            } catch { /* fall through to indexed track lookup */ }
-
-            // SECOND on-device pass: the edge chain is datacenter-IP blocked, so
-            // when it also fails the device is still the best shot. player.js is
-            // warm now, so this attempt is typically sub-second.
-            if (isNativePlayerAvailable()) {
-              const secondNative = await tryNative(4000);
-              if (secondNative) return secondNative;
-            }
-          }
-        }
         if (song.artist && song.title) {
           try {
             const result = await resolveIndexedTrack(song.artist, song.title, { forceRefresh });
@@ -1671,6 +1620,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               return result.streamUrl;
             }
           } catch { /* fall through */ }
+        }
+        if (ytFallback) {
+          const videoId = getYouTubeFallbackVideoId(ytFallback);
+          if (videoId) {
+            try {
+              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh, title: song.title, artist: song.artist });
+              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
+                return resolved.streamUrl;
+              }
+            } catch { /* nothing left */ }
+          }
         }
         return null;
       };
