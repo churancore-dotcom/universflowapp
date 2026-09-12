@@ -594,13 +594,11 @@ interface YoutubeChartsResponse {
   error?: string;
 }
 
-// Real YouTube Music Charts (FEmusic_charts) per country. Same source that
-// music.youtube.com/charts renders; refreshes daily on YT's side.
-// 'ZZ' is YouTube Music's real Global chart. When we don't know the listener's
-// country we must ask for Global, not the US chart — this app is worldwide.
+// Charts — built from Audius' real trending feeds (week + month) now that the
+// YouTube Music chart endpoint is gone. Every track here is directly playable.
 export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise<YtmCharts> {
   const cc = /^[A-Z]{2}$/.test(country.toUpperCase()) ? country.toUpperCase() : 'ZZ';
-  const cacheKey = `ytm-charts::${cc}::${limit}`;
+  const cacheKey = `charts-v3::${cc}::${limit}`;
   const memHit = chartsMemCache.get(cacheKey);
   const now = Date.now();
   if (memHit && memHit.expiresAt > now) return memHit.data;
@@ -608,18 +606,20 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
   if (inflight) return inflight;
   const p = (async () => {
     try {
-      const data = await requestFunction<YoutubeChartsResponse>('yt-music-search', {
-        mode: 'charts',
-        country: cc,
-        limit,
-      });
+      const { getAudiusTrending } = await import('./audius');
+      const [week, month] = await Promise.all([
+        getAudiusTrending(limit, 'week'),
+        getAudiusTrending(limit, 'month'),
+      ]);
       const out: YtmCharts = {
-        top: Array.isArray(data.top) ? data.top : [],
-        trending: Array.isArray(data.trending) ? data.trending : [],
-        videos: Array.isArray(data.videos) ? data.videos : [],
-        country: data.country || cc,
+        top: week,
+        trending: month.length ? month : week,
+        videos: [],
+        country: cc,
       };
-      chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
+      if (week.length || month.length) {
+        chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
+      }
       return out;
     } catch {
       return { top: [], trending: [], videos: [], country: cc } as YtmCharts;
