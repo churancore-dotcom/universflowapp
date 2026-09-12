@@ -869,10 +869,13 @@ async function resolveYouTubeVideoStreamInner(
   }
 
   const ytStartedAt = Date.now();
-  // INSTANT PLAY: race JioSaavn (fast CDN, CORS-clean) in parallel with the
-  // YouTube resolver stack. First real audio URL wins.
-  const saavnRacer: Promise<ResolveTrackResponse | null> = (opts.title || opts.artist) && !opts.forceRefresh
-    ? trackResolver('jiosaavn', id, findSongStreamUrl(opts.title || '', opts.artist || '')
+  // YOUTUBE REMOVED: legacy catalog ids still flow through here, so we now
+  // resolve them purely by title/artist against JioSaavn and Audius, in
+  // parallel. First real audio URL wins — no edge functions, no InnerTube.
+  const saavnRacer: Promise<ResolveTrackResponse | null> = (opts.title || opts.artist)
+    ? trackResolver('jiosaavn', id, findSongStreamUrl(opts.title || '', opts.artist || '', {
+        forceRefresh: opts.forceRefresh === true,
+      })
         .then((s) => s?.streamUrl ? ({
           success: true,
           streamUrl: s.streamUrl,
@@ -885,44 +888,22 @@ async function resolveYouTubeVideoStreamInner(
         .catch(() => null)
     : Promise.resolve(null);
 
-  const priority: Priority = opts.background ? 'low' : 'high';
-  const resolvers: Promise<ResolveTrackResponse | null>[] = [
-    saavnRacer,
-    isSourceDown('extract-audio') ? Promise.resolve(null) : trackResolver('extract-audio', id, (async () => {
-      const { data, error } = await invokeGated<{
-        success?: boolean; audioUrl?: string; title?: string; artist?: string;
-        thumbnail?: string; duration?: number;
-      }>('extract-audio', { videoId: id, forceRefresh: opts.forceRefresh === true }, priority);
-      if (error) throw new Error(error.message || 'extract-audio failed');
-      if (data?.success && data?.audioUrl && !String(data.audioUrl).startsWith('yt-video:')) {
-        return {
+  const audiusRacer: Promise<ResolveTrackResponse | null> = (opts.title || opts.artist)
+    ? trackResolver('audius', id, import('./audius')
+        .then((m) => m.findAudiusStream(opts.title || '', opts.artist || ''))
+        .then((t) => t?.audio_url ? ({
           success: true,
-          streamUrl: data.audioUrl,
+          streamUrl: t.audio_url,
           videoId: id,
-          title: data.title,
-          artist: data.artist,
-          cover_url: data.thumbnail,
-          duration: data.duration,
-        } as ResolveTrackResponse;
-      }
-      return null;
-    })()).catch(() => null),
-    isSourceDown('innertube') ? Promise.resolve(null) : trackResolver('innertube', id, (async () => {
-      const data = await requestIndexer<ResolveTrackResponse>({
-        action: 'resolve-video',
-        videoId: id,
-        // Metadata hints let the backend try JioSaavn (which does not block us)
-        // before YouTube, instead of paying an oembed lookup first.
-        title: opts.title,
-        artist: opts.artist,
-        forceRefresh: opts.forceRefresh === true,
-      }, priority);
-      if (data?.success && data.streamUrl && !data.streamUrl.startsWith('yt-video:')) {
-        return { ...data, videoId: id };
-      }
-      return null;
-    })()).catch(() => null),
-  ];
+          title: t.title || opts.title,
+          artist: t.artist || opts.artist,
+          cover_url: t.cover_url,
+          duration: t.duration,
+        } as ResolveTrackResponse) : null))
+        .catch(() => null)
+    : Promise.resolve(null);
+
+  const resolvers: Promise<ResolveTrackResponse | null>[] = [saavnRacer, audiusRacer];
 
   const winner = await withTimeout(new Promise<ResolveTrackResponse | null>((resolve) => {
     let settled = false;
