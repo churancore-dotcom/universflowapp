@@ -557,23 +557,19 @@ function mergeTrackSources(...lists: IndexedTrack[][]): IndexedTrack[] {
   return out;
 }
 
+/**
+ * Fresh releases — now sourced from Audius' underground/trending feeds (real,
+ * licensed, keyless) instead of YouTube Music. Name kept for callers.
+ */
 export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Promise<IndexedTrack[]> {
-  // No detected country must fall back to the GLOBAL feed ('ZZ'), never the US
-  // (or any other single market) chart — this app ships worldwide.
   const cc = /^[A-Z]{2}$/.test((country || '').toUpperCase()) ? country.toUpperCase() : 'ZZ';
-  // Short in-memory cache (15 min) — no localStorage persistence, so fresh
-  // drops actually appear when YT ships them instead of being pinned for days.
-  const key = `youtube-new-releases-v2:${cc}:${limit}`;
+  const key = `fresh-releases-v3:${cc}:${limit}`;
   const hit = newReleasesMemCache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.data;
   try {
-    const data = await requestFunction<YoutubeNewReleasesResponse>('yt-music-search', {
-      mode: 'new-releases',
-      country: cc,
-      limit,
-    });
-    const out = Array.isArray(data.results) ? data.results : [];
-    newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
+    const { getAudiusUnderground } = await import('./audius');
+    const out = await getAudiusUnderground(limit);
+    if (out.length) newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
     return out;
   } catch {
     return [];
