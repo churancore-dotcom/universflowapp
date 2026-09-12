@@ -40,24 +40,85 @@ interface SaavnStreamResult {
 }
 
 const cache = new Map<string, SaavnStreamResult>();
-const SEARCH_TIMEOUT_MS = 8000;
+// SPEED: JioSaavn's CDN answers in 150-400ms. An 8s ceiling only ever made a
+// dead request hold playback hostage, so we cut it hard and let the caller's
+// fallback chain (Audius) take over instead of waiting.
+const SEARCH_TIMEOUT_MS = 2500;
+
+// In-flight coalescing: a rail render, a pointerdown prewarm and the tap itself
+// all ask for the same query within a few hundred ms. Without this they fired
+// three identical network requests.
+const inFlight = new Map<string, Promise<unknown | null>>();
+
+// Persisted search cache — on the phone this makes a repeat search instant and
+// survives app restarts (the biggest perceived speed win on the APK).
+const SEARCH_TTL_MS = 30 * 60 * 1000;
+const SEARCH_CACHE_KEY = 'uf_saavn_search_v1';
+const searchMem = new Map<string, { data: SaavnSong[]; expiresAt: number }>();
+let searchCacheLoaded = false;
+
+function loadSearchCache(): void {
+  if (searchCacheLoaded) return;
+  searchCacheLoaded = true;
+  try {
+    const raw = localStorage.getItem(SEARCH_CACHE_KEY);
+    if (!raw) return;
+    const parsed = JSON.parse(raw) as Record<string, { data: SaavnSong[]; expiresAt: number }>;
+    const now = Date.now();
+    Object.entries(parsed).forEach(([k, v]) => {
+      if (v?.expiresAt > now && Array.isArray(v.data)) searchMem.set(k, v);
+    });
+  } catch { /* ignore corrupt cache */ }
+}
+
+let persistTimer: number | undefined;
+function persistSearchCache(): void {
+  if (typeof window === 'undefined') return;
+  window.clearTimeout(persistTimer);
+  persistTimer = window.setTimeout(() => {
+    try {
+      const entries = Array.from(searchMem.entries()).slice(-80);
+      localStorage.setItem(SEARCH_CACHE_KEY, JSON.stringify(Object.fromEntries(entries)));
+    } catch { /* quota */ }
+  }, 400);
+}
 
 async function fetchJson(url: string): Promise<unknown | null> {
-  const controller = new AbortController();
-  const timeout = globalThis.setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
-  try {
-    const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
-    if (!res.ok) return null;
-    return await res.json();
-  } finally {
-    globalThis.clearTimeout(timeout);
-  }
+  const existing = inFlight.get(url);
+  if (existing) return existing;
+  const p = (async () => {
+    const controller = new AbortController();
+    const timeout = globalThis.setTimeout(() => controller.abort(), SEARCH_TIMEOUT_MS);
+    try {
+      const res = await fetch(url, { signal: controller.signal, headers: { Accept: 'application/json' } });
+      if (!res.ok) return null;
+      return await res.json();
+    } catch {
+      return null;
+    } finally {
+      globalThis.clearTimeout(timeout);
+      inFlight.delete(url);
+    }
+  })();
+  inFlight.set(url, p);
+  return p;
 }
 
 export async function searchSongs(query: string, limit = 20): Promise<SaavnSong[]> {
+  const q = query.trim();
+  if (q.length < 2) return [];
+  loadSearchCache();
+  const key = `${q.toLowerCase()}|${limit}`;
+  const hit = searchMem.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.data;
   try {
-    const data = await fetchJson(`${API}/api/search/songs?query=${encodeURIComponent(query)}&limit=${limit}`) as { data?: { results?: SaavnSong[] } } | null;
-    return Array.isArray(data?.data?.results) ? data.data.results : [];
+    const data = await fetchJson(`${API}/api/search/songs?query=${encodeURIComponent(q)}&limit=${limit}`) as { data?: { results?: SaavnSong[] } } | null;
+    const results = Array.isArray(data?.data?.results) ? data.data.results : [];
+    if (results.length) {
+      searchMem.set(key, { data: results, expiresAt: Date.now() + SEARCH_TTL_MS });
+      persistSearchCache();
+    }
+    return results;
   } catch {
     return [];
   }
