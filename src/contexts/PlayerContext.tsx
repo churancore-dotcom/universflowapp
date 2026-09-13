@@ -717,8 +717,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!raw) return;
       const saved = JSON.parse(raw) as SavedPlayerState;
       if (Array.isArray(saved.queue) && saved.queue.length > 0) {
-        setQueueState(saved.queue);
-        setCurrentIndex(Math.max(0, Math.min(saved.index || 0, saved.queue.length - 1)));
+        const restoredQueue = dedupePlayerQueue(saved.queue);
+        const restoredSongIndex = saved.song
+          ? restoredQueue.findIndex((song) => getQueueFingerprint(song) === getQueueFingerprint(saved.song || {}))
+          : -1;
+        setQueueState(restoredQueue);
+        setCurrentIndex(restoredSongIndex >= 0
+          ? restoredSongIndex
+          : Math.max(0, Math.min(saved.index || 0, restoredQueue.length - 1)));
         if (saved.song) setCurrentSong(saved.song);
         if (typeof saved.progress === 'number') setProgress(saved.progress);
         if (typeof saved.duration === 'number') setDuration(saved.duration);
@@ -1444,7 +1450,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (pool.length > 0) {
         setQueueState((prev) => {
-          const next = [...prev, ...pool];
+          const next = dedupePlayerQueue([...prev, ...pool]);
           queueRef.current = next;
           return next;
         });
@@ -1856,7 +1862,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [ensureYouTubeContainer, startYouTubeProgressLoop, volume]);
 
   // Play a song at specific index - with lazy URL resolution
-  const playSongAtIndex = useCallback(async (index: number, songQueue: Song[]) => {
+  const playSongAtIndex = useCallback(async (index: number, incomingQueue: Song[]) => {
+    const selectedSong = incomingQueue[index];
+    if (!selectedSong) return;
+    const songQueue = dedupePlayerQueue(incomingQueue);
+    const indexInUniqueQueue = songQueue.findIndex((song) => getQueueFingerprint(song) === getQueueFingerprint(selectedSong));
+    index = indexInUniqueQueue >= 0 ? indexInUniqueQueue : 0;
     const song = songQueue[index];
     if (!song || !audioRef.current) return;
 
@@ -2388,6 +2399,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             artworkUrl: refreshed.cover_url || undefined,
           });
           reapplyNativeEqSoon();
+          void setNativePlaybackSpeed(getEQSettings().playbackSpeed);
           return;
         }
 
@@ -3136,7 +3148,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const existingIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
       if (existingIndex === -1) {
         setQueueState(prev => {
-          const next = [...prev, song];
+          const next = dedupePlayerQueue([...prev, song]);
           queueRef.current = next;
           return next;
         });
