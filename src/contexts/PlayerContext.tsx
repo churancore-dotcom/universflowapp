@@ -13,11 +13,12 @@ import { getRuntimePremium, subscribeRuntimePremium } from '@/lib/premiumState';
 import { noteSongCompleted, primeAdEngine } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
-import { isNativePlayerAvailable, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack, setNativeMiniPlayerState, onNativeMediaButton } from '@/lib/nativePlayer';
+import { isNativePlayerAvailable, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack, setNativeMiniPlayerState, setNativePlaybackSpeed, onNativeMediaButton } from '@/lib/nativePlayer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { prewarmSongs } from '@/lib/instantPlay';
 import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
 import { markAudible, markPlayStage, startPlayTrace } from '@/lib/playTrace';
+import { dedupePlayerQueue, findNativeQueueIndex, getNativeQueueMediaId, getQueueFingerprint } from '@/lib/playerQueue';
 
 import { toast } from 'sonner';
 
@@ -395,8 +396,8 @@ const getNativePlaybackVideoId = (song: Pick<Song, 'id' | 'audio_url'> & { video
   return null;
 };
 
-const toNativeQueueTrack = (song: Song): NativeQueueTrack => ({
-  id: getSongIdentity(song),
+const toNativeQueueTrack = (song: Song, index: number): NativeQueueTrack => ({
+  id: getNativeQueueMediaId(song, index),
   title: song.title || '',
   artist: song.artist || '',
   artworkUrl: song.cover_url,
@@ -677,7 +678,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         void ExoPlayerPlugin.setVolume({ volume: 0 }).catch(() => undefined);
         nativeFadeUpTimerRef.current = window.setInterval(() => {
           up++;
-          const g = Math.min(1, up / upSteps);
+          const progress = Math.min(1, up / upSteps);
+          const g = Math.max(0, Math.min(1, 1 - curveGain(1 - progress)));
           void ExoPlayerPlugin.setVolume({ volume: master * g }).catch(() => undefined);
           if (up >= upSteps && nativeFadeUpTimerRef.current != null) {
             window.clearInterval(nativeFadeUpTimerRef.current);
@@ -715,8 +717,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (!raw) return;
       const saved = JSON.parse(raw) as SavedPlayerState;
       if (Array.isArray(saved.queue) && saved.queue.length > 0) {
-        setQueueState(saved.queue);
-        setCurrentIndex(Math.max(0, Math.min(saved.index || 0, saved.queue.length - 1)));
+        const restoredQueue = dedupePlayerQueue(saved.queue);
+        const restoredSongIndex = saved.song
+          ? restoredQueue.findIndex((song) => getQueueFingerprint(song) === getQueueFingerprint(saved.song || {}))
+          : -1;
+        setQueueState(restoredQueue);
+        setCurrentIndex(restoredSongIndex >= 0
+          ? restoredSongIndex
+          : Math.max(0, Math.min(saved.index || 0, restoredQueue.length - 1)));
         if (saved.song) setCurrentSong(saved.song);
         if (typeof saved.progress === 'number') setProgress(saved.progress);
         if (typeof saved.duration === 'number') setDuration(saved.duration);
@@ -1442,7 +1450,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       if (pool.length > 0) {
         setQueueState((prev) => {
-          const next = [...prev, ...pool];
+          const next = dedupePlayerQueue([...prev, ...pool]);
           queueRef.current = next;
           return next;
         });
@@ -1854,7 +1862,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [ensureYouTubeContainer, startYouTubeProgressLoop, volume]);
 
   // Play a song at specific index - with lazy URL resolution
-  const playSongAtIndex = useCallback(async (index: number, songQueue: Song[]) => {
+  const playSongAtIndex = useCallback(async (index: number, incomingQueue: Song[]) => {
+    const selectedSong = incomingQueue[index];
+    if (!selectedSong) return;
+    const songQueue = dedupePlayerQueue(incomingQueue);
+    const indexInUniqueQueue = songQueue.findIndex((song) => getQueueFingerprint(song) === getQueueFingerprint(selectedSong));
+    index = indexInUniqueQueue >= 0 ? indexInUniqueQueue : 0;
     const song = songQueue[index];
     if (!song || !audioRef.current) return;
 
@@ -2386,6 +2399,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             artworkUrl: refreshed.cover_url || undefined,
           });
           reapplyNativeEqSoon();
+          void setNativePlaybackSpeed(getEQSettings().playbackSpeed);
           return;
         }
 
@@ -2590,8 +2604,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const data = d as ExoMediaItemTransition;
           if (!data.mediaId) return;
           const q = queueRef.current;
-          const nextIdx = q.findIndex((song) => getSongIdentity(song) === data.mediaId);
-          if (nextIdx < 0 || nextIdx === currentIndexRef.current) return;
+          const nextIdx = findNativeQueueIndex(q, data.mediaId);
+          if (nextIdx < 0) return;
+          if (nextIdx === currentIndexRef.current) {
+            reapplyNativeEqSoon();
+            void setNativePlaybackSpeed(getEQSettings().playbackSpeed);
+            return;
+          }
           const nextSong = q[nextIdx];
           if (!nextSong) return;
           // If this transition is the one our own crossfade asked for, keep the
@@ -2629,6 +2648,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // ExoPlayer may allocate a new audio session id when transitioning
           // media items; re-push the user's EQ so it survives the swap.
           reapplyNativeEqSoon();
+          void setNativePlaybackSpeed(getEQSettings().playbackSpeed);
         });
         void ExoPlayerPlugin.getCurrentPosition()
           .then(({ position }) => {
@@ -2971,9 +2991,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // Final guard before mutating <audio> — bail if a newer tap has taken over.
     if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
 
-    const normalizedQueue = songsQueue?.map((queuedSong) =>
+    const normalizedQueue = songsQueue ? dedupePlayerQueue(songsQueue.map((queuedSong) =>
       getSongIdentity(queuedSong) === intendedIdentity ? { ...queuedSong, audio_url: playbackSource } : queuedSong,
-    );
+    )) : undefined;
 
     // Android APK: ExoPlayer is the only audible player. Do not start the
     // WebView <audio> element here; it gets suspended/killed in background and
@@ -3006,6 +3026,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
           }, 7000);
           reapplyNativeEqSoon();
+          void setNativePlaybackSpeed(getEQSettings().playbackSpeed);
           return;
         }
 
@@ -3127,7 +3148,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const existingIndex = activeQueue.findIndex(s => getSongIdentity(s) === intendedIdentity);
       if (existingIndex === -1) {
         setQueueState(prev => {
-          const next = [...prev, song];
+          const next = dedupePlayerQueue([...prev, song]);
           queueRef.current = next;
           return next;
         });
@@ -3560,14 +3581,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const setQueue = useCallback((songs: Song[]) => {
-    queueRef.current = songs;
-    setQueueState(songs);
+    const uniqueSongs = dedupePlayerQueue(songs);
+    queueRef.current = uniqueSongs;
+    setQueueState(uniqueSongs);
     setCurrentIndex(0);
   }, []);
 
   const addToQueue = useCallback((song: Song) => {
     setQueueState(prev => {
-      const next = [...prev, song];
+      const fingerprint = getQueueFingerprint(song);
+      if (prev.some((queuedSong) => getQueueFingerprint(queuedSong) === fingerprint)) {
+        toast.info('Already in queue');
+        return prev;
+      }
+      const next = dedupePlayerQueue([...prev, song]);
       queueRef.current = next;
       return next;
     });
