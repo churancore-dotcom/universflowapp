@@ -33,6 +33,7 @@ import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/use
 import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLang } from '@/lib/userPrefs';
 import SEOHead from '@/components/SEOHead';
 import { YouTubeAccountSection } from '@/components/YouTubeAccountSection';
+import { isNativePlayerAvailable, setNativePlaybackSpeed } from '@/lib/nativePlayer';
 
 
 const EQ_KEY = 'eq_settings';
@@ -287,7 +288,9 @@ const Settings = () => {
     }
     setPlaybackSpeed(speed);
     writeEq({ playbackSpeed: speed });
-    if (audioElement) {
+    if (isNativePlayerAvailable()) {
+      void setNativePlaybackSpeed(speed);
+    } else if (audioElement) {
       try { audioElement.playbackRate = speed; } catch { /* ignore */ }
     }
   };

@@ -372,8 +372,11 @@ class ExoPlayerPlugin : Plugin() {
         if (arr == null || arr.length() == 0) { call.reject("missing tracks"); return }
         val startIndex = (call.getInt("startIndex") ?: 0).coerceIn(0, arr.length() - 1)
         val tracks = mutableListOf<NativeTrack>()
+        val seenTrackIds = mutableSetOf<String>()
         for (i in 0 until arr.length()) {
-            parseTrack(arr.optJSONObject(i), i)?.let { tracks.add(it) }
+            parseTrack(arr.optJSONObject(i), i)?.let {
+                if (seenTrackIds.add(it.id)) tracks.add(it)
+            }
         }
         if (tracks.isEmpty()) { call.reject("empty tracks"); return }
         val firstTrack = tracks[startIndex]
