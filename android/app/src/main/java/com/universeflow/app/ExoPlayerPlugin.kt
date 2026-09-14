@@ -370,15 +370,17 @@ class ExoPlayerPlugin : Plugin() {
         ensureNotificationPermissionBestEffort()
         val arr = call.getArray("tracks")
         if (arr == null || arr.length() == 0) { call.reject("missing tracks"); return }
-        val startIndex = (call.getInt("startIndex") ?: 0).coerceIn(0, arr.length() - 1)
         val tracks = mutableListOf<NativeTrack>()
-        val seenTrackIds = mutableSetOf<String>()
         for (i in 0 until arr.length()) {
             parseTrack(arr.optJSONObject(i), i)?.let {
-                if (seenTrackIds.add(it.id)) tracks.add(it)
+                tracks.add(it)
             }
         }
         if (tracks.isEmpty()) { call.reject("empty tracks"); return }
+        // JS already sends a fingerprint-deduplicated queue with positional
+        // media ids. A second native dedupe shifted startIndex and every later
+        // transition onto a different song.
+        val startIndex = (call.getInt("startIndex") ?: 0).coerceIn(0, tracks.size - 1)
         val firstTrack = tracks[startIndex]
         Log.d("ExoPlayerPlugin", "playQueue() index=$startIndex title=${firstTrack.title}")
 

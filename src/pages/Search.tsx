@@ -251,6 +251,14 @@ function isSpamTrack(track: IndexedTrack, query: string) {
   if (!title || !artist) return true;
   // Excessive duration check (too short or too long unless asked)
   if (duration && (duration < 60 || (!allowLongForm && duration > 660))) return true;
+
+  // JioSaavn rows are already provider-validated songs. Keep the universal
+  // banned/AI gates, but do not apply YouTube uploader heuristics to them.
+  if (track.id.startsWith('saavn-')) {
+    return BANNED_TITLE_PATTERNS.some((pattern) => pattern.test(haystack))
+      || AI_SLOP_TITLE_PATTERNS.some((pattern) => pattern.test(haystack))
+      || AI_SLOP_ARTIST_PATTERNS.some((pattern) => pattern.test(artist));
+  }
   
   // Detect low-quality automated uploads (common on YouTube)
   const isGenericArtist = /^(original|official|audio|music|songs|topic|records|vevo)$/i.test(normalizeText(artist).trim());

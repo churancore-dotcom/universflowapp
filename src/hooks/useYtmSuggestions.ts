@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { searchSongsAsTracks } from '@/lib/jiosaavn';
 
 /**
- * Debounced YT Music search suggestions.
+ * Debounced catalogue suggestions from real JioSaavn tracks and artists.
  * Returns a stable array of up to 10 suggestion strings.
  */
 export function useYtmSuggestions(query: string, enabled = true) {
@@ -23,16 +23,10 @@ export function useYtmSuggestions(query: string, enabled = true) {
       ctrlRef.current = ctrl;
       lastQueryRef.current = q;
       try {
-        const { data, error } = await supabase.functions.invoke('ytm-suggest', {
-          body: { query: q },
-        });
+        const tracks = await searchSongsAsTracks(q, 12);
         if (ctrl.signal.aborted) return;
-        if (error || !data?.success) {
-          setSuggestions([]);
-          return;
-        }
-        const list: string[] = Array.isArray(data.suggestions) ? data.suggestions : [];
-        setSuggestions(list.slice(0, 10));
+        const list = tracks.flatMap((track) => [track.title, track.artist]).filter(Boolean);
+        setSuggestions([...new Set(list)].slice(0, 10));
       } catch {
         if (!ctrl.signal.aborted) setSuggestions([]);
       }
