@@ -526,11 +526,18 @@ export async function searchYouTubeMusicTracks(
   if (q.length < 2) return [];
   const key = searchKey('catalog', cacheBust ? `${q}#${cacheBust}` : q, limit);
   return cachedSearch(key, async () => {
+    const saavnLimit = Math.min(240, limit);
     const [saavn, audius] = await Promise.all([
-      import('./jiosaavn').then((m) => m.searchSongsAsTracks(q, Math.min(40, limit))).catch(() => []),
+      import('./jiosaavn').then((m) => (
+        saavnLimit > 40
+          ? m.searchSongsAsTracksPaged(q, saavnLimit)
+          : m.searchSongsAsTracks(q, saavnLimit)
+      )).catch(() => []),
       import('./audius').then((m) => m.searchAudiusTracks(q, Math.min(25, limit))).catch(() => []),
     ]);
-    return mergeTrackSources(saavn, audius).slice(0, limit);
+    // JioSaavn is the primary catalogue. Audius only fills thin result sets,
+    // rather than alternating unknown global uploads above Indian matches.
+    return mergeTrackSources(saavn, saavn.length >= limit ? [] : audius).slice(0, limit);
   });
 }
 
@@ -567,8 +574,17 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
   const hit = newReleasesMemCache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.data;
   try {
-    const { getAudiusUnderground } = await import('./audius');
-    const out = await getAudiusUnderground(limit);
+    const year = new Date().getFullYear();
+    const [{ searchSongsAsTracksPaged }, { getAudiusUnderground }] = await Promise.all([
+      import('./jiosaavn'),
+      import('./audius'),
+    ]);
+    const [hindi, punjabi] = await Promise.all([
+      searchSongsAsTracksPaged(`latest Bollywood songs ${year}`, Math.max(limit, 40)),
+      searchSongsAsTracksPaged(`new Punjabi songs ${year}`, Math.max(20, Math.ceil(limit / 2))),
+    ]);
+    const primary = mergeTrackSources(hindi, punjabi).slice(0, limit);
+    const out = primary.length >= 6 ? primary : mergeTrackSources(primary, await getAudiusUnderground(limit)).slice(0, limit);
     if (out.length) newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
     return out;
   } catch {
@@ -594,8 +610,7 @@ interface YoutubeChartsResponse {
   error?: string;
 }
 
-// Charts — built from Audius' real trending feeds (week + month) now that the
-// YouTube Music chart endpoint is gone. Every track here is directly playable.
+// JioSaavn-first Indian charts. Audius is only a thin-data fallback.
 export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise<YtmCharts> {
   const cc = /^[A-Z]{2}$/.test(country.toUpperCase()) ? country.toUpperCase() : 'ZZ';
   const cacheKey = `charts-v3::${cc}::${limit}`;
@@ -606,18 +621,24 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
   if (inflight) return inflight;
   const p = (async () => {
     try {
-      const { getAudiusTrending } = await import('./audius');
-      const [week, month] = await Promise.all([
-        getAudiusTrending(limit, 'week'),
-        getAudiusTrending(limit, 'month'),
+      const [{ searchSongsAsTracksPaged }, { getAudiusTrending }] = await Promise.all([
+        import('./jiosaavn'),
+        import('./audius'),
       ]);
+      const [india, bollywood] = await Promise.all([
+        searchSongsAsTracksPaged('India top songs', limit),
+        searchSongsAsTracksPaged('Bollywood hits', limit),
+      ]);
+      const primary = mergeTrackSources(india, bollywood).slice(0, limit);
+      const fallback = primary.length >= 8 ? [] : await getAudiusTrending(limit, 'week');
+      const top = mergeTrackSources(primary, fallback).slice(0, limit);
       const out: YtmCharts = {
-        top: week,
-        trending: month.length ? month : week,
+        top,
+        trending: top.slice(Math.min(5, Math.floor(top.length / 3))).concat(top.slice(0, Math.min(5, top.length))),
         videos: [],
-        country: cc,
+        country: 'IN',
       };
-      if (week.length || month.length) {
+      if (top.length) {
         chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
       }
       return out;

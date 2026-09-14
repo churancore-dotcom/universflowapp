@@ -18,4 +18,10 @@ describe('player queue normalization', () => {
     expect(findNativeQueueIndex(queue, mediaId)).toBe(1);
     expect(findNativeQueueIndex(queue, getNativeQueueMediaId(queue[0], 0))).toBe(0);
   });
+
+  it('recovers a native transition when its embedded index is stale', () => {
+    const queue = dedupePlayerQueue(tracks);
+    const staleMediaId = getNativeQueueMediaId(queue[1], 7);
+    expect(findNativeQueueIndex(queue, staleMediaId)).toBe(1);
+  });
 });

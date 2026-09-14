@@ -33,5 +33,11 @@ export const dedupePlayerQueue = <T extends QueueSongIdentity>(songs: T[]): T[] 
 export const getNativeQueueMediaId = (song: QueueSongIdentity, index: number) =>
   `q${index}::${getQueueFingerprint(song)}`;
 
-export const findNativeQueueIndex = <T extends QueueSongIdentity>(songs: T[], mediaId: string) =>
-  songs.findIndex((song, index) => getNativeQueueMediaId(song, index) === mediaId);
+export const findNativeQueueIndex = <T extends QueueSongIdentity>(songs: T[], mediaId: string) => {
+  const exact = songs.findIndex((song, index) => getNativeQueueMediaId(song, index) === mediaId);
+  if (exact >= 0) return exact;
+  const separator = mediaId.indexOf('::');
+  const fingerprint = separator >= 0 ? mediaId.slice(separator + 2) : mediaId;
+  if (!fingerprint) return -1;
+  return songs.findIndex((song) => getQueueFingerprint(song) === fingerprint);
+};

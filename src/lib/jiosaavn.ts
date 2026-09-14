@@ -104,15 +104,16 @@ async function fetchJson(url: string): Promise<unknown | null> {
   return p;
 }
 
-export async function searchSongs(query: string, limit = 20): Promise<SaavnSong[]> {
+export async function searchSongs(query: string, limit = 20, page = 1): Promise<SaavnSong[]> {
   const q = query.trim();
   if (q.length < 2) return [];
   loadSearchCache();
-  const key = `${q.toLowerCase()}|${limit}`;
+  const safePage = Math.max(1, Math.floor(page));
+  const key = `${q.toLowerCase()}|${limit}|${safePage}`;
   const hit = searchMem.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.data;
   try {
-    const data = await fetchJson(`${API}/api/search/songs?query=${encodeURIComponent(q)}&limit=${limit}`) as { data?: { results?: SaavnSong[] } } | null;
+    const data = await fetchJson(`${API}/api/search/songs?query=${encodeURIComponent(q)}&limit=${limit}&page=${safePage}`) as { data?: { results?: SaavnSong[] } } | null;
     const results = Array.isArray(data?.data?.results) ? data.data.results : [];
     if (results.length) {
       searchMem.set(key, { data: results, expiresAt: Date.now() + SEARCH_TTL_MS });
@@ -262,8 +263,8 @@ function isConfidentMatch(song: SaavnSong, title: string, artist = ''): boolean 
  * Search JioSaavn and return results in IndexedTrack shape so the existing
  * Search UI and ranking code can consume them unchanged.
  */
-export async function searchSongsAsTracks(query: string, limit = 30): Promise<IndexedTrack[]> {
-  const results = await searchSongs(query, limit);
+export async function searchSongsAsTracks(query: string, limit = 30, page = 1): Promise<IndexedTrack[]> {
+  const results = await searchSongs(query, Math.min(40, limit), page);
   return (results || [])
     .filter((song) => !looksSpammy(song))
     .map((song): IndexedTrack | null => {
@@ -281,6 +282,29 @@ export async function searchSongsAsTracks(query: string, limit = 30): Promise<In
       };
     })
     .filter((t): t is IndexedTrack => !!t && !!t.title && !!t.artist);
+}
+
+/**
+ * Fetch enough real provider pages to satisfy a deep search. Page one stays
+ * independently cached, while later pages are requested only for scrolling or
+ * resilient-search enrichment.
+ */
+export async function searchSongsAsTracksPaged(query: string, limit = 80): Promise<IndexedTrack[]> {
+  const pageSize = Math.min(40, Math.max(10, limit));
+  const pageCount = Math.min(8, Math.max(1, Math.ceil(limit / pageSize)));
+  const pages = await Promise.all(
+    Array.from({ length: pageCount }, (_, index) => searchSongsAsTracks(query, pageSize, index + 1)),
+  );
+  const seen = new Set<string>();
+  const out: IndexedTrack[] = [];
+  for (const track of pages.flat()) {
+    const fingerprint = `${clean(track.title)}~${clean(track.artist).split(' ')[0] || ''}`;
+    if (!fingerprint || seen.has(fingerprint)) continue;
+    seen.add(fingerprint);
+    out.push(track);
+    if (out.length >= limit) break;
+  }
+  return out;
 }
 
 export async function getSongStreamUrl(songId: string, opts: { forceRefresh?: boolean; bitrateCap?: number } = {}) {
