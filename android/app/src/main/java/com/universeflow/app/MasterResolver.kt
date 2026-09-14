@@ -3,31 +3,14 @@ package com.universeflow.app
 import android.util.Log
 import java.util.concurrent.Executors
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.LinkedBlockingQueue
 import java.util.concurrent.TimeUnit
 
 /**
- * On-device stream resolver — a single parallel race, not a chain of stages.
+ * On-device stream resolver.
  *
- * Both source families start at the same instant and the first genuine match
- * wins:
- *
- *  • JioSaavn (title + artist search) — direct CDN URL, no cipher. Its own
+ * JioSaavn (title + artist search) returns a direct CDN URL with no cipher. Its
  *    confidence check (see [JioSaavnClient.searchAndResolve]) rejects covers,
- *    live takes and remixes, so a "fast" answer can never be the wrong track.
- *  • YouTube InnerTube via [NativeYouTubeResolver] — itself racing 6 clients.
- *
- * If both come back empty we fall back to the stale cache (within the 30 min
- * grace window) before declaring failure.
- *
- * Why parallel: JioSaavn used to run as a blocking pre-stage, so every track
- * that is not in its catalogue paid the full JioSaavn timeout (~5s) *before*
- * YouTube resolution even started. Racing removes that dead time entirely —
- * the slowest source no longer sets the floor for playback start.
- *
- * Resolved URLs are seeded into [NativeYouTubeResolver]'s cache keyed by the
- * YouTube videoId so that ExoPlayer's `yt://<videoId>` ResolvingDataSource
- * picks them up transparently.
+ * live takes and remixes. YouTube/InnerTube is intentionally not used.
  */
 object MasterResolver {
 
@@ -47,22 +30,6 @@ object MasterResolver {
      * competed for the same sockets and made the foreground play slower.
      */
     private val inFlight = java.util.concurrent.ConcurrentHashMap<String, CompletableFuture<Resolved?>>()
-
-    /** Sentinel pushed by a racer that finished without a usable stream. */
-    private val MISS = Resolved("", "miss", 0L)
-
-    /**
-     * Hard cap on how long a *ready* JioSaavn URL is parked waiting for YouTube.
-     * Past this point playback start matters more than the source, so we ship
-     * the fallback immediately instead of sitting on the full YouTube timeout.
-     *
-     * 1200ms is the balance point: InnerTube clients that are going to answer
-     * do so well inside it (diagnostics showed real failures at ~450-560ms),
-     * while 2400ms only made taps feel slow. PoToken minting no longer blocks
-     * the resolve, so YouTube no longer needs the extra second of patience.
-     */
-    private const val YT_PATIENCE_MS = 1200L
-
 
     /** Recent resolution outcomes — proof of which source really served audio. */
     data class LogEntry(
@@ -93,17 +60,8 @@ object MasterResolver {
         artist: String?,
         timeoutMs: Long = 5200L,
     ): Resolved? {
-        val hasVideo = !videoId.isNullOrBlank() && videoId.length == 11
-
-        // Cache check first — covers both YT and seeded JioSaavn entries.
-        if (hasVideo) {
-            NativeYouTubeResolver.peek(videoId!!)?.let { hit ->
-                return Resolved(hit.url, hit.client, StreamUrlPolicy.expiresAt(hit.url))
-            }
-        }
-
         val canSaavn = !title.isNullOrBlank() && !artist.isNullOrBlank()
-        if (!canSaavn && !hasVideo) return null
+        if (!canSaavn) return null
 
         val key = videoId?.takeIf { it.length == 11 }
             ?: "${title.orEmpty().trim().lowercase()}|${artist.orEmpty().trim().lowercase()}"
@@ -118,7 +76,7 @@ object MasterResolver {
         }
 
         return try {
-            val result = resolveFresh(videoId, title, artist, timeoutMs, hasVideo, canSaavn)
+            val result = resolveFresh(videoId, title, artist)
             mine.complete(result)
             result
         } catch (t: Throwable) {
@@ -133,112 +91,20 @@ object MasterResolver {
         videoId: String?,
         title: String?,
         artist: String?,
-        timeoutMs: Long,
-        hasVideo: Boolean,
-        canSaavn: Boolean,
     ): Resolved? {
-
         val label = listOfNotNull(title, artist).joinToString(" — ").ifBlank { videoId ?: "?" }
         val startedAt = System.currentTimeMillis()
-
-        // Tagged results so we can tell the two families apart while draining.
-        val results = LinkedBlockingQueue<Pair<String, Resolved>>()
-        var racers = 0
-
-        if (hasVideo) {
-            racers++
-            pool.execute {
-                val out = try {
-                    NativeYouTubeResolver.resolve(videoId!!, timeoutMs = timeoutMs)?.let { yt ->
-                        Resolved(yt.url, "youtube:${yt.client}", StreamUrlPolicy.expiresAt(yt.url))
-                    }
-                } catch (t: Throwable) {
-                    Log.w(TAG, "InnerTube error: ${t.message}")
-                    null
-                }
-                results.offer("yt" to (out ?: MISS))
+        val resolved = try {
+            JioSaavnClient.searchAndResolve(title!!, artist!!)?.let { saavn ->
+                Log.d(TAG, "JioSaavn hit for $title / $artist -> ${saavn.bitrateKbps}kbps")
+                Resolved(saavn.url, "jiosaavn", saavn.expiresAt)
             }
+        } catch (t: Throwable) {
+            Log.w(TAG, "JioSaavn lookup error: ${t.message}")
+            null
         }
-
-        if (canSaavn) {
-            racers++
-            pool.execute {
-                if (hasVideo) {
-                    // Both providers start immediately. A YouTube cache hit can
-                    // still cancel this fallback before it spends a request.
-                    if (NativeYouTubeResolver.peek(videoId!!) != null) {
-                        results.offer("saavn" to MISS)
-                        return@execute
-                    }
-                }
-                val out = try {
-                    JioSaavnClient.searchAndResolve(title!!, artist!!)?.let { saavn ->
-                        Log.d(TAG, "JioSaavn hit for $title / $artist -> ${saavn.bitrateKbps}kbps")
-                        Resolved(saavn.url, "jiosaavn", saavn.expiresAt)
-                    }
-                } catch (t: Throwable) {
-                    Log.w(TAG, "JioSaavn lookup error: ${t.message}")
-                    null
-                }
-                results.offer("saavn" to (out ?: MISS))
-            }
-        }
-
-        fun win(r: Resolved, ytFailure: String?): Resolved {
-            if (hasVideo) {
-                try { NativeYouTubeResolver.putCached(videoId!!, r.url, r.source) }
-                catch (_: Throwable) {}
-            }
-            record(videoId, label, r.source, System.currentTimeMillis() - startedAt, ytFailure)
-            return r
-        }
-
-        // YouTube wins outright. A JioSaavn success is parked until YouTube has
-        // genuinely settled (hard failure) or the deadline passes — so we never
-        // downgrade the source just because JioSaavn answered faster.
-        val deadline = startedAt + timeoutMs + 800L
-        var settled = 0
-        var parkedSaavn: Resolved? = null
-        var ytFailure: String? = null
-
-        while (settled < racers) {
-            // A ready fallback only waits YT_PATIENCE_MS for YouTube to settle.
-            val limit = if (parkedSaavn != null) minOf(deadline, startedAt + YT_PATIENCE_MS) else deadline
-            val remaining = limit - System.currentTimeMillis()
-            if (remaining <= 0) break
-            val next = results.poll(remaining, TimeUnit.MILLISECONDS) ?: break
-            settled++
-            val (who, res) = next
-            val ok = res !== MISS && res.url.isNotBlank()
-
-            if (who == "yt") {
-                if (ok) return win(res, null)
-                ytFailure = try { NativeYouTubeResolver.lastFailure(videoId!!) } catch (_: Throwable) { "UNKNOWN" }
-                // YouTube hard-failed: take JioSaavn now if it is already in hand.
-                parkedSaavn?.let { return win(it, ytFailure) }
-            } else if (ok) {
-                parkedSaavn = res
-            }
-        }
-
-        // Deadline reached (or YouTube never answered) — use the parked fallback.
-        // Label the two cases apart so diagnostics stop reporting our own
-        // patience cut-off as a YouTube "TIMEOUT".
-        parkedSaavn?.let {
-            val cutoff = System.currentTimeMillis() - startedAt < timeoutMs
-            return win(it, ytFailure ?: if (cutoff) "CUTOFF@${YT_PATIENCE_MS}ms" else "TIMEOUT")
-        }
-
-
-
-        // Last-resort: stale cache within grace window.
-        if (hasVideo) {
-            NativeYouTubeResolver.getStale(videoId!!)?.let { stale ->
-                Log.w(TAG, "using stale cache for $videoId")
-                return Resolved(stale.url, "stale:${stale.client}", System.currentTimeMillis() + 60_000L)
-            }
-        }
-        return null
+        record(videoId, label, resolved?.source ?: "miss", System.currentTimeMillis() - startedAt, null)
+        return resolved
     }
 
     /**
@@ -247,16 +113,6 @@ object MasterResolver {
      */
     fun prefetch(tracks: List<Triple<String?, String?, String?>>, limit: Int = 5) {
         val selected = tracks.take(limit)
-        // Token minting is cheap once the persistent BotGuard VM is ready. Ask
-        // for every queued video's content-bound token before scheduling the
-        // heavier stream lookups, so WEB_PO is ready by the time playback gets
-        // to that item without ever sleeping on a user tap.
-        selected.forEach { (vid, _, _) ->
-            if (vid?.length == 11) {
-                try { YouTubeProtocolProviders.poTokenProvider?.prewarm(vid) }
-                catch (_: Throwable) {}
-            }
-        }
         selected.forEach { (vid, title, artist) ->
             pool.execute {
                 try { resolve(vid, title, artist, timeoutMs = 5200L) }

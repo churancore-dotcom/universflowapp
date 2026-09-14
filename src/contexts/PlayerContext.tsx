@@ -2369,8 +2369,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const failedUrl = (event as CustomEvent<{ url?: string }>).detail?.url;
       if (activeIdentity && nativeRecoveryAttemptedRef.current.has(activeIdentity)) {
         if (seqAtRecoveryStart === playRequestSeqRef.current && activeSongIdentityRef.current === activeIdentity) {
-          setIsPlaying(false);
-          toast.error('This song could not start right now.');
+          const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
+          if (nextIdx !== null && activeQueue.length > 1) {
+            toast.error(`Skipped: ${cur.title} (unavailable)`);
+            void playSongAtIndex(nextIdx, activeQueue);
+          } else {
+            setIsPlaying(false);
+            toast.error('This song could not start right now.');
+          }
         }
         return;
       }
@@ -2530,6 +2536,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const progressMovingRecently = Date.now() - nativeLastProgressAtRef.current < 1500;
           if (data.state === 'playing') {
             if (nativeUserPausedRef.current) return;
+            const identity = activeSongIdentityRef.current;
+            if (identity) nativeRecoveryAttemptedRef.current.delete(identity);
             nativeStartedForSeqRef.current = playRequestSeqRef.current;
             nativeStartupSeqRef.current = null;
             clearNativeStartupTimer();
