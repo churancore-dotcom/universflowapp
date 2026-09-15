@@ -4,6 +4,7 @@ import android.util.Log
 import java.util.concurrent.Executors
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * On-device stream resolver — DEEP MODE.
