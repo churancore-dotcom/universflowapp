@@ -54,37 +54,58 @@ export const UserPrivacyBody = (): ReactNode => (
     <h2>2. Device permissions we ask for</h2>
     <ul>
       <li><strong>Notifications:</strong> to show the playback controls on your lock screen and to send app updates you opted into. You can refuse or revoke this at any time; music still plays.</li>
-      <li><strong>Camera:</strong> requested <em>only</em> if you apply for a verified Artist account, to take a live selfie that proves you are a real person. It is never used for anything else, never records video, and denying it only blocks the artist application.</li>
+      <li><strong>Camera:</strong> requested <em>only</em> when you apply for a verified Artist account, and only while that screen is open. It is used for a one-time liveness check (a blink or a smile) that confirms a real person is applying, plus the still selfie you submit with your application. We never record video, never stream the camera anywhere, never run the camera in the background, and never use it for advertising, face-matching against other people, or building any biometric profile. The liveness check itself runs on your device; only the still image you confirm is uploaded. Declining the camera only blocks the artist application &mdash; every other part of the App keeps working.</li>
       <li><strong>Storage / offline files:</strong> used to save songs you explicitly download so they play without internet. We do not read your existing photos, files, or media.</li>
     </ul>
     <p>We do not collect contacts, precise GPS location, SMS, call logs, microphone audio, or the list of other apps on your device.</p>
 
-    <h2>3. How we use it</h2>
+    <h2>3. Identity documents (Artist applications only)</h2>
+    <p>If &mdash; and only if &mdash; you apply for a Verified Artist account, we ask for a government ID (for example Voter ID, PAN, Passport or Driver&rsquo;s Licence) and a selfie so a human reviewer can confirm you are the artist you claim to be. Ordinary listeners are never asked for an ID.</p>
+    <ul>
+      <li><strong>Where it is stored:</strong> a private storage bucket readable only by you and our reviewers. It is never public and never indexed.</li>
+      <li><strong>How long:</strong> the ID images and verification selfie are <strong>deleted automatically the moment your application is approved or rejected</strong>. A daily safety job hard-deletes any verification file older than 7 days regardless of application status.</li>
+      <li><strong>What we keep afterwards:</strong> only the outcome (verified: yes/no) and the date &mdash; never the document itself or the ID number.</li>
+      <li><strong>What we never do:</strong> we do not sell ID data, share it with data brokers or advertisers, use it for face recognition beyond the one-time review, or transfer it outside our processors.</li>
+    </ul>
+    <p>You can withdraw a pending application at any time by emailing {SUPPORT_EMAIL}; the documents are erased immediately.</p>
+
+    <h2>4. How we use it</h2>
     <p>To run the service (playlists, downloads, recommendations), keep it secure, send important notifications, and improve features. Aggregate, non-personal stats may be shown publicly (e.g. global top charts).</p>
 
-    <h2>4. Sharing</h2>
+    <h2>5. Sharing</h2>
     <p>We share data only with: (a) infrastructure providers needed to run the App (database, push notifications, email), (b) authorities when legally required. We do not sell your data and we do not share it with data brokers or advertising networks.</p>
 
-    <h2>5. Retention</h2>
-    <p>Account data lives until you delete the account. Listening history is kept to power your recommendations and can be cleared from Settings.</p>
+    <h2>6. Retention at a glance</h2>
+    <ul>
+      <li><strong>Account (email, username, avatar, country):</strong> until you delete your account.</li>
+      <li><strong>Listening history, likes, playlists:</strong> until you delete your account, or earlier if you clear history in Settings.</li>
+      <li><strong>Downloaded songs:</strong> stored only on your device; removed when you delete the download or uninstall the App.</li>
+      <li><strong>Verification ID and selfie:</strong> deleted on approval or rejection, and in all cases within 7 days.</li>
+      <li><strong>Payment records:</strong> retained only as long as tax and accounting law requires.</li>
+      <li><strong>Security and error logs:</strong> up to 90 days, then deleted.</li>
+    </ul>
 
-    <h2>6. Deleting your account and data</h2>
-    <p>You can delete your account and all of its data at any time from <strong>Settings &rarr; Delete account</strong> inside the App. This permanently removes your profile, listening history, likes, playlists, downloads records and any verification data. It cannot be undone.</p>
-    <p>If you can no longer sign in, email {SUPPORT_EMAIL} from your registered address and we will delete the account within 30 days. Basic payment records may be retained where the law requires it.</p>
+    <h2 id="delete-your-data">7. Deleting your account and data</h2>
+    <p>You can delete your account yourself, at any time, with no email required: open the App and go to <strong>Settings &rarr; Delete Account</strong>, then confirm.</p>
+    <p><strong>What is deleted permanently and immediately:</strong> your profile, email and username, listening history, likes, playlists, follows, download records, artist profile and any remaining verification data, device and session records.</p>
+    <p><strong>What may be kept, and why:</strong> payment and invoice records where tax law requires it, and anonymised aggregate counts that can no longer identify you (for example a song&rsquo;s total play count). Backups are rotated out within 30 days.</p>
+    <p>Deletion cannot be undone, and the same email can be used to sign up again afterwards as a brand-new account.</p>
+    <p>If you can no longer sign in, or you want us to do it for you, email {SUPPORT_EMAIL} from your registered address with the subject &ldquo;Delete my account&rdquo;. We confirm within 7 days and complete the deletion within 30 days.</p>
+    <p>You can also delete only part of your data: clear listening history in Settings, remove individual downloads from the Offline screen, or ask us to remove a specific item by email.</p>
 
-    <h2>7. Your rights</h2>
+    <h2>8. Your rights</h2>
     <p>You can access, export, or delete your data by emailing {SUPPORT_EMAIL}. Under GDPR and India's DPDP Act you have rights of access, correction, deletion, and objection.</p>
 
-    <h2>8. Children</h2>
+    <h2>9. Children</h2>
     <p>The App is not directed at children under 13 and we do not knowingly collect their data. If you believe a child has created an account, email {SUPPORT_EMAIL} and we will remove it.</p>
 
-    <h2>9. Security</h2>
+    <h2>10. Security</h2>
     <p>We use industry-standard encryption in transit and at rest. No system is perfect — please use a strong password.</p>
 
-    <h2>10. Changes to this policy</h2>
+    <h2>11. Changes to this policy</h2>
     <p>We may update this policy. Material changes will be announced in the App, and the date at the top of this page will change.</p>
 
-    <h2>11. Contact</h2>
+    <h2>12. Contact</h2>
     <p>Privacy questions: {SUPPORT_EMAIL}.</p>
   </>
 );
