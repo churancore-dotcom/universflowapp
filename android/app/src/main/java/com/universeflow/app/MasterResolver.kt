@@ -6,11 +6,19 @@ import java.util.concurrent.CompletableFuture
 import java.util.concurrent.TimeUnit
 
 /**
- * On-device stream resolver.
+ * On-device stream resolver — DEEP MODE.
  *
- * JioSaavn (title + artist search) returns a direct CDN URL with no cipher. Its
- *    confidence check (see [JioSaavnClient.searchAndResolve]) rejects covers,
- * live takes and remixes. YouTube/InnerTube is intentionally not used.
+ * Two independent sources race for every track:
+ *  1. JioSaavn (title + artist) — direct CDN URL, no cipher. Its confidence
+ *     check (see [JioSaavnClient.searchAndResolve]) rejects covers, live takes
+ *     and remixes.
+ *  2. On-device YouTube via [NativeYouTubeResolver] — multi-client InnerTube
+ *     race with on-device cipher/n-param solving and BotGuard PoTokens. When a
+ *     track has no videoId, [YouTubeSearch] finds one from title + artist first.
+ *
+ * YouTube gets a short head start (it usually has the wider catalogue), but
+ * JioSaavn wins the moment YouTube's patience window elapses, so a YouTube
+ * outage or block never stalls playback.
  */
 object MasterResolver {
 
