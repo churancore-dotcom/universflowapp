@@ -62,6 +62,12 @@ object MasterResolver {
             (ytFailure?.let { " (yt failure: $it)" } ?: ""))
     }
 
+    /**
+     * How long a resolve waits for YouTube before accepting a ready JioSaavn
+     * URL. YouTube usually answers in 350-900ms once warm.
+     */
+    private const val YT_PATIENCE_MS = 1200L
+
     fun resolve(
         videoId: String?,
         title: String?,
@@ -69,7 +75,8 @@ object MasterResolver {
         timeoutMs: Long = 5200L,
     ): Resolved? {
         val canSaavn = !title.isNullOrBlank() && !artist.isNullOrBlank()
-        if (!canSaavn) return null
+        val canYouTube = videoId?.length == 11 || !title.isNullOrBlank()
+        if (!canSaavn && !canYouTube) return null
 
         val key = videoId?.takeIf { it.length == 11 }
             ?: "${title.orEmpty().trim().lowercase()}|${artist.orEmpty().trim().lowercase()}"
@@ -102,17 +109,75 @@ object MasterResolver {
     ): Resolved? {
         val label = listOfNotNull(title, artist).joinToString(" — ").ifBlank { videoId ?: "?" }
         val startedAt = System.currentTimeMillis()
-        val resolved = try {
-            JioSaavnClient.searchAndResolve(title!!, artist!!)?.let { saavn ->
-                Log.d(TAG, "JioSaavn hit for $title / $artist -> ${saavn.bitrateKbps}kbps")
-                Resolved(saavn.url, "jiosaavn", saavn.expiresAt)
-            }
-        } catch (t: Throwable) {
-            Log.w(TAG, "JioSaavn lookup error: ${t.message}")
-            null
+        val ytFailure = AtomicReference<String?>(null)
+
+        // ── YouTube (deep): already-cached stream first, then a full resolve.
+        val direct = videoId?.takeIf { it.length == 11 }
+        val cachedYt = direct?.let { runCatching { NativeYouTubeResolver.peek(it) }.getOrNull() }
+        if (cachedYt != null) {
+            record(direct, label, "youtube:${cachedYt.client}", System.currentTimeMillis() - startedAt, null)
+            return Resolved(cachedYt.url, "youtube", 0L)
         }
-        record(videoId, label, resolved?.source ?: "miss", System.currentTimeMillis() - startedAt, null)
-        return resolved
+
+        val ytFuture: CompletableFuture<Resolved?>? = if (direct != null || !title.isNullOrBlank()) {
+            CompletableFuture.supplyAsync({
+                try {
+                    val id = direct
+                        ?: YouTubeSearch.searchVideoId(title.orEmpty(), artist.orEmpty())
+                        ?: run { ytFailure.set("NO_VIDEO_ID_MATCH"); return@supplyAsync null }
+                    val hit = NativeYouTubeResolver.resolve(id, timeoutMs = 4200L)
+                    if (hit == null) {
+                        ytFailure.set(runCatching { NativeYouTubeResolver.lastFailure(id) }
+                            .getOrDefault("NO_PLAYABLE_STREAM"))
+                        null
+                    } else {
+                        Resolved(hit.url, "youtube:${hit.client}", 0L)
+                    }
+                } catch (t: Throwable) {
+                    ytFailure.set(t.message ?: "YT_ERROR")
+                    null
+                }
+            }, pool)
+        } else null
+
+        // ── JioSaavn: runs in parallel so a YouTube block never stalls a tap.
+        val saavnFuture: CompletableFuture<Resolved?>? =
+            if (!title.isNullOrBlank() && !artist.isNullOrBlank()) {
+                CompletableFuture.supplyAsync({
+                    try {
+                        JioSaavnClient.searchAndResolve(title, artist)?.let { saavn ->
+                            Log.d(TAG, "JioSaavn hit for $title / $artist -> ${saavn.bitrateKbps}kbps")
+                            Resolved(saavn.url, "jiosaavn", saavn.expiresAt)
+                        }
+                    } catch (t: Throwable) {
+                        Log.w(TAG, "JioSaavn lookup error: ${t.message}")
+                        null
+                    }
+                }, pool)
+            } else null
+
+        fun peekDone(f: CompletableFuture<Resolved?>?): Resolved? =
+            if (f != null && f.isDone) runCatching { f.getNow(null) }.getOrNull() else null
+
+        // Give YouTube its head start, then take whichever source is ready.
+        var winner: Resolved? = null
+        if (ytFuture != null) {
+            winner = runCatching { ytFuture.get(YT_PATIENCE_MS, TimeUnit.MILLISECONDS) }.getOrNull()
+        }
+        if (winner == null) winner = peekDone(saavnFuture)
+        if (winner == null && saavnFuture != null) {
+            winner = runCatching { saavnFuture.get(3200L, TimeUnit.MILLISECONDS) }.getOrNull()
+        }
+        // Last chance: YouTube may still be finishing a slow cipher solve.
+        if (winner == null && ytFuture != null) {
+            winner = runCatching { ytFuture.get(2600L, TimeUnit.MILLISECONDS) }.getOrNull()
+        }
+
+        record(
+            videoId, label, winner?.source ?: "miss",
+            System.currentTimeMillis() - startedAt, ytFailure.get(),
+        )
+        return winner?.let { Resolved(it.url, if (it.source.startsWith("youtube")) "youtube" else it.source, it.expiresAt) }
     }
 
     /**
