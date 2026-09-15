@@ -64,8 +64,16 @@ const MOODS: Array<{ label: string; query: string }> = [
 const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null }) => {
   const { currentSong, isPlaying, playSong, togglePlay, seek } = usePlayer();
   const { progress, duration } = usePlayerProgress();
-  const recents = useLocalRecents(60);
+  const rawRecents = useLocalRecents(60);
+  const taste = useTasteProfile();
   const [pendingSeek, setPendingSeek] = useState<{ id: string; at: number } | null>(null);
+
+  // A repeatedly skipped or explicitly disliked artist must not come back through
+  // history-derived shelves either ("Pick up again" used to resurface them).
+  const recents = useMemo(
+    () => rawRecents.filter((e) => !isSuppressed({ title: e.song?.title, artist: e.song?.artist }, taste)),
+    [rawRecents, taste],
+  );
 
   const history = useMemo(() => recentSongs(recents), [recents]);
 
