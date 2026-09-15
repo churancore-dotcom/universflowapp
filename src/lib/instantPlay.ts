@@ -8,14 +8,14 @@
 //   2. The moment a finger touches a card (pointerdown / touchstart — which
 //      fires ~80-250ms before `click`), that exact track is warmed.
 //
-// By the time playSong() runs, `resolveYouTubeVideoStream` / the native
-// StreamResolver both hit an in-memory cache, so playback starts immediately.
+// By the time playSong() runs, the catalog/native resolvers hit an in-memory
+// cache, so playback starts immediately.
 //
 // Everything here is fire-and-forget and de-duplicated: no UI state, no
 // blocking, no errors surfaced.
 
 import type { Song } from '@/contexts/PlayerContext';
-import { prefetchIndexedTrack, prefetchYouTubeVideoStream } from '@/lib/musicIndexer';
+import { prefetchIndexedTrack } from '@/lib/musicIndexer';
 import { isNativePlayerAvailable, StreamResolverPlugin } from '@/lib/nativePlayer';
 
 const warmed = new Set<string>();
@@ -65,7 +65,7 @@ export function prewarmSong(song?: WarmableSong | null): void {
 
   const videoId = getSongVideoId(song);
 
-  // Native (APK): warm the on-device resolver cache (JioSaavn → InnerTube).
+  // Native (APK): warm the on-device JioSaavn resolver cache.
   if (isNativePlayerAvailable()) {
     try {
       void StreamResolverPlugin.prefetch({
@@ -76,8 +76,7 @@ export function prewarmSong(song?: WarmableSong | null): void {
   }
 
   // Web + native fallback: warm the JS-side stream caches.
-  if (videoId) prefetchYouTubeVideoStream(videoId, { title: song.title, artist: song.artist });
-  else if (song.artist && song.title) prefetchIndexedTrack(song.artist, song.title);
+  if (song.artist && song.title) prefetchIndexedTrack(song.artist, song.title);
 }
 
 /** Warm the first `limit` tracks of a rail/list as soon as it renders. */

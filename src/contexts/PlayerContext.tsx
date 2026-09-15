@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useRef, useEffect, useCallb
 import { useMediaSession } from '@/hooks/useMediaSession';
 import { useGlobalAudioEngine } from '@/hooks/useGlobalAudioEngine';
 import { supabase } from '@/integrations/supabase/client';
-import { resolveIndexedTrack, resolveYouTubeVideoStream, prefetchIndexedTrack, prefetchYouTubeVideoStream, invalidateYouTubeStream, invalidateStreamUrl, searchYouTubeMusicTracks } from '@/lib/musicIndexer';
+import { resolveIndexedTrack, prefetchIndexedTrack, prefetchYouTubeVideoStream, invalidateYouTubeStream, invalidateStreamUrl, searchYouTubeMusicTracks } from '@/lib/musicIndexer';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import { recordPerfEvent } from '@/lib/perfMonitor';
 import { resume as resumeAudioEngine } from '@/lib/audioEngine';
@@ -1182,14 +1182,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (isNativeResolvedStreamUrl(currentSrc) || isNativeResolvedStreamUrl(currentSong?.audio_url)) {
-        const videoId = getNativeResolvedVideoId(currentSrc) || getNativeResolvedVideoId(currentSong?.audio_url);
-        if (!videoId) return;
+        if (!currentSong?.title || !currentSong.artist) return;
         const wasPlaying = !a.paused;
         const at = a.currentTime;
         const seqAtResolve = playRequestSeqRef.current;
-        resolveYouTubeVideoStream(videoId, { forceRefresh: true, title: currentSong?.title, artist: currentSong?.artist })
+        resolveIndexedTrack(currentSong.artist, currentSong.title, { forceRefresh: true })
           .then((result) => {
-            if (seqAtResolve !== playRequestSeqRef.current || !result?.streamUrl || isYouTubeFallbackUrl(result.streamUrl)) return;
+            if (seqAtResolve !== playRequestSeqRef.current || !result.streamUrl || isYouTubeFallbackUrl(result.streamUrl)) return;
             const proxied = buildStreamProxyUrl(result.streamUrl);
             const refreshed = currentSong ? { ...currentSong, audio_url: result.streamUrl } : null;
             if (refreshed) {
@@ -1564,9 +1563,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // cached URL just failed to play (stale Invidious link, expired token, etc).
   const resolveAudioUrl = useCallback(
     async (song: Song, opts: { forceRefresh?: boolean; skipNative?: boolean } = {}): Promise<string | null> => {
-      const ytFallback = isYouTubeFallbackUrl(song.audio_url) ? song.audio_url ?? null : null;
+      const legacyPlaceholder = isYouTubeFallbackUrl(song.audio_url);
       // Skip resolution only when we already have a real (non-YT-iframe) URL.
-      if (!opts.forceRefresh && isPlayableUrl(song.audio_url) && !ytFallback) {
+      if (!opts.forceRefresh && isPlayableUrl(song.audio_url) && !legacyPlaceholder) {
         // Private `music` bucket objects need a short-lived signed URL.
         return await signStorageAudioUrl(song.audio_url!);
       }
@@ -1583,17 +1582,6 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               return result.streamUrl;
             }
           } catch { /* fall through */ }
-        }
-        if (ytFallback) {
-          const videoId = getYouTubeFallbackVideoId(ytFallback);
-          if (videoId) {
-            try {
-              const resolved = await resolveYouTubeVideoStream(videoId, { forceRefresh, title: song.title, artist: song.artist });
-              if (resolved?.streamUrl && !isYouTubeFallbackUrl(resolved.streamUrl)) {
-                return resolved.streamUrl;
-              }
-            } catch { /* nothing left */ }
-          }
         }
         return null;
       };

@@ -26,11 +26,6 @@ class MainActivity : BridgeActivity() {
         registerPlugin(StreamResolverPlugin::class.java)
         super.onCreate(savedInstanceState)
 
-        // Warm up the native resolver (OkHttp pool + visitorData) as soon as
-        // the app launches so the very first song plays instantly instead of
-        // paying connection setup on the first tap.
-        try { NativeYouTubeResolver.warm() } catch (_: Throwable) {}
-
         // Android 13+ requires runtime POST_NOTIFICATIONS permission before the
         // rich MediaStyle lock-screen / shade player can appear.
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
