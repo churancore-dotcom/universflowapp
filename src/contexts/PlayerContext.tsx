@@ -1182,14 +1182,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (isNativeResolvedStreamUrl(currentSrc) || isNativeResolvedStreamUrl(currentSong?.audio_url)) {
-        const videoId = getNativeResolvedVideoId(currentSrc) || getNativeResolvedVideoId(currentSong?.audio_url);
-        if (!videoId) return;
+        if (!currentSong?.title || !currentSong.artist) return;
         const wasPlaying = !a.paused;
         const at = a.currentTime;
         const seqAtResolve = playRequestSeqRef.current;
-        resolveYouTubeVideoStream(videoId, { forceRefresh: true, title: currentSong?.title, artist: currentSong?.artist })
+        resolveIndexedTrack(currentSong.artist, currentSong.title, { forceRefresh: true })
           .then((result) => {
-            if (seqAtResolve !== playRequestSeqRef.current || !result?.streamUrl || isYouTubeFallbackUrl(result.streamUrl)) return;
+            if (seqAtResolve !== playRequestSeqRef.current || !result.streamUrl || isYouTubeFallbackUrl(result.streamUrl)) return;
             const proxied = buildStreamProxyUrl(result.streamUrl);
             const refreshed = currentSong ? { ...currentSong, audio_url: result.streamUrl } : null;
             if (refreshed) {
