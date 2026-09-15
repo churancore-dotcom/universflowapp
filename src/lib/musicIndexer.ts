@@ -506,13 +506,44 @@ export function feedRotationSalt(): string {
 }
 
 /**
- * Catalog search — JioSaavn + Audius, in parallel.
+ * DEEP MODE — YouTube Music catalogue search.
  *
- * YouTube has been removed as a source: it was blocked at the datacenter IP
- * level, needed PoTokens on device, and streaming it from our own player broke
- * YouTube's terms. Both remaining sources return a *directly playable* audio
- * URL inside the search response, so a tap needs zero extra resolution calls —
- * this is what makes playback instant.
+ * Search runs server-side (that part is not IP-blocked); the *stream* for these
+ * results is resolved entirely on the device by NativeYouTubeResolver, so these
+ * rows are only surfaced where a native player exists. On web they would be
+ * unplayable rows, which is worse than a shorter list.
+ */
+async function searchYouTubeDeepTracks(q: string, limit: number): Promise<IndexedTrack[]> {
+  if (limit <= 0) return [];
+  try {
+    const { isNativePlayerAvailable } = await import('./nativePlayer');
+    if (!isNativePlayerAvailable()) return [];
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data, error } = await supabase.functions.invoke<IndexedTracksResponse>('yt-music-search', {
+      body: { query: q, limit: Math.min(40, limit), depth: 'fast' },
+    });
+    if (error || !data?.success || !Array.isArray(data.results)) return [];
+    return data.results
+      .filter((t) => t && t.title && (t.videoId || t.audio_url))
+      .map((t) => ({
+        ...t,
+        id: t.id || (t.videoId ? `ytm-${t.videoId}` : t.title),
+        audio_url: t.audio_url || (t.videoId ? `yt-video:${t.videoId}` : undefined),
+        cover_url: t.cover_url
+          || (t.videoId ? `https://i.ytimg.com/vi/${t.videoId}/maxresdefault.jpg` : undefined),
+      }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Catalog search — JioSaavn + Audius + (deep) YouTube Music, in parallel.
+ *
+ * JioSaavn and Audius return a *directly playable* audio URL inside the search
+ * response, so a tap on those needs zero extra resolution calls. YouTube fills
+ * whatever those two do not cover, which is what closes the catalogue gaps on
+ * rare, regional, and long-tail songs.
  *
  * The exported name is unchanged so every rail/search caller keeps working.
  */
@@ -527,17 +558,20 @@ export async function searchYouTubeMusicTracks(
   const key = searchKey('catalog', cacheBust ? `${q}#${cacheBust}` : q, limit);
   return cachedSearch(key, async () => {
     const saavnLimit = Math.min(240, limit);
-    const [saavn, audius] = await Promise.all([
+    const [saavn, audius, deepYt] = await Promise.all([
       import('./jiosaavn').then((m) => (
         saavnLimit > 40
           ? m.searchSongsAsTracksPaged(q, saavnLimit)
           : m.searchSongsAsTracks(q, saavnLimit)
       )).catch(() => []),
       import('./audius').then((m) => m.searchAudiusTracks(q, Math.min(25, limit))).catch(() => []),
+      searchYouTubeDeepTracks(q, Math.min(40, limit)),
     ]);
-    // JioSaavn is the primary catalogue. Audius only fills thin result sets,
-    // rather than alternating unknown global uploads above Indian matches.
-    return mergeTrackSources(saavn, saavn.length >= limit ? [] : audius).slice(0, limit);
+    // JioSaavn is the primary catalogue. Audius and YouTube fill the tail, so
+    // unknown global uploads never outrank a direct Indian match.
+    const primary = mergeTrackSources(saavn, saavn.length >= limit ? [] : audius);
+    if (primary.length >= limit || !deepYt.length) return primary.slice(0, limit);
+    return mergeTrackSources(primary, deepYt).slice(0, limit);
   });
 }
 
