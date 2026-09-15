@@ -15,6 +15,8 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { recentSongs, jumpBackInGroups } from '@/lib/personalHome';
+import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { isSuppressed } from '@/lib/feedPersonalizer';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { cleanRail, songFingerprint } from '@/lib/railQuality';
 import { useYtmNewReleases } from '@/lib/ytmRails';
