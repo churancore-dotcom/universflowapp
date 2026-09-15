@@ -33,6 +33,7 @@ import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/use
 import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLang } from '@/lib/userPrefs';
 import SEOHead from '@/components/SEOHead';
 import { isNativePlayerAvailable, setNativePlaybackSpeed } from '@/lib/nativePlayer';
+import { YouTubeAccountSection } from '@/components/YouTubeAccountSection';
 
 
 const EQ_KEY = 'eq_settings';
@@ -571,6 +572,10 @@ const Settings = () => {
 
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
+
+          {/* Deep source pairing — improves coverage for rare tracks */}
+          <YouTubeAccountSection />
+
 
 
           {/* ============ 3. DOWNLOADS ============ */}
