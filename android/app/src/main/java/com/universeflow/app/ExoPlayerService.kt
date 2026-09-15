@@ -282,9 +282,6 @@ class ExoPlayerService : MediaSessionService() {
             }
         }
 
-        // Prewarm the InnerTube connection so first-tap latency is minimal.
-        NativeYouTubeResolver.warm()
-
         // Start after a small verified audio buffer. 250ms keeps weak mobile
         // links stable while removing the fixed ~750ms floor from every tap.
         // Keep a moderate forward buffer so playback does not aggressively
