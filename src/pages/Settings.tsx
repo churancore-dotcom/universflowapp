@@ -572,6 +572,10 @@ const Settings = () => {
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
 
+          {/* Deep source pairing — improves coverage for rare tracks */}
+          <YouTubeAccountSection />
+
+
 
           {/* ============ 3. DOWNLOADS ============ */}
           <Section label="Downloads">
