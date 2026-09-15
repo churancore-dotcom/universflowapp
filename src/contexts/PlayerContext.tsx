@@ -1632,13 +1632,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       .catch(() => never);
     const candidates: Promise<string | null>[] = [];
 
-    // YOUTUBE REMOVED on the APK too: no InnerTube candidate, and therefore no
-    // artificial head-start penalty for the licensed sources. The native
-    // metadata resolver (JioSaavn on device) and the JS resolver race flat out,
-    // which is why playback now starts in a few hundred milliseconds.
-    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && song.title) {
+    // DEEP MODE: the native resolver races JioSaavn against on-device YouTube
+    // (multi-client InnerTube + on-device cipher + BotGuard PoToken). Passing the
+    // videoId lets it skip its own title/artist lookup; without one it searches
+    // YouTube by metadata itself. Either way one native call covers both sources.
+    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && (song.title || videoId)) {
       candidates.push(playable(
-        resolveNativeMetadataStream({ title: song.title, artist: song.artist }),
+        resolveNativeMetadataStream({
+          ...(videoId ? { videoId } : {}),
+          title: song.title,
+          artist: song.artist,
+        }),
       ));
     }
     candidates.push(playable(
