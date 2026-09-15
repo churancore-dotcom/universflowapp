@@ -93,19 +93,19 @@ export const UserPrivacyBody = (): ReactNode => (
     <p>If you can no longer sign in, or you want us to do it for you, email {SUPPORT_EMAIL} from your registered address with the subject &ldquo;Delete my account&rdquo;. We confirm within 7 days and complete the deletion within 30 days.</p>
     <p>You can also delete only part of your data: clear listening history in Settings, remove individual downloads from the Offline screen, or ask us to remove a specific item by email.</p>
 
-    <h2>7. Your rights</h2>
+    <h2>8. Your rights</h2>
     <p>You can access, export, or delete your data by emailing {SUPPORT_EMAIL}. Under GDPR and India's DPDP Act you have rights of access, correction, deletion, and objection.</p>
 
-    <h2>8. Children</h2>
+    <h2>9. Children</h2>
     <p>The App is not directed at children under 13 and we do not knowingly collect their data. If you believe a child has created an account, email {SUPPORT_EMAIL} and we will remove it.</p>
 
-    <h2>9. Security</h2>
+    <h2>10. Security</h2>
     <p>We use industry-standard encryption in transit and at rest. No system is perfect — please use a strong password.</p>
 
-    <h2>10. Changes to this policy</h2>
+    <h2>11. Changes to this policy</h2>
     <p>We may update this policy. Material changes will be announced in the App, and the date at the top of this page will change.</p>
 
-    <h2>11. Contact</h2>
+    <h2>12. Contact</h2>
     <p>Privacy questions: {SUPPORT_EMAIL}.</p>
   </>
 );
