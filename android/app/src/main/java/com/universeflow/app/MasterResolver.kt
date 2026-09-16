@@ -160,18 +160,24 @@ object MasterResolver {
         fun peekDone(f: CompletableFuture<Resolved?>?): Resolved? =
             if (f != null && f.isDone) runCatching { f.getNow(null) }.getOrNull() else null
 
-        // Give YouTube its head start, then take whichever source is ready.
+        // Enforce one real deadline. The former sequential waits could exceed
+        // ExoPlayer's seven-second source deadline and turn a successful late
+        // resolution into silence. Poll both independent sources and accept the
+        // first success without allowing one fast null to cancel the other.
         var winner: Resolved? = null
-        if (ytFuture != null) {
-            winner = runCatching { ytFuture.get(YT_PATIENCE_MS, TimeUnit.MILLISECONDS) }.getOrNull()
+        val deadline = startedAt + 6_500L
+        while (winner == null && System.currentTimeMillis() < deadline) {
+            winner = peekDone(ytFuture) ?: peekDone(saavnFuture)
+            if (winner == null) {
+                try { Thread.sleep(20L) } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            }
         }
-        if (winner == null) winner = peekDone(saavnFuture)
-        if (winner == null && saavnFuture != null) {
-            winner = runCatching { saavnFuture.get(3200L, TimeUnit.MILLISECONDS) }.getOrNull()
-        }
-        // Last chance: YouTube may still be finishing a slow cipher solve.
-        if (winner == null && ytFuture != null) {
-            winner = runCatching { ytFuture.get(2600L, TimeUnit.MILLISECONDS) }.getOrNull()
+        if (winner == null) {
+            ytFuture?.cancel(true)
+            saavnFuture?.cancel(true)
         }
 
         record(

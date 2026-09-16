@@ -82,7 +82,20 @@ class ExoPlayerPlugin : Plugin() {
             directPlayableUrl(track.url)?.let { builder.appendQueryParameter("fallback", it) }
             return builder.build().toString()
         }
-        return directPlayableUrl(track.url)
+        directPlayableUrl(track.url)?.let { return it }
+        // Catalog/history rows do not always retain their original YouTube ID.
+        // Keep them playable by handing metadata to the native resolver rather
+        // than rejecting the queue before MasterResolver can search it.
+        if (track.title.isNotBlank()) {
+            return Uri.Builder()
+                .scheme("ufresolve")
+                .authority("metadata")
+                .appendQueryParameter("title", track.title)
+                .appendQueryParameter("artist", track.artist)
+                .build()
+                .toString()
+        }
+        return null
     }
 
     private fun mediaItemFor(track: NativeTrack, resolvedUrl: String): MediaItem {
