@@ -84,7 +84,7 @@ object MasterResolver {
         }
 
         return try {
-            val result = resolveFresh(videoId, title, artist)
+            val result = resolveFresh(videoId, title, artist, timeoutMs)
             mine.complete(result)
             result
         } catch (t: Throwable) {
@@ -99,6 +99,7 @@ object MasterResolver {
         videoId: String?,
         title: String?,
         artist: String?,
+        timeoutMs: Long,
     ): Resolved? {
         val label = listOfNotNull(title, artist).joinToString(" — ").ifBlank { videoId ?: "?" }
         val startedAt = System.currentTimeMillis()
@@ -157,7 +158,7 @@ object MasterResolver {
         // resolution into silence. Poll both independent sources and accept the
         // first success without allowing one fast null to cancel the other.
         var winner: Resolved? = null
-        val deadline = startedAt + 6_500L
+        val deadline = startedAt + timeoutMs.coerceIn(1_000L, 6_500L)
         while (winner == null && System.currentTimeMillis() < deadline) {
             winner = peekDone(ytFuture) ?: peekDone(saavnFuture)
             if (winner == null) {
