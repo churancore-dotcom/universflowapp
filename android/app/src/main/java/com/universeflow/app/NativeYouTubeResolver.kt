@@ -237,7 +237,11 @@ object NativeYouTubeResolver {
         getCached(videoId)?.let { return NativeResolvedStream(it.url, it.itag, it.client) }
 
         val now = System.currentTimeMillis()
-        val allClients = buildClients(videoId)
+        // A direct media URL now generally needs a video-bound GVS PoToken.
+        // Wait briefly for the on-device minter instead of launching a race of
+        // requests that are guaranteed to return URLs rejected by googlevideo.
+        val poToken = WebViewPoTokenProvider.awaitToken(videoId, timeoutMs.coerceAtMost(900L))
+        val allClients = buildClients(videoId, poToken)
         val readyClients = allClients.filter { (clientCooldowns[it.name] ?: 0L) <= now }
         val clients = if (readyClients.isNotEmpty()) readyClients else allClients
         val latch = CountDownLatch(1)
@@ -249,7 +253,7 @@ object NativeYouTubeResolver {
         for (ctx in clients) {
             raceExecutor.execute {
                 try {
-                    val result = attempt(videoId, ctx, failureCodes)
+                    val result = attempt(videoId, ctx, failureCodes, errors)
                     if (result != null && winner.compareAndSet(null, NativeResolvedStream(result.first, result.second, ctx.name))) {
                         clientCooldowns.remove(ctx.name)
                         latch.countDown()
@@ -278,8 +282,9 @@ object NativeYouTubeResolver {
             Log.d(TAG, "resolved $videoId via ${w.client} itag=${w.itag}")
             return w
         }
-        Log.w(TAG, "resolve failed $videoId: ${errors.joinToString("; ").ifEmpty { "no playable stream" }}")
-        lastFailures[videoId] = when {
+        val detail = errors.joinToString("; ").ifEmpty { "no client detail" }
+        Log.w(TAG, "resolve failed $videoId: $detail")
+        val primaryFailure = when {
             failureCodes.contains("LOGIN_REQUIRED") -> "LOGIN_REQUIRED"
             failureCodes.contains("SABR_ONLY") -> "SABR_ONLY"
             failureCodes.contains("HTTP_429") -> "RATE_LIMITED"
@@ -288,6 +293,7 @@ object NativeYouTubeResolver {
             failureCodes.contains("EMPTY_FORMATS") -> "EMPTY_FORMATS"
             else -> "NO_PLAYABLE_STREAM"
         }
+        lastFailures[videoId] = "$primaryFailure [$detail]"
         val failures = consecutiveAllClientFailures.incrementAndGet()
         if (allowVisitorRefresh && !YouTubeAccount.isSignedIn() && failures >= VISITOR_FAILURE_ROTATE_THRESHOLD) {
             Log.w(TAG, "all clients failed repeatedly; rotating anonymous visitor session")
@@ -386,11 +392,11 @@ object NativeYouTubeResolver {
     //   • clientVersion strings match current shipping mobile apps
     //   • userAgent strings follow Google's documented app UA format
     // No GPL source is reproduced; only public spec values.
-    private fun buildClients(videoId: String): List<ClientCtx> {
+    private fun buildClients(videoId: String, awaitedPoToken: String?): List<ClientCtx> {
         val visitor = visitorData  // may be null on first call; that's fine
         // Non-null only once BotGuard has produced a token bound to this exact
         // video. Never block here: queue/intent prewarming fills this cache.
-        val po = try {
+        val po = awaitedPoToken ?: try {
             YouTubeProtocolProviders.poTokenProvider?.tokenFor(visitor, videoId)
         } catch (_: Throwable) { null }
 
@@ -401,59 +407,16 @@ object NativeYouTubeResolver {
             put("client", client)
         }
 
-        // ANDROID_VR 1.61.48 — primary PoToken-free client (Meta Quest UA).
-        val vr161 = ctxJson(JSONObject().apply {
-            put("clientName", "ANDROID_VR")
-            put("clientVersion", "1.61.48")
-            put("deviceMake", "Oculus")
-            put("deviceModel", "Quest 3")
-            put("androidSdkVersion", 32)
-            put("osName", "Android")
-            put("osVersion", "12L")
-            put("hl", "en"); put("gl", "US")
-        })
-
-        // ANDROID_VR 1.43.32 — older but still accepted; useful when 1.61 is
-        // rate-limited on a given edge node.
-        val vr143 = ctxJson(JSONObject().apply {
-            put("clientName", "ANDROID_VR")
-            put("clientVersion", "1.43.32")
-            put("deviceMake", "Oculus")
-            put("deviceModel", "Quest 2")
-            put("androidSdkVersion", 32)
-            put("osName", "Android")
-            put("osVersion", "12L")
-            put("hl", "en"); put("gl", "US")
-        })
-
-        // IOS 21.03.2 — Apple attestation, no PoToken required.
+        // Current maintained client identities. Old Android VR identities are
+        // intentionally gone: YouTube began rejecting all of their media URLs
+        // in August 2026, so racing them only added failures and socket pressure.
         val ios = ctxJson(JSONObject().apply {
             put("clientName", "IOS")
-            put("clientVersion", "21.03.2")
+            put("clientVersion", "21.26.4")
             put("deviceMake", "Apple")
             put("deviceModel", "iPhone16,2")
             put("osName", "iPhone")
-            put("osVersion", "18.7.2.22H124")
-            put("hl", "en"); put("gl", "US")
-        })
-
-        // ANDROID_MUSIC — good for music-specific responses.
-        val androidMusic = ctxJson(JSONObject().apply {
-            put("clientName", "ANDROID_MUSIC")
-            put("clientVersion", "7.29.52")
-            put("androidSdkVersion", 35)
-            put("osName", "Android")
-            put("osVersion", "15")
-            put("hl", "en"); put("gl", "US")
-        })
-
-        // ANDROID_CREATOR — Creator Studio client; PoToken-free.
-        val androidCreator = ctxJson(JSONObject().apply {
-            put("clientName", "ANDROID_CREATOR")
-            put("clientVersion", "24.45.100")
-            put("androidSdkVersion", 34)
-            put("osName", "Android")
-            put("osVersion", "14")
+            put("osVersion", "18.3.2.22D82")
             put("hl", "en"); put("gl", "US")
         })
 
@@ -466,9 +429,20 @@ object NativeYouTubeResolver {
         // is optional and dropping it measurably lowers rejection rates.
         val android = ctxJson(JSONObject().apply {
             put("clientName", "ANDROID")
-            put("clientVersion", "19.44.33")
+            put("clientVersion", "21.26.364")
+            put("androidSdkVersion", 30)
             put("osName", "Android")
-            put("osVersion", "14")
+            put("osVersion", "11")
+            put("hl", "en"); put("gl", "US")
+        })
+
+        val visionOs = ctxJson(JSONObject().apply {
+            put("clientName", "VISIONOS")
+            put("clientVersion", "1.02")
+            put("deviceMake", "Apple")
+            put("deviceModel", "RealityDevice17,1")
+            put("osName", "visionOS")
+            put("osVersion", "26.5.23O471")
             put("hl", "en"); put("gl", "US")
         })
 
@@ -483,7 +457,7 @@ object NativeYouTubeResolver {
         val tvAuth = if (YouTubeAccount.isSignedIn()) JSONObject().apply {
             put("client", JSONObject().apply {
                 put("clientName", "TVHTML5")
-                put("clientVersion", "7.20250219.14.00")
+                put("clientVersion", "7.20260707.07.00")
                 put("hl", "en"); put("gl", "US")
             })
         } else null
@@ -495,7 +469,7 @@ object NativeYouTubeResolver {
         val webPo = if (po != null && visitor != null) JSONObject().apply {
             put("client", JSONObject().apply {
                 put("clientName", "WEB")
-                put("clientVersion", "2.20250219.01.00")
+                put("clientVersion", "2.20260708.00.00")
                 put("visitorData", visitor)
                 put("hl", "en"); put("gl", "US")
             })
@@ -507,33 +481,27 @@ object NativeYouTubeResolver {
         return listOfNotNull(
             tvAuth?.let {
                 ClientCtx(
-                    "TVHTML5_AUTH", "7", "7.20250219.14.00", it,
-                    "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/Version",
+                    "TVHTML5_AUTH", "7", "7.20260707.07.00", it,
+                    "Mozilla/5.0 (ChromiumStylePlatform) Cobalt/25.lts.30.1034943-gold (unlike Gecko)",
                     needsSts = true,
                     useAuth = true,
                 )
             },
             webPo?.let {
                 ClientCtx(
-                    "WEB_PO", "1", "2.20250219.01.00", it,
+                    "WEB_PO", "1", "2.20260708.00.00", it,
                     "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
                         "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
                     poToken = po,
                 )
             },
 
-            ClientCtx("ANDROID_VR_1_43", "28", "1.43.32", vr143,
-                "com.google.android.apps.youtube.vr.oculus/1.43.32 (Linux; U; Android 12L; GB) gzip"),
-            ClientCtx("ANDROID_VR", "28", "1.61.48", vr161,
-                "com.google.android.apps.youtube.vr.oculus/1.61.48 (Linux; U; Android 12L; GB) gzip"),
-            ClientCtx("IOS", "5", "21.03.2", ios,
-                "com.google.ios.youtube/21.03.2 (iPhone16,2; U; CPU iOS 18_7_2 like Mac OS X)"),
-            ClientCtx("ANDROID", "3", "19.44.33", android,
-                "com.google.android.youtube/19.44.33 (Linux; U; Android 14) gzip"),
-            ClientCtx("ANDROID_MUSIC", "21", "7.29.52", androidMusic,
-                "com.google.android.apps.youtube.music/7.29.52 (Linux; U; Android 15) gzip"),
-            ClientCtx("ANDROID_CREATOR", "14", "24.45.100", androidCreator,
-                "com.google.android.apps.youtube.creator/24.45.100 (Linux; U; Android 14) gzip"),
+            ClientCtx("ANDROID", "3", "21.26.364", android,
+                "com.google.android.youtube/21.26.364 (Linux; U; Android 11) gzip", poToken = po),
+            ClientCtx("IOS", "5", "21.26.4", ios,
+                "com.google.ios.youtube/21.26.4 (iPhone16,2; U; CPU iOS 18_3_2 like Mac OS X;)", poToken = po),
+            ClientCtx("VISIONOS", "101", "1.02", visionOs,
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 15_7_3) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.0 Safari/605.1.15", poToken = po),
         )
     }
 
@@ -545,6 +513,7 @@ object NativeYouTubeResolver {
         videoId: String,
         ctx: ClientCtx,
         failureCodes: java.util.concurrent.ConcurrentLinkedQueue<String>,
+        attemptErrors: java.util.concurrent.ConcurrentLinkedQueue<String>,
     ): Pair<String, Int>? {
         val sts: String? = if (ctx.needsSts) PlayerJsManager.getSts() else null
         if (ctx.needsSts && sts == null) return null
@@ -606,6 +575,7 @@ object NativeYouTubeResolver {
             }
             if (!resp.isSuccessful) {
                 failureCodes.add("HTTP_${resp.code}")
+                attemptErrors.add("${ctx.name}:HTTP_${resp.code}")
                 if (resp.code == 403 || resp.code == 429) coolDownClient(ctx.name, "HTTP ${resp.code}")
                 return null
             }
@@ -614,11 +584,13 @@ object NativeYouTubeResolver {
             val status = json.optJSONObject("playabilityStatus")?.optString("status")
             if (status != null && status != "OK") {
                 failureCodes.add(status)
+                attemptErrors.add("${ctx.name}:$status")
                 if (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE") coolDownClient(ctx.name, status)
                 return null
             }
             val streamingData = json.optJSONObject("streamingData") ?: run {
                 failureCodes.add("EMPTY_FORMATS")
+                attemptErrors.add("${ctx.name}:EMPTY_FORMATS")
                 return null
             }
 
@@ -663,9 +635,11 @@ object NativeYouTubeResolver {
                 if (!playable.isNullOrBlank()) return playable to 0
                 Log.d(TAG, "SABR-only response from ${ctx.name}; skipping")
                 failureCodes.add("SABR_ONLY")
+                attemptErrors.add("${ctx.name}:SABR_ONLY")
                 coolDownClient(ctx.name, "SABR_ONLY")
             } else {
                 failureCodes.add("EMPTY_FORMATS")
+                attemptErrors.add("${ctx.name}:EMPTY_FORMATS")
             }
             return null
         }

@@ -251,11 +251,16 @@ export async function resolveNativeMetadataStream(opts: { videoId?: string; titl
   try {
     const res = await StreamResolverPlugin.resolve(opts);
     return res?.url || null;
-  } catch {
+  } catch (firstError) {
     try {
       const res = await StreamResolverPlugin.resolveStream(opts);
       return res?.url || null;
-    } catch {
+    } catch (secondError) {
+      console.warn(
+        '[StreamResolver/native] failed',
+        opts.videoId || `${opts.title || '?'} — ${opts.artist || '?'}`,
+        (secondError as Error)?.message || (firstError as Error)?.message,
+      );
       return null;
     }
   }

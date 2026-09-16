@@ -47,6 +47,27 @@ object WebViewPoTokenProvider : PoTokenProvider {
         return null
     }
 
+    /**
+     * First-play path: give the already-starting WebView a short, bounded chance
+     * to mint the video-bound token. YouTube now requires this token for nearly
+     * every direct media URL; the old fire-and-forget lookup meant WEB_PO was
+     * absent from the exact race where it was most needed.
+     */
+    fun awaitToken(videoId: String, timeoutMs: Long = 900L): String? {
+        if (videoId.length != 11) return null
+        tokenFor(null, videoId)?.let { return it }
+        val deadline = System.currentTimeMillis() + timeoutMs.coerceAtLeast(0L)
+        while (System.currentTimeMillis() < deadline) {
+            try { Thread.sleep(25L) } catch (_: InterruptedException) {
+                Thread.currentThread().interrupt()
+                return null
+            }
+            val hit = tokens[videoId]
+            if (hit != null && System.currentTimeMillis() - hit.at < TOKEN_TTL_MS) return hit.token
+        }
+        return null
+    }
+
     /** Initialize the persistent BotGuard VM at app startup. */
     fun warmSession() {
         ensureWebView()
