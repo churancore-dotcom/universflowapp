@@ -3,7 +3,6 @@ package com.universeflow.app
 import android.util.Log
 import java.util.concurrent.Executors
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -17,9 +16,8 @@ import java.util.concurrent.atomic.AtomicReference
  *     race with on-device cipher/n-param solving and BotGuard PoTokens. When a
  *     track has no videoId, [YouTubeSearch] finds one from title + artist first.
  *
- * YouTube gets a short head start (it usually has the wider catalogue), but
- * JioSaavn wins the moment YouTube's patience window elapses, so a YouTube
- * outage or block never stalls playback.
+ * Both sources share a single bounded deadline. The first successful stream
+ * wins, so a failure or block in either source cannot extend playback startup.
  */
 object MasterResolver {
 
@@ -63,12 +61,6 @@ object MasterResolver {
             (ytFailure?.let { " (yt failure: $it)" } ?: ""))
     }
 
-    /**
-     * How long a resolve waits for YouTube before accepting a ready JioSaavn
-     * URL. YouTube usually answers in 350-900ms once warm.
-     */
-    private const val YT_PATIENCE_MS = 1200L
-
     fun resolve(
         videoId: String?,
         title: String?,
@@ -85,7 +77,7 @@ object MasterResolver {
         val existing = inFlight.putIfAbsent(key, mine)
         if (existing != null) {
             return try {
-                existing.get(timeoutMs + 1000L, TimeUnit.MILLISECONDS)
+                existing.get(timeoutMs + 1000L, java.util.concurrent.TimeUnit.MILLISECONDS)
             } catch (_: Throwable) {
                 null
             }
