@@ -3,7 +3,6 @@ package com.universeflow.app
 import android.util.Log
 import java.util.concurrent.Executors
 import java.util.concurrent.CompletableFuture
-import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
 
 /**
@@ -17,9 +16,8 @@ import java.util.concurrent.atomic.AtomicReference
  *     race with on-device cipher/n-param solving and BotGuard PoTokens. When a
  *     track has no videoId, [YouTubeSearch] finds one from title + artist first.
  *
- * YouTube gets a short head start (it usually has the wider catalogue), but
- * JioSaavn wins the moment YouTube's patience window elapses, so a YouTube
- * outage or block never stalls playback.
+ * Both sources share a single bounded deadline. The first successful stream
+ * wins, so a failure or block in either source cannot extend playback startup.
  */
 object MasterResolver {
 
@@ -63,12 +61,6 @@ object MasterResolver {
             (ytFailure?.let { " (yt failure: $it)" } ?: ""))
     }
 
-    /**
-     * How long a resolve waits for YouTube before accepting a ready JioSaavn
-     * URL. YouTube usually answers in 350-900ms once warm.
-     */
-    private const val YT_PATIENCE_MS = 1200L
-
     fun resolve(
         videoId: String?,
         title: String?,
@@ -85,14 +77,14 @@ object MasterResolver {
         val existing = inFlight.putIfAbsent(key, mine)
         if (existing != null) {
             return try {
-                existing.get(timeoutMs + 1000L, TimeUnit.MILLISECONDS)
+                existing.get(timeoutMs + 1000L, java.util.concurrent.TimeUnit.MILLISECONDS)
             } catch (_: Throwable) {
                 null
             }
         }
 
         return try {
-            val result = resolveFresh(videoId, title, artist)
+            val result = resolveFresh(videoId, title, artist, timeoutMs)
             mine.complete(result)
             result
         } catch (t: Throwable) {
@@ -107,6 +99,7 @@ object MasterResolver {
         videoId: String?,
         title: String?,
         artist: String?,
+        timeoutMs: Long,
     ): Resolved? {
         val label = listOfNotNull(title, artist).joinToString(" — ").ifBlank { videoId ?: "?" }
         val startedAt = System.currentTimeMillis()
@@ -160,18 +153,24 @@ object MasterResolver {
         fun peekDone(f: CompletableFuture<Resolved?>?): Resolved? =
             if (f != null && f.isDone) runCatching { f.getNow(null) }.getOrNull() else null
 
-        // Give YouTube its head start, then take whichever source is ready.
+        // Enforce one real deadline. The former sequential waits could exceed
+        // ExoPlayer's seven-second source deadline and turn a successful late
+        // resolution into silence. Poll both independent sources and accept the
+        // first success without allowing one fast null to cancel the other.
         var winner: Resolved? = null
-        if (ytFuture != null) {
-            winner = runCatching { ytFuture.get(YT_PATIENCE_MS, TimeUnit.MILLISECONDS) }.getOrNull()
+        val deadline = startedAt + timeoutMs.coerceIn(1_000L, 6_500L)
+        while (winner == null && System.currentTimeMillis() < deadline) {
+            winner = peekDone(ytFuture) ?: peekDone(saavnFuture)
+            if (winner == null) {
+                try { Thread.sleep(20L) } catch (_: InterruptedException) {
+                    Thread.currentThread().interrupt()
+                    break
+                }
+            }
         }
-        if (winner == null) winner = peekDone(saavnFuture)
-        if (winner == null && saavnFuture != null) {
-            winner = runCatching { saavnFuture.get(3200L, TimeUnit.MILLISECONDS) }.getOrNull()
-        }
-        // Last chance: YouTube may still be finishing a slow cipher solve.
-        if (winner == null && ytFuture != null) {
-            winner = runCatching { ytFuture.get(2600L, TimeUnit.MILLISECONDS) }.getOrNull()
+        if (winner == null) {
+            ytFuture?.cancel(true)
+            saavnFuture?.cancel(true)
         }
 
         record(

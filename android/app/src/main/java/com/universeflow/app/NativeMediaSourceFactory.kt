@@ -30,6 +30,7 @@ object NativeMediaSourceFactory {
 
     private const val TAG = "NativeMediaSource"
     private const val SCHEME = "yt"
+    private const val METADATA_SCHEME = "ufresolve"
     private const val CACHE_DIR_NAME = "uf_media_cache"
     private const val CACHE_MAX_BYTES = 512L * 1024L * 1024L
     private const val USER_AGENT =
@@ -58,9 +59,11 @@ object NativeMediaSourceFactory {
         // Resolves yt://<id> -> direct googlevideo URL (or refreshes a stale one).
         val resolvingFactory = ResolvingDataSource.Factory(httpFactory, ResolvingDataSource.Resolver { dataSpec ->
             val uri = dataSpec.uri
-            if (uri.scheme != SCHEME) return@Resolver dataSpec
-            val videoId = uri.host ?: uri.schemeSpecificPart?.removePrefix("//")?.substringBefore('?')
-            if (videoId.isNullOrBlank() || videoId.length != 11) {
+            if (uri.scheme != SCHEME && uri.scheme != METADATA_SCHEME) return@Resolver dataSpec
+            val videoId = if (uri.scheme == SCHEME) {
+                uri.host ?: uri.schemeSpecificPart?.removePrefix("//")?.substringBefore('?')
+            } else null
+            if (uri.scheme == SCHEME && (videoId.isNullOrBlank() || videoId.length != 11)) {
                 throw java.io.IOException("Invalid yt:// uri: $uri")
             }
             val title = uri.getQueryParameter("title")
@@ -93,6 +96,7 @@ object NativeMediaSourceFactory {
             .setCacheKeyFactory { spec: DataSpec ->
                 val u = spec.uri
                 if (u.scheme == SCHEME) "yt:${u.host ?: u.schemeSpecificPart?.removePrefix("//")?.substringBefore('?')}"
+                else if (u.scheme == METADATA_SCHEME) "metadata:${u.getQueryParameter("title")}:${u.getQueryParameter("artist")}"
                 else spec.key ?: u.toString()
             }
 

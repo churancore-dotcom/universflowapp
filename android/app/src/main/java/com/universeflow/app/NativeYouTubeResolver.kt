@@ -29,11 +29,11 @@ data class NativeResolvedStream(val url: String, val itag: Int, val client: Stri
  * EchoMusic / InnerTune. Only PUBLIC constants (client IDs, endpoint path,
  * header names) are borrowed — no GPL source is reproduced.
  *
- * Strategy (updated 2026):
- *  - Race ANDROID_VR (1.61.48 + 1.43.32), IOS (21.03.x), ANDROID (19.44.33),
- *    ANDROID_MUSIC, ANDROID_CREATOR on-device in parallel. All are PoToken-free.
- *  - Race WEB first whenever its video-bound PoToken has already been minted
- *    by the persistent BotGuard WebView; token creation never blocks resolve.
+ * Strategy (updated September 2026):
+ *  - Wait briefly for an on-device video-bound PoToken, then race current WEB,
+ *    Android, iOS and visionOS client identities in parallel.
+ *  - Obsolete Android VR clients are excluded because their media URLs are now
+ *    rejected; client failures remain isolated so one refusal cannot stop all.
  *  - Each request carries X-YouTube-Client-Name / -Version / X-Goog-Visitor-Id
  *    headers so YouTube's edge routes it as a genuine mobile client.
  *  - visitorData is fetched once at warm-up and cached for process lifetime.
