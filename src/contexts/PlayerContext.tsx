@@ -1570,10 +1570,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         return await signStorageAudioUrl(song.audio_url!);
       }
 
-      // YOUTUBE REMOVED — a legacy `yt-video:` placeholder is no longer resolved
-      // against YouTube at all (blocked IPs, PoTokens, terms violation). We go
-      // straight to the licensed sources by title/artist, which answer in a few
-      // hundred milliseconds from the CDN.
+      // The browser path cannot resolve YouTube directly. Android handles
+      // `yt-video:` through its on-device resolver before this fallback runs;
+      // web playback continues through the direct catalog sources here.
       const attempt = async (forceRefresh: boolean): Promise<string | null> => {
         if (song.artist && song.title) {
           try {
