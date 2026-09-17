@@ -189,13 +189,13 @@ object YouTubeSearch {
         return out.distinctBy { it.videoId }.take(12)
     }
 
-    private fun pickBest(candidates: List<Candidate>, title: String, artist: String): String? {
-        if (candidates.isEmpty()) return null
+    /** All acceptable matches, best first. A confident wrong song is worse than a miss. */
+    private fun rank(candidates: List<Candidate>, title: String, artist: String): List<String> {
+        if (candidates.isEmpty()) return emptyList()
         val wantTitle = norm(title)
         val wantArtist = norm(artist)
         val titleTokens = wantTitle.split(' ').filter { it.length > 1 }
-        var best: Candidate? = null
-        var bestScore = Int.MIN_VALUE
+        val scored = ArrayList<Pair<Candidate, Int>>()
         for (c in candidates) {
             val ct = norm(c.title)
             val cs = norm(c.subtitle)
@@ -208,9 +208,10 @@ object YouTubeSearch {
                     .containsMatchIn("$ct $cs")
                 && !Regex("\\b(cover|remix|live|instrumental|lofi)\\b").containsMatchIn("$wantTitle $wantArtist")
             ) score -= 700
-            if (score > bestScore) { bestScore = score; best = c }
+            scored.add(c to score)
         }
-        // Require a real overlap; a confident wrong song is worse than a miss.
-        return if (bestScore >= 300) best?.videoId else null
+        return scored.filter { it.second >= 300 }
+            .sortedByDescending { it.second }
+            .map { it.first.videoId }
     }
 }
