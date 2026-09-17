@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1789658206392,
+      "tag": "0000_restrict_music_release_downloads_to_authenticated_users",
+      "breakpoints": true
+    }
+  ]
+}
