@@ -113,20 +113,31 @@ object MasterResolver {
             return Resolved(cachedYt.url, "youtube", 0L)
         }
 
+        val ytDeadline = startedAt + timeoutMs.coerceIn(1_000L, 6_500L)
         val ytFuture: CompletableFuture<Resolved?>? = if (direct != null || !title.isNullOrBlank()) {
             CompletableFuture.supplyAsync({
                 try {
-                    val id = direct
-                        ?: YouTubeSearch.searchVideoId(title.orEmpty(), artist.orEmpty())
-                        ?: run { ytFailure.set("NO_VIDEO_ID_MATCH"); return@supplyAsync null }
-                    val hit = NativeYouTubeResolver.resolve(id, timeoutMs = 4200L)
-                    if (hit == null) {
+                    // Candidate list, not a single guess: when the best match is
+                    // age-gated, region-blocked or SABR-only, the next accepted
+                    // match still gets a turn inside the same deadline instead
+                    // of the whole YouTube path counting as a miss.
+                    val ids = when {
+                        direct != null -> listOf(direct)
+                        else -> YouTubeSearch.searchVideoIds(title.orEmpty(), artist.orEmpty(), limit = 3)
+                    }
+                    if (ids.isEmpty()) {
+                        ytFailure.set("NO_VIDEO_ID_MATCH")
+                        return@supplyAsync null
+                    }
+                    for (id in ids) {
+                        val budget = ytDeadline - System.currentTimeMillis()
+                        if (budget < 700L) break
+                        val hit = NativeYouTubeResolver.resolve(id, timeoutMs = budget.coerceAtMost(4200L))
+                        if (hit != null) return@supplyAsync Resolved(hit.url, "youtube:${hit.client}", 0L)
                         ytFailure.set(runCatching { NativeYouTubeResolver.lastFailure(id) }
                             .getOrDefault("NO_PLAYABLE_STREAM"))
-                        null
-                    } else {
-                        Resolved(hit.url, "youtube:${hit.client}", 0L)
                     }
+                    null
                 } catch (t: Throwable) {
                     ytFailure.set(t.message ?: "YT_ERROR")
                     null
