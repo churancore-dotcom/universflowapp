@@ -57,51 +57,102 @@ object YouTubeSearch {
         return hit.videoId
     }
 
+    /**
+     * Search identities. ANDROID_MUSIC needs no PoToken and no session; the
+     * WEB_REMIX (music.youtube.com web) identity is tried only when the mobile
+     * one is refused or returns nothing usable, so a single stale/blocked
+     * client can no longer cost the track its videoId.
+     */
+    private data class SearchClient(
+        val name: String,
+        val version: String,
+        val clientId: String,
+        val userAgent: String,
+        val android: Boolean,
+    )
+
+    private val CLIENTS = listOf(
+        SearchClient(
+            "ANDROID_MUSIC", "8.16.53", "21",
+            "com.google.android.apps.youtube.music/8.16.53 (Linux; U; Android 14) gzip",
+            android = true,
+        ),
+        SearchClient(
+            "WEB_REMIX", "1.20260707.12.00", "67",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+                "(KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            android = false,
+        ),
+    )
+
     /** Best-effort: returns the most likely official videoId, or null. */
-    fun searchVideoId(title: String, artist: String): String? {
-        if (title.isBlank()) return null
-        peek(title, artist)?.let { return it }
-        return try {
-            val body = JSONObject().apply {
-                put("context", JSONObject().apply {
-                    put("client", JSONObject().apply {
-                        put("clientName", "ANDROID_MUSIC")
-                        put("clientVersion", "7.27.52")
+    fun searchVideoId(title: String, artist: String): String? =
+        searchVideoIds(title, artist, limit = 1).firstOrNull()
+
+    /**
+     * Ranked videoId candidates, best first. [MasterResolver] walks this list:
+     * if the top match returns no playable stream (age gate, region block,
+     * SABR-only edge), the next acceptable match still gets a chance instead of
+     * the whole YouTube path counting as a miss.
+     */
+    fun searchVideoIds(title: String, artist: String, limit: Int = 3): List<String> {
+        if (title.isBlank()) return emptyList()
+        val out = LinkedHashSet<String>()
+        peek(title, artist)?.let { out.add(it) }
+        for (client in CLIENTS) {
+            if (out.size >= limit) break
+            rank(fetchCandidates(title, artist, client), title, artist).forEach {
+                if (out.size < limit) out.add(it)
+            }
+        }
+        out.firstOrNull()?.let { cache[key(title, artist)] = Hit(it, System.currentTimeMillis()) }
+        if (out.isNotEmpty()) Log.d(TAG, "matched '$title' / '$artist' -> $out")
+        return out.toList()
+    }
+
+    private fun fetchCandidates(
+        title: String,
+        artist: String,
+        client: SearchClient,
+    ): List<Candidate> = try {
+        val body = JSONObject().apply {
+            put("context", JSONObject().apply {
+                put("client", JSONObject().apply {
+                    put("clientName", client.name)
+                    put("clientVersion", client.version)
+                    if (client.android) {
                         put("androidSdkVersion", 34)
                         put("osName", "Android")
                         put("osVersion", "14")
-                        put("hl", "en")
-                        put("gl", "IN")
-                    })
+                    }
+                    put("hl", "en")
+                    put("gl", "IN")
                 })
-                put("query", listOf(title, artist).filter { it.isNotBlank() }.joinToString(" "))
-                put("params", java.net.URLDecoder.decode(SONGS_FILTER, "UTF-8"))
-            }.toString()
+            })
+            put("query", listOf(title, artist).filter { it.isNotBlank() }.joinToString(" "))
+            put("params", java.net.URLDecoder.decode(SONGS_FILTER, "UTF-8"))
+        }.toString()
 
-            val req = Request.Builder()
-                .url(ENDPOINT)
-                .post(body.toRequestBody("application/json".toMediaType()))
-                .header("User-Agent", "com.google.android.apps.youtube.music/7.27.52 (Linux; U; Android 14) gzip")
-                .header("X-YouTube-Client-Name", "21")
-                .header("X-YouTube-Client-Version", "7.27.52")
-                .header("Content-Type", "application/json")
-                .build()
+        val req = Request.Builder()
+            .url(ENDPOINT)
+            .post(body.toRequestBody("application/json".toMediaType()))
+            .header("User-Agent", client.userAgent)
+            .header("X-YouTube-Client-Name", client.clientId)
+            .header("X-YouTube-Client-Version", client.version)
+            .header("Content-Type", "application/json")
+            .build()
 
-            http.newCall(req).execute().use { res ->
-                if (!res.isSuccessful) {
-                    Log.w(TAG, "search HTTP ${res.code}")
-                    return null
-                }
-                val json = JSONObject(res.body?.string().orEmpty())
-                val best = pickBest(collectCandidates(json), title, artist) ?: return null
-                cache[key(title, artist)] = Hit(best, System.currentTimeMillis())
-                Log.d(TAG, "matched '$title' / '$artist' -> $best")
-                best
+        http.newCall(req).execute().use { res ->
+            if (!res.isSuccessful) {
+                Log.w(TAG, "search HTTP ${res.code} via ${client.name}")
+                emptyList()
+            } else {
+                collectCandidates(JSONObject(res.body?.string().orEmpty()))
             }
-        } catch (t: Throwable) {
-            Log.w(TAG, "search failed: ${t.message}")
-            null
         }
+    } catch (t: Throwable) {
+        Log.w(TAG, "search failed via ${client.name}: ${t.message}")
+        emptyList()
     }
 
     private data class Candidate(val videoId: String, val title: String, val subtitle: String)
