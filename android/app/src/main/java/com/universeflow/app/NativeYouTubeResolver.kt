@@ -514,6 +514,7 @@ object NativeYouTubeResolver {
         ctx: ClientCtx,
         failureCodes: java.util.concurrent.ConcurrentLinkedQueue<String>,
         attemptErrors: java.util.concurrent.ConcurrentLinkedQueue<String>,
+        retriedAuth: Boolean = false,
     ): Pair<String, Int>? {
         val sts: String? = if (ctx.needsSts) PlayerJsManager.getSts() else null
         if (ctx.needsSts && sts == null) return null
@@ -574,6 +575,16 @@ object NativeYouTubeResolver {
                 resp.header("X-Goog-Visitor-Id")?.let { setVisitorData(it) }
             }
             if (!resp.isSuccessful) {
+                // A paired account whose bearer was invalidated early answers
+                // 401/403 even though the grant is still good. Mint a new token
+                // once and replay the same request instead of falling through
+                // to the anonymous clients (which is what LOGIN_REQUIRED-ed).
+                if (bearer != null && !retriedAuth && (resp.code == 401 || resp.code == 403)) {
+                    Log.d(TAG, "${ctx.name}: stale bearer (HTTP ${resp.code}); refreshing token and retrying")
+                    YouTubeAccount.invalidateAccess()
+                    attemptErrors.add("${ctx.name}:AUTH_REFRESHED")
+                    return attempt(videoId, ctx, failureCodes, attemptErrors, retriedAuth = true)
+                }
                 failureCodes.add("HTTP_${resp.code}")
                 attemptErrors.add("${ctx.name}:HTTP_${resp.code}")
                 if (resp.code == 403 || resp.code == 429) coolDownClient(ctx.name, "HTTP ${resp.code}")
@@ -583,9 +594,22 @@ object NativeYouTubeResolver {
             val json = JSONObject(raw)
             val status = json.optJSONObject("playabilityStatus")?.optString("status")
             if (status != null && status != "OK") {
+                // Same story with a 200 body: the session behind the bearer was
+                // reset server-side, so the signed-in client is told to log in.
+                if (bearer != null && !retriedAuth && status == "LOGIN_REQUIRED") {
+                    Log.d(TAG, "${ctx.name}: LOGIN_REQUIRED with a bearer; refreshing token and retrying")
+                    YouTubeAccount.invalidateAccess()
+                    attemptErrors.add("${ctx.name}:AUTH_REFRESHED")
+                    return attempt(videoId, ctx, failureCodes, attemptErrors, retriedAuth = true)
+                }
                 failureCodes.add(status)
                 attemptErrors.add("${ctx.name}:$status")
-                if (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE") coolDownClient(ctx.name, status)
+                // Never bench the signed-in client: it is the only one that can
+                // play age-gated/region-locked tracks, and a per-video refusal
+                // must not disqualify it from the next song's race.
+                if (!ctx.useAuth && (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE")) {
+                    coolDownClient(ctx.name, status)
+                }
                 return null
             }
             val streamingData = json.optJSONObject("streamingData") ?: run {

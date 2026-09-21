@@ -81,6 +81,21 @@ object YouTubeAccount {
 
     fun isSignedIn(): Boolean = refreshToken != null
 
+    /**
+     * Drop the cached bearer without touching the grant.
+     *
+     * Google can invalidate an access token before its stated expiry (password
+     * change, session reset, scope re-consent). Without this, every play kept
+     * replaying the same dead token until it "expired" on paper, so paired
+     * accounts still hit LOGIN_REQUIRED. Callers invalidate on a 401 and retry
+     * once with a freshly minted token.
+     */
+    fun invalidateAccess() {
+        accessToken = null
+        expiresAt = 0L
+        try { prefs()?.edit()?.remove(K_ACCESS)?.remove(K_EXPIRES)?.apply() } catch (_: Throwable) {}
+    }
+
     fun signOut() {
         refreshToken = null
         accessToken = null

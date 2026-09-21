@@ -28,7 +28,15 @@ export function YouTubeAccountSection() {
 
   useEffect(() => {
     void getYouTubeAccountStatus().then(setConnected);
+    // Re-check whenever the app comes back to the foreground: access can be
+    // revoked from a Google account page, and the device then quietly signs
+    // itself out. Without this the row kept claiming "Connected" forever.
+    const refresh = () => {
+      if (document.visibilityState === 'visible') void getYouTubeAccountStatus().then(setConnected);
+    };
+    document.addEventListener('visibilitychange', refresh);
     return () => {
+      document.removeEventListener('visibilitychange', refresh);
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
   }, []);

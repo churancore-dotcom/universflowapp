@@ -26,6 +26,19 @@ const getVariantTag = (title?: string | null) => {
   return Array.from(new Set(matches.map((m) => m.replace(/[^a-z0-9]+/g, '')))).sort().join('.');
 };
 
+/**
+ * Human-readable version markers for a title, e.g. "Live · Reprise".
+ * Shown in Up Next so two recordings of one song are told apart at a glance.
+ */
+export const getVersionLabel = (title?: string | null) => {
+  const matches = (title || '').toLowerCase().match(VARIANT_WORDS);
+  if (!matches) return '';
+  const unique = Array.from(new Set(matches.map((m) => m.trim())));
+  return unique
+    .map((word) => word.replace(/\b\w/g, (c) => c.toUpperCase()))
+    .join(' · ');
+};
+
 /** Stable content identity across providers (catalog, Audius, and JioSaavn). */
 export const getQueueFingerprint = (song: QueueSongIdentity) => {
   const title = cleanIdentityPart(song.title);
