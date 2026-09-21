@@ -355,6 +355,10 @@ const Settings = () => {
     handleAutoplay(true);
     if (cfEnabled) toggleCrossfade();
     if (gaplessPro) toggleGaplessPro();
+    setCrossfadeDuration(6);
+    setCrossfadeCurve('equal-power');
+    if (isNativePlayerAvailable()) void setNativePlaybackSpeed(1);
+    handleStreamQuality('high');
     toast.success('Playback settings restored');
   };
 
