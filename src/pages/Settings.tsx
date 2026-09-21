@@ -33,6 +33,7 @@ import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/use
 import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLang } from '@/lib/userPrefs';
 import SEOHead from '@/components/SEOHead';
 import { isNativePlayerAvailable, setNativePlaybackSpeed } from '@/lib/nativePlayer';
+import { APP_RELEASE, getInstalledAppVersion } from '@/lib/buildInfo';
 import { YouTubeAccountSection } from '@/components/YouTubeAccountSection';
 
 
