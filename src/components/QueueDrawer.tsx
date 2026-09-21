@@ -123,6 +123,16 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
             {song.title}
           </p>
           <p className="text-xs text-muted-foreground truncate">{song.artist}</p>
+          <div className="flex items-center gap-1.5 mt-1">
+            {versionLabel && (
+              <span className="px-1.5 py-0.5 rounded-md bg-primary/15 text-primary text-[10px] font-semibold uppercase tracking-wide">
+                {versionLabel}
+              </span>
+            )}
+            <span className="px-1.5 py-0.5 rounded-md bg-white/10 text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
+              {sourceLabel}
+            </span>
+          </div>
         </div>
 
         <motion.button
