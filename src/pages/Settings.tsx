@@ -737,8 +737,8 @@ const Settings = () => {
           {/* ============ 11. ABOUT ============ */}
           <Section label="About">
             <SettingsUpdateButton />
-            <Row icon={<Info className="w-4 h-4" />} label="Version" right={<span className="text-sm text-muted-foreground">1.0.0</span>} />
-            <Row icon={<Info className="w-4 h-4" />} label="Build" right={<span className="text-sm text-muted-foreground">2026.04.26</span>} last />
+            <Row icon={<Info className="w-4 h-4" />} label="Version" right={<span className="text-sm text-muted-foreground">{appVersion.versionName}</span>} />
+            <Row icon={<Info className="w-4 h-4" />} label="Build" right={<span className="text-sm text-muted-foreground">{appVersion.versionCode} · {APP_RELEASE.builtOn}</span>} last />
           </Section>
         </main>
 
