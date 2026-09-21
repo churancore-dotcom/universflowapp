@@ -180,6 +180,12 @@ const Settings = () => {
     const s = readEq();
     return typeof s.playbackSpeed === 'number' ? s.playbackSpeed : 1;
   });
+  const [appVersion, setAppVersion] = useState<{ versionName: string; versionCode: string }>({
+    versionName: APP_RELEASE.versionName,
+    versionCode: String(APP_RELEASE.versionCode),
+  });
+
+  useEffect(() => { void getInstalledAppVersion().then(setAppVersion); }, []);
 
   const loadDevices = useCallback(async () => {
     if (!user) return;
