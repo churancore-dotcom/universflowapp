@@ -33,6 +33,7 @@ import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/use
 import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLang } from '@/lib/userPrefs';
 import SEOHead from '@/components/SEOHead';
 import { isNativePlayerAvailable, setNativePlaybackSpeed } from '@/lib/nativePlayer';
+import { APP_RELEASE, getInstalledAppVersion } from '@/lib/buildInfo';
 import { YouTubeAccountSection } from '@/components/YouTubeAccountSection';
 
 
@@ -179,6 +180,12 @@ const Settings = () => {
     const s = readEq();
     return typeof s.playbackSpeed === 'number' ? s.playbackSpeed : 1;
   });
+  const [appVersion, setAppVersion] = useState<{ versionName: string; versionCode: string }>({
+    versionName: APP_RELEASE.versionName,
+    versionCode: String(APP_RELEASE.versionCode),
+  });
+
+  useEffect(() => { void getInstalledAppVersion().then(setAppVersion); }, []);
 
   const loadDevices = useCallback(async () => {
     if (!user) return;
@@ -271,7 +278,18 @@ const Settings = () => {
         toast.success('Device registered for notifications');
       }
     } else if ('Notification' in window) {
-      Notification.requestPermission();
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setNotifications(false);
+        localStorage.setItem('uf_notifications', 'false');
+        toast.error('Notifications are blocked in your browser settings');
+      } else {
+        toast.success('Notifications enabled');
+      }
+    } else {
+      setNotifications(false);
+      localStorage.setItem('uf_notifications', 'false');
+      toast.error('This browser does not support notifications');
     }
   };
   const handleHaptics = (val: boolean) => {
@@ -337,6 +355,10 @@ const Settings = () => {
     handleAutoplay(true);
     if (cfEnabled) toggleCrossfade();
     if (gaplessPro) toggleGaplessPro();
+    setCrossfadeDuration(6);
+    setCrossfadeCurve('equal-power');
+    if (isNativePlayerAvailable()) void setNativePlaybackSpeed(1);
+    handleStreamQuality('high');
     toast.success('Playback settings restored');
   };
 
@@ -711,7 +733,7 @@ const Settings = () => {
               onClick={() => navigate(isPremium ? '/subscription' : '/premium')}
             />
             <Row icon={<MessageSquare className="w-4 h-4" />} label="Contact Support" chevron onClick={() => setShowSupport(true)} />
-            <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & FAQs" chevron onClick={() => setShowSupport(true)} />
+            <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & FAQs" sub="Answers to common questions" chevron onClick={() => navigate('/support')} />
             <Row icon={<Activity className="w-4 h-4" />} label="Playback Diagnostics" chevron last onClick={() => navigate('/debug')} />
 
           </Section>
@@ -737,8 +759,8 @@ const Settings = () => {
           {/* ============ 11. ABOUT ============ */}
           <Section label="About">
             <SettingsUpdateButton />
-            <Row icon={<Info className="w-4 h-4" />} label="Version" right={<span className="text-sm text-muted-foreground">1.0.0</span>} />
-            <Row icon={<Info className="w-4 h-4" />} label="Build" right={<span className="text-sm text-muted-foreground">2026.04.26</span>} last />
+            <Row icon={<Info className="w-4 h-4" />} label="Version" right={<span className="text-sm text-muted-foreground">{appVersion.versionName}</span>} />
+            <Row icon={<Info className="w-4 h-4" />} label="Build" right={<span className="text-sm text-muted-foreground">{appVersion.versionCode} · {APP_RELEASE.builtOn}</span>} last />
           </Section>
         </main>
 
