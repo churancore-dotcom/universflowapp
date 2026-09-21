@@ -8,6 +8,13 @@
       "when": 1789658206392,
       "tag": "0000_restrict_music_release_downloads_to_authenticated_users",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1790012235579,
+      "tag": "0001_create_song_moments",
+      "breakpoints": true
     }
   ]
 }

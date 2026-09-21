@@ -1826,6 +1826,54 @@ export type Database = {
         }
         Relationships: []
       }
+      song_moments: {
+        Row: {
+          audio_url: string | null
+          clip_ms: number
+          cover_url: string | null
+          created_at: string
+          feeling: string | null
+          id: string
+          note: string | null
+          position_ms: number
+          song_artist: string
+          song_id: string
+          song_title: string
+          source: string | null
+          user_id: string
+        }
+        Insert: {
+          audio_url?: string | null
+          clip_ms?: number
+          cover_url?: string | null
+          created_at?: string
+          feeling?: string | null
+          id?: string
+          note?: string | null
+          position_ms?: number
+          song_artist?: string
+          song_id: string
+          song_title: string
+          source?: string | null
+          user_id: string
+        }
+        Update: {
+          audio_url?: string | null
+          clip_ms?: number
+          cover_url?: string | null
+          created_at?: string
+          feeling?: string | null
+          id?: string
+          note?: string | null
+          position_ms?: number
+          song_artist?: string
+          song_id?: string
+          song_title?: string
+          source?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       song_play_events: {
         Row: {
           action: string
