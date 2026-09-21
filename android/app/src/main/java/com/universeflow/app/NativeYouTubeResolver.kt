@@ -604,7 +604,12 @@ object NativeYouTubeResolver {
                 }
                 failureCodes.add(status)
                 attemptErrors.add("${ctx.name}:$status")
-                if (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE") coolDownClient(ctx.name, status)
+                // Never bench the signed-in client: it is the only one that can
+                // play age-gated/region-locked tracks, and a per-video refusal
+                // must not disqualify it from the next song's race.
+                if (!ctx.useAuth && (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE")) {
+                    coolDownClient(ctx.name, status)
+                }
                 return null
             }
             val streamingData = json.optJSONObject("streamingData") ?: run {
