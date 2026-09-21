@@ -25,3 +25,15 @@ describe('player queue normalization', () => {
     expect(findNativeQueueIndex(queue, staleMediaId)).toBe(1);
   });
 });
+describe('song version handling', () => {
+  it('keeps genuinely different recordings of the same song', () => {
+    const versions = [
+      { id: 'a', title: 'Kesariya (Title Track)', artist: 'Arijit Singh' },
+      { id: 'b', title: 'Kesariya (Reprise)', artist: 'Arijit Singh' },
+      { id: 'c', title: 'Kesariya (Live)', artist: 'Arijit Singh' },
+      { id: 'd', title: 'Kesariya', artist: 'Arijit Singh' },
+      { id: 'e', title: 'Kesariya (Official Video)', artist: 'Arijit Singh' },
+    ];
+    expect(dedupePlayerQueue(versions).map((t) => t.id)).toEqual(['a', 'b', 'c', 'd']);
+  });
+});
