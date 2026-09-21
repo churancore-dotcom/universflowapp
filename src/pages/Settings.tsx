@@ -272,7 +272,18 @@ const Settings = () => {
         toast.success('Device registered for notifications');
       }
     } else if ('Notification' in window) {
-      Notification.requestPermission();
+      const permission = await Notification.requestPermission();
+      if (permission !== 'granted') {
+        setNotifications(false);
+        localStorage.setItem('uf_notifications', 'false');
+        toast.error('Notifications are blocked in your browser settings');
+      } else {
+        toast.success('Notifications enabled');
+      }
+    } else {
+      setNotifications(false);
+      localStorage.setItem('uf_notifications', 'false');
+      toast.error('This browser does not support notifications');
     }
   };
   const handleHaptics = (val: boolean) => {
