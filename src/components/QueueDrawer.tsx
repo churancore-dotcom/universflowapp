@@ -6,6 +6,7 @@ import SongArtwork from './SongArtwork';
 import { iosSpring } from '@/lib/animations';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
+import { getVersionLabel } from '@/lib/playerQueue';
 
 interface QueueDrawerProps {
   isOpen: boolean;
