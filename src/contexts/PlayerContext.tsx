@@ -1857,8 +1857,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     const selectedSong = incomingQueue[index];
     if (!selectedSong) return;
     const songQueue = dedupePlayerQueue(incomingQueue);
-    const indexInUniqueQueue = songQueue.findIndex((song) => getQueueFingerprint(song) === getQueueFingerprint(selectedSong));
-    index = indexInUniqueQueue >= 0 ? indexInUniqueQueue : 0;
+    // Tapped row wins by exact identity first: two recordings of the same song
+    // can legitimately sit in the queue, and a fingerprint-only match would
+    // start the wrong one. Fingerprint stays as the fallback for rows whose id
+    // changed after a provider re-resolve.
+    const exactIndex = selectedSong.id
+      ? songQueue.findIndex((song) => song.id === selectedSong.id)
+      : -1;
+    const fingerprintIndex = exactIndex >= 0
+      ? exactIndex
+      : songQueue.findIndex((song) => getQueueFingerprint(song) === getQueueFingerprint(selectedSong));
+    index = fingerprintIndex >= 0 ? fingerprintIndex : 0;
     const song = songQueue[index];
     if (!song || !audioRef.current) return;
 
