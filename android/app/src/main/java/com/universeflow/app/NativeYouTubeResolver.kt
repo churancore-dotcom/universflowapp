@@ -514,6 +514,7 @@ object NativeYouTubeResolver {
         ctx: ClientCtx,
         failureCodes: java.util.concurrent.ConcurrentLinkedQueue<String>,
         attemptErrors: java.util.concurrent.ConcurrentLinkedQueue<String>,
+        retriedAuth: Boolean = false,
     ): Pair<String, Int>? {
         val sts: String? = if (ctx.needsSts) PlayerJsManager.getSts() else null
         if (ctx.needsSts && sts == null) return null
