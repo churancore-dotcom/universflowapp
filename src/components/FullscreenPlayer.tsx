@@ -113,6 +113,15 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     setShowEqualizer(true);
   }, [isPremium]);
 
+  // Memory Tape — bookmark the exact second that's playing right now.
+  const handleSaveMoment = useCallback(() => {
+    triggerHaptic('selection');
+    if (!isPremium) { setShowMomentPremium(true); return; }
+    setMomentPositionMs(Math.max(0, Math.round(playerProgressStore.getEstimatedProgress() * 1000)));
+    setShowMomentSheet(true);
+  }, [isPremium]);
+
+
   const vibeSuggestions = useMemo(() => {
     if (!currentSong) return [];
     const seenVibes = new Set<string>();
