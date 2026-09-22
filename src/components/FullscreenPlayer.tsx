@@ -92,6 +92,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const [showEqualizer, setShowEqualizer] = useState(false);
   const [showEqPremium, setShowEqPremium] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const [showMomentSheet, setShowMomentSheet] = useState(false);
+  const [showMomentPremium, setShowMomentPremium] = useState(false);
+  const [momentPositionMs, setMomentPositionMs] = useState(0);
   const [showLyrics, setShowLyrics] = useState(false);
   const [direction, setDirection] = useState(0);
   // Local seek-drag state — prevents the live `progress` updates from snapping
