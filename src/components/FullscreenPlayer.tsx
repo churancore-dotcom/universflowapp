@@ -1,9 +1,11 @@
 import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Sparkles } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
 import { usePlayer } from '@/contexts/PlayerContext';
-import { usePlayerProgress } from '@/lib/playerProgressStore';
+import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
+import MomentCaptureSheet from './MomentCaptureSheet';
+import { useMoments } from '@/hooks/useMoments';
 import { useNavigate } from '@/lib/router-compat';
 import { Slider } from '@/components/ui/slider';
 import LikeButton from './LikeButton';
@@ -92,12 +94,16 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const [showEqualizer, setShowEqualizer] = useState(false);
   const [showEqPremium, setShowEqPremium] = useState(false);
   const [showQueue, setShowQueue] = useState(false);
+  const [showMomentSheet, setShowMomentSheet] = useState(false);
+  const [showMomentPremium, setShowMomentPremium] = useState(false);
+  const [momentPositionMs, setMomentPositionMs] = useState(0);
   const [showLyrics, setShowLyrics] = useState(false);
   const [direction, setDirection] = useState(0);
   // Local seek-drag state — prevents the live `progress` updates from snapping
   // the slider thumb back while the user is dragging it.
   const [dragProgress, setDragProgress] = useState<number | null>(null);
   const { isPremium } = usePremium();
+  const { save: saveMoment } = useMoments();
   const eqSettings = useEQSettings();
   const eqLabel = getEQPresetLabel(eqSettings);
   const prevSongIdRef = useRef<string | null>(null);
@@ -109,6 +115,15 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     if (!isPremium) { setShowEqPremium(true); return; }
     setShowEqualizer(true);
   }, [isPremium]);
+
+  // Memory Tape — bookmark the exact second that's playing right now.
+  const handleSaveMoment = useCallback(() => {
+    triggerHaptic('selection');
+    if (!isPremium) { setShowMomentPremium(true); return; }
+    setMomentPositionMs(Math.max(0, Math.round(playerProgressStore.getEstimatedProgress() * 1000)));
+    setShowMomentSheet(true);
+  }, [isPremium]);
+
 
   const vibeSuggestions = useMemo(() => {
     if (!currentSong) return [];
@@ -532,6 +547,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 >
                   <Sliders className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
+                <button
+                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
+                  onClick={handleSaveMoment}
+                  aria-label="Save this moment"
+                >
+                  <Sparkles className="w-[18px] h-[18px] text-primary" />
+                </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={() => { triggerHaptic('selection'); setShowPlaylistModal(true); }}
@@ -539,6 +561,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   <ListMusic className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
               </div>
+
 
             </div>
           </div>
@@ -556,7 +579,23 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           onClose={() => setShowEqPremium(false)}
         />
       )}
+      {showMomentSheet && (
+        <MomentCaptureSheet
+          song={currentSong}
+          positionMs={momentPositionMs}
+          onClose={() => setShowMomentSheet(false)}
+          onSave={saveMoment}
+        />
+      )}
+      {showMomentPremium && (
+        <PremiumLockOverlay
+          title="Memory Tape"
+          description="Save the exact second of any song, tag how it felt, and replay every saved moment back to back as one tape."
+          onClose={() => setShowMomentPremium(false)}
+        />
+      )}
       <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />
+
     </>
   );
 });
