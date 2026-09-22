@@ -869,6 +869,25 @@ export function setInstrumentalMix(percent: number) {
   applyStems();
 }
 
+/** Stem Lab — vocal (mid channel) level, 0..140 (% of normal). 100 = untouched. */
+export function setStemVocalLevel(percent: number) {
+  engine.stemVocal = Math.max(0, Math.min(140, percent));
+  if (engine.mode !== 'processed') return;
+  applyStems();
+}
+
+/** Stem Lab — backing/stage (side channel) level, 0..140. 100 = untouched. */
+export function setStemBackingLevel(percent: number) {
+  engine.stemBacking = Math.max(0, Math.min(140, percent));
+  if (engine.mode !== 'processed') return;
+  applyStems();
+}
+
+/** Current Stem Lab stem levels. */
+export function getStemLevels(): { vocals: number; backing: number } {
+  return { vocals: engine.stemVocal, backing: engine.stemBacking };
+}
+
 function applySurround() {
   if (!engine.ctx || !engine.surroundXfeedLR || !engine.surroundXfeedRL
       || !engine.surroundDirectL || !engine.surroundDirectR) return;
