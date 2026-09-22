@@ -1,9 +1,11 @@
 import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2 } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Sparkles } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
 import { usePlayer } from '@/contexts/PlayerContext';
-import { usePlayerProgress } from '@/lib/playerProgressStore';
+import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
+import MomentCaptureSheet from './MomentCaptureSheet';
+import { useMoments } from '@/hooks/useMoments';
 import { useNavigate } from '@/lib/router-compat';
 import { Slider } from '@/components/ui/slider';
 import LikeButton from './LikeButton';
