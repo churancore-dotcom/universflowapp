@@ -1,6 +1,6 @@
 import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Sparkles } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Sparkles, AudioLines } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
@@ -553,6 +553,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   aria-label="Save this moment"
                 >
                   <Sparkles className="w-[18px] h-[18px] text-primary" />
+                </button>
+                <button
+                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
+                  onClick={() => { triggerHaptic('selection'); navigate('/stemlab'); }}
+                  aria-label="Stem Lab"
+                >
+                  <AudioLines className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 

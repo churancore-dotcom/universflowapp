@@ -81,6 +81,9 @@ interface Engine {
   surroundEnabled: boolean;
   harmonicExciter: number;
   stereoWidth: number;
+  // Stem Lab: mid (vocal) and side (backing/stage) levels, 0..140 (% of normal).
+  stemVocal: number;
+  stemBacking: number;
   listeners: Set<(m: Mode) => void>;
   cachedIR: AudioBuffer | null;
 }
@@ -136,6 +139,8 @@ const engine: Engine = {
   surroundEnabled: false,
   harmonicExciter: 0,
   stereoWidth: 50,
+  stemVocal: 100,
+  stemBacking: 100,
   listeners: new Set(),
   cachedIR: null,
 };
@@ -813,8 +818,12 @@ function applyStems() {
   const exciter = Math.max(0, Math.min(1, engine.harmonicExciter / 100));
   // width: 0..100 -> 0..2 (normal = 1.0 at 50)
   const width = Math.max(0, Math.min(2, engine.stereoWidth / 50));
-  
-  const neutral = exciter < 0.05 && Math.abs(width - 1.0) < 0.05;
+  // Stem Lab levels: 0..140% of normal. 100 = untouched.
+  const vocal = Math.max(0, Math.min(140, engine.stemVocal)) / 100;
+  const backing = Math.max(0, Math.min(140, engine.stemBacking)) / 100;
+
+  const neutral = exciter < 0.05 && Math.abs(width - 1.0) < 0.05
+    && Math.abs(vocal - 1) < 0.01 && Math.abs(backing - 1) < 0.01;
 
   const setGain = (n: GainNode | null, v: number, smooth = SMOOTH) => {
     if (!n) return;
@@ -836,6 +845,11 @@ function applyStems() {
   setDb(engine.stemsMidPresence, exciter * 4.5);
   setDb(engine.stemsMidAir, exciter * 3.5);
 
+  // Stem Lab: mid channel (lead vocal + kick/bass center) level, and side
+  // channel (backing/stage) level. Side width is applied on top at pos/neg.
+  setGain(engine.stemsMidSum, vocal);
+  setGain(engine.stemsSideSum, backing);
+
   // Stereo width: adjust side channel gain
   setGain(engine.stemsSidePos, width);
   setGain(engine.stemsSideNeg, -width);
@@ -853,6 +867,25 @@ export function setInstrumentalMix(percent: number) {
   engine.stereoWidth = Math.max(0, Math.min(100, percent));
   if (engine.mode !== 'processed') return;
   applyStems();
+}
+
+/** Stem Lab — vocal (mid channel) level, 0..140 (% of normal). 100 = untouched. */
+export function setStemVocalLevel(percent: number) {
+  engine.stemVocal = Math.max(0, Math.min(140, percent));
+  if (engine.mode !== 'processed') return;
+  applyStems();
+}
+
+/** Stem Lab — backing/stage (side channel) level, 0..140. 100 = untouched. */
+export function setStemBackingLevel(percent: number) {
+  engine.stemBacking = Math.max(0, Math.min(140, percent));
+  if (engine.mode !== 'processed') return;
+  applyStems();
+}
+
+/** Current Stem Lab stem levels. */
+export function getStemLevels(): { vocals: number; backing: number } {
+  return { vocals: engine.stemVocal, backing: engine.stemBacking };
 }
 
 function applySurround() {
