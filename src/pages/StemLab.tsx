@@ -134,7 +134,7 @@ const StemLab = () => {
             {currentSong && (
               <div className="mb-4 flex items-center gap-3 rounded-2xl bg-card/70 p-3 ring-1 ring-border/40">
                 <OptimizedImage
-                  src={currentSong.coverUrl || '/placeholder.svg'}
+                  src={currentSong.cover_url || '/placeholder.svg'}
                   alt={currentSong.title}
                   className="h-11 w-11 rounded-xl object-cover"
                 />
