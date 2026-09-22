@@ -33,6 +33,7 @@ import { Route as RecapRouteImport } from './routes/recap'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SearchRouteImport } from './routes/search'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as StemlabRouteImport } from './routes/stemlab'
 import { Route as SubscriptionRouteImport } from './routes/subscription'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as VerifyRouteImport } from './routes/verify'
@@ -228,6 +229,11 @@ const SearchRoute = SearchRouteImport.update({
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StemlabRoute = StemlabRouteImport.update({
+  id: '/stemlab',
+  path: '/stemlab',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SubscriptionRoute = SubscriptionRouteImport.update({
@@ -647,6 +653,7 @@ export interface FileRoutesByFullPath {
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/stemlab': typeof StemlabRoute
   '/subscription': typeof SubscriptionRoute
   '/support': typeof SupportRoute
   '/verify': typeof VerifyRoute
@@ -748,6 +755,7 @@ export interface FileRoutesByTo {
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/stemlab': typeof StemlabRoute
   '/subscription': typeof SubscriptionRoute
   '/support': typeof SupportRoute
   '/verify': typeof VerifyRoute
@@ -850,6 +858,7 @@ export interface FileRoutesById {
   '/reset-password': typeof ResetPasswordRoute
   '/search': typeof SearchRoute
   '/settings': typeof SettingsRoute
+  '/stemlab': typeof StemlabRoute
   '/subscription': typeof SubscriptionRoute
   '/support': typeof SupportRoute
   '/verify': typeof VerifyRoute
@@ -954,6 +963,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/search'
     | '/settings'
+    | '/stemlab'
     | '/subscription'
     | '/support'
     | '/verify'
@@ -1055,6 +1065,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/search'
     | '/settings'
+    | '/stemlab'
     | '/subscription'
     | '/support'
     | '/verify'
@@ -1156,6 +1167,7 @@ export interface FileRouteTypes {
     | '/reset-password'
     | '/search'
     | '/settings'
+    | '/stemlab'
     | '/subscription'
     | '/support'
     | '/verify'
@@ -1259,6 +1271,7 @@ export interface RootRouteChildren {
   ResetPasswordRoute: typeof ResetPasswordRoute
   SearchRoute: typeof SearchRoute
   SettingsRoute: typeof SettingsRoute
+  StemlabRoute: typeof StemlabRoute
   SubscriptionRoute: typeof SubscriptionRoute
   SupportRoute: typeof SupportRoute
   VerifyRoute: typeof VerifyRoute
@@ -1458,6 +1471,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stemlab': {
+      id: '/stemlab'
+      path: '/stemlab'
+      fullPath: '/stemlab'
+      preLoaderRoute: typeof StemlabRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/subscription': {
@@ -2133,6 +2153,7 @@ const rootRouteChildren: RootRouteChildren = {
   ResetPasswordRoute: ResetPasswordRoute,
   SearchRoute: SearchRoute,
   SettingsRoute: SettingsRoute,
+  StemlabRoute: StemlabRoute,
   SubscriptionRoute: SubscriptionRoute,
   SupportRoute: SupportRoute,
   VerifyRoute: VerifyRoute,
