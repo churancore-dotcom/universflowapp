@@ -79,7 +79,7 @@ describe('persistence', () => {
 
   it('returns defaults when nothing is stored or data is corrupt', () => {
     expect(loadMix()).toEqual(DEFAULT_MIX);
-    window.localStorage.setItem('uf-stemlab-mix', '{nope');
+    globalThis.localStorage.setItem('uf-stemlab-mix', '{nope');
     expect(loadMix()).toEqual(DEFAULT_MIX);
   });
 });
