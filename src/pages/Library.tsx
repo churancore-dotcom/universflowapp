@@ -276,6 +276,24 @@ const Library = () => {
           />
         </header>
 
+        <div className="flex-shrink-0 px-3 pb-2">
+          <button
+            onClick={() => navigate('/moments')}
+            className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 p-3 text-left active:scale-[0.99]"
+            style={{ background: 'linear-gradient(120deg, hsl(var(--primary) / 0.18), hsl(var(--card)))' }}
+          >
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">✨</span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-bold">Memory Tape</span>
+              <span className="block truncate text-[11px] text-muted-foreground">
+                Replay the exact seconds you saved
+              </span>
+            </span>
+          </button>
+        </div>
+
+
+
         <main className="flex-1 overflow-hidden px-3 pt-2.5 flex flex-col relative z-10">
           <Tabs value={activeTab} onValueChange={(value) => { setActiveTab(value); setSearchParams({ tab: value }); }} className="flex-1 flex flex-col overflow-hidden">
             {/* Tabs — bento surface */}
