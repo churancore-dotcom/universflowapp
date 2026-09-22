@@ -818,8 +818,12 @@ function applyStems() {
   const exciter = Math.max(0, Math.min(1, engine.harmonicExciter / 100));
   // width: 0..100 -> 0..2 (normal = 1.0 at 50)
   const width = Math.max(0, Math.min(2, engine.stereoWidth / 50));
-  
-  const neutral = exciter < 0.05 && Math.abs(width - 1.0) < 0.05;
+  // Stem Lab levels: 0..140% of normal. 100 = untouched.
+  const vocal = Math.max(0, Math.min(140, engine.stemVocal)) / 100;
+  const backing = Math.max(0, Math.min(140, engine.stemBacking)) / 100;
+
+  const neutral = exciter < 0.05 && Math.abs(width - 1.0) < 0.05
+    && Math.abs(vocal - 1) < 0.01 && Math.abs(backing - 1) < 0.01;
 
   const setGain = (n: GainNode | null, v: number, smooth = SMOOTH) => {
     if (!n) return;
