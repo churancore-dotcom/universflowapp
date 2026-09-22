@@ -83,7 +83,7 @@ export function describeMix(mix: StemMix): string {
 }
 
 function storage(): Storage | null {
-  try { return window.localStorage; } catch { return null; }
+  try { return globalThis.localStorage ?? null; } catch { return null; }
 }
 
 export function loadMix(): StemMix {
