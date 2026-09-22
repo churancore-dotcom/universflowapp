@@ -3,7 +3,7 @@
  */
 import { useState } from 'react';
 import { motion } from 'framer-motion';
-import { X, Sparkles } from 'lucide-react';
+import { X, Bookmark } from 'lucide-react';
 import { toast } from 'sonner';
 import { useNavigate } from '@/lib/router-compat';
 import type { Song } from '@/contexts/PlayerContext';
@@ -59,7 +59,7 @@ const MomentCaptureSheet = ({ song, positionMs, onClose, onSave }: MomentCapture
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
             <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
-              <Sparkles className="h-3 w-3" /> Save this moment
+              <Bookmark className="h-3 w-3" /> Save this moment
             </p>
             <h2 className="text-[19px] font-bold leading-tight">{song.title}</h2>
             <p className="text-[12px] text-muted-foreground">
