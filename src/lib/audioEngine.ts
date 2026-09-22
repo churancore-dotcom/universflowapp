@@ -81,6 +81,9 @@ interface Engine {
   surroundEnabled: boolean;
   harmonicExciter: number;
   stereoWidth: number;
+  // Stem Lab: mid (vocal) and side (backing/stage) levels, 0..140 (% of normal).
+  stemVocal: number;
+  stemBacking: number;
   listeners: Set<(m: Mode) => void>;
   cachedIR: AudioBuffer | null;
 }
@@ -136,6 +139,8 @@ const engine: Engine = {
   surroundEnabled: false,
   harmonicExciter: 0,
   stereoWidth: 50,
+  stemVocal: 100,
+  stemBacking: 100,
   listeners: new Set(),
   cachedIR: null,
 };
