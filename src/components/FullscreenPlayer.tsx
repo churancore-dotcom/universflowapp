@@ -554,6 +554,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 >
                   <Sparkles className="w-[18px] h-[18px] text-primary" />
                 </button>
+                <button
+                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
+                  onClick={() => { triggerHaptic('selection'); navigate('/stemlab'); }}
+                  aria-label="Stem Lab"
+                >
+                  <AudioLines className="w-[18px] h-[18px] text-muted-foreground" />
+                </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={() => { triggerHaptic('selection'); setShowPlaylistModal(true); }}

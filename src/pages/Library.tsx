@@ -276,7 +276,7 @@ const Library = () => {
           />
         </header>
 
-        <div className="flex-shrink-0 px-3 pb-2">
+        <div className="flex-shrink-0 px-3 pb-2 space-y-2">
           <button
             onClick={() => navigate('/moments')}
             className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 p-3 text-left active:scale-[0.99]"
@@ -287,6 +287,19 @@ const Library = () => {
               <span className="block text-[13px] font-bold">Memory Tape</span>
               <span className="block truncate text-[11px] text-muted-foreground">
                 Replay the exact seconds you saved
+              </span>
+            </span>
+          </button>
+          <button
+            onClick={() => navigate('/stemlab')}
+            className="flex w-full items-center gap-3 rounded-2xl border border-primary/30 p-3 text-left active:scale-[0.99]"
+            style={{ background: 'linear-gradient(120deg, hsl(var(--accent) / 0.18), hsl(var(--card)))' }}
+          >
+            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-primary/20 text-primary">🎚️</span>
+            <span className="min-w-0">
+              <span className="block text-[13px] font-bold">Stem Lab</span>
+              <span className="block truncate text-[11px] text-muted-foreground">
+                Karaoke, a cappella — remix any song live
               </span>
             </span>
           </button>
