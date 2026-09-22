@@ -845,6 +845,11 @@ function applyStems() {
   setDb(engine.stemsMidPresence, exciter * 4.5);
   setDb(engine.stemsMidAir, exciter * 3.5);
 
+  // Stem Lab: mid channel (lead vocal + kick/bass center) level, and side
+  // channel (backing/stage) level. Side width is applied on top at pos/neg.
+  setGain(engine.stemsMidSum, vocal);
+  setGain(engine.stemsSideSum, backing);
+
   // Stereo width: adjust side channel gain
   setGain(engine.stemsSidePos, width);
   setGain(engine.stemsSideNeg, -width);
