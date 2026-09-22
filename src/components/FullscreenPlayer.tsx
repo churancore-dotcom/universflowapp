@@ -547,6 +547,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 >
                   <Sliders className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
+                <button
+                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
+                  onClick={handleSaveMoment}
+                  aria-label="Save this moment"
+                >
+                  <Sparkles className="w-[18px] h-[18px] text-primary" />
+                </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={() => { triggerHaptic('selection'); setShowPlaylistModal(true); }}
@@ -554,6 +561,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   <ListMusic className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
               </div>
+
 
             </div>
           </div>
