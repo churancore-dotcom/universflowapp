@@ -579,7 +579,23 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           onClose={() => setShowEqPremium(false)}
         />
       )}
+      {showMomentSheet && (
+        <MomentCaptureSheet
+          song={currentSong}
+          positionMs={momentPositionMs}
+          onClose={() => setShowMomentSheet(false)}
+          onSave={saveMoment}
+        />
+      )}
+      {showMomentPremium && (
+        <PremiumLockOverlay
+          title="Memory Tape"
+          description="Save the exact second of any song, tag how it felt, and replay every saved moment back to back as one tape."
+          onClose={() => setShowMomentPremium(false)}
+        />
+      )}
       <QueueDrawer isOpen={showQueue} onClose={() => setShowQueue(false)} />
+
     </>
   );
 });
