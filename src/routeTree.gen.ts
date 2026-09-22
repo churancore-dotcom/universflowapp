@@ -24,6 +24,7 @@ import { Route as GetRouteImport } from './routes/get'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as MomentsRouteImport } from './routes/moments'
 import { Route as OfflineRouteImport } from './routes/offline'
 import { Route as OfflinePlayerRouteImport } from './routes/offline-player'
 import { Route as PremiumRouteImport } from './routes/premium'
@@ -182,6 +183,11 @@ const LibraryRoute = LibraryRouteImport.update({
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MomentsRoute = MomentsRouteImport.update({
+  id: '/moments',
+  path: '/moments',
   getParentRoute: () => rootRouteImport,
 } as any)
 const OfflineRoute = OfflineRouteImport.update({
@@ -632,6 +638,7 @@ export interface FileRoutesByFullPath {
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
+  '/moments': typeof MomentsRoute
   '/offline': typeof OfflineRoute
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
@@ -732,6 +739,7 @@ export interface FileRoutesByTo {
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
+  '/moments': typeof MomentsRoute
   '/offline': typeof OfflineRoute
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
@@ -833,6 +841,7 @@ export interface FileRoutesById {
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
+  '/moments': typeof MomentsRoute
   '/offline': typeof OfflineRoute
   '/offline-player': typeof OfflinePlayerRoute
   '/premium': typeof PremiumRoute
@@ -936,6 +945,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/library'
     | '/mcp'
+    | '/moments'
     | '/offline'
     | '/offline-player'
     | '/premium'
@@ -1036,6 +1046,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/library'
     | '/mcp'
+    | '/moments'
     | '/offline'
     | '/offline-player'
     | '/premium'
@@ -1136,6 +1147,7 @@ export interface FileRouteTypes {
     | '/home'
     | '/library'
     | '/mcp'
+    | '/moments'
     | '/offline'
     | '/offline-player'
     | '/premium'
@@ -1238,6 +1250,7 @@ export interface RootRouteChildren {
   HomeRoute: typeof HomeRoute
   LibraryRoute: typeof LibraryRoute
   McpRoute: typeof McpRoute
+  MomentsRoute: typeof MomentsRoute
   OfflineRoute: typeof OfflineRoute
   OfflinePlayerRoute: typeof OfflinePlayerRoute
   PremiumRoute: typeof PremiumRoute
@@ -1382,6 +1395,13 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/moments': {
+      id: '/moments'
+      path: '/moments'
+      fullPath: '/moments'
+      preLoaderRoute: typeof MomentsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/offline': {
@@ -2104,6 +2124,7 @@ const rootRouteChildren: RootRouteChildren = {
   HomeRoute: HomeRoute,
   LibraryRoute: LibraryRoute,
   McpRoute: McpRoute,
+  MomentsRoute: MomentsRoute,
   OfflineRoute: OfflineRoute,
   OfflinePlayerRoute: OfflinePlayerRoute,
   PremiumRoute: PremiumRoute,
