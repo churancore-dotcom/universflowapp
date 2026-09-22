@@ -103,6 +103,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   // the slider thumb back while the user is dragging it.
   const [dragProgress, setDragProgress] = useState<number | null>(null);
   const { isPremium } = usePremium();
+  const { save: saveMoment } = useMoments();
   const eqSettings = useEQSettings();
   const eqLabel = getEQPresetLabel(eqSettings);
   const prevSongIdRef = useRef<string | null>(null);
