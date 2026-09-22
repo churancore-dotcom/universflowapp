@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   ChevronLeft, Crown, Check, Disc3, Download,
   Zap, Copy, Loader2, ShieldCheck, Sliders, Music2, Infinity as InfinityIcon, Clock,
-  Moon, Orbit, Building2, Headphones,
+  Moon, Orbit, Building2, Headphones, AudioLines, Bookmark,
 } from 'lucide-react';
 import { useNavigate } from '@/lib/router-compat';
 import BottomNav from '@/components/BottomNav';
@@ -59,6 +59,10 @@ interface Feature {
 }
 
 const FEATURES: Feature[] = [
+  { icon: AudioLines, title: 'Stem Lab', desc: 'Strip or boost vocals and backing, then save your mix.', isNew: true,
+    long: 'Remix any playing track live with independent vocal, backing, shine, and stereo-width controls. Start with Karaoke, A Cappella, Bass & Beats, Stage Live, or Night Drive, then save a personal version that loads automatically with that song.' },
+  { icon: Bookmark, title: 'Memory Tape', desc: 'Save the exact seconds that give you goosebumps.', isNew: true,
+    long: 'Bookmark the exact second of any song, attach a feeling or private note, then replay all those moments back to back as one personal tape.' },
   { icon: InfinityIcon, title: 'Smart Crossfade + Gapless Pro', desc: 'DJ-grade equal-power curves and zero-gap track swaps.', isNew: true,
     long: 'Choose between linear, equal-power, smooth, and exponential crossfade curves — the same math used in DJ software. Gapless Pro overlaps two decoded tracks so albums and live mixes play with literally zero silence between songs.' },
   { icon: Headphones, title: 'Headphone 3D Surround', desc: 'Binaural crossfeed lifts sound out of your head.', isNew: true,

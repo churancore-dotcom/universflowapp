@@ -4,7 +4,7 @@ import {
   KeyRound, Trash2, EyeOff, Smartphone, Mail, CheckCircle2, Wifi, Download,
   Radio, Bell, Music2, Vibrate, Globe, HardDrive, FileText, Info, ShieldCheck,
   Languages, Waves, Zap, Repeat, PlayCircle, HelpCircle,
-  Activity,
+  Activity, AudioLines, Bookmark,
 } from 'lucide-react';
 
 
@@ -598,7 +598,23 @@ const Settings = () => {
           {/* Deep source pairing — improves coverage for rare tracks */}
           <YouTubeAccountSection />
 
-
+          <Section label="Premium Studio">
+            <Row
+              icon={<Bookmark className="w-4 h-4" />}
+              label="Memory Tape"
+              sub="Replay the exact seconds you saved"
+              chevron
+              onClick={() => navigate('/moments')}
+            />
+            <Row
+              icon={<AudioLines className="w-4 h-4" />}
+              label="Stem Lab"
+              sub="Remix vocals and backing live"
+              chevron
+              last
+              onClick={() => navigate('/stemlab')}
+            />
+          </Section>
 
           {/* ============ 3. DOWNLOADS ============ */}
           <Section label="Downloads">

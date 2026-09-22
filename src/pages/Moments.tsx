@@ -3,7 +3,7 @@
  */
 import { useMemo } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, Play, Square, Trash2, Sparkles, Crown } from 'lucide-react';
+import { ArrowLeft, Play, Square, Trash2, Bookmark, Crown } from 'lucide-react';
 import { useNavigate } from '@/lib/router-compat';
 import { useMoments } from '@/hooks/useMoments';
 import { useMemoryTape } from '@/hooks/useMemoryTape';
@@ -51,13 +51,13 @@ const Moments = () => {
           }}
         >
           <p className="mb-1 flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[0.2em] text-primary">
-            <Sparkles className="h-3 w-3" /> Premium
+            <Bookmark className="h-3 w-3" /> Premium
           </p>
           <h2 className="text-[22px] font-bold leading-tight">Your seconds, back to back</h2>
           <p className="mt-1 text-[12.5px] text-muted-foreground">
             {moments.length
               ? `${moments.length} saved ${moments.length === 1 ? 'moment' : 'moments'} · about ${formatRuntime(runtime)} of tape`
-              : 'While a song is playing, tap the sparkle button to save the exact second that hit.'}
+              : 'While a song is playing, tap the bookmark button to save the exact second that hit.'}
           </p>
 
           {!premiumLoading && !isPremium ? (
@@ -99,7 +99,7 @@ const Moments = () => {
           <div className="rounded-3xl border border-border bg-card p-6 text-center">
             <p className="text-[14px] font-semibold">No moments yet</p>
             <p className="mt-1 text-[12.5px] text-muted-foreground">
-              Play something you love, then tap the sparkle in the player at the second that gives you goosebumps.
+              Play something you love, then tap the bookmark in the player at the second that gives you goosebumps.
             </p>
           </div>
         )}
