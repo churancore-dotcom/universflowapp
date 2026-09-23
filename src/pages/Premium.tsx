@@ -162,8 +162,28 @@ const PremiumPage = memo(function PremiumPage() {
       }, () => { refetchPremium(); fetchPending(); })
       .subscribe();
 
+    // Safety net: while a payment is waiting on review, re-check every few
+    // seconds and whenever the user comes back to the app. Premium then turns
+    // on in place the moment an admin approves — no restart, no manual reload,
+    // even if the live channel was dropped by a flaky mobile connection.
+    const poll = window.setInterval(() => {
+      if (cancelled) return;
+      void fetchPending();
+      void refetchPremium();
+    }, 5000);
+    const onVisible = () => {
+      if (document.visibilityState !== 'visible' || cancelled) return;
+      void fetchPending();
+      void refetchPremium();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('focus', onVisible);
+
     return () => {
       cancelled = true;
+      window.clearInterval(poll);
+      document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('focus', onVisible);
       supabase.removeChannel(prChannel);
       supabase.removeChannel(subChannel);
     };
