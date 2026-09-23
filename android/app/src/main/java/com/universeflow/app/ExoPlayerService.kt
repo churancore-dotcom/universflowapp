@@ -657,9 +657,9 @@ class ExoPlayerService : MediaSessionService() {
     }
 
 
-    fun applyStemMix(vocalMix: Int, instrumentalMix: Int, persist: Boolean = true) {
-        savedVocalMix = vocalMix.coerceIn(0, 100)
-        savedInstrumentalMix = instrumentalMix.coerceIn(0, 100)
+    fun applyStemMix(vocalMix: Int, instrumentalMix: Int, shine: Int = 0, width: Int = 50, persist: Boolean = true) {
+        savedVocalMix = vocalMix.coerceIn(0, 140)
+        savedInstrumentalMix = instrumentalMix.coerceIn(0, 140)
         stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix)
         if (persist) persistEffectState()
     }

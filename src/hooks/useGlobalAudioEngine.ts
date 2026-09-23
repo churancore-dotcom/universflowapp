@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, setVocalMix, setInstrumentalMix, resume, subscribe } from '@/lib/audioEngine';
 import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
+import { getActiveStemMix, isDefaultMix } from '@/lib/stemLab';
 import {
   isNativePlayerAvailable,
   applyNativeAudioEffects,
@@ -98,7 +99,8 @@ export function useGlobalAudioEngine(
     const applyNativeSnapshot = async (s: ReturnType<typeof getEQSettings>, revision: number) => {
       if (revision !== nativeApplyRevision) return;
       if (!isNativePlayerAvailable()) return;
-      if (!hasWebAudioEffects(s)) {
+      const stem = getActiveStemMix();
+      if (!hasWebAudioEffects(s) && isDefaultMix(stem)) {
         stop8D();
         await applyNativeAudioEffects({
           enabled: false,
@@ -110,8 +112,8 @@ export function useGlobalAudioEngine(
           reverbAmount: 0,
           space: null,
 
-          vocalMix: 100,
-          instrumentalMix: 100,
+          vocalMix: stem.vocals,
+          instrumentalMix: stem.backing,
           playbackSpeed: s.playbackSpeed,
         });
         return;
@@ -148,8 +150,8 @@ export function useGlobalAudioEngine(
         reverbAmount: Math.max(s.reverb, space.reverb),
         space: space.geo,
 
-        vocalMix: s.harmonicExciter ?? 0,
-        instrumentalMix: s.stereoWidth ?? 50,
+        vocalMix: stem.vocals,
+        instrumentalMix: stem.backing,
         playbackSpeed: s.playbackSpeed,
       });
       if (revision !== nativeApplyRevision) return;
@@ -222,6 +224,7 @@ export function useGlobalAudioEngine(
         : { ...saved, bands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0], bassBoost: 0, reverb: 0,
             spatialAudio: false, studioSpace: 'off' as const, lateNight: false,
             headphoneSurround: false, harmonicExciter: 0, stereoWidth: 50, playbackSpeed: 1 };
+      const stem = premium ? getActiveStemMix() : { vocals: 100, backing: 100, shine: 0, width: 50 };
 
       // Always honor playback rate — native <audio> property, no graph needed.
       audioElement.playbackRate = s.playbackSpeed;
@@ -230,7 +233,7 @@ export function useGlobalAudioEngine(
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.
       pushNative(s);
 
-      const needsWebAudio = hasWebAudioEffects(s);
+      const needsWebAudio = hasWebAudioEffects(s) || !isDefaultMix(stem);
 
       // Android APK audible playback is ExoPlayer. Attaching WebAudio to the
       // muted WebView shadow cannot affect what users hear, and it can also
@@ -254,8 +257,8 @@ export function useGlobalAudioEngine(
         setSpatial(false);
         setLateNight(false);
         setHeadphoneSurround(false);
-        setVocalMix(100);
-        setInstrumentalMix(100);
+        setVocalMix(stem.shine);
+        setInstrumentalMix(stem.width);
         return;
       }
 
@@ -270,8 +273,8 @@ export function useGlobalAudioEngine(
       setSpatial(s.spatialAudio);
       setLateNight(s.lateNight);
       setHeadphoneSurround(s.headphoneSurround);
-      setVocalMix(s.harmonicExciter);
-      setInstrumentalMix(s.stereoWidth);
+      setVocalMix(stem.shine);
+      setInstrumentalMix(stem.width);
     };
 
 
@@ -371,6 +374,7 @@ export function useGlobalAudioEngine(
     window.addEventListener('uf-eq-source-ready', onEqChanged);
     window.addEventListener('uf-premium-changed', onPremiumChanged);
     window.addEventListener('uf-eq-force-reattach', onEqChanged);
+    window.addEventListener('uf-stem-changed', onEqChanged);
 
     return () => {
       if (reapplyTimer != null) clearTimeout(reapplyTimer);
@@ -391,6 +395,7 @@ export function useGlobalAudioEngine(
       window.removeEventListener('uf-eq-source-ready', onEqChanged);
       window.removeEventListener('uf-premium-changed', onPremiumChanged);
       window.removeEventListener('uf-eq-force-reattach', onEqChanged);
+      window.removeEventListener('uf-stem-changed', onEqChanged);
     };
   }, [audioElement, skipNative]);
 }

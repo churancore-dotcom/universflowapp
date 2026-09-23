@@ -7,6 +7,7 @@ import {
   getTapeDurationSeconds,
   groupMomentsByMonth,
   momentToSong,
+  isExpiringMomentAudio,
   type Moment,
 } from '@/lib/moments';
 
@@ -58,5 +59,11 @@ describe('moments helpers', () => {
     expect(song.audio_url).toBe('https://example.com/a.mp3');
     expect(getFeeling('goosebumps')?.emoji).toBe('✨');
     expect(getFeeling('nope')).toBeNull();
+  });
+
+  it('forces fresh resolution for saved YouTube moments', () => {
+    const saved = { ...moment('yt', '2026-09-01T00:00:00Z'), songId: 'ytm-abcdefghijk', source: 'indexed', audioUrl: 'https://rr1.googlevideo.com/videoplayback?expire=1' };
+    expect(isExpiringMomentAudio({ id: saved.songId, audio_url: saved.audioUrl, source: 'indexed' })).toBe(true);
+    expect(momentToSong(saved).audio_url).toBe('');
   });
 });

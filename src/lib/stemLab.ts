@@ -47,6 +47,7 @@ export const STEM_PRESETS: StemPreset[] = [
 
 const MIX_KEY = 'uf-stemlab-mix';
 const REMIX_KEY = 'uf-stemlab-remixes';
+let activeMix: StemMix | null = null;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.round(value)));
@@ -102,6 +103,16 @@ export function saveMix(mix: StemMix): void {
   const s = storage();
   if (!s) return;
   try { s.setItem(MIX_KEY, JSON.stringify(clampMix(mix))); } catch { /* full */ }
+}
+
+/** The mix currently driving playback (base mix or a song-specific remix). */
+export function getActiveStemMix(): StemMix {
+  return activeMix ? { ...activeMix } : loadMix();
+}
+
+export function setActiveStemMix(mix: StemMix): StemMix {
+  activeMix = clampMix(mix);
+  return { ...activeMix };
 }
 
 type RemixMap = Record<string, StemMix>;

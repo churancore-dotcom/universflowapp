@@ -19,6 +19,8 @@ import { prewarmSongs } from '@/lib/instantPlay';
 import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
 import { markAudible, markPlayStage, startPlayTrace } from '@/lib/playTrace';
 import { dedupePlayerQueue, findNativeQueueIndex, getNativeQueueMediaId, getQueueFingerprint } from '@/lib/playerQueue';
+import { applyStemMix } from '@/hooks/useStemLab';
+import { getRemixForSong, loadMix } from '@/lib/stemLab';
 
 import { toast } from 'sonner';
 
@@ -1129,6 +1131,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Wire the global EQ/audio engine to the live audio element. Persists across modal open/close.
   useGlobalAudioEngine(audioElement);
   useGlobalAudioEngine(crossfadeElement, { skipNative: true });
+
+  // Remix Memory belongs to playback, not the Stem Lab screen. Reapply it for
+  // every track even when the listener never opens the editor this session.
+  useEffect(() => {
+    if (!currentSong?.id || !getRuntimePremium()) return;
+    applyStemMix(getRemixForSong(currentSong.id) ?? loadMix());
+  }, [currentSong?.id]);
 
   const publishNativeMusicControls = useCallback(async (song: Song, playing: boolean, duration?: number) => {
     try {

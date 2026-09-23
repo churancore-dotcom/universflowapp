@@ -109,13 +109,21 @@ export const groupMomentsByMonth = (moments: Moment[]): MomentGroup[] => {
 export const getTapeDurationSeconds = (moments: Moment[]): number =>
   Math.round(moments.reduce((sum, m) => sum + clampClipMs(m.clipMs), 0) / 1000);
 
+/** Signed YouTube delivery URLs expire; stable uploads and Audius URLs do not. */
+export const isExpiringMomentAudio = (song: Pick<Song, 'id' | 'audio_url' | 'source'>): boolean => {
+  if (song.source === 'indexed' || /^(ytm-|yt-|youtube-)/.test(song.id)) return true;
+  try { return new URL(song.audio_url).hostname.endsWith('googlevideo.com'); } catch { return false; }
+};
+
 /** Rebuilds a playable Song from a stored moment. */
 export const momentToSong = (moment: Moment): Song => ({
   id: moment.songId,
   title: moment.songTitle,
   artist: moment.songArtist,
   cover_url: moment.coverUrl ?? undefined,
-  audio_url: moment.audioUrl ?? '',
+  audio_url: isExpiringMomentAudio({ id: moment.songId, audio_url: moment.audioUrl ?? '', source: moment.source as Song['source'] })
+    ? ''
+    : (moment.audioUrl ?? ''),
   source: (moment.source as Song['source']) ?? undefined,
 });
 
@@ -169,7 +177,7 @@ export const createMoment = async (userId: string, input: MomentInput): Promise<
       song_title: input.song.title,
       song_artist: input.song.artist ?? '',
       cover_url: input.song.cover_url ?? null,
-      audio_url: input.song.audio_url ?? null,
+      audio_url: isExpiringMomentAudio(input.song) ? null : (input.song.audio_url ?? null),
       source: input.song.source ?? null,
       position_ms: Math.max(0, Math.round(input.positionMs)),
       clip_ms: clampClipMs(input.clipMs ?? DEFAULT_CLIP_MS),

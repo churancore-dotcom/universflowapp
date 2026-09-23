@@ -21,8 +21,12 @@ import kotlin.math.sin
 class StemAudioProcessor : BaseAudioProcessor() {
     @Volatile private var targetVocalMix = 1f
     @Volatile private var targetInstrumentalMix = 1f
+    @Volatile private var targetShine = 0f
+    @Volatile private var targetWidth = 1f
     private var currentVocalMix = 1f
     private var currentInstrumentalMix = 1f
+    private var currentShine = 0f
+    private var currentWidth = 1f
     private var smoothingCoeff = 0.002f
 
     // One-pole low-pass state used to split the mid channel into
@@ -54,9 +58,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var eqActive = false
     private var eqHeadroom = 1f
 
-    fun setStemMix(vocalPercent: Int, instrumentalPercent: Int) {
-        targetVocalMix = vocalPercent.coerceIn(0, 100) / 100f
-        targetInstrumentalMix = instrumentalPercent.coerceIn(0, 100) / 100f
+    fun setStemMix(vocalPercent: Int, instrumentalPercent: Int, shinePercent: Int = 0, widthPercent: Int = 50) {
+        targetVocalMix = vocalPercent.coerceIn(0, 140) / 100f
+        targetInstrumentalMix = instrumentalPercent.coerceIn(0, 140) / 100f
+        targetShine = shinePercent.coerceIn(0, 100) / 100f
+        targetWidth = widthPercent.coerceIn(0, 100) / 50f
     }
 
     fun setEnhancements(spatialStrength: Int, surroundStrength: Int, lateNightGainMb: Int, reverbAmount: Int) {
@@ -130,12 +136,14 @@ class StemAudioProcessor : BaseAudioProcessor() {
             blockCounter--
             currentVocalMix += smoothingCoeff * (targetVocalMix - currentVocalMix)
             currentInstrumentalMix += smoothingCoeff * (targetInstrumentalMix - currentInstrumentalMix)
+            currentShine += smoothingCoeff * (targetShine - currentShine)
+            currentWidth += smoothingCoeff * (targetWidth - currentWidth)
             currentSpatialDepth += smoothingCoeff * (targetSpatialDepth - currentSpatialDepth)
             currentSurround += smoothingCoeff * (targetSurround - currentSurround)
             currentLateNight += smoothingCoeff * (targetLateNight - currentLateNight)
 
-            val vocal = currentVocalMix.coerceIn(0f, 1f)
-            val instrument = currentInstrumentalMix.coerceIn(0f, 1f)
+            val vocal = currentVocalMix.coerceIn(0f, 1.4f)
+            val instrument = currentInstrumentalMix.coerceIn(0f, 1.4f)
             val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
             val makeup = if (power > 0.04f) min(1.6f, max(1f, 1f / power)) else 1f
             val left = inputBuffer.getShort(cursor).toInt()
@@ -151,8 +159,8 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val midLow = lowState
             val midHigh = mid - highState
             val midBand = mid - lowState - midHigh
-            val centre = (midLow + midHigh) * instrument + midBand * vocal
-            val widenedSide = side * instrument * (1f + currentSurround * 0.85f)
+            val centre = (midLow + midHigh) * instrument + midBand * vocal * (1f + currentShine * 0.35f)
+            val widenedSide = side * instrument * currentWidth.coerceIn(0f, 2f) * (1f + currentSurround * 0.85f)
             val pan = sin(spatialPhase).toFloat() * currentSpatialDepth * 0.82f
             spatialPhase += spatialPhaseStep
             if (spatialPhase >= 2.0 * Math.PI) spatialPhase -= 2.0 * Math.PI
