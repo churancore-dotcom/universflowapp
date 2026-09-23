@@ -17,14 +17,19 @@ import {
   formatCooldown,
 } from '@/lib/authCooldown';
 import appLogo from '@/assets/app-logo.webp';
+import { detectCountrySilently, timeZoneCountry } from '@/lib/geoCountry';
 
 
-function detectCountryCode(): string | undefined {
+// Real market for the new account: IP geo (edge) → device time zone →
+// locale region. The old locale-only read tagged most Android sign-ups with
+// whatever keyboard locale the phone shipped with, which is why listeners
+// outside India could still land on an Indian feed.
+async function detectCountryCode(): Promise<string | undefined> {
   try {
-    const locale = (Intl.DateTimeFormat().resolvedOptions().locale || '').toUpperCase();
-    const m = locale.match(/-([A-Z]{2})\b/);
-    return m?.[1];
-  } catch { return undefined; }
+    const cc = await detectCountrySilently();
+    if (/^[A-Z]{2}$/.test(cc)) return cc;
+  } catch { /* noop */ }
+  return timeZoneCountry() || undefined;
 }
 
 type Mode = 'login' | 'signup' | 'artist';
@@ -110,7 +115,7 @@ const Auth = () => {
         clearCooldown('login', id);
         navigate(isAdmin ? '/admin' : '/home');
       } else {
-        const { error } = await signUp(email, password, username, detectCountryCode());
+        const { error } = await signUp(email, password, username, await detectCountryCode());
         if (error) {
           const lock = registerFailure('signup', id);
           setCooldownMs(lock);
