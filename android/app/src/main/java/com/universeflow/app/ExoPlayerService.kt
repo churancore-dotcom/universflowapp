@@ -90,6 +90,8 @@ class ExoPlayerService : MediaSessionService() {
     @Volatile var savedReverbAmount: Int = 0
     @Volatile var savedVocalMix: Int = 100
     @Volatile var savedInstrumentalMix: Int = 100
+    @Volatile var savedStemShine: Int = 0
+    @Volatile var savedStemWidth: Int = 50
 
     private val stemAudioProcessor = StemAudioProcessor()
 
@@ -657,10 +659,12 @@ class ExoPlayerService : MediaSessionService() {
     }
 
 
-    fun applyStemMix(vocalMix: Int, instrumentalMix: Int, persist: Boolean = true) {
-        savedVocalMix = vocalMix.coerceIn(0, 100)
-        savedInstrumentalMix = instrumentalMix.coerceIn(0, 100)
-        stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix)
+    fun applyStemMix(vocalMix: Int, instrumentalMix: Int, shine: Int = 0, width: Int = 50, persist: Boolean = true) {
+        savedVocalMix = vocalMix.coerceIn(0, 140)
+        savedInstrumentalMix = instrumentalMix.coerceIn(0, 140)
+        savedStemShine = shine.coerceIn(0, 100)
+        savedStemWidth = width.coerceIn(0, 100)
+        stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix, savedStemShine, savedStemWidth)
         if (persist) persistEffectState()
     }
 
@@ -692,6 +696,8 @@ class ExoPlayerService : MediaSessionService() {
                 .putInt("reverb", savedReverbAmount)
                 .putInt("vocalMix", savedVocalMix)
                 .putInt("instrumentalMix", savedInstrumentalMix)
+                .putInt("stemShine", savedStemShine)
+                .putInt("stemWidth", savedStemWidth)
                 .apply()
         } catch (_: Throwable) {}
     }
@@ -704,9 +710,11 @@ class ExoPlayerService : MediaSessionService() {
             savedVirtualizerStrength = prefs.getInt("virtualizer", 0).coerceIn(0, 1000).toShort()
             savedLoudnessGainMb = prefs.getInt("loudness", 0).coerceIn(0, 2000)
             savedReverbAmount = prefs.getInt("reverb", 0).coerceIn(0, 100)
-            savedVocalMix = prefs.getInt("vocalMix", 100).coerceIn(0, 100)
-            savedInstrumentalMix = prefs.getInt("instrumentalMix", 100).coerceIn(0, 100)
-            stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix)
+            savedVocalMix = prefs.getInt("vocalMix", 100).coerceIn(0, 140)
+            savedInstrumentalMix = prefs.getInt("instrumentalMix", 100).coerceIn(0, 140)
+            savedStemShine = prefs.getInt("stemShine", 0).coerceIn(0, 100)
+            savedStemWidth = prefs.getInt("stemWidth", 50).coerceIn(0, 100)
+            stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix, savedStemShine, savedStemWidth)
             stemAudioProcessor.setEnhancements(
                 savedVirtualizerStrength.toInt(),
                 savedVirtualizerStrength.toInt(),

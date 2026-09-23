@@ -5,6 +5,7 @@ import {
   setVocalMix,
   setInstrumentalMix,
 } from '@/lib/audioEngine';
+import { setNativeStemMix } from '@/lib/nativePlayer';
 import {
   StemMix,
   DEFAULT_MIX,
@@ -14,15 +15,18 @@ import {
   getRemixForSong,
   saveRemixForSong,
   removeRemixForSong,
+  setActiveStemMix,
 } from '@/lib/stemLab';
 
 /** Push a mix into the live audio engine. */
 export function applyStemMix(mix: StemMix) {
-  const m = clampMix(mix);
+  const m = setActiveStemMix(clampMix(mix));
   setStemVocalLevel(m.vocals);
   setStemBackingLevel(m.backing);
   setVocalMix(m.shine);
   setInstrumentalMix(m.width);
+  void setNativeStemMix(m.vocals, m.backing, m.shine, m.width);
+  try { window.dispatchEvent(new CustomEvent('uf-stem-changed', { detail: m })); } catch { /* SSR */ }
 }
 
 export function useStemLab() {

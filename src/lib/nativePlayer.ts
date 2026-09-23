@@ -99,7 +99,7 @@ interface ExoPlayerPluginShape {
   setVirtualizer: (opts: { strength: number }) => Promise<void>;
   setLoudnessEnhancer: (opts: { gainMb: number }) => Promise<void>;
   setReverb: (opts: { amount: number }) => Promise<void>;
-  setStemMix: (opts: { vocalMix: number; instrumentalMix: number }) => Promise<void>;
+  setStemMix: (opts: { vocalMix: number; instrumentalMix: number; shine?: number; width?: number }) => Promise<void>;
   applyAudioEffects: (opts: {
     enabled: boolean;
     bands: Array<{ band: number; levelMillibels: number }>;
@@ -321,12 +321,14 @@ export async function setNativeReverb(amount: number): Promise<void> {
   try { await ExoPlayerPlugin.setReverb({ amount: Math.max(0, Math.min(100, Math.round(amount))) }); } catch {}
 }
 
-export async function setNativeStemMix(vocalMix: number, instrumentalMix: number): Promise<void> {
+export async function setNativeStemMix(vocalMix: number, instrumentalMix: number, shine = 0, width = 50): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   try {
     await ExoPlayerPlugin.setStemMix({
-      vocalMix: Math.max(0, Math.min(100, Math.round(vocalMix))),
-      instrumentalMix: Math.max(0, Math.min(100, Math.round(instrumentalMix))),
+      vocalMix: Math.max(0, Math.min(140, Math.round(vocalMix))),
+      instrumentalMix: Math.max(0, Math.min(140, Math.round(instrumentalMix))),
+      shine: Math.max(0, Math.min(100, Math.round(shine))),
+      width: Math.max(0, Math.min(100, Math.round(width))),
     });
   } catch {}
 }

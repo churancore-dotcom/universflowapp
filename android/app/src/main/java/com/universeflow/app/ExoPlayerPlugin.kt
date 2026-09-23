@@ -856,10 +856,12 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun setStemMix(call: PluginCall) {
-        val vocalMix = (call.getInt("vocalMix") ?: 100).coerceIn(0, 100)
-        val instrumentalMix = (call.getInt("instrumentalMix") ?: 100).coerceIn(0, 100)
+        val vocalMix = (call.getInt("vocalMix") ?: 100).coerceIn(0, 140)
+        val instrumentalMix = (call.getInt("instrumentalMix") ?: 100).coerceIn(0, 140)
+        val shine = (call.getInt("shine") ?: 0).coerceIn(0, 100)
+        val width = (call.getInt("width") ?: 50).coerceIn(0, 100)
         runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
-            service()?.applyStemMix(vocalMix, instrumentalMix)
+            service()?.applyStemMix(vocalMix, instrumentalMix, shine, width)
             call.resolve()
         }
     }
@@ -913,7 +915,8 @@ class ExoPlayerPlugin : Plugin() {
                 lateNightGainMb = loudness,
                 reverbAmount = reverb,
             )
-            svc.applyStemMix(vocal, instrumental, persist = false)
+            // Stem Lab owns the native stem processor independently. Reapplying
+            // EQ must never overwrite the active per-song remix.
             svc.ensureEffectsBound(forceReapply = true)
             try { svc.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}
             svc.applyReverb(reverb)
