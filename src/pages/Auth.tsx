@@ -17,6 +17,7 @@ import {
   formatCooldown,
 } from '@/lib/authCooldown';
 import appLogo from '@/assets/app-logo.webp';
+import { detectCountrySilently, timeZoneCountry } from '@/lib/geoCountry';
 
 
 // Real market for the new account: IP geo (edge) → device time zone →
@@ -114,7 +115,7 @@ const Auth = () => {
         clearCooldown('login', id);
         navigate(isAdmin ? '/admin' : '/home');
       } else {
-        const { error } = await signUp(email, password, username, detectCountryCode());
+        const { error } = await signUp(email, password, username, await detectCountryCode());
         if (error) {
           const lock = registerFailure('signup', id);
           setCooldownMs(lock);
