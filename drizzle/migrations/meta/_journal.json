@@ -15,6 +15,13 @@
       "when": 1790012235579,
       "tag": "0001_create_song_moments",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790179304699,
+      "tag": "0002_enable_realtime_payment_and_subscriptions",
+      "breakpoints": true
     }
   ]
 }
