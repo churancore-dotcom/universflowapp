@@ -915,7 +915,8 @@ class ExoPlayerPlugin : Plugin() {
                 lateNightGainMb = loudness,
                 reverbAmount = reverb,
             )
-            svc.applyStemMix(vocal, instrumental, persist = false)
+            // Stem Lab owns the native stem processor independently. Reapplying
+            // EQ must never overwrite the active per-song remix.
             svc.ensureEffectsBound(forceReapply = true)
             try { svc.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}
             svc.applyReverb(reverb)
