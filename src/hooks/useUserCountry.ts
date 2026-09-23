@@ -42,10 +42,32 @@ export function useUserCountry(): string {
         } catch {}
       }
 
-      if (!cc) {
-        try {
-          cc = (await detectCountrySilently()) || null;
-        } catch { /* noop */ }
+      let detected = '';
+      try {
+        detected = (await detectCountrySilently()) || '';
+      } catch { /* noop */ }
+
+      if (!cc) cc = detected || null;
+
+      // One-time self-heal: accounts created before real geo detection were
+      // tagged from the phone's keyboard locale, so a listener in the US could
+      // carry country_code 'IN' forever and keep seeing an Indian feed. When
+      // the IP/time-zone market disagrees with the stored one, trust the
+      // device once and correct the profile.
+      if (user?.id && detected && cc && detected !== cc) {
+        const healKey = `uf-geo-healed.v1:${user.id}`;
+        let healed = false;
+        try { healed = localStorage.getItem(healKey) === '1'; } catch { /* noop */ }
+        if (!healed) {
+          try {
+            await supabase
+              .from('profiles')
+              .update({ country_code: detected })
+              .eq('user_id', user.id);
+            cc = detected;
+          } catch { /* keep stored market */ }
+          try { localStorage.setItem(healKey, '1'); } catch { /* noop */ }
+        }
       }
 
       // No hard-coded country fallback: empty string means
