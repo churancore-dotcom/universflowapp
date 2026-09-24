@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { detectCountrySilently } from '@/lib/geoCountry';
+import { detectCountrySilently, timeZoneCountry } from '@/lib/geoCountry';
 
 const SESSION_KEY = 'uf-feed-country';
 // Persisted across launches: a cold open must not start on the Global feed for
