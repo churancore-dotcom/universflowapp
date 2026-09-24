@@ -7,8 +7,26 @@ import {
   isNativePlayerAvailable,
   applyNativeAudioEffects,
   setNativeVirtualizer,
+  setNativeStemMix,
   type NativeSpaceGeometry,
 } from '@/lib/nativePlayer';
+
+/**
+ * Harmonic exciter / stereo width can be set from two screens: the Equalizer's
+ * Master Chain and Stem Lab's Shine/Width faders. Whichever one the listener
+ * moved away from neutral wins, so neither set of controls is ever dead.
+ */
+function effectiveStemFx(
+  s: { harmonicExciter?: number; stereoWidth?: number },
+  stem: { shine: number; width: number },
+): { shine: number; width: number } {
+  const eqShine = Math.max(0, Math.min(100, s.harmonicExciter ?? 0));
+  const eqWidth = Math.max(0, Math.min(100, s.stereoWidth ?? 50));
+  return {
+    shine: Math.max(eqShine, stem.shine),
+    width: stem.width !== 50 ? stem.width : eqWidth,
+  };
+}
 
 // nativeMirror removed — on Android, ExoPlayer always owns audio when available.
 
@@ -116,6 +134,7 @@ export function useGlobalAudioEngine(
           instrumentalMix: stem.backing,
           playbackSpeed: s.playbackSpeed,
         });
+        await setNativeStemMix(100, 100, 0, 50);
         return;
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
@@ -154,6 +173,11 @@ export function useGlobalAudioEngine(
         instrumentalMix: stem.backing,
         playbackSpeed: s.playbackSpeed,
       });
+      if (revision !== nativeApplyRevision) return;
+      // The PCM stem processor is the only thing that can hear these four, so
+      // push the coherent snapshot (faders + Master Chain) straight to it.
+      const nativeFx = effectiveStemFx(s, stem);
+      await setNativeStemMix(stem.vocals, stem.backing, nativeFx.shine, nativeFx.width);
       if (revision !== nativeApplyRevision) return;
 
       // Android AudioEffect parameter writes can interrupt the hardware DSP on
@@ -257,8 +281,9 @@ export function useGlobalAudioEngine(
         setSpatial(false);
         setLateNight(false);
         setHeadphoneSurround(false);
-        setVocalMix(stem.shine);
-        setInstrumentalMix(stem.width);
+        const offFx = effectiveStemFx(s, stem);
+        setVocalMix(offFx.shine);
+        setInstrumentalMix(offFx.width);
         return;
       }
 
@@ -273,8 +298,9 @@ export function useGlobalAudioEngine(
       setSpatial(s.spatialAudio);
       setLateNight(s.lateNight);
       setHeadphoneSurround(s.headphoneSurround);
-      setVocalMix(stem.shine);
-      setInstrumentalMix(stem.width);
+      const webFx = effectiveStemFx(s, stem);
+      setVocalMix(webFx.shine);
+      setInstrumentalMix(webFx.width);
     };
 
 
