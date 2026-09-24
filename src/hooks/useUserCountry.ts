@@ -4,7 +4,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { detectCountrySilently } from '@/lib/geoCountry';
+import { detectCountrySilently, timeZoneCountry } from '@/lib/geoCountry';
 
 const SESSION_KEY = 'uf-feed-country';
 // Persisted across launches: a cold open must not start on the Global feed for
@@ -49,24 +49,29 @@ export function useUserCountry(): string {
 
       if (!cc) cc = detected || null;
 
-      // One-time self-heal: accounts created before real geo detection were
-      // tagged from the phone's keyboard locale, so a listener in the US could
-      // carry country_code 'IN' forever and keep seeing an Indian feed. When
-      // the IP/time-zone market disagrees with the stored one, trust the
-      // device once and correct the profile.
-      if (user?.id && detected && cc && detected !== cc) {
+      // One-time self-heal for accounts tagged from the phone's keyboard
+      // locale instead of a real market. A trip abroad or a VPN exit must NOT
+      // rewrite someone's home market, so we only correct the profile when the
+      // network location AND the device's own time zone agree on the new
+      // country — a time zone follows where the phone actually lives. The
+      // "already healed" mark is written only after the update really lands,
+      // so a failed write can still be corrected on a later launch.
+      const tzCountry = timeZoneCountry();
+      if (user?.id && detected && cc && detected !== cc && tzCountry === detected) {
         const healKey = `uf-geo-healed.v1:${user.id}`;
         let healed = false;
         try { healed = localStorage.getItem(healKey) === '1'; } catch { /* noop */ }
         if (!healed) {
           try {
-            await supabase
+            const { error } = await supabase
               .from('profiles')
               .update({ country_code: detected })
               .eq('user_id', user.id);
-            cc = detected;
-          } catch { /* keep stored market */ }
-          try { localStorage.setItem(healKey, '1'); } catch { /* noop */ }
+            if (!error) {
+              cc = detected;
+              try { localStorage.setItem(healKey, '1'); } catch { /* noop */ }
+            }
+          } catch { /* keep stored market; retry next launch */ }
         }
       }
 
