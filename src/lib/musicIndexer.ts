@@ -569,9 +569,10 @@ export async function searchYouTubeMusicTracks(
     ]);
     // JioSaavn is the primary catalogue. Audius and YouTube fill the tail, so
     // unknown global uploads never outrank a direct Indian match.
-    const primary = mergeTrackSources(saavn, saavn.length >= limit ? [] : audius);
-    if (primary.length >= limit || !deepYt.length) return primary.slice(0, limit);
-    return mergeTrackSources(primary, deepYt).slice(0, limit);
+    // Phone app: YouTube Music leads; JioSaavn/Audius fill gaps and act as the
+    // instant fallback when YouTube returns nothing.
+    if (deepYt.length) return mergeTrackSources(deepYt, saavn, audius).slice(0, limit);
+    return mergeTrackSources(saavn, saavn.length >= limit ? [] : audius).slice(0, limit);
   });
 }
 
