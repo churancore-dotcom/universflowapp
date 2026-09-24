@@ -261,7 +261,7 @@ const Auth = () => {
                       Username
                     </label>
                     <div className="relative">
-                      <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" />
+                      <AtSign className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none w-4 h-4 text-muted-foreground/70" />
                       <Input
                         type="text"
                         placeholder="yourname"
@@ -284,7 +284,7 @@ const Auth = () => {
                   Email
                 </label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none w-4 h-4 text-muted-foreground/70" />
                   <Input
                     type="email"
                     placeholder="you@email.com"
@@ -303,7 +303,7 @@ const Auth = () => {
                   Password
                 </label>
                 <div className="relative">
-                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/70" />
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 z-10 pointer-events-none w-4 h-4 text-muted-foreground/70" />
                   <Input
                     type={showPassword ? 'text' : 'password'}
                     placeholder={isLogin ? 'Your password' : 'At least 6 characters'}
