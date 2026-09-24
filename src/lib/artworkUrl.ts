@@ -33,6 +33,17 @@ export function artworkCandidates(url?: string | null, size = 320): string[] {
     ];
   }
 
+  // JioSaavn ships tiny 50x50 / 150x150 thumbs by default — upscaling those is
+  // the blurry-cover look. The same image exists at 500x500 on its CDN.
+  if (/saavncdn\.com|jiosaavn/i.test(src) && /-\d{2,3}x\d{2,3}\.(jpe?g|png|webp)/i.test(src)) {
+    return [src.replace(/-\d{2,3}x\d{2,3}\.(jpe?g|png|webp)/i, '-500x500.$1'), src];
+  }
+
+  // Apple / iTunes artwork: ask for a sharp size instead of the 100x100 default.
+  if (/mzstatic\.com/i.test(src) && /\/\d{2,4}x\d{2,4}(bb)?\.(jpe?g|png|webp)$/i.test(src)) {
+    return [src.replace(/\/\d{2,4}x\d{2,4}(bb)?\.(jpe?g|png|webp)$/i, '/600x600bb.jpg'), src];
+  }
+
   // Unknown host: keep the URL, but never a letterboxed YouTube variant.
   return LETTERBOXED.test(src) ? [src.replace(LETTERBOXED, '/mqdefault.jpg'), src] : [src];
 }
