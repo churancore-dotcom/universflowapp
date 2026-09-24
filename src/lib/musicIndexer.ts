@@ -598,6 +598,18 @@ function mergeTrackSources(...lists: IndexedTrack[][]): IndexedTrack[] {
   return out;
 }
 
+/** Country-tuned YouTube Music rail (phone app only — web can't play these). */
+async function youtubeCountryRail(cc: string, queries: string[], limit: number): Promise<IndexedTrack[]> {
+  let place = '';
+  if (cc !== 'ZZ') {
+    try { place = new Intl.DisplayNames(['en'], { type: 'region' }).of(cc) || ''; } catch { /* ignore */ }
+  }
+  const lists = await Promise.all(
+    queries.map((q) => searchYouTubeDeepTracks(place ? `${q} ${place}` : `${q} global`, Math.min(40, limit))),
+  );
+  return mergeTrackSources(...lists).slice(0, limit);
+}
+
 /**
  * Fresh releases — now sourced from Audius' underground/trending feeds (real,
  * licensed, keyless) instead of YouTube Music. Name kept for callers.
@@ -609,6 +621,12 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
   if (hit && hit.expiresAt > Date.now()) return hit.data;
   try {
     const year = new Date().getFullYear();
+    // YouTube Music first, tuned to the listener's own country.
+    const ytNew = await youtubeCountryRail(cc, [`new songs ${year}`, `new music this week ${year}`], limit);
+    if (ytNew.length >= 6) {
+      newReleasesMemCache.set(key, { data: ytNew, expiresAt: Date.now() + 15 * 60 * 1000 });
+      return ytNew;
+    }
     const [{ searchSongsAsTracksPaged }, { getAudiusUnderground }] = await Promise.all([
       import('./jiosaavn'),
       import('./audius'),
@@ -655,6 +673,17 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
   if (inflight) return inflight;
   const p = (async () => {
     try {
+      const ytTop = await youtubeCountryRail(cc, ['top songs', 'trending songs this week'], limit);
+      if (ytTop.length >= 8) {
+        const out: YtmCharts = {
+          top: ytTop,
+          trending: ytTop.slice(Math.min(5, Math.floor(ytTop.length / 3))).concat(ytTop.slice(0, Math.min(5, ytTop.length))),
+          videos: [],
+          country: cc,
+        };
+        chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
+        return out;
+      }
       const [{ searchSongsAsTracksPaged }, { getAudiusTrending }] = await Promise.all([
         import('./jiosaavn'),
         import('./audius'),
