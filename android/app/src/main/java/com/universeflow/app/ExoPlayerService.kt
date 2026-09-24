@@ -371,6 +371,12 @@ class ExoPlayerService : MediaSessionService() {
 
         this.player = exo
         this.mediaSession = sessionBuilder.build()
+        // Media3 only draws the shade / lock-screen player for sessions it
+        // manages. Our app talks to the player directly (no MediaController),
+        // so the session was never registered and the player never appeared.
+        try { addSession(this.mediaSession!!) } catch (t: Throwable) {
+            android.util.Log.w("ExoPlayerService", "addSession failed: ${t.message}")
+        }
 
         // Create the playback notification channel up front. Media3 creates one
         // lazily, but doing it here guarantees the lock-screen / shade player
