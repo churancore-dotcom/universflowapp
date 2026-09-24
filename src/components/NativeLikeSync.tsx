@@ -9,13 +9,17 @@ import { setNativeMiniPlayerState } from '@/lib/nativePlayer';
  * taps on it (PlayerContext re-broadcasts them as `uf:native-like-toggle`).
  */
 const NativeLikeSync = () => {
-  const { currentSong } = usePlayer();
+  const { currentSong, isPlaying } = usePlayer();
   const { isLiked, toggleLike } = useLike(currentSong?.id || '', currentSong);
 
+  // Re-push when playback starts too: the phone's player service may not be
+  // running yet when the song first loads, which would drop the heart state.
   useEffect(() => {
     if (!currentSong?.id) return;
     void setNativeMiniPlayerState({ liked: isLiked });
-  }, [isLiked, currentSong?.id]);
+    const t = window.setTimeout(() => { void setNativeMiniPlayerState({ liked: isLiked }); }, 1500);
+    return () => window.clearTimeout(t);
+  }, [isLiked, currentSong?.id, isPlaying]);
 
   useEffect(() => {
     const handler = () => { void toggleLike(); };
