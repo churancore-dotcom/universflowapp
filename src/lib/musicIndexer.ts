@@ -599,6 +599,38 @@ function mergeTrackSources(...lists: IndexedTrack[][]): IndexedTrack[] {
   return out;
 }
 
+const countryChartCache = new Map<string, { data: IndexedTrack[]; expiresAt: number }>();
+
+/** Real national chart → playable tracks (JioSaavn match per title+artist). */
+async function countryChartTracks(cc: string, limit: number): Promise<IndexedTrack[]> {
+  const key = `${cc}:${limit}`;
+  const hit = countryChartCache.get(key);
+  if (hit && hit.expiresAt > Date.now()) return hit.data;
+  try {
+    const [{ getCountryChart }, { searchSongsAsTracks }] = await Promise.all([
+      import('./countryCharts.functions'),
+      import('./jiosaavn'),
+    ]);
+    const chart = await getCountryChart({ data: { cc: cc.toLowerCase(), limit: Math.min(100, Math.max(10, limit)) } });
+    const norm = (v: string) => v.toLowerCase().replace(/\(.*?\)|\[.*?\]/g, '').replace(/[^a-z0-9]+/g, '');
+    const matched = await Promise.all(chart.map(async (entry) => {
+      const results = await searchSongsAsTracks(`${entry.title} ${entry.artist.split(/[,&]/)[0]}`, 5).catch(() => []);
+      const want = norm(entry.title);
+      const firstArtist = norm(entry.artist.split(/[,&]/)[0] || '');
+      const m = results.find((r) => {
+        const t = norm(r.title);
+        return (t === want || t.startsWith(want) || want.startsWith(t)) && (!firstArtist || norm(r.artist).includes(firstArtist));
+      });
+      return m ? { ...m, cover_url: m.cover_url || entry.cover_url } : null;
+    }));
+    const out = matched.filter((t): t is IndexedTrack => !!t).slice(0, limit);
+    if (out.length) countryChartCache.set(key, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
+    return out;
+  } catch {
+    return [];
+  }
+}
+
 /** Country-tuned YouTube Music rail (phone app only — web can't play these). */
 async function youtubeCountryRail(cc: string, queries: string[], limit: number): Promise<IndexedTrack[]> {
   let place = '';
@@ -628,13 +660,22 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
       newReleasesMemCache.set(key, { data: ytNew, expiresAt: Date.now() + 15 * 60 * 1000 });
       return ytNew;
     }
+    if (cc !== 'IN' && cc !== 'ZZ') {
+      const local = await countryChartTracks(cc, Math.max(limit, 40));
+      if (local.length >= 6) {
+        // Newest-feeling slice of the national chart, not Bollywood.
+        const out = local.slice(Math.floor(local.length / 3)).concat(local).slice(0, limit);
+        newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
+        return out;
+      }
+    }
     const [{ searchSongsAsTracksPaged }, { getAudiusUnderground }] = await Promise.all([
       import('./jiosaavn'),
       import('./audius'),
     ]);
     const [hindi, punjabi] = await Promise.all([
-      searchSongsAsTracksPaged(`latest Bollywood songs ${year}`, Math.max(limit, 40)),
-      searchSongsAsTracksPaged(`new Punjabi songs ${year}`, Math.max(20, Math.ceil(limit / 2))),
+      searchSongsAsTracksPaged(cc === 'IN' ? `latest Bollywood songs ${year}` : `new english songs ${year}`, Math.max(limit, 40)),
+      searchSongsAsTracksPaged(cc === 'IN' ? `new Punjabi songs ${year}` : `new pop songs ${year}`, Math.max(20, Math.ceil(limit / 2))),
     ]);
     const primary = mergeTrackSources(hindi, punjabi).slice(0, limit);
     const out = primary.length >= 6 ? primary : mergeTrackSources(primary, await getAudiusUnderground(limit)).slice(0, limit);
@@ -685,16 +726,32 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
         chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
         return out;
       }
+      // Outside India: the listener's real national chart (Apple's public
+      // per-country most-played feed), matched to playable JioSaavn copies.
+      if (cc !== 'IN' && cc !== 'ZZ') {
+        const local = await countryChartTracks(cc, limit);
+        if (local.length >= 8) {
+          const out: YtmCharts = {
+            top: local,
+            trending: local.slice(Math.min(5, Math.floor(local.length / 3))).concat(local.slice(0, 5)),
+            videos: [],
+            country: cc,
+          };
+          chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
+          return out;
+        }
+      }
       const [{ searchSongsAsTracksPaged }, { getAudiusTrending }] = await Promise.all([
         import('./jiosaavn'),
         import('./audius'),
       ]);
       const [india, bollywood] = await Promise.all([
-        searchSongsAsTracksPaged('India top songs', limit),
-        searchSongsAsTracksPaged('Bollywood hits', limit),
+        searchSongsAsTracksPaged(cc === 'IN' ? 'India top songs' : 'global top hits', limit),
+        searchSongsAsTracksPaged(cc === 'IN' ? 'Bollywood hits' : 'top english songs', limit),
       ]);
       const primary = mergeTrackSources(india, bollywood).slice(0, limit);
       const fallback = primary.length >= 8 ? [] : await getAudiusTrending(limit, 'week');
+
       const top = mergeTrackSources(primary, fallback).slice(0, limit);
       const out: YtmCharts = {
         top,
