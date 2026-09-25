@@ -558,21 +558,21 @@ export async function searchYouTubeMusicTracks(
   const key = searchKey('catalog', cacheBust ? `${q}#${cacheBust}` : q, limit);
   return cachedSearch(key, async () => {
     const saavnLimit = Math.min(240, limit);
-    const [saavn, audius, deepYt] = await Promise.all([
+    const [saavn, deepYt] = await Promise.all([
       import('./jiosaavn').then((m) => (
         saavnLimit > 40
           ? m.searchSongsAsTracksPaged(q, saavnLimit)
           : m.searchSongsAsTracks(q, saavnLimit)
       )).catch(() => []),
-      import('./audius').then((m) => m.searchAudiusTracks(q, Math.min(25, limit))).catch(() => []),
       searchYouTubeDeepTracks(q, Math.min(40, limit)),
     ]);
-    // JioSaavn is the primary catalogue. Audius and YouTube fill the tail, so
-    // unknown global uploads never outrank a direct Indian match.
-    // Phone app: YouTube Music leads; JioSaavn/Audius fill gaps and act as the
-    // instant fallback when YouTube returns nothing.
+    // Audius only when YouTube + JioSaavn came back thin — it rarely carries
+    // mainstream artists, so asking every time just wastes requests.
+    const audius = deepYt.length + saavn.length >= 8
+      ? []
+      : await import('./audius').then((m) => m.searchAudiusTracks(q, Math.min(25, limit))).catch(() => []);
     if (deepYt.length) return mergeTrackSources(deepYt, saavn, audius).slice(0, limit);
-    return mergeTrackSources(saavn, saavn.length >= limit ? [] : audius).slice(0, limit);
+    return mergeTrackSources(saavn, audius).slice(0, limit);
   });
 }
 
