@@ -896,7 +896,7 @@ export async function resolveIndexedTrack(
 
     // Audius replaces the old YouTube-backed edge resolver: keyless, licensed,
     // CORS-clean, and it hands back a directly playable URL.
-    const audiusP: Promise<ResolveTrackResponse | null> = trackResolver('audius', cacheKey, import('./audius')
+    const audiusP: Promise<ResolveTrackResponse | null> = trackResolver('audius', cacheKey, saavnP.then((r) => { if (r?.success && r.streamUrl) throw new Error('covered'); return import('./audius'); })
       .then((m) => m.findAudiusStream(title, artist))
       .then((t) => t?.audio_url ? ({
         success: true,
@@ -1031,7 +1031,7 @@ async function resolveYouTubeVideoStreamInner(
     : Promise.resolve(null);
 
   const audiusRacer: Promise<ResolveTrackResponse | null> = (opts.title || opts.artist)
-    ? trackResolver('audius', id, import('./audius')
+    ? trackResolver('audius', id, saavnRacer.then((r) => { if (r?.success && r.streamUrl) throw new Error('covered'); return import('./audius'); })
         .then((m) => m.findAudiusStream(opts.title || '', opts.artist || ''))
         .then((t) => t?.audio_url ? ({
           success: true,
