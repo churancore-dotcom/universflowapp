@@ -621,7 +621,7 @@ async function countryChartTracks(cc: string, limit: number): Promise<IndexedTra
         const t = norm(r.title);
         return (t === want || t.startsWith(want) || want.startsWith(t)) && (!firstArtist || norm(r.artist).includes(firstArtist));
       });
-      return m ? { ...m, cover_url: m.cover_url || entry.cover_url } : null;
+      return m ? ({ ...m, cover_url: m.cover_url || entry.cover_url } as IndexedTrack) : null;
     }));
     const out = matched.filter((t): t is IndexedTrack => !!t).slice(0, limit);
     if (out.length) countryChartCache.set(key, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
