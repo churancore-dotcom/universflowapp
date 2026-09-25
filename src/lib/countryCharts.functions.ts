@@ -16,7 +16,7 @@ export const getCountryChart = createServerFn({ method: 'GET' })
   .handler(async ({ data }): Promise<CountryChartEntry[]> => {
     try {
       const res = await fetch(
-        `https://rss.applemarketingtools.com/api/v2/${data.cc}/music/most-played/${data.limit}/songs.json`,
+        `https://rss.marketingtools.apple.com/api/v2/${data.cc}/music/most-played/${data.limit}/songs.json`,
         { headers: { accept: 'application/json' } },
       );
       if (!res.ok) return [];
