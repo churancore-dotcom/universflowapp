@@ -1,5 +1,5 @@
 // Song Stories — renders a 9:16 shareable story card (lyric + song + mix) on a canvas.
-import { upgradeArtworkUrl } from '@/lib/artworkUrl';
+import { artworkCandidates } from '@/lib/artworkUrl';
 
 export interface StoryInput {
   title: string;
@@ -22,6 +22,11 @@ function loadImage(src: string): Promise<HTMLImageElement | null> {
     img.onerror = () => resolve(null);
     img.src = src;
   });
+}
+
+async function loadFirst(urls: string[]): Promise<HTMLImageElement | null> {
+  for (const u of urls) { const img = await loadImage(u); if (img) return img; }
+  return null;
 }
 
 function wrap(ctx: CanvasRenderingContext2D, text: string, maxW: number, maxLines: number): string[] {
@@ -58,7 +63,7 @@ export async function renderStory(canvas: HTMLCanvasElement, s: StoryInput): Pro
   canvas.width = STORY_W;
   canvas.height = STORY_H;
   const ctx = canvas.getContext('2d')!;
-  const cover = s.coverUrl ? await loadImage(upgradeArtworkUrl(s.coverUrl, 600)) : null;
+  const cover = s.coverUrl ? await loadFirst(artworkCandidates(s.coverUrl, 600)) : null;
 
   // Background: blurred cover or accent gradient.
   ctx.fillStyle = '#0b0b0f';
@@ -151,4 +156,35 @@ export function storyBlob(canvas: HTMLCanvasElement): Promise<Blob | null> {
   return new Promise((resolve) => {
     try { canvas.toBlob((b) => resolve(b), 'image/png'); } catch { resolve(null); }
   });
+}
+
+/** Share the story image: native share sheet on Android, Web Share or download elsewhere. */
+export async function shareStory(blob: Blob, title: string, text: string): Promise<'shared' | 'downloaded'> {
+  const name = `universflow-story-${Date.now()}.png`;
+  const { Capacitor } = await import('@capacitor/core');
+  if (Capacitor.isNativePlatform()) {
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+      import('@capacitor/filesystem'), import('@capacitor/share'),
+    ]);
+    const data = await new Promise<string>((res, rej) => {
+      const r = new FileReader();
+      r.onload = () => res(String(r.result).split(',')[1] || '');
+      r.onerror = rej;
+      r.readAsDataURL(blob);
+    });
+    const { uri } = await Filesystem.writeFile({ path: name, data, directory: Directory.Cache });
+    await Share.share({ title, text, files: [uri], dialogTitle: 'Share your Song Story' });
+    return 'shared';
+  }
+  const file = new File([blob], name, { type: 'image/png' });
+  if (navigator.canShare?.({ files: [file] })) {
+    await navigator.share({ files: [file], title, text });
+    return 'shared';
+  }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return 'downloaded';
 }
