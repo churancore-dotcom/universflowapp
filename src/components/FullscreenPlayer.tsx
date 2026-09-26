@@ -1,7 +1,8 @@
 import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines, ImagePlus } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
+import SongStorySheet from './SongStorySheet';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import MomentCaptureSheet from './MomentCaptureSheet';
@@ -540,6 +541,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 >
                   <Share2 className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
+                <button
+                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
+                  onClick={() => { triggerHaptic('selection'); setStoryAt(playerProgressStore.getEstimatedProgress()); }}
+                  aria-label="Share a Song Story"
+                >
+                  <ImagePlus className="w-[18px] h-[18px] text-muted-foreground" />
+                </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
                   onClick={handleOpenEqualizer}
@@ -585,6 +593,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           description="Unlock live EQ and vocal or instrumental control on every song, including background playback on Android."
           onClose={() => setShowEqPremium(false)}
         />
+      )}
+      {storyAt !== null && currentSong && (
+        <SongStorySheet song={currentSong} positionSec={storyAt} onClose={() => setStoryAt(null)} />
       )}
       {showMomentSheet && (
         <MomentCaptureSheet
