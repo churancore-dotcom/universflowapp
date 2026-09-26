@@ -9,6 +9,9 @@ import { recordPerfEvent } from '@/lib/perfMonitor';
  * outcome + latency so the admin Performance panel can show which source is
  * actually carrying playback and which one is failing, instead of guessing.
  */
+/** Thrown when a fallback source is intentionally skipped — not a failure. */
+class SourceSkipped extends Error { constructor() { super('skipped'); } }
+
 function trackResolver<T extends { success?: boolean; streamUrl?: string } | null>(
   source: string,
   trackId: string,
@@ -29,6 +32,7 @@ function trackResolver<T extends { success?: boolean; streamUrl?: string } | nul
       return result;
     },
     (err) => {
+      if (err instanceof SourceSkipped) throw err;
       noteSourceResult(source, false);
       recordPerfEvent({
         event_type: 'resolve_error',
@@ -896,7 +900,7 @@ export async function resolveIndexedTrack(
 
     // Audius replaces the old YouTube-backed edge resolver: keyless, licensed,
     // CORS-clean, and it hands back a directly playable URL.
-    const audiusP: Promise<ResolveTrackResponse | null> = trackResolver('audius', cacheKey, saavnP.then((r) => { if (r?.success && r.streamUrl) throw new Error('covered'); return import('./audius'); })
+    const audiusP: Promise<ResolveTrackResponse | null> = trackResolver('audius', cacheKey, saavnP.then((r) => { if (r?.success && r.streamUrl) throw new SourceSkipped(); return import('./audius'); })
       .then((m) => m.findAudiusStream(title, artist))
       .then((t) => t?.audio_url ? ({
         success: true,
@@ -1031,7 +1035,7 @@ async function resolveYouTubeVideoStreamInner(
     : Promise.resolve(null);
 
   const audiusRacer: Promise<ResolveTrackResponse | null> = (opts.title || opts.artist)
-    ? trackResolver('audius', id, saavnRacer.then((r) => { if (r?.success && r.streamUrl) throw new Error('covered'); return import('./audius'); })
+    ? trackResolver('audius', id, saavnRacer.then((r) => { if (r?.success && r.streamUrl) throw new SourceSkipped(); return import('./audius'); })
         .then((m) => m.findAudiusStream(opts.title || '', opts.artist || ''))
         .then((t) => t?.audio_url ? ({
           success: true,
