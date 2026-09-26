@@ -43,6 +43,8 @@ android {
         }
     }
     compileOptions {
+        // NewPipe Extractor uses java.time; desugaring makes it safe on older phones.
+        coreLibraryDesugaringEnabled true
         sourceCompatibility JavaVersion.VERSION_21
         targetCompatibility JavaVersion.VERSION_21
     }
@@ -55,6 +57,8 @@ tasks.withType(org.jetbrains.kotlin.gradle.tasks.KotlinCompile).configureEach {
 }
 
 repositories {
+    // NewPipe Extractor is published on JitPack.
+    maven { url 'https://jitpack.io' }
     flatDir{
         dirs '../capacitor-cordova-android-plugins/src/main/libs', 'libs'
     }
@@ -81,6 +85,10 @@ dependencies {
     // does. This is what lets us race the WEB client and stop relying on
     // pre-signed mobile/TV streams that YouTube throttles.
     implementation 'org.mozilla:rhino:1.7.15'
+    // NewPipe Extractor — maintained YouTube stream extraction (same engine
+    // Echo Music / InnerTune rely on). Bump this version when YouTube breaks.
+    implementation 'com.github.TeamNewPipe:NewPipeExtractor:v0.26.5'
+    coreLibraryDesugaring 'com.android.tools:desugar_jdk_libs_nio:2.1.5'
 }
 
 apply from: 'capacitor.build.gradle'

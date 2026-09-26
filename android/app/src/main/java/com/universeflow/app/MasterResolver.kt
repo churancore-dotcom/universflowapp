@@ -112,6 +112,10 @@ object MasterResolver {
             record(direct, label, "youtube:${cachedYt.client}", System.currentTimeMillis() - startedAt, null)
             return Resolved(cachedYt.url, "youtube", 0L)
         }
+        direct?.let { NewPipeResolver.peek(it) }?.let { np ->
+            record(direct, label, "youtube:newpipe", System.currentTimeMillis() - startedAt, null)
+            return Resolved(np.url, "youtube", np.expiresAt)
+        }
 
         val ytDeadline = startedAt + timeoutMs.coerceIn(1_000L, 6_500L)
         val ytFuture: CompletableFuture<Resolved?>? = if (direct != null || !title.isNullOrBlank()) {
@@ -132,10 +136,30 @@ object MasterResolver {
                     for (id in ids) {
                         val budget = ytDeadline - System.currentTimeMillis()
                         if (budget < 700L) break
-                        val hit = NativeYouTubeResolver.resolve(id, timeoutMs = budget.coerceAtMost(4200L))
-                        if (hit != null) return@supplyAsync Resolved(hit.url, "youtube:${hit.client}", 0L)
-                        ytFailure.set(runCatching { NativeYouTubeResolver.lastFailure(id) }
-                            .getOrDefault("NO_PLAYABLE_STREAM"))
+                        // NewPipe Extractor and our own resolver race; first playable wins.
+                        val np = CompletableFuture.supplyAsync({ NewPipeResolver.resolve(id) }, pool)
+                        val own = CompletableFuture.supplyAsync({
+                            NativeYouTubeResolver.resolve(id, timeoutMs = budget.coerceAtMost(4200L))
+                        }, pool)
+                        val stop = System.currentTimeMillis() + budget.coerceAtMost(4500L)
+                        while (System.currentTimeMillis() < stop && !(np.isDone && own.isDone)) {
+                            np.takeIf { it.isDone }?.getNow(null)?.let { h ->
+                                own.cancel(true)
+                                return@supplyAsync Resolved(h.url, "youtube:newpipe", h.expiresAt)
+                            }
+                            own.takeIf { it.isDone }?.getNow(null)?.let { h ->
+                                np.cancel(true)
+                                return@supplyAsync Resolved(h.url, "youtube:${h.client}", 0L)
+                            }
+                            Thread.sleep(20L)
+                        }
+                        np.getNow(null)?.let { return@supplyAsync Resolved(it.url, "youtube:newpipe", it.expiresAt) }
+                        own.getNow(null)?.let { return@supplyAsync Resolved(it.url, "youtube:${it.client}", 0L) }
+                        np.cancel(true); own.cancel(true)
+                        ytFailure.set(listOfNotNull(
+                            NewPipeResolver.lastFailure(),
+                            runCatching { NativeYouTubeResolver.lastFailure(id) }.getOrNull(),
+                        ).joinToString(" | ").ifBlank { "NO_PLAYABLE_STREAM" })
                     }
                     null
                 } catch (t: Throwable) {
