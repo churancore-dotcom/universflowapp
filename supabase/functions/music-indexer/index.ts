@@ -1683,7 +1683,23 @@ async function videoMeta(videoId: string): Promise<{ title: string; artist: stri
   }
 }
 
-async function resolveVideoId(
+// Hard cap: return a clean miss instead of letting chained fallbacks hit the
+// edge 504 timeout.
+const RESOLVE_BUDGET_MS = 12_000;
+function resolveVideoId(
+  videoId: string,
+  meta?: { title?: string; artist?: string },
+): Promise<{ streamUrl: string; duration?: number } | null> {
+  return Promise.race([
+    resolveVideoIdInner(videoId, meta).catch(() => null),
+    new Promise<null>((r) => setTimeout(() => {
+      console.warn(`[resolve] budget ${RESOLVE_BUDGET_MS}ms exceeded for ${videoId}`);
+      r(null);
+    }, RESOLVE_BUDGET_MS)),
+  ]);
+}
+
+async function resolveVideoIdInner(
   videoId: string,
   meta?: { title?: string; artist?: string },
 ): Promise<{ streamUrl: string; duration?: number } | null> {
