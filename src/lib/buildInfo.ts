@@ -10,8 +10,8 @@ export const BUILD_INFO = {
  * (versionName / versionCode) — Settings shows these to users.
  */
 export const APP_RELEASE = {
-  versionName: "1.0.2",
-  versionCode: 3,
+  versionName: "1.0.3",
+  versionCode: 4,
   builtOn: "2026-09-21",
 } as const;
 
