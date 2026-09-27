@@ -2602,10 +2602,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             }
             const q = queueRef.current;
             const i = currentIndexRef.current;
+            if (!isAutoplayEnabled()) { setIsPlaying(false); wasPlayingRef.current = false; return; }
             let nIdx = getNextIndex(i, q.length, shuffleRef.current, activeRepeat);
             if (nIdx === null && activeRepeat === 'all') nIdx = 0;
-            if (nIdx !== null && q.length > 0) void playSongAtIndex(nIdx, q);
-            else setIsPlaying(false);
+            if (nIdx !== null && q.length > 0) { void playSongAtIndexRef.current?.(nIdx, q); return; }
+            // End of queue: keep the music going with an endless mix, same as web.
+            if (activeRepeat === 'off' && q.length > 0 && !curatedQueueRef.current && extendQueueWithMixRef.current) {
+              const seed = q[i] || currentSongRef.current;
+              void extendQueueWithMixRef.current(seed).then((added) => {
+                const nq = [...queueRef.current];
+                const target = added.length ? nq.findIndex((s) => s.id === added[0].id) : -1;
+                if (target >= 0) void playSongAtIndexRef.current?.(target, nq);
+                else { setIsPlaying(false); wasPlayingRef.current = false; }
+              });
+              return;
+            }
+            setIsPlaying(false);
+            wasPlayingRef.current = false;
           }
         });
         const e = await ExoPlayerPlugin.addListener('playbackError', (d) => {
@@ -2691,7 +2704,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { errorHandle?.remove(); } catch { /* noop */ }
       try { transitionHandle?.remove(); } catch { /* noop */ }
     };
-  }, [getNextIndex, playSongAtIndex, clearNativeStartupTimer, clearNativeFadeTransition, startNativeFadeTransition]);
+  // Listeners are attached once; playSongAtIndex/extend are read via refs so
+  // re-renders never tear down ExoPlayer listeners (which dropped `ended` and
+  // progress events — the "next song never starts / bar frozen" bug).
+  }, [getNextIndex, clearNativeStartupTimer, clearNativeFadeTransition, startNativeFadeTransition]);
 
 
   // ── FIX 3: Proactive stream-URL refresh ──────────────────────────────────
