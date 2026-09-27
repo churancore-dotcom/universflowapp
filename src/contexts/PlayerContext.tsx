@@ -2094,6 +2094,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
   }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent, clearNativeFadeTransition, playbackSettingsVersion]);
+  const playSongAtIndexRef = useRef(playSongAtIndex);
+  playSongAtIndexRef.current = playSongAtIndex;
+  const extendQueueWithMixRef = useRef(extendQueueWithMix);
+  extendQueueWithMixRef.current = extendQueueWithMix;
 
   // Handle song end and crossfade
   useEffect(() => {
