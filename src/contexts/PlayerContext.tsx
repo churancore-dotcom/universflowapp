@@ -3653,13 +3653,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const modes: ('off' | 'all' | 'one')[] = ['off', 'all', 'one'];
       const idx = modes.indexOf(prev);
       const newMode = modes[(idx + 1) % modes.length];
+      repeatRef.current = newMode; // apply instantly for the next `ended`
       return newMode;
     });
   }, []);
 
   useEffect(() => {
     if (!isNativePlayerAvailable()) return;
-    void ExoPlayerPlugin.setRepeatMode({ mode: repeat }).catch(() => undefined);
+    // Only "one" is delegated to ExoPlayer. "all" is handled by the app queue;
+    // passing it natively made ExoPlayer loop its single loaded item forever,
+    // so the next song never started.
+    void ExoPlayerPlugin.setRepeatMode({ mode: repeat === 'one' ? 'one' : 'off' }).catch(() => undefined);
   }, [repeat]);
 
   const toggleCrossfade = useCallback(() => {
