@@ -538,16 +538,10 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               <div className="flex items-center justify-around">
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
-                  onClick={() => { triggerHaptic('selection'); setShowShareModal(true); }}
+                  onClick={() => { triggerHaptic('selection'); setStoryAt(playerProgressStore.getEstimatedProgress()); }}
+                  aria-label="Share"
                 >
                   <Share2 className="w-[18px] h-[18px] text-muted-foreground" />
-                </button>
-                <button
-                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
-                  onClick={() => { triggerHaptic('selection'); setStoryAt(playerProgressStore.getEstimatedProgress()); }}
-                  aria-label="Share a Song Story"
-                >
-                  <ImagePlus className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
