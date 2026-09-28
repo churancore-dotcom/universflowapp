@@ -58,6 +58,7 @@ const SongArtwork = memo(({ song, className, size = 44, alt }: Props) => {
       )}
       {src ? (
         <img
+          key={src}
           src={src}
           alt={alt || song.title || 'Album artwork'}
           loading="lazy"

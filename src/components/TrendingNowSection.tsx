@@ -43,17 +43,19 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // Last.fm / Deezer, refreshed hourly by cron), NOT a keyword search — a
   // search for "top songs this week" is not a chart and skewed every market
   // toward the same rows. This path also works while signed out.
-  const needsFallback = enabled && !chartsLoading && !!charts && charts.top.length === 0;
-  const { data: countryChart } = useCountryCharts(country, needsFallback);
+  const { data: countryChart, isLoading: countryChartLoading } = useCountryCharts(country, enabled);
   const fallbackPool = countryChart?.songs ?? [];
-  const servedCountry = charts?.top?.length ? (charts.country || country) : (countryChart?.country ?? country);
+  const servedCountry = fallbackPool.length ? (countryChart?.country ?? country) : (charts?.country || country);
 
   const trending = useMemo(() => {
     // 1) Real chart order: Top Songs → Trending → Music Videos, quality-gated
     // and deduped by fingerprint (the same song arrives under several ids).
-    const feeds = charts?.top?.length
-      ? [charts.top, charts.trending ?? [], charts.videos ?? []]
-      : [fallbackPool];
+    // Aggregated Apple/Deezer chart rows are authoritative. The YTM path is a
+    // playback-capable fallback only; its regional keyword search must never
+    // outrank an actual chart and crown a merely relevant search result #1.
+    const feeds = fallbackPool.length
+      ? [fallbackPool]
+      : [charts?.top ?? [], charts?.trending ?? [], charts?.videos ?? []];
     const chartRows = cleanRail(
       feeds.flat().filter((s) => !isSpamSong(s)),
       { requireCover: true },
@@ -111,7 +113,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // Never render nothing while the chart query is in flight — that is what made
   // Home look frozen. Skeleton mirrors the real poster layout.
   if (trending.length === 0) {
-    return enabled && (chartsLoading || (needsFallback && !countryChart)) ? <RailSkeleton layout="poster" /> : null;
+    return enabled && (chartsLoading || countryChartLoading) ? <RailSkeleton layout="poster" /> : null;
   }
 
 

@@ -305,6 +305,15 @@ Deno.serve(async (req) => {
       .map((r) => ({ ...r, metadata: r.metadata ?? {}, cover_url: r.cover_url ?? null, external_id: r.external_id ?? null }));
 
     if (rows.length === 0) {
+      // Do not leave a failed market looking current forever. Keep a short
+      // grace window for transient provider outages, then remove stale rows so
+      // clients honestly fall back to a fresh global chart.
+      const staleBefore = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString();
+      await supabase
+        .from("chart_tracks")
+        .delete()
+        .eq("country_code", cc)
+        .lt("fetched_at", staleBefore);
       summary[cc] = 0;
       continue;
     }

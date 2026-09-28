@@ -42,7 +42,7 @@ const DownloadQueuePanel = () => {
       initial={{ y: 100, opacity: 0 }}
       animate={{ y: 0, opacity: 1 }}
       exit={{ y: 100, opacity: 0 }}
-      className="fixed bottom-24 left-4 right-4 z-50 max-w-md mx-auto"
+      className="fixed left-4 right-4 z-[45] max-w-md mx-auto bottom-[calc(env(safe-area-inset-bottom,0px)+136px)]"
     >
       <div className="ios-card border border-border/50 overflow-hidden">
         {/* Header - always visible */}

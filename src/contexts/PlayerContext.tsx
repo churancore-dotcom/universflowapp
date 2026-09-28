@@ -21,6 +21,7 @@ import { markAudible, markPlayStage, startPlayTrace } from '@/lib/playTrace';
 import { dedupePlayerQueue, findNativeQueueIndex, getNativeQueueMediaId, getQueueFingerprint } from '@/lib/playerQueue';
 import { applyStemMix } from '@/hooks/useStemLab';
 import { getRemixForSong, loadMix } from '@/lib/stemLab';
+import { detectCountrySilently } from '@/lib/geoCountry';
 
 import { toast } from 'sonner';
 
@@ -1349,6 +1350,19 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       markSeen(seed);
 
       const pool: Song[] = [];
+      const words = (value?: string | null) => new Set(
+        (value || '').toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(/\s+/)
+          .filter((word) => word.length >= 3 && !['the', 'and', 'feat', 'official', 'music', 'song', 'video', 'audio', 'lyrics', 'mix'].includes(word)),
+      );
+      const seedArtistWords = words(seed.artist);
+      const seedTitleWords = words(seed.title);
+      const overlaps = (left: Set<string>, right: Set<string>) => [...left].filter((word) => right.has(word)).length;
+      const isSearchRelevant = (candidate: { title?: string | null; artist?: string | null }) => {
+        const artistOverlap = overlaps(seedArtistWords, words(candidate.artist));
+        const titleOverlap = overlaps(seedTitleWords, words(candidate.title));
+        const requiredTitleOverlap = seedTitleWords.size <= 1 ? 1 : 2;
+        return artistOverlap > 0 || titleOverlap >= requiredTitleOverlap;
+      };
       const pushUnique = (rows: SongRowWithArtist[] | null) => {
         for (const r of rows || []) {
           if (!r?.id || existing.has(r.id)) continue;
@@ -1392,6 +1406,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
               if (!id || existing.has(id)) continue;
               if (isDuplicate({ title: t.title, artist: t.artist })) continue;
               if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
+              if (!isSearchRelevant(t)) continue;
               existing.add(id);
               markSeen({ title: t.title, artist: t.artist });
               pool.push({
@@ -1426,7 +1441,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
       }
 
-      // 4) Same genre / mood
+      // 4) Same genre / mood. When both signals exist, require both; a broad
+      // genre such as "Pop" alone is not enough to call a track a smart match.
       if (pool.length < 25 && (seed.genre || seed.mood)) {
         let q = supabase
           .from('songs')
@@ -1434,24 +1450,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           .eq('is_visible', true)
           .limit(40);
         if (seed.genre) q = q.eq('genre', seed.genre);
-        else if (seed.mood) q = q.eq('mood', seed.mood);
+        if (seed.mood) q = q.eq('mood', seed.mood);
         const { data } = await q;
         // shuffle a bit for variety
         const shuffled = [...((data as SongRowWithArtist[] | null) || [])].sort(() => Math.random() - 0.5);
-        pushUnique(shuffled);
+        pushUnique(shuffled.slice(0, 8));
       }
 
-      // 5) Trending fallback
-      if (pool.length < 10) {
-        const { data } = await supabase
-          .from('songs')
-          .select('*, artists(id, name, photo_url)')
-          .eq('is_visible', true)
-          .order('play_count', { ascending: false, nullsFirst: false })
-          .limit(40);
-        const shuffled = [...((data as SongRowWithArtist[] | null) || [])].sort(() => Math.random() - 0.5);
-        pushUnique(shuffled);
-      }
+      // Never fill a thin mix with unrelated global hits. A shorter relevant
+      // queue is more useful than a long random one.
 
       pool.forEach((s) => autoMixSeenRef.current.add(s.id));
 
@@ -3241,7 +3248,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         // Anonymized aggregate analytics only (no per-user history reveal).
-        supabase.from('song_play_events').insert({
+        void detectCountrySilently().then((countryCode) => supabase.from('song_play_events').insert({
           user_id: user.id,
           track_id: trackIdForEvent,
           song_id: isCatalogUuid ? song.id : null,
@@ -3251,7 +3258,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           source: sourceForEvent,
           action: 'stream',
           score_weight: 3,
-        }).then(() => {});
+          country_code: countryCode || null,
+        })).then(() => {});
         // Bump artist_songs.play_count so the artist dashboard sees plays
         // arriving in real time. The RPC no-ops if the id doesn't match a
         // live artist_songs row, so it's safe for catalog/YT ids too.
@@ -3501,7 +3509,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (skipped && heardFor > 0.5 && heardFor < 15) {
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;
-        void supabase.from('song_play_events').insert({
+        void detectCountrySilently().then((countryCode) => supabase.from('song_play_events').insert({
           user_id: user.id,
           track_id: (skipped.id || `${skipped.artist}-${skipped.title}`).slice(0, 220),
           song_id: /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(skipped.id) ? skipped.id : null,
@@ -3511,7 +3519,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           source: 'player',
           action: 'skip',
           score_weight: 1,
-        });
+          country_code: countryCode || null,
+        }));
       }).catch(() => {});
     }
 

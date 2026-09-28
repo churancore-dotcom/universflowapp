@@ -1,6 +1,9 @@
-# Playback reliability fixes
+# Roadmap
 
-- [x] Make Stem Lab affect Android and web playback, persist across track changes, and reapply saved remixes globally.
-- [x] Make Memory Tape resolve fresh URLs for expiring music sources.
-- [x] Classify the server-side YouTube failure without unsafe code changes.
-- [x] Verify focused tests and current preview build.
+- [x] Remove mobile player/download overlaps and short-screen clipping.
+- [x] Use sharp artwork fallbacks in full player and recommendations.
+- [x] Remove unrelated Smart Remix filler and tighten relevance.
+- [x] Remove non-India JioSaavn chart fallback.
+- [x] Add country tagging to play and skip trend events.
+- [x] Reject stale and evergreen chart data.
+- [x] Verify preview, focused checks, and Android-size layouts.
