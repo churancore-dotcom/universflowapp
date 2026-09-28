@@ -6,4 +6,4 @@
 - [x] Remove non-India JioSaavn chart fallback.
 - [x] Add country tagging to play and skip trend events.
 - [x] Reject stale and evergreen chart data.
-- [ ] Verify preview, focused checks, and Android-size layouts.
+- [x] Verify preview, focused checks, and Android-size layouts.
