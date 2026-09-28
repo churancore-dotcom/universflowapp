@@ -26,6 +26,7 @@ interface ChartRow {
   external_id: string | null;
   country_code: string;
   chart_type: string;
+  fetched_at: string;
 }
 
 /** Human label for the shelf subtitle ("Top in Brazil" / "Top worldwide"). */
@@ -54,9 +55,11 @@ function rowToSong(r: ChartRow): Song | null {
 async function readChart(country: string, kind: ChartKind, limit: number): Promise<ChartRow[]> {
   const { data, error } = await supabase
     .from('chart_tracks')
-    .select('rank, title, artist, cover_url, source, external_id, country_code, chart_type')
+    .select('rank, title, artist, cover_url, source, external_id, country_code, chart_type, fetched_at')
     .eq('country_code', country)
     .eq('chart_type', kind)
+    .gte('fetched_at', new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString())
+    .neq('source', kind === 'viral' ? 'lastfm' : '')
     .order('rank', { ascending: true })
     .limit(limit);
   if (error) return [];

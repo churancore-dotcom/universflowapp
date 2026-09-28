@@ -19,6 +19,7 @@ import EqualizerModal from './EqualizerModal';
 import PremiumLockOverlay from './PremiumLockOverlay';
 import QueueDrawer from './QueueDrawer';
 import FollowArtistButton from './FollowArtistButton';
+import SongArtwork from './SongArtwork';
 import type { Song } from '@/contexts/PlayerContext';
 import { fetchLyrics } from '@/lib/lyrics';
 import { triggerHaptic } from '@/hooks/useHaptics';
@@ -250,7 +251,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           </AnimatePresence>
 
           {/* Main content - uses flex to fill space like screenshot */}
-          <div className="relative flex flex-col h-full px-5 pt-2 pb-3 overflow-hidden">
+          <div className="relative flex flex-col h-full px-5 pt-2 pb-3 overflow-y-auto overflow-x-hidden overscroll-contain hide-scrollbar">
             {/* Drag indicator */}
             <div className="flex justify-center mb-1 flex-shrink-0">
               <div className="w-9 h-1 rounded-full bg-foreground/40" />
@@ -305,8 +306,10 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               <div
                 className="relative"
                 style={{
-                  width: 'min(84vw, 100%, calc(100dvh - 370px), 380px)',
-                  height: 'min(84vw, 100%, calc(100dvh - 370px), 380px)',
+                  width: 'min(84vw, 100%, calc(100dvh - 430px), 380px)',
+                  height: 'min(84vw, 100%, calc(100dvh - 430px), 380px)',
+                  minWidth: '180px',
+                  minHeight: '180px',
                   aspectRatio: '1 / 1',
                 }}
               >
@@ -341,18 +344,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                       animate="animate"
                       exit="exit"
                     >
-                      {currentSong.cover_url ? (
-                        <img
-                          src={currentSong.cover_url}
-                          alt={currentSong.title}
-                          className="w-full h-full object-cover"
-                          draggable={false}
-                        />
-                      ) : (
-                        <div className="w-full h-full bg-gradient-to-br from-primary to-primary/80 flex items-center justify-center">
-                          <div className="text-muted-foreground text-5xl">♪</div>
-                        </div>
-                      )}
+                      <SongArtwork song={currentSong} size={760} alt={currentSong.title} className="w-full h-full" />
                     </motion.div>
                   </AnimatePresence>
                 </motion.div>
@@ -519,11 +511,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                       aria-label={`Play ${song.title}`}
                     >
                       <div className="h-7 w-7 flex-shrink-0 overflow-hidden rounded-full bg-foreground/10">
-                        {song.cover_url ? (
-                          <img src={song.cover_url} alt="" className="h-full w-full object-cover" loading="lazy" />
-                        ) : (
-                          <div className="flex h-full w-full items-center justify-center text-[10px] text-muted-foreground/70">♪</div>
-                        )}
+                        <SongArtwork song={song} size={72} alt="" className="h-full w-full" />
                       </div>
                       <span className="truncate text-[11px] font-medium text-foreground">{song.title}</span>
                     </button>

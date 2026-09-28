@@ -673,15 +673,16 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
         return out;
       }
     }
-    const [{ searchSongsAsTracksPaged }, { getAudiusUnderground }] = await Promise.all([
-      import('./jiosaavn'),
-      import('./audius'),
-    ]);
-    const [hindi, punjabi] = await Promise.all([
-      searchSongsAsTracksPaged(cc === 'IN' ? `latest Bollywood songs ${year}` : `new english songs ${year}`, Math.max(limit, 40)),
-      searchSongsAsTracksPaged(cc === 'IN' ? `new Punjabi songs ${year}` : `new pop songs ${year}`, Math.max(20, Math.ceil(limit / 2))),
-    ]);
-    const primary = mergeTrackSources(hindi, punjabi).slice(0, limit);
+    const { getAudiusUnderground } = await import('./audius');
+    let primary: IndexedTrack[] = [];
+    if (cc === 'IN') {
+      const { searchSongsAsTracksPaged } = await import('./jiosaavn');
+      const [hindi, punjabi] = await Promise.all([
+        searchSongsAsTracksPaged(`latest Bollywood songs ${year}`, Math.max(limit, 40)),
+        searchSongsAsTracksPaged(`new Punjabi songs ${year}`, Math.max(20, Math.ceil(limit / 2))),
+      ]);
+      primary = mergeTrackSources(hindi, punjabi).slice(0, limit);
+    }
     const out = primary.length >= 6 ? primary : mergeTrackSources(primary, await getAudiusUnderground(limit)).slice(0, limit);
     if (out.length) newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
     return out;
@@ -745,15 +746,16 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
           return out;
         }
       }
-      const [{ searchSongsAsTracksPaged }, { getAudiusTrending }] = await Promise.all([
-        import('./jiosaavn'),
-        import('./audius'),
-      ]);
-      const [india, bollywood] = await Promise.all([
-        searchSongsAsTracksPaged(cc === 'IN' ? 'India top songs' : 'global top hits', limit),
-        searchSongsAsTracksPaged(cc === 'IN' ? 'Bollywood hits' : 'top english songs', limit),
-      ]);
-      const primary = mergeTrackSources(india, bollywood).slice(0, limit);
+      const { getAudiusTrending } = await import('./audius');
+      let primary: IndexedTrack[] = [];
+      if (cc === 'IN') {
+        const { searchSongsAsTracksPaged } = await import('./jiosaavn');
+        const [india, bollywood] = await Promise.all([
+          searchSongsAsTracksPaged('India top songs', limit),
+          searchSongsAsTracksPaged('Bollywood hits', limit),
+        ]);
+        primary = mergeTrackSources(india, bollywood).slice(0, limit);
+      }
       const fallback = primary.length >= 8 ? [] : await getAudiusTrending(limit, 'week');
 
       const top = mergeTrackSources(primary, fallback).slice(0, limit);
@@ -761,7 +763,7 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
         top,
         trending: top.slice(Math.min(5, Math.floor(top.length / 3))).concat(top.slice(0, Math.min(5, top.length))),
         videos: [],
-        country: 'IN',
+        country: cc,
       };
       if (top.length) {
         chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
