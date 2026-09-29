@@ -8,6 +8,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import type { Song } from '@/contexts/PlayerContext';
+import { songFingerprint } from '@/lib/railQuality';
 
 interface TrendingRow {
   track_id: string;
@@ -39,6 +40,8 @@ export interface AppTrendingResult {
   songs: Song[];
   /** Listener counts so callers can show "N listening" without a second read. */
   listeners: Map<string, number>;
+  /** Stable title+artist identity used to join resolver IDs to chart IDs. */
+  listenersByFingerprint: Map<string, number>;
 }
 
 export async function fetchAppTrending(country: string | null, hours = 48, limit = 40): Promise<AppTrendingResult> {
@@ -50,14 +53,21 @@ export async function fetchAppTrending(country: string | null, hours = 48, limit
   if (error) throw error;
   const rows = (data ?? []) as unknown as TrendingRow[];
   const listeners = new Map<string, number>();
+  const listenersByFingerprint = new Map<string, number>();
   const songs: Song[] = [];
   for (const r of rows) {
     const song = rowToSong(r);
     if (!song || !song.audio_url) continue;
-    listeners.set(song.id, Number(r.listeners) || 0);
+    const count = Number(r.listeners) || 0;
+    listeners.set(song.id, count);
+    const fingerprint = songFingerprint(song);
+    listenersByFingerprint.set(
+      fingerprint,
+      Math.max(listenersByFingerprint.get(fingerprint) ?? 0, count),
+    );
     songs.push(song);
   }
-  return { songs, listeners };
+  return { songs, listeners, listenersByFingerprint };
 }
 
 /**
@@ -81,15 +91,22 @@ export function useAppTrending(country: string | null, enabled = true) {
         const seen = new Set(local.songs.map((s) => s.id));
         const merged = [...local.songs];
         const listeners = new Map(local.listeners);
+        const listenersByFingerprint = new Map(local.listenersByFingerprint);
         for (const s of global.songs) {
           if (seen.has(s.id)) continue;
           seen.add(s.id);
-          listeners.set(s.id, global.listeners.get(s.id) ?? 0);
+          const count = global.listeners.get(s.id) ?? 0;
+          listeners.set(s.id, count);
+          const fingerprint = songFingerprint(s);
+          listenersByFingerprint.set(
+            fingerprint,
+            Math.max(listenersByFingerprint.get(fingerprint) ?? 0, count),
+          );
           merged.push(s);
         }
-        return { songs: merged, listeners };
+        return { songs: merged, listeners, listenersByFingerprint };
       } catch {
-        return { songs: [], listeners: new Map() };
+        return { songs: [], listeners: new Map(), listenersByFingerprint: new Map() };
       }
     },
   });

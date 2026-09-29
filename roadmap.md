@@ -8,3 +8,4 @@
 - [x] Reject stale and evergreen chart data.
 - [x] Verify preview, focused checks, and Android-size layouts.
 - [x] Replace animated/video sharing with immediate app-link sharing.
+- [x] Rank real chart candidates by distinct recent listeners instead of taste guesses.
