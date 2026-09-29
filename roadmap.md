@@ -7,3 +7,4 @@
 - [x] Add country tagging to play and skip trend events.
 - [x] Reject stale and evergreen chart data.
 - [x] Verify preview, focused checks, and Android-size layouts.
+- [x] Replace animated/video sharing with immediate app-link sharing.
