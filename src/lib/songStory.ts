@@ -146,9 +146,13 @@ function drawLyrics(ctx: CanvasRenderingContext2D, a: StoryAssets, style: StoryS
   const dark = style === 'minimal';
   const lineH = 118;
   const pos = t / LINE_SECONDS; // continuous scroll position in lines
-  const active = Math.floor(pos);
-  const frac = ease((pos - active) / 0.35);
-  const scroll = (active + frac) * lineH;
+  const current = Math.min(Math.floor(pos), a.lines.length - 1);
+  const phase = pos - Math.floor(pos);
+  // Hold the current lyric in the center, then transition near the end of its
+  // display period. Highlight whichever line is closest to the center.
+  const frac = current < a.lines.length - 1 ? ease((phase - 0.65) / 0.35) : 0;
+  const scroll = (current + frac) * lineH;
+  const active = Math.min(current + (frac >= 0.5 ? 1 : 0), a.lines.length - 1);
   const centerY = top + (bottom - top) * 0.38;
   ctx.save();
   ctx.beginPath(); ctx.rect(0, top, STORY_W, bottom - top); ctx.clip();

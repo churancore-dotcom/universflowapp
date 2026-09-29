@@ -578,7 +578,15 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
         />
       )}
       {storyAt !== null && currentSong && (
-        <SongStorySheet song={currentSong} positionSec={storyAt} onClose={() => setStoryAt(null)} />
+        <SongStorySheet
+          song={currentSong}
+          positionSec={storyAt}
+          onClose={() => setStoryAt(null)}
+          onMoreOptions={() => {
+            setStoryAt(null);
+            setShowShareModal(true);
+          }}
+        />
       )}
       {showMomentSheet && (
         <MomentCaptureSheet
