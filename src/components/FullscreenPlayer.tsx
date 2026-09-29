@@ -2,7 +2,6 @@ import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, PanInfo } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines, ImagePlus } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
-import SongStorySheet from './SongStorySheet';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
 import MomentCaptureSheet from './MomentCaptureSheet';
@@ -91,7 +90,6 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const { progress, duration } = usePlayerProgress();
   
   const [showShareModal, setShowShareModal] = useState(false);
-  const [storyAt, setStoryAt] = useState<number | null>(null);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
   const [showEqualizer, setShowEqualizer] = useState(false);
@@ -526,7 +524,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               <div className="flex items-center justify-around">
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
-                  onClick={() => { triggerHaptic('selection'); setStoryAt(playerProgressStore.getEstimatedProgress()); }}
+                  onClick={() => { triggerHaptic('selection'); setShowShareModal(true); }}
                   aria-label="Share"
                 >
                   <Share2 className="w-[18px] h-[18px] text-muted-foreground" />
@@ -575,17 +573,6 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           title="Studio Equalizer"
           description="Unlock live EQ and vocal or instrumental control on every song, including background playback on Android."
           onClose={() => setShowEqPremium(false)}
-        />
-      )}
-      {storyAt !== null && currentSong && (
-        <SongStorySheet
-          song={currentSong}
-          positionSec={storyAt}
-          onClose={() => setStoryAt(null)}
-          onMoreOptions={() => {
-            setStoryAt(null);
-            setShowShareModal(true);
-          }}
         />
       )}
       {showMomentSheet && (
