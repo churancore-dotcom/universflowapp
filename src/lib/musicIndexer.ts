@@ -709,7 +709,8 @@ interface YoutubeChartsResponse {
   error?: string;
 }
 
-// JioSaavn-first Indian charts. Audius is only a thin-data fallback.
+// Official YouTube Music chart first. Never synthesize a chart from keyword
+// search results: a search response is relevance-ranked, not a popularity rank.
 export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise<YtmCharts> {
   const cc = /^[A-Z]{2}$/.test(country.toUpperCase()) ? country.toUpperCase() : 'ZZ';
   const cacheKey = `charts-v3::${cc}::${limit}`;
@@ -720,55 +721,24 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
   if (inflight) return inflight;
   const p = (async () => {
     try {
-      const ytTop = await youtubeCountryRail(cc, ['top songs', 'trending songs this week'], limit);
-      if (ytTop.length >= 8) {
+      const { supabase } = await import('@/integrations/supabase/client');
+      const { data } = await supabase.functions.invoke<YoutubeChartsResponse>('yt-music-search', {
+        body: { mode: 'charts', country: cc, limit: Math.min(40, limit) },
+      });
+      const top = Array.isArray(data?.top) ? data.top : [];
+      const trending = Array.isArray(data?.trending) ? data.trending : [];
+      const videos = Array.isArray(data?.videos) ? data.videos : [];
+      if (top.length >= 8 || trending.length >= 8) {
         const out: YtmCharts = {
-          top: ytTop,
-          trending: ytTop.slice(Math.min(5, Math.floor(ytTop.length / 3))).concat(ytTop.slice(0, Math.min(5, ytTop.length))),
-          videos: [],
-          country: cc,
+          top: top.slice(0, limit),
+          trending: trending.slice(0, limit),
+          videos: videos.slice(0, limit),
+          country: data?.country || cc,
         };
         chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
         return out;
       }
-      // Outside India: the listener's real national chart (Apple's public
-      // per-country most-played feed), matched to playable JioSaavn copies.
-      if (cc !== 'IN' && cc !== 'ZZ') {
-        const local = await countryChartTracks(cc, limit);
-        if (local.length >= 8) {
-          const out: YtmCharts = {
-            top: local,
-            trending: local.slice(Math.min(5, Math.floor(local.length / 3))).concat(local.slice(0, 5)),
-            videos: [],
-            country: cc,
-          };
-          chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
-          return out;
-        }
-      }
-      const { getAudiusTrending } = await import('./audius');
-      let primary: IndexedTrack[] = [];
-      if (cc === 'IN') {
-        const { searchSongsAsTracksPaged } = await import('./jiosaavn');
-        const [india, bollywood] = await Promise.all([
-          searchSongsAsTracksPaged('India top songs', limit),
-          searchSongsAsTracksPaged('Bollywood hits', limit),
-        ]);
-        primary = mergeTrackSources(india, bollywood).slice(0, limit);
-      }
-      const fallback = primary.length >= 8 ? [] : await getAudiusTrending(limit, 'week');
-
-      const top = mergeTrackSources(primary, fallback).slice(0, limit);
-      const out: YtmCharts = {
-        top,
-        trending: top.slice(Math.min(5, Math.floor(top.length / 3))).concat(top.slice(0, Math.min(5, top.length))),
-        videos: [],
-        country: cc,
-      };
-      if (top.length) {
-        chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
-      }
-      return out;
+      return { top: [], trending: [], videos: [], country: cc } as YtmCharts;
     } catch {
       return { top: [], trending: [], videos: [], country: cc } as YtmCharts;
     } finally {

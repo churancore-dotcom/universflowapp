@@ -4,14 +4,13 @@ import { Play, ArrowUp, ArrowDown } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
-import { prewarmSong, prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
+import { prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { useCountryCharts, countryLabel } from '@/lib/countryCharts';
-import { useAppTrending } from '@/lib/appTrending';
 import { RailSkeleton } from './PageSkeletons';
-import { cleanRail, songFingerprint, claimRailSongs } from '@/lib/railQuality';
+import { cleanRail, claimRailSongs } from '@/lib/railQuality';
 import { slice, sliceTransition, pressShear } from '@/lib/ufMotion';
 import RailHeader from './RailHeader';
 
@@ -29,64 +28,28 @@ interface Props { songs?: Song[]; enabled?: boolean }
 const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const { playSong, currentSong } = usePlayer();
   const country = useUserCountry();
-  // REAL viral charts are the source of truth: the same ranked feeds
-  // music.youtube.com/charts renders for this country (Top Songs + Trending +
-  // Music Videos). UniversFlow's own play data is only a boost signal — it must
-  // never *become* the chart, or the shelf shows in-house plays instead of what
-  // is actually viral.
+  // The same ranked feeds shown by music.youtube.com/charts for this country.
+  // No UniversFlow plays, taste profile, AI, or keyword search may alter rank.
   const { data: charts, isLoading: chartsLoading } = useYtmCharts(country, enabled);
-  const { data: appTrending } = useAppTrending(country, enabled);
   // Fallback is the aggregated per-country chart table (Apple / iTunes /
   // Last.fm / Deezer, refreshed hourly by cron), NOT a keyword search — a
   // search for "top songs this week" is not a chart and skewed every market
   // toward the same rows. This path also works while signed out.
   const { data: countryChart, isLoading: countryChartLoading } = useCountryCharts(country, enabled);
   const fallbackPool = countryChart?.songs ?? [];
-  const servedCountry = fallbackPool.length ? (countryChart?.country ?? country) : (charts?.country || country);
+  const youtubePool = [...(charts?.trending ?? []), ...(charts?.top ?? []), ...(charts?.videos ?? [])];
+  const servedCountry = youtubePool.length ? (charts?.country || country) : (countryChart?.country ?? country);
 
   const trending = useMemo(() => {
-    // 1) Real chart order: Top Songs → Trending → Music Videos, quality-gated
-    // and deduped by fingerprint (the same song arrives under several ids).
-    // Aggregated Apple/Deezer chart rows are authoritative. The YTM path is a
-    // playback-capable fallback only; its regional keyword search must never
-    // outrank an actual chart and crown a merely relevant search result #1.
-    const feeds = fallbackPool.length
-      ? [fallbackPool]
-      : [charts?.top ?? [], charts?.trending ?? [], charts?.videos ?? []];
-    const chartRows = cleanRail(
-      feeds.flat().filter((s) => !isSpamSong(s)),
+    // YouTube Music's official regional Trending playlist is first, followed
+    // by its Top Songs and Music Videos charts. If YouTube has no chart, use
+    // the fresh Apple Music most-played chart stored by the hourly aggregator.
+    const sourceRows = youtubePool.length ? youtubePool : fallbackPool;
+    return cleanRail(
+      sourceRows.filter((s) => !isSpamSong(s)),
       { requireCover: true },
-    );
-    const listenerCounts = appTrending?.listenersByFingerprint ?? new Map<string, number>();
-
-    // A track must be backed by a real external chart, or by at least three
-    // distinct UniversFlow listeners. This keeps one person's obscure play out
-    // while allowing genuinely viral in-app songs to enter the chart.
-    const inAppViral = (appTrending?.songs ?? []).filter(
-      (song) => (listenerCounts.get(songFingerprint(song)) ?? 0) >= 3,
-    );
-    const candidates = cleanRail([...chartRows, ...inAppViral], { requireCover: true });
-    if (!candidates.length) return [];
-
-    // Rank by distinct recent listeners first. Official chart position is the
-    // deterministic tie-breaker and cold-start fallback. Personal taste never
-    // changes public chart rank: every listener in a market sees the same truth.
-    const officialRank = new Map(chartRows.map((song, index) => [songFingerprint(song), index]));
-    return candidates
-      .map((song, index) => ({
-        song,
-        index,
-        listeners: listenerCounts.get(songFingerprint(song)) ?? 0,
-        officialRank: officialRank.get(songFingerprint(song)) ?? Number.MAX_SAFE_INTEGER,
-      }))
-      .sort((a, b) =>
-        b.listeners - a.listeners
-        || a.officialRank - b.officialRank
-        || a.index - b.index,
-      )
-      .map(({ song }) => song)
-      .slice(0, 18);
-  }, [charts, fallbackPool, appTrending]);
+    ).slice(0, 18);
+  }, [youtubePool, fallbackPool]);
 
 
 
@@ -136,7 +99,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     <section className="relative">
       <RailHeader
         title="Trending Now"
-        subtitle={`Real-time chart in ${countryLabel(servedCountry)}`}
+        subtitle={`YouTube Music chart · ${countryLabel(servedCountry)}`}
       />
 
       {/* Lead poster — one dominant visual */}
