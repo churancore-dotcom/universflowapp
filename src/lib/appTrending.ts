@@ -57,7 +57,7 @@ export async function fetchAppTrending(country: string | null, hours = 48, limit
   const songs: Song[] = [];
   for (const r of rows) {
     const song = rowToSong(r);
-    if (!song || !song.audio_url) continue;
+    if (!song) continue;
     const count = Number(r.listeners) || 0;
     listeners.set(song.id, count);
     const fingerprint = songFingerprint(song);
@@ -65,6 +65,9 @@ export async function fetchAppTrending(country: string | null, hours = 48, limit
       fingerprint,
       Math.max(listenersByFingerprint.get(fingerprint) ?? 0, count),
     );
+    // Catalogue events may not carry a resolver URL, but their verified
+    // listener count still ranks the matching external chart row.
+    if (!song.audio_url) continue;
     songs.push(song);
   }
   return { songs, listeners, listenersByFingerprint };
