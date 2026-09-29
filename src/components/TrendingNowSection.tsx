@@ -5,15 +5,13 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { prewarmSong, prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
-import { useTasteProfile } from '@/hooks/useTasteProfile';
-import { rerank } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmCharts } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { useCountryCharts, countryLabel } from '@/lib/countryCharts';
 import { useAppTrending } from '@/lib/appTrending';
 import { RailSkeleton } from './PageSkeletons';
-import { cleanRail, diversifyByArtist, songFingerprint, claimRailSongs } from '@/lib/railQuality';
+import { cleanRail, songFingerprint, claimRailSongs } from '@/lib/railQuality';
 import { slice, sliceTransition, pressShear } from '@/lib/ufMotion';
 import RailHeader from './RailHeader';
 
@@ -30,7 +28,6 @@ interface Props { songs?: Song[]; enabled?: boolean }
  */
 const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const { playSong, currentSong } = usePlayer();
-  const taste = useTasteProfile();
   const country = useUserCountry();
   // REAL viral charts are the source of truth: the same ranked feeds
   // music.youtube.com/charts renders for this country (Top Songs + Trending +
@@ -60,22 +57,36 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
       feeds.flat().filter((s) => !isSpamSong(s)),
       { requireCover: true },
     );
-    if (!chartRows.length) return [];
+    const listenerCounts = appTrending?.listenersByFingerprint ?? new Map<string, number>();
 
-    // 2) In-app heat as a boost only — a charting track that UniversFlow
-    // listeners are also hammering right now moves up, nothing new is injected.
-    const hot = new Set((appTrending?.songs ?? []).map((s) => songFingerprint(s)));
+    // A track must be backed by a real external chart, or by at least three
+    // distinct UniversFlow listeners. This keeps one person's obscure play out
+    // while allowing genuinely viral in-app songs to enter the chart.
+    const inAppViral = (appTrending?.songs ?? []).filter(
+      (song) => (listenerCounts.get(songFingerprint(song)) ?? 0) >= 3,
+    );
+    const candidates = cleanRail([...chartRows, ...inAppViral], { requireCover: true });
+    if (!candidates.length) return [];
 
-    // 3) Personalization reorders the real chart (never deletes it), then the
-    // in-app heat boost is applied as a stable partition, then a diversity
-    // pass stops one artist from owning the shelf.
-    const ranked = rerank(chartRows, taste);
-    const boosted = [
-      ...ranked.filter((s) => hot.has(songFingerprint(s))),
-      ...ranked.filter((s) => !hot.has(songFingerprint(s))),
-    ];
-    return diversifyByArtist(boosted).slice(0, 18);
-  }, [charts, chartsLoading, fallbackPool, appTrending, taste]);
+    // Rank by distinct recent listeners first. Official chart position is the
+    // deterministic tie-breaker and cold-start fallback. Personal taste never
+    // changes public chart rank: every listener in a market sees the same truth.
+    const officialRank = new Map(chartRows.map((song, index) => [songFingerprint(song), index]));
+    return candidates
+      .map((song, index) => ({
+        song,
+        index,
+        listeners: listenerCounts.get(songFingerprint(song)) ?? 0,
+        officialRank: officialRank.get(songFingerprint(song)) ?? Number.MAX_SAFE_INTEGER,
+      }))
+      .sort((a, b) =>
+        b.listeners - a.listeners
+        || a.officialRank - b.officialRank
+        || a.index - b.index,
+      )
+      .map(({ song }) => song)
+      .slice(0, 18);
+  }, [charts, fallbackPool, appTrending]);
 
 
 
@@ -125,7 +136,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     <section className="relative">
       <RailHeader
         title="Trending Now"
-        subtitle={`Top in ${countryLabel(servedCountry)}, tuned to your taste`}
+        subtitle={`Real-time chart in ${countryLabel(servedCountry)}`}
       />
 
       {/* Lead poster — one dominant visual */}
