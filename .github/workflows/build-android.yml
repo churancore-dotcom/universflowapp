@@ -388,3 +388,24 @@ jobs:
           path: "android/app/build/outputs/apk/debug/renamed/Univers Flow.apk"
           retention-days: 30
 
+      - name: Publish APK to website download
+        # Uploads the freshly built APK over the one served at
+        # universflow.in/api/public/apk (storage object music/releases/UniversFlow.apk),
+        # so the site always offers the latest build.
+        run: |
+          if [ -z "$SUPABASE_SERVICE_ROLE_KEY" ] || [ -z "$VITE_SUPABASE_URL" ]; then
+            echo "::warning::SUPABASE_SERVICE_ROLE_KEY secret missing — skipping website APK publish."
+            exit 0
+          fi
+          curl -sf -X POST \
+            "$VITE_SUPABASE_URL/storage/v1/object/music/releases/UniversFlow.apk" \
+            -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "apikey: $SUPABASE_SERVICE_ROLE_KEY" \
+            -H "x-upsert: true" \
+            -H "Content-Type: application/vnd.android.package-archive" \
+            --data-binary @"android/app/build/outputs/apk/debug/renamed/Univers Flow.apk"
+          echo "APK published to website download endpoint."
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+
