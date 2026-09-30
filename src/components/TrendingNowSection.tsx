@@ -94,7 +94,14 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   }
 
 
-  const play = (s: Song) => { triggerHaptic('selection'); playSong(s, undefined, trending); };
+  // Tapping any poster plays the whole chart as a mix, in official chart
+  // order starting from that song, so the next hit follows automatically.
+  const play = (s: Song) => {
+    triggerHaptic('selection');
+    const i = trending.findIndex((t) => t.id === s.id);
+    const mix = i > 0 ? [...trending.slice(i), ...trending.slice(0, i)] : trending;
+    playSong(s, undefined, mix);
+  };
   const lead = trending[0];
   const rest = trending.slice(1);
 
@@ -102,7 +109,9 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     <section className="relative">
       <RailHeader
         title="Trending Now"
-        subtitle={`${fromYouTube ? 'YouTube Music' : 'Official'} chart · ${countryLabel(servedCountry)}`}
+        subtitle={`${fromYouTube ? 'Top chart' : 'Official chart'} · ${countryLabel(servedCountry)}`}
+        actionLabel="Play mix"
+        onAction={() => play(lead)}
       />
 
       {/* Lead poster — one dominant visual */}
