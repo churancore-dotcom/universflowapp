@@ -28,7 +28,6 @@ import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import HomeBento from '@/components/HomeBento';
-import FlowCore from '@/components/FlowCore';
 
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
@@ -326,25 +325,22 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
           ) : (
             <>
-              {/* ── Flow Core: personal stage + vibe channels from real history ── */}
-              <FlowCore fallback={clean.length ? clean : allSongs} />
-
               {/* ── Continue Listening + Jump Back In, both from real history ── */}
-              <div className="mt-6"><HomeBento songs={clean.length ? clean : allSongs} /></div>
+              <HomeBento songs={clean.length ? clean : allSongs} />
 
               {/* ── Recap progress — leads to the real recap screen ── */}
               <section className="px-6 mt-5">
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => { window.location.href = '/recap'; }} />
               </section>
 
-              {/* ── Personal rails first, then the outside world ── */}
+              {/* ── The full feed: charts, fresh music, personal rails ── */}
               <div className="px-6 mt-9 space-y-11 pb-24">
+                <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
+                <FreshReleasesSection enabled={homeReady} />
                 <OnRepeatSection />
                 <MadeForYouSection />
                 <HistoryPlaylistsSection />
                 <YourArtistsSection />
-                <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
-                <FreshReleasesSection enabled={homeReady} />
                 <FeaturedArtistsSection songs={clean.length ? clean : allSongs} circle />
               </div>
 
