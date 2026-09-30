@@ -2050,6 +2050,22 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = typeof body.action === 'string' ? body.action : '';
 
+    // Quota-consuming actions require a signed-in caller.
+    if (action === 'search' || action === 'resolve') {
+      const hdr = req.headers.get('authorization') || '';
+      const adminClient = getAdminClient();
+      let ok = false;
+      if (hdr.startsWith('Bearer ') && adminClient) {
+        const { data: who } = await adminClient.auth.getUser(hdr.slice(7));
+        ok = !!who?.user?.id;
+      }
+      if (!ok) {
+        return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
 
     if (!LASTFM_API_KEY) {
       return new Response(JSON.stringify({ success: false, error: 'Last.fm is not configured' }), {
