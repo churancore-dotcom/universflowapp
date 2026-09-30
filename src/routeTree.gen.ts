@@ -96,6 +96,7 @@ import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AdminArtistApplicationsStatusRouteImport } from './routes/admin/artist-applications_.$status'
 import { Route as ApiPublicApkRouteImport } from './routes/api/public/apk'
+import { Route as ApiPublicApkUploadRouteImport } from './routes/api/public/apk-upload'
 import { Route as ArtistLabelAccessRouteImport } from './routes/artist.label.access'
 import { Route as ArtistStudioIndexRouteImport } from './routes/artist/studio/index'
 import { Route as ArtistStudioActivityRouteImport } from './routes/artist/studio/activity'
@@ -555,6 +556,11 @@ const ApiPublicApkRoute = ApiPublicApkRouteImport.update({
   path: '/api/public/apk',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicApkUploadRoute = ApiPublicApkUploadRouteImport.update({
+  id: '/api/public/apk-upload',
+  path: '/api/public/apk-upload',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ArtistLabelAccessRoute = ArtistLabelAccessRouteImport.update({
   id: '/artist/label/access',
   path: '/artist/label/access',
@@ -716,6 +722,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
+  '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
   '/artist/studio/analytics': typeof ArtistStudioAnalyticsRoute
@@ -817,6 +824,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
+  '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
   '/artist/studio/analytics': typeof ArtistStudioAnalyticsRoute
@@ -921,6 +929,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications_/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
+  '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
   '/artist/studio/analytics': typeof ArtistStudioAnalyticsRoute
@@ -1026,6 +1035,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications/$status'
     | '/api/public/apk'
+    | '/api/public/apk-upload'
     | '/artist/label/access'
     | '/artist/studio/activity'
     | '/artist/studio/analytics'
@@ -1127,6 +1137,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications/$status'
     | '/api/public/apk'
+    | '/api/public/apk-upload'
     | '/artist/label/access'
     | '/artist/studio/activity'
     | '/artist/studio/analytics'
@@ -1230,6 +1241,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications_/$status'
     | '/api/public/apk'
+    | '/api/public/apk-upload'
     | '/artist/label/access'
     | '/artist/studio/activity'
     | '/artist/studio/analytics'
@@ -1299,6 +1311,7 @@ export interface RootRouteChildren {
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicApkRoute: typeof ApiPublicApkRoute
+  ApiPublicApkUploadRoute: typeof ApiPublicApkUploadRoute
   ArtistLabelAccessRoute: typeof ArtistLabelAccessRoute
   ArtistTeamJoinRoute: typeof ArtistTeamJoinRoute
 }
@@ -1914,6 +1927,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicApkRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/apk-upload': {
+      id: '/api/public/apk-upload'
+      path: '/api/public/apk-upload'
+      fullPath: '/api/public/apk-upload'
+      preLoaderRoute: typeof ApiPublicApkUploadRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/artist/label/access': {
       id: '/artist/label/access'
       path: '/artist/label/access'
@@ -2182,6 +2202,7 @@ const rootRouteChildren: RootRouteChildren = {
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicApkRoute: ApiPublicApkRoute,
+  ApiPublicApkUploadRoute: ApiPublicApkUploadRoute,
   ArtistLabelAccessRoute: ArtistLabelAccessRoute,
   ArtistTeamJoinRoute: ArtistTeamJoinRoute,
 }
