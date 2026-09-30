@@ -44,7 +44,7 @@ Deno.serve(async (req) => {
     .select('user_id, slug, stage_name')
     .eq('user_id', userId)
     .maybeSingle();
-  if (profErr) return json({ error: profErr.message }, 500);
+  if (profErr) return (console.error("profile lookup failed", profErr.message), json({ error: "internal_error" }, 500));
   if (!prof) return json({ error: 'Not an artist account.' }, 403);
 
   // Throttle: 24h cooldown
@@ -67,7 +67,7 @@ Deno.serve(async (req) => {
     .from('artist_followers')
     .select('follower_user_id')
     .eq('artist_user_id', userId);
-  if (followErr) return json({ error: followErr.message }, 500);
+  if (followErr) return (console.error("followers lookup failed", followErr.message), json({ error: "internal_error" }, 500));
   const ids = Array.from(new Set((followers ?? []).map((r) => r.follower_user_id).filter(Boolean) as string[]));
 
   if (ids.length === 0) {
@@ -96,7 +96,7 @@ Deno.serve(async (req) => {
     _body: message,
     _deep_link: deepLink,
   });
-  if (pushErr) return json({ error: pushErr.message }, 500);
+  if (pushErr) return (console.error("push failed", pushErr.message), json({ error: "internal_error" }, 500));
 
   await admin.from('artist_push_throttle').upsert({
     artist_user_id: userId,

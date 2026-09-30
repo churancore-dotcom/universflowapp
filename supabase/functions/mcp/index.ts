@@ -33,7 +33,7 @@ var search_tracks_default = defineTool({
     const pattern = `%${sanitized}%`;
     const { data, error } = await supabase.from("songs").select("id, title, artist, album, cover_url, duration").or(`title.ilike.${pattern},artist.ilike.${pattern},album.ilike.${pattern}`).limit(n);
     if (error) {
-      return { content: [{ type: "text", text: `Search failed: ${error.message}` }], isError: true };
+      return { content: [{ type: "text", text: `Search failed. Please try again later.` }], isError: true };
     }
     const rows = data ?? [];
     return {
@@ -62,7 +62,7 @@ var trending_default = defineTool2({
     const n = limit ?? 20;
     const { data, error } = await supabase.from("chart_tracks").select("rank, title, artist, cover_url, chart_type, country_code, source, metadata, fetched_at").order("rank", { ascending: true }).limit(n);
     if (error) {
-      return { content: [{ type: "text", text: `Chart lookup failed: ${error.message}` }], isError: true };
+      return { content: [{ type: "text", text: `Chart lookup failed. Please try again later.` }], isError: true };
     }
     const rows = data ?? [];
     return {
@@ -90,7 +90,7 @@ var get_artist_default = defineTool3({
     const supabase = createClient3(url, key, { auth: { persistSession: false } });
     const { data, error } = await supabase.from("artist_profiles").select("stage_name, bio, avatar_url, total_followers, total_likes, total_plays, music_platform_url, is_verified").ilike("stage_name", name).limit(1).maybeSingle();
     if (error) {
-      return { content: [{ type: "text", text: `Lookup failed: ${error.message}` }], isError: true };
+      return { content: [{ type: "text", text: `Lookup failed. Please try again later.` }], isError: true };
     }
     if (!data) {
       return { content: [{ type: "text", text: `No artist named "${name}" found.` }] };
