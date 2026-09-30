@@ -65,6 +65,30 @@ export const Route = createFileRoute("/api/public/apk-upload")({
 
         return Response.json({ ok: true, bytes: body.byteLength });
       },
+
+      DELETE: async ({ request }) => {
+        const secret = process.env["APK_UPLOAD_SECRET"];
+        if (!secret) {
+          return new Response("Not configured", { status: 503 });
+        }
+        const auth = request.headers.get("authorization") || "";
+        const token = auth.startsWith("Bearer ") ? auth.slice(7) : "";
+        const a = Buffer.from(token);
+        const b = Buffer.from(secret);
+        if (a.length !== b.length || !timingSafeEqual(a, b)) {
+          return new Response("Invalid token", { status: 401 });
+        }
+        const { supabaseAdmin } = await import(
+          "@/integrations/supabase/client.server"
+        );
+        const { error } = await supabaseAdmin.storage
+          .from("music")
+          .remove([APK_OBJECT_PATH]);
+        if (error) {
+          return new Response("Delete failed", { status: 502 });
+        }
+        return Response.json({ ok: true, deleted: APK_OBJECT_PATH });
+      },
     },
   },
 });
