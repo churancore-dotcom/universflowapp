@@ -33,7 +33,7 @@ export default defineTool({
       .limit(n);
 
     if (error) {
-      return { content: [{ type: "text", text: `Chart lookup failed: ${error.message}` }], isError: true };
+      return { content: [{ type: "text", text: `Chart lookup failed. Please try again later.` }], isError: true };
     }
 
     // `chart_tracks` has no play/listener columns. Real counts come from in-app

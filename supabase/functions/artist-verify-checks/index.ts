@@ -59,6 +59,16 @@ const BLOCKED_HOSTNAMES = new Set([
   "instance-data", "0.0.0.0", "[::]", "[::1]",
 ]);
 
+const ALLOWED_HOST_SUFFIXES = [
+  "spotify.com", "scdn.co", "spotifycdn.com",
+  "apple.com", "mzstatic.com",
+  "youtube.com", "youtu.be", "ytimg.com", "ggpht.com", "googleusercontent.com",
+  "jiosaavn.com", "saavncdn.com", "gaana.com", "wynk.in",
+  "soundcloud.com", "sndcdn.com", "deezer.com", "dzcdn.net",
+  "audiomack.com", "bandcamp.com", "bcbits.com", "amazon.com", "media-amazon.com",
+  "tidal.com", "resonate.coop",
+];
+
 function isPrivateIpv4(host: string): boolean {
   const m = host.match(/^(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})$/);
   if (!m) return false;
@@ -84,10 +94,9 @@ function isSafePublicUrl(raw: string): URL | null {
   if (host.endsWith(".localhost") || host.endsWith(".local") || host.endsWith(".internal")) return null;
   if (host.startsWith("[")) return null; // no raw IPv6 literals (incl. mapped/ULA)
   if (isPrivateIpv4(host)) return null;
-  if (/^\d+$/.test(host.replace(/\./g, ""))) {
-    // Dotted-decimal or integer IP form that isn't a valid public IPv4.
-    if (!/^(\d{1,3}\.){3}\d{1,3}$/.test(host)) return null;
-  }
+  if (/^\d+$/.test(host.replace(/\./g, ""))) return null; // no raw IP targets
+  // Only known music platforms and their image CDNs may be fetched.
+  if (!ALLOWED_HOST_SUFFIXES.some((s) => host === s || host.endsWith(`.${s}`))) return null;
   return u;
 }
 

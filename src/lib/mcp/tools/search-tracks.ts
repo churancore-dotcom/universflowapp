@@ -51,7 +51,7 @@ export default defineTool({
 
     if (uploads.error && charts.error) {
       return {
-        content: [{ type: "text", text: `Search failed: ${charts.error.message}` }],
+        content: [{ type: "text", text: `Search failed. Please try again later.` }],
         isError: true,
       };
     }

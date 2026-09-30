@@ -28,7 +28,7 @@ export default defineTool({
       .maybeSingle();
 
     if (error) {
-      return { content: [{ type: "text", text: `Lookup failed: ${error.message}` }], isError: true };
+      return { content: [{ type: "text", text: `Lookup failed. Please try again later.` }], isError: true };
     }
     if (!data) {
       return { content: [{ type: "text", text: `No artist matching "${sanitized}" found.` }] };

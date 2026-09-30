@@ -73,6 +73,18 @@ Deno.serve(async (req) => {
 
     if (!isEmail(email)) return UNIFORM_OK;
 
+    // Signed-in callers only, and only for their own email address.
+    const authHeader = req.headers.get('authorization') ?? '';
+    const unauthorized = () => new Response(JSON.stringify({ error: 'unauthorized' }), {
+      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
+    if (!authHeader.startsWith('Bearer ')) return unauthorized();
+    const who = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+      headers: { apikey: SERVICE_ROLE, Authorization: authHeader },
+    });
+    const caller = who.ok ? await who.json().catch(() => null) : null;
+    if (!caller?.id || String(caller?.email ?? '').toLowerCase() !== email) return unauthorized();
+
     const lookup = await fetch(
       `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
       { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } }
