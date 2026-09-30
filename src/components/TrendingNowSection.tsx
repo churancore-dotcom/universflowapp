@@ -36,20 +36,23 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // search for "top songs this week" is not a chart and skewed every market
   // toward the same rows. This path also works while signed out.
   const { data: countryChart, isLoading: countryChartLoading } = useCountryCharts(country, enabled);
-  const fallbackPool = countryChart?.songs ?? [];
-  const youtubePool = [...(charts?.trending ?? []), ...(charts?.top ?? []), ...(charts?.videos ?? [])];
+  const youtubePool = useMemo(
+    () => [...(charts?.trending ?? []), ...(charts?.top ?? []), ...(charts?.videos ?? [])],
+    [charts],
+  );
   const servedCountry = youtubePool.length ? (charts?.country || country) : (countryChart?.country ?? country);
+  const fromYouTube = youtubePool.length > 0;
 
   const trending = useMemo(() => {
     // YouTube Music's official regional Trending playlist is first, followed
     // by its Top Songs and Music Videos charts. If YouTube has no chart, use
     // the fresh Apple Music most-played chart stored by the hourly aggregator.
-    const sourceRows = youtubePool.length ? youtubePool : fallbackPool;
+    const sourceRows = youtubePool.length ? youtubePool : (countryChart?.songs ?? []);
     return cleanRail(
       sourceRows.filter((s) => !isSpamSong(s)),
       { requireCover: true },
     ).slice(0, 18);
-  }, [youtubePool, fallbackPool]);
+  }, [youtubePool, countryChart]);
 
 
 
@@ -99,7 +102,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     <section className="relative">
       <RailHeader
         title="Trending Now"
-        subtitle={`YouTube Music chart · ${countryLabel(servedCountry)}`}
+        subtitle={`${fromYouTube ? 'YouTube Music' : 'Official'} chart · ${countryLabel(servedCountry)}`}
       />
 
       {/* Lead poster — one dominant visual */}
