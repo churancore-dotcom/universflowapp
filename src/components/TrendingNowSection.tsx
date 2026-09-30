@@ -102,7 +102,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
     <section className="relative">
       <RailHeader
         title="Trending Now"
-        subtitle={`YouTube Music chart · ${countryLabel(servedCountry)}`}
+        subtitle={`${fromYouTube ? 'YouTube Music' : 'Official'} chart · ${countryLabel(servedCountry)}`}
       />
 
       {/* Lead poster — one dominant visual */}
