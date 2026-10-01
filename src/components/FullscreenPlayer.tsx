@@ -1,5 +1,5 @@
 import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence, PanInfo } from 'framer-motion';
+import { motion, AnimatePresence, PanInfo, useDragControls } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines, ImagePlus } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
 import { usePlayer } from '@/contexts/PlayerContext';
@@ -184,11 +184,22 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     upcoming.forEach((song) => fetchLyrics(song.artist, song.title, song.duration, song.id));
   }, [currentSong, queue]);
 
+  const dragControls = useDragControls();
+  const scrollRef = useRef<HTMLDivElement>(null);
   const handleDragEnd = useCallback((_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (info.offset.y > 100) {
+    if (info.offset.y > 80 || info.velocity.y > 400) {
       setExpanded(false);
     }
   }, [setExpanded]);
+  // Start a swipe-down only when the content is scrolled to the top, so
+  // normal scrolling inside the player never fights the dismiss gesture.
+  const handlePointerDown = useCallback((e: React.PointerEvent) => {
+    const el = scrollRef.current;
+    if (el && el.scrollTop > 2) return;
+    const target = e.target as HTMLElement;
+    if (target.closest('[role="slider"], input, [data-no-drag]')) return;
+    dragControls.start(e);
+  }, [dragControls]);
 
   const handleNext = useCallback(() => {
     triggerHaptic('impactMedium');
@@ -216,32 +227,36 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     <>
       <AnimatePresence>
         <motion.div 
-          className="fixed inset-0 z-50 bg-black flex flex-col" 
+          className="fixed inset-0 z-50 bg-black flex flex-col will-change-transform" 
           initial={{ y: "100%" }} 
           animate={{ y: 0 }} 
           exit={{ y: "100%" }} 
-          transition={{ type: "spring", stiffness: 400, damping: 30 }} 
+          transition={{ type: "spring", stiffness: 380, damping: 36, mass: 0.9 }} 
           drag="y" 
+          dragListener={false}
+          dragControls={dragControls}
           dragConstraints={{ top: 0, bottom: 0 }} 
-          dragElastic={{ top: 0, bottom: 0.3 }} 
+          dragElastic={{ top: 0, bottom: 0.6 }} 
+          dragMomentum={false}
+          onPointerDown={handlePointerDown}
           onDragEnd={handleDragEnd}
         >
           {/* Blurred background */}
-          <AnimatePresence mode="popLayout">
+          <AnimatePresence initial={false}>
             <motion.div 
               key={currentSong.id + '-bg'}
               className="absolute inset-0 overflow-hidden"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: 0.45, ease: 'easeOut' }}
             >
               {currentSong.cover_url && (
                 <img 
                   src={currentSong.cover_url} 
                   alt="" 
                   className="absolute inset-0 w-full h-full object-cover opacity-40"
-                  style={{ filter: 'blur(60px) saturate(1.3)' }} 
+                  style={{ filter: 'blur(40px) saturate(1.3)', transform: 'translateZ(0) scale(1.2)' }} 
                 />
               )}
               <div className="absolute inset-0 bg-black/60" />
@@ -249,7 +264,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           </AnimatePresence>
 
           {/* Main content - uses flex to fill space like screenshot */}
-          <div className="relative flex flex-col h-full px-5 pt-2 pb-3 overflow-y-auto overflow-x-hidden overscroll-contain hide-scrollbar">
+          <div ref={scrollRef} className="relative flex flex-col h-full px-5 pt-2 pb-3 overflow-y-auto overflow-x-hidden overscroll-contain hide-scrollbar" style={{ touchAction: 'pan-y' }}>
             {/* Drag indicator */}
             <div className="flex justify-center mb-1 flex-shrink-0">
               <div className="w-9 h-1 rounded-full bg-foreground/40" />
