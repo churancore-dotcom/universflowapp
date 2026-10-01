@@ -2050,7 +2050,8 @@ serve(async (req) => {
     const body = await req.json().catch(() => ({}));
     const action = typeof body.action === 'string' ? body.action : '';
 
-    // Quota-consuming actions require a signed-in caller.
+    // Quota-consuming actions: signed-in callers pass; signed-out visitors
+    // may 'search' (public Browse Artists page) under a per-IP rate limit.
     if (action === 'search' || action === 'resolve') {
       const hdr = req.headers.get('authorization') || '';
       const adminClient = getAdminClient();
@@ -2058,6 +2059,20 @@ serve(async (req) => {
       if (hdr.startsWith('Bearer ') && adminClient) {
         const { data: who } = await adminClient.auth.getUser(hdr.slice(7));
         ok = !!who?.user?.id;
+      }
+      if (!ok && action === 'search' && adminClient) {
+        const ip = (req.headers.get('cf-connecting-ip') || req.headers.get('x-forwarded-for') || 'unknown').split(',')[0].trim();
+        const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`mi-search:${ip}`));
+        const ipHash = Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
+        const { data: allowed } = await adminClient.rpc('check_and_increment_ip_rate_limit', {
+          _ip_hash: ipHash, _endpoint: 'music_indexer_search_anon', _max_per_minute: 20,
+        });
+        if (allowed === false) {
+          return new Response(JSON.stringify({ success: false, error: 'Too many requests' }), {
+            status: 429, headers: { ...corsHeaders, 'Content-Type': 'application/json', 'retry-after': '60' },
+          });
+        }
+        ok = true;
       }
       if (!ok) {
         return new Response(JSON.stringify({ success: false, error: 'Authentication required' }), {

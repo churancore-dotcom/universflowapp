@@ -94,9 +94,14 @@ const flushStreamSongUpserts = async () => {
   const rows = Array.from(_pendingUpserts.values());
   _pendingUpserts.clear();
   try {
-    await supabase.from('stream_songs').upsert(rows as never, { onConflict: 'track_id' });
-  } catch {
-    // best-effort metadata write
+    const { data: session } = await supabase.auth.getSession();
+    if (!session.session) return; // signed-out: no metadata cache writes
+    // Direct table writes are blocked by RLS; a validated server function
+    // inserts new rows and only fills gaps on existing ones.
+    const { error } = await (supabase.rpc as any)('cache_stream_songs', { _rows: rows });
+    if (error) console.warn('[streamSongs] metadata cache write failed:', error.message);
+  } catch (e) {
+    console.warn('[streamSongs] metadata cache write failed:', e);
   }
 };
 
