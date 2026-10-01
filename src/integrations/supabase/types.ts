@@ -2555,6 +2555,7 @@ export type Database = {
           track_id: string
         }[]
       }
+      cache_stream_songs: { Args: { _rows: Json }; Returns: number }
       check_and_increment_ip_rate_limit: {
         Args: { _endpoint: string; _ip_hash: string; _max_per_minute: number }
         Returns: boolean

@@ -29,6 +29,13 @@
       "when": 1790446640601,
       "tag": "0003_block_reused_utr_and_spam_requests",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1790860377557,
+      "tag": "0004_migration",
+      "breakpoints": true
     }
   ]
 }

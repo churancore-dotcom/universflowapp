@@ -3518,7 +3518,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           cover_url: skipped.cover_url || null,
           source: 'player',
           action: 'skip',
-          score_weight: 1,
+          score_weight: -2, // must match the 'skip' weight enforced by the database
           country_code: countryCode || null,
         }));
       }).catch(() => {});
