@@ -204,7 +204,7 @@ function RootShell({ children }: { children: React.ReactNode }) {
   );
 }
 
-function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
+function ErrorComponent({ error, reset }: { error: unknown; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
