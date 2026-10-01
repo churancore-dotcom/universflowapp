@@ -191,15 +191,27 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
       setExpanded(false);
     }
   }, [setExpanded]);
-  // Start a swipe-down only when the content is scrolled to the top, so
-  // normal scrolling inside the player never fights the dismiss gesture.
+  // Decide on first movement: a downward pull at scroll-top starts the dismiss
+  // drag; any upward movement is left to native scrolling.
+  const gestureRef = useRef<{ y: number; x: number; decided: boolean } | null>(null);
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    const el = scrollRef.current;
-    if (el && el.scrollTop > 2) return;
     const target = e.target as HTMLElement;
-    if (target.closest('[role="slider"], input, [data-no-drag]')) return;
-    dragControls.start(e);
+    if (target.closest('[role="slider"], input, [data-no-drag]')) { gestureRef.current = null; return; }
+    gestureRef.current = { y: e.clientY, x: e.clientX, decided: false };
+  }, []);
+  const handlePointerMove = useCallback((e: React.PointerEvent) => {
+    const g = gestureRef.current;
+    if (!g || g.decided) return;
+    const dy = e.clientY - g.y;
+    const dx = e.clientX - g.x;
+    if (Math.abs(dy) < 6 && Math.abs(dx) < 6) return;
+    g.decided = true;
+    const el = scrollRef.current;
+    if (dy > 0 && Math.abs(dy) > Math.abs(dx) && (!el || el.scrollTop <= 0)) {
+      dragControls.start(e);
+    }
   }, [dragControls]);
+  const handlePointerEnd = useCallback(() => { gestureRef.current = null; }, []);
 
   const handleNext = useCallback(() => {
     triggerHaptic('impactMedium');
@@ -239,6 +251,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           dragElastic={{ top: 0, bottom: 0.6 }} 
           dragMomentum={false}
           onPointerDown={handlePointerDown}
+          onPointerMove={handlePointerMove}
+          onPointerUp={handlePointerEnd}
+          onPointerCancel={handlePointerEnd}
           onDragEnd={handleDragEnd}
         >
           {/* Blurred background */}
