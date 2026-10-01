@@ -15,22 +15,11 @@ export const Route = createFileRoute("/api/public/apk")({
   server: {
     handlers: {
       GET: async () => {
-        const url = process.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"];
-        const key =
-          process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] ||
-          process.env["SUPABASE_ANON_KEY"];
-
-        if (!url || !key) {
-          return new Response("Download temporarily unavailable", { status: 503 });
-        }
-
-        const supabase = createClient(url, key, {
-          auth: { persistSession: false, autoRefreshToken: false },
-        });
-
-        const { data, error } = await supabase.storage
+        // Signs only the fixed release path — no caller-controlled input.
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data, error } = await supabaseAdmin.storage
           .from("music")
-          .createSignedUrl(APK_OBJECT_PATH, 60 * 10);
+          .createSignedUrl(APK_OBJECT_PATH, 60 * 10, { download: "UniversFlow.apk" });
 
         if (error || !data?.signedUrl) {
           console.error("[api/public/apk] sign failed", error?.message);
