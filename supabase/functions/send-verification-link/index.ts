@@ -73,17 +73,23 @@ Deno.serve(async (req) => {
 
     if (!isEmail(email)) return UNIFORM_OK;
 
-    // Signed-in callers only, and only for their own email address.
+    // Signed-out callers are allowed (stranded unverified signups must be able
+    // to resend). The link only ever goes to the account's own inbox, and the
+    // IP rate limit + per-user 60s cooldown below bound abuse. A signed-in
+    // caller may only request their own address.
     const authHeader = req.headers.get('authorization') ?? '';
-    const unauthorized = () => new Response(JSON.stringify({ error: 'unauthorized' }), {
-      status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-    });
-    if (!authHeader.startsWith('Bearer ')) return unauthorized();
-    const who = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
-      headers: { apikey: SERVICE_ROLE, Authorization: authHeader },
-    });
-    const caller = who.ok ? await who.json().catch(() => null) : null;
-    if (!caller?.id || String(caller?.email ?? '').toLowerCase() !== email) return unauthorized();
+    const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    if (bearer && bearer.split('.').length === 3) {
+      const who = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
+        headers: { apikey: SERVICE_ROLE, Authorization: authHeader },
+      });
+      const caller = who.ok ? await who.json().catch(() => null) : null;
+      if (caller?.id && String(caller?.email ?? '').toLowerCase() !== email) {
+        return new Response(JSON.stringify({ error: 'unauthorized' }), {
+          status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
 
     const lookup = await fetch(
       `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,

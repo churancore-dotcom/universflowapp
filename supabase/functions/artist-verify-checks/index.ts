@@ -63,9 +63,10 @@ const ALLOWED_HOST_SUFFIXES = [
   "spotify.com", "scdn.co", "spotifycdn.com",
   "apple.com", "mzstatic.com",
   "youtube.com", "youtu.be", "ytimg.com", "ggpht.com", "googleusercontent.com",
-  "jiosaavn.com", "saavncdn.com", "gaana.com", "wynk.in",
+  "jiosaavn.com", "saavn.com", "saavncdn.com", "gaana.com", "wynk.in",
   "soundcloud.com", "sndcdn.com", "deezer.com", "dzcdn.net",
-  "audiomack.com", "bandcamp.com", "bcbits.com", "amazon.com", "media-amazon.com",
+  "audiomack.com", "bandcamp.com", "bcbits.com", "amazon.com", "amazon.in",
+  "amazon.co.uk", "amazon.de", "media-amazon.com",
   "tidal.com", "resonate.coop",
 ];
 
