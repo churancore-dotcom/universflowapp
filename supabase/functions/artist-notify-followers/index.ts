@@ -32,20 +32,35 @@ Deno.serve(async (req) => {
 
   let body: Body = {};
   try { body = await req.json(); } catch { /* ignore */ }
-  const title = String(body.title ?? '').slice(0, 120).trim();
-  const message = String(body.body ?? '').slice(0, 300).trim();
-  if (!title || !message) return json({ error: 'Title and body are required.' }, 400);
+  // Strip control chars, URLs and domains so artist text can't be used for phishing.
+  const clean = (s: unknown, max: number) => String(s ?? '')
+    .replace(/[\u0000-\u001F\u007F]/g, ' ')
+    .replace(/\b(?:https?:\/\/|www\.)\S+/gi, '')
+    .replace(/\b[a-z0-9-]+\.(?:com|net|org|in|io|co|app|xyz|cyou|ly|me|link|site|info|biz|ru|tk)\b\S*/gi, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, max);
+  const rawTitle = clean(body.title, 80);
+  const message = clean(body.body, 200);
+  if (!rawTitle || !message) return json({ error: 'Title and body are required.' }, 400);
 
   const admin = createClient(url, serviceKey);
 
-  // Verify this user is an artist (owns an artist_profile) and resolve slug
+  // Only verified artists may notify followers
   const { data: prof, error: profErr } = await admin
     .from('artist_profiles')
-    .select('user_id, slug, stage_name')
+    .select('user_id, slug, stage_name, is_verified')
     .eq('user_id', userId)
     .maybeSingle();
   if (profErr) return (console.error("profile lookup failed", profErr.message), json({ error: "internal_error" }, 500));
   if (!prof) return json({ error: 'Not an artist account.' }, 403);
+  if (!prof.is_verified) return json({ error: 'Only verified artists can notify followers.' }, 403);
+  const { data: isArtist } = await admin.rpc('has_role', { _user_id: userId, _role: 'artist' });
+  if (!isArtist) return json({ error: 'Not an artist account.' }, 403);
+
+  // Always attribute the notification to the artist so it can't impersonate the app.
+  const stage = clean(prof.stage_name, 40) || 'An artist you follow';
+  const title = `${stage}: ${rawTitle}`.slice(0, 120);
 
   // Throttle: 24h cooldown
   const { data: thr } = await admin
