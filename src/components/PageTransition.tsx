@@ -1,4 +1,4 @@
-import { motion, Transition } from 'framer-motion';
+import { motion, Transition, useReducedMotion } from 'framer-motion';
 import { ReactNode, forwardRef, useRef, useMemo } from 'react';
 import { useLocation } from '@/lib/router-compat';
 import { NavDirectionContext, useNavDirection } from '@/contexts/NavDirectionContext';
@@ -10,9 +10,9 @@ interface PageTransitionProps {
 
 const pageSpring: Transition = {
   type: "spring" as const,
-  stiffness: 400,
-  damping: 38,
-  mass: 0.6,
+  stiffness: 460,
+  damping: 42,
+  mass: 0.45,
 };
 
 const pageTiming: Transition = {
@@ -44,13 +44,14 @@ export const NavDirectionProvider = ({ children }: { children: ReactNode }) => {
 };
 
 const PageTransition = ({ children, className = '' }: PageTransitionProps) => {
+  const reducedMotion = useReducedMotion();
   return (
     <motion.div
       className={className}
-      initial={{ opacity: 0, x: 60, scale: 0.98 }}
-      animate={{ opacity: 1, x: 0, scale: 1 }}
-      exit={{ opacity: 0, x: -30, scale: 0.98 }}
-      transition={pageSpring}
+      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
+      transition={reducedMotion ? { duration: 0 } : { duration: 0.16, ease: 'easeOut' }}
     >
       {children}
     </motion.div>
@@ -89,14 +90,15 @@ FadeTransition.displayName = 'FadeTransition';
 
 export const TabTransition = ({ children, className = '' }: PageTransitionProps) => {
   useNavDirection();
+  const reducedMotion = useReducedMotion();
   return (
     <motion.div
       className={className}
       style={{ willChange: 'transform, opacity' }}
-      initial={{ opacity: 0 }}
-      animate={{ opacity: 1 }}
-      exit={{ opacity: 0 }}
-      transition={{ duration: 0.12, ease: "easeOut" }}
+      initial={reducedMotion ? false : { opacity: 0, y: 4 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={reducedMotion ? undefined : { opacity: 0 }}
+      transition={{ duration: reducedMotion ? 0 : 0.12, ease: "easeOut" }}
     >
       {children}
     </motion.div>

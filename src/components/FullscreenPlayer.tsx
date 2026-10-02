@@ -196,7 +196,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   const gestureRef = useRef<{ y: number; x: number; decided: boolean } | null>(null);
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     const target = e.target as HTMLElement;
-    if (target.closest('[role="slider"], input, [data-no-drag]')) { gestureRef.current = null; return; }
+    if (target.closest('button, [role="slider"], input, [data-no-drag]')) { gestureRef.current = null; return; }
     gestureRef.current = { y: e.clientY, x: e.clientX, decided: false };
   }, []);
   const handlePointerMove = useCallback((e: React.PointerEvent) => {
@@ -256,7 +256,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           onPointerCancel={handlePointerEnd}
           onDragEnd={handleDragEnd}
         >
-          {/* Blurred background */}
+          {/* Lightweight artwork wash: opacity animates, filters do not. */}
           <AnimatePresence initial={false}>
             <motion.div 
               key={currentSong.id + '-bg'}
@@ -270,8 +270,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 <img 
                   src={currentSong.cover_url} 
                   alt="" 
-                  className="absolute inset-0 w-full h-full object-cover opacity-40"
-                  style={{ filter: 'blur(40px) saturate(1.3)', transform: 'translateZ(0) scale(1.2)' }} 
+                  className="absolute inset-0 w-full h-full object-cover opacity-25 scale-110"
                 />
               )}
               <div className="absolute inset-0 bg-black/60" />
@@ -341,22 +340,9 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   aspectRatio: '1 / 1',
                 }}
               >
-                {isPlaying && (
-                  <motion.div
-                    className="absolute inset-[-15%] rounded-3xl pointer-events-none"
-                    style={{
-                      background: 'radial-gradient(circle, hsl(var(--primary) / 0.25) 0%, transparent 60%)',
-                      filter: 'blur(30px)',
-                    }}
-                    animate={{ opacity: [0.6, 1, 0.6] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                )}
-                
                 <motion.div
-                  layoutId="uf-player-art"
                   className="absolute inset-0 rounded-2xl overflow-hidden shadow-2xl z-10 bg-muted"
-                  transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+                  transition={{ duration: 0.18, ease: 'easeOut' }}
                   style={{
                     boxShadow: isPlaying
                       ? '0 0 40px 10px hsl(var(--primary) / 0.2)'
@@ -372,7 +358,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                       animate="animate"
                       exit="exit"
                     >
-                      <SongArtwork song={currentSong} size={760} alt={currentSong.title} className="w-full h-full" />
+                      <SongArtwork song={currentSong} size={760} alt={currentSong.title} className="w-full h-full" fetchPriority="high" />
                     </motion.div>
                   </AnimatePresence>
                 </motion.div>
@@ -384,15 +370,6 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
             <div className="flex-shrink-0 space-y-2 mt-2">
               {/* Title and Artist */}
               <div className="relative overflow-hidden flex items-start justify-between gap-3 rounded-[28px] px-4 py-3.5 uf-rose-gradient">
-                {currentSong.cover_url && (
-                  <img
-                    src={currentSong.cover_url}
-                    alt=""
-                    aria-hidden
-                    className="absolute inset-y-0 right-0 h-full w-2/3 object-cover pointer-events-none"
-                    style={{ filter: 'blur(18px) saturate(140%)', opacity: 0.42, WebkitMaskImage: 'linear-gradient(to left, #000 30%, transparent 100%)', maskImage: 'linear-gradient(to left, #000 30%, transparent 100%)' }}
-                  />
-                )}
                 <AnimatePresence mode="popLayout" initial={false}>
                   <motion.div 
                     key={currentSong.id + '-info'}

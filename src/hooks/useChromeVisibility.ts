@@ -1,0 +1,56 @@
+import { useSyncExternalStore } from 'react';
+
+type Listener = () => void;
+
+const listeners = new Set<Listener>();
+let visible = true;
+let listening = false;
+let frame = 0;
+const positions = new WeakMap<EventTarget, number>();
+
+const readScrollTop = (target: EventTarget | null) => {
+  if (target instanceof HTMLElement) return target.scrollTop;
+  return window.scrollY || document.documentElement.scrollTop;
+};
+
+const handleScroll = (event: Event) => {
+  const target = event.target ?? window;
+  const current = readScrollTop(target);
+  const previous = positions.get(target) ?? current;
+  positions.set(target, current);
+  const delta = current - previous;
+  if (Math.abs(delta) <= 10) return;
+
+  const next = !(delta > 0 && current > 100);
+  if (next === visible) return;
+  visible = next;
+  if (frame) cancelAnimationFrame(frame);
+  frame = requestAnimationFrame(() => {
+    frame = 0;
+    listeners.forEach((listener) => listener());
+  });
+};
+
+const subscribe = (listener: Listener) => {
+  listeners.add(listener);
+  if (!listening) {
+    window.addEventListener('scroll', handleScroll, { passive: true, capture: true });
+    listening = true;
+  }
+  return () => {
+    listeners.delete(listener);
+    if (listeners.size === 0 && listening) {
+      window.removeEventListener('scroll', handleScroll, true);
+      listening = false;
+      if (frame) cancelAnimationFrame(frame);
+      frame = 0;
+    }
+  };
+};
+
+const getSnapshot = () => visible;
+const getServerSnapshot = () => true;
+
+export function useChromeVisibility() {
+  return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+}

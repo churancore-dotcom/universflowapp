@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { supabase } from '@/integrations/supabase/client';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
-import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { prewarmSong } from '@/lib/instantPlay';
 import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
@@ -41,6 +40,7 @@ import { useUserCountry } from '@/hooks/useUserCountry';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { isSpamSong } from '@/pages/Search';
 import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
+import { useNavigate } from '@/lib/router-compat';
 
 const EmptyState = memo(() => (
   <div className="text-center py-16 px-8">
@@ -54,11 +54,6 @@ const EmptyState = memo(() => (
   </div>
 ));
 EmptyState.displayName = 'EmptyState';
-
-const fmt = (s?: number) => {
-  if (!s || !Number.isFinite(s) || s <= 0) return '0:00';
-  return `${Math.floor(s / 60)}:${Math.floor(s % 60).toString().padStart(2, '0')}`;
-};
 
 const upgradeThumb = (url?: string) => {
   if (!url) return undefined;
@@ -99,8 +94,8 @@ const fetchHomeSongs = async (country: string): Promise<Song[]> => {
 };
 
 const Home = () => {
-  const { currentSong, playSong, isPlaying, togglePlay } = usePlayer();
-  const { progress, duration } = usePlayerProgress();
+  const { currentSong } = usePlayer();
+  const navigate = useNavigate();
   const { cachedSongs, updateCache } = useSongCache();
   const { isOffline, user } = useAuth();
   const { downloads } = useDownloads();
@@ -120,10 +115,10 @@ const Home = () => {
       const { data: isArtist } = await supabase.rpc('has_role', { _user_id: user.id, _role: 'artist' });
       if (isArtist) {
         sessionStorage.setItem(key, '1');
-        window.location.replace('/artist/studio');
+        navigate('/artist/studio', { replace: true });
       }
     })();
-  }, [user?.id]);
+  }, [navigate, user?.id]);
 
   const { data: onlineSongs = (cachedSongs || []), isLoading } = useQuery({
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
@@ -203,15 +198,15 @@ const Home = () => {
 
   const stage = useMemo(() => {
     if (currentSong) {
-      return { song: currentSong, at: progress, total: duration || currentSong.duration || 0, label: 'Now playing' };
+      return { song: currentSong, label: 'Now playing' };
     }
     if (history[0]) {
-      return { song: history[0], at: 0, total: history[0].duration || 0, label: 'Pick up where you left off' };
+      return { song: history[0], label: 'Pick up where you left off' };
     }
     const claimed = claimedByOtherRails('hero');
     const song = clean.find((s) => !claimed.has(songFingerprint(s))) || clean[0] || allSongs[0];
-    return song ? { song, at: 0, total: song.duration || 0, label: `Top in your area` } : null;
-  }, [currentSong, progress, duration, history, clean, allSongs, claimVersion]);
+    return song ? { song, label: `Top in your area` } : null;
+  }, [currentSong, history, clean, allSongs, claimVersion]);
 
   useEffect(() => { if (stage?.song) claimRailSongs('hero', [stage.song]); }, [stage?.song?.id]);
   useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
@@ -286,7 +281,7 @@ const Home = () => {
               <SlidersHorizontal className="w-[18px] h-[18px]" />
             </button>
             <motion.button
-              onClick={() => { triggerHaptic('selection'); window.location.href = '/profile'; }}
+              onClick={() => { triggerHaptic('selection'); navigate('/profile'); }}
               aria-label="Open profile"
               className="w-9 h-9 shrink-0 rounded-full overflow-hidden bg-card border border-border/70 flex items-center justify-center"
               whileTap={{ scale: 0.92 }}
@@ -306,6 +301,7 @@ const Home = () => {
 
         <main
           ref={scrollRef}
+          data-scroll-container
           className="flex-1 overflow-y-auto overflow-x-hidden pb-40 relative z-10"
           style={{ WebkitOverflowScrolling: 'touch' }}
           {...pullToRefresh.handlers}
@@ -330,11 +326,11 @@ const Home = () => {
 
               {/* ── Recap progress — leads to the real recap screen ── */}
               <section className="px-6 mt-5">
-                <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => { window.location.href = '/recap'; }} />
+                <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => navigate('/recap')} />
               </section>
 
               {/* ── The full feed: charts, fresh music, personal rails ── */}
-              <div className="px-6 mt-9 space-y-11 pb-24">
+              <div className="uf-feed-sections px-6 mt-9 space-y-11 pb-24">
                 <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
                 <FreshReleasesSection enabled={homeReady} />
                 <OnRepeatSection />

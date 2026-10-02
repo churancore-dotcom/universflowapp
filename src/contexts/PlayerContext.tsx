@@ -3928,8 +3928,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     return () => { dispose?.(); };
   }, [toggleShuffle, toggleRepeat]);
 
-  return (
-    <PlayerContext.Provider value={{
+  const contextValue = useMemo<PlayerContextType>(() => ({
       currentSong,
       isPlaying,
       volume,
@@ -3964,7 +3963,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       toggleGaplessPro,
       onPrerollAdComplete,
       fillSmartQueue,
-    }}>
+    }), [
+      currentSong, isPlaying, volume, queue, shuffle, repeat, isExpanded,
+      crossfade, crossfadeDuration, crossfadeCurve, gaplessPro, audioElement,
+      showPrerollAd, adType, playSong, togglePlay, pause, play, stopSong,
+      nextSong, prevSong, seek, setVolume, setQueue, addToQueue, toggleShuffle,
+      toggleRepeat, setExpanded, toggleCrossfade, setCrossfadeDurationFn,
+      setCrossfadeCurveFn, toggleGaplessPro, onPrerollAdComplete, fillSmartQueue,
+    ]);
+
+  return (
+    <PlayerContext.Provider value={contextValue}>
       {children}
     </PlayerContext.Provider>
   );
