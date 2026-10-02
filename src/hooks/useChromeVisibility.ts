@@ -16,7 +16,7 @@ const readScrollTop = (target: EventTarget | null) => {
 const handleScroll = (event: Event) => {
   const target = event.target ?? window;
   const current = readScrollTop(target);
-  const previous = positions.get(target) ?? current;
+  const previous = positions.get(target) ?? 0;
   positions.set(target, current);
   const delta = current - previous;
   if (Math.abs(delta) <= 10) return;
