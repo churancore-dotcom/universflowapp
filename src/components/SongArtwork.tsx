@@ -10,6 +10,7 @@ interface Props {
   /** Rendered box size in px — used to request an artwork of the right size. */
   size?: number;
   alt?: string;
+  fetchPriority?: 'high' | 'low' | 'auto';
 }
 
 /**
@@ -38,7 +39,7 @@ function candidatesFor(song: Props['song'], size: number): string[] {
 }
 
 
-const SongArtwork = memo(({ song, className, size = 44, alt }: Props) => {
+const SongArtwork = memo(({ song, className, size = 44, alt, fetchPriority = 'auto' }: Props) => {
   const sources = useMemo(() => candidatesFor(song, size), [song.cover_url, song.id, song.audio_url, size]);
   const [index, setIndex] = useState(0);
   const [loaded, setLoaded] = useState(false);
@@ -61,7 +62,8 @@ const SongArtwork = memo(({ song, className, size = 44, alt }: Props) => {
           key={src}
           src={src}
           alt={alt || song.title || 'Album artwork'}
-          loading="lazy"
+          loading={fetchPriority === 'high' ? 'eager' : 'lazy'}
+          fetchPriority={fetchPriority}
           decoding="async"
           referrerPolicy="no-referrer"
           draggable={false}
