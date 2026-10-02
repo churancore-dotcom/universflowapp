@@ -1,4 +1,4 @@
-import { memo, useCallback, useState, useEffect, useRef } from 'react';
+import { memo, useCallback, useState, useEffect } from 'react';
 import { motion, PanInfo } from 'framer-motion';
 // NOTE: This component is now mounted ONCE at App level via GlobalPlayerLayer
 // to prevent flicker on route changes. Do not re-mount it inside individual pages.
@@ -8,6 +8,7 @@ import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { isLockscreenOpen, subscribeLockscreen } from '@/lib/lockscreenState';
 import { getEQPresetLabel, useEQSettings } from '@/lib/eqSettings';
+import { useChromeVisibility } from '@/hooks/useChromeVisibility';
 
 // Swipe thresholds
 const SWIPE_UP_THRESHOLD = -50;
@@ -41,34 +42,12 @@ const MiniPlayer = memo(function MiniPlayer() {
   const eqSettings = useEQSettings();
   const eqLabel = getEQPresetLabel(eqSettings);
 
-  const [dragX, setDragX] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
-  const [isNavVisible, setIsNavVisible] = useState(true);
+  const isNavVisible = useChromeVisibility();
   const [lockscreenVisible, setLockscreenVisible] = useState(isLockscreenOpen());
-  const lastScrollY = useRef(0);
 
   // Hide whenever the in-app lockscreen overlay is showing
   useEffect(() => subscribeLockscreen(setLockscreenVisible), []);
-
-  // Sync visibility with bottom nav scroll behavior
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const scrollDelta = currentScrollY - lastScrollY.current;
-      
-      if (Math.abs(scrollDelta) > 10) {
-        if (scrollDelta > 0 && currentScrollY > 100) {
-          setIsNavVisible(false);
-        } else {
-          setIsNavVisible(true);
-        }
-        lastScrollY.current = currentScrollY;
-      }
-    };
-
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
-  }, []);
 
   const handleTogglePlay = useCallback((e: React.MouseEvent) => {
     e.stopPropagation();
@@ -104,10 +83,6 @@ const MiniPlayer = memo(function MiniPlayer() {
     setIsDragging(true);
   }, []);
 
-  const handleDrag = useCallback((_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    setDragX(info.offset.x);
-  }, []);
-
   const handleDragEnd = useCallback((_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const { offset, velocity } = info;
     
@@ -120,7 +95,6 @@ const MiniPlayer = memo(function MiniPlayer() {
       handlePrevSong();
     }
 
-    setDragX(0);
     setTimeout(() => setIsDragging(false), 100);
   }, [setExpanded, handleNextSong, handlePrevSong]);
 
@@ -130,80 +104,36 @@ const MiniPlayer = memo(function MiniPlayer() {
     ? Math.min(100, Math.max(0, (progress / duration) * 100)) 
     : 0;
 
-  const isSwipingLeft = dragX < -30;
-  const isSwipingRight = dragX > 30;
-  const swipeOpacity = Math.min(Math.abs(dragX) / 150, 0.5);
-
   return (
     <motion.div
       className="fixed left-0 right-0 w-full z-40 px-2"
       style={{ bottom: 'calc(56px + env(safe-area-inset-bottom, 0px))' }}
-        initial={{ y: 60, opacity: 0, scale: 0.95, filter: 'blur(10px)' }}
+        initial={{ y: 36, opacity: 0, scale: 0.98 }}
         animate={{ 
           y: isNavVisible ? 0 : 100, 
           opacity: isNavVisible ? 1 : 0, 
-          scale: 1, 
-          filter: 'blur(0px)' 
+          scale: 1
         }}
-        exit={{ y: 60, opacity: 0, scale: 0.98, filter: 'blur(5px)' }}
+        exit={{ y: 36, opacity: 0, scale: 0.98 }}
         transition={{ 
           type: "spring", 
           stiffness: 300, 
           damping: 25,
-          opacity: { duration: 0.3 },
-          filter: { duration: 0.25 }
+          opacity: { duration: 0.18 }
         }}
       >
         <motion.div
-          layoutId="uf-player-surface"
           className="liquid-glass liquid-glass-dense liquid-glass-interactive iridescent-rim rounded-3xl overflow-hidden relative touch-manipulation"
-          style={{ ['--lg-blur' as string]: '44px' }}
-          transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+          transition={{ type: 'spring', stiffness: 420, damping: 38 }}
           drag
           dragDirectionLock
           dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
           dragElastic={{ left: 0.3, right: 0.3, top: 0.2, bottom: 0 }}
           onDragStart={handleDragStart}
-          onDrag={handleDrag}
           onDragEnd={handleDragEnd}
           onClick={handleExpand}
           whileTap={{ scale: isDragging ? 1 : 0.99 }}
         >
-          {currentSong.cover_url && (
-            <img
-              src={currentSong.cover_url}
-              alt=""
-              aria-hidden
-              className="absolute inset-y-0 right-0 h-full w-2/3 object-cover pointer-events-none"
-              style={{
-                filter: 'blur(16px) saturate(140%)',
-                opacity: 0.42,
-                WebkitMaskImage: 'linear-gradient(to left, #000 22%, transparent 100%)',
-                maskImage: 'linear-gradient(to left, #000 22%, transparent 100%)',
-              }}
-            />
-          )}
-          {/* Swipe hints */}
-          {isSwipingLeft && (
-            <div 
-              className="absolute inset-y-0 right-2 flex items-center z-20 pointer-events-none"
-              style={{ opacity: swipeOpacity }}
-            >
-              <div className="bg-primary/80 rounded-full px-3 py-1.5 text-xs font-semibold text-white">
-                Next →
-              </div>
-            </div>
-          )}
-          {isSwipingRight && (
-            <div 
-              className="absolute inset-y-0 left-2 flex items-center z-20 pointer-events-none"
-              style={{ opacity: swipeOpacity }}
-            >
-              <div className="bg-primary/80 rounded-full px-3 py-1.5 text-xs font-semibold text-white">
-                ← Prev
-              </div>
-            </div>
-          )}
 
           {/* Progress bar - smooth transition */}
           <div className="absolute top-0 left-0 right-0 h-[2px] bg-white/10 overflow-hidden rounded-t-xl z-10">
@@ -217,9 +147,8 @@ const MiniPlayer = memo(function MiniPlayer() {
           <div className="relative z-10 flex items-center gap-3 p-2">
             {/* Album Art with shared-layout morph to fullscreen */}
             <motion.div
-              layoutId="uf-player-art"
               className="relative w-12 h-12 flex-shrink-0 rounded-xl overflow-hidden shadow-lg bg-muted"
-              transition={{ type: 'spring', stiffness: 380, damping: 34 }}
+              transition={{ duration: 0.16 }}
             >
               <motion.div
                 key={currentSong.id}

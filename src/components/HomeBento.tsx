@@ -35,6 +35,91 @@ const fmt = (s?: number) => {
 
 type Snapshot = { song?: Song; progress?: number; duration?: number };
 
+function ContinueListeningCard({
+  currentSong,
+  snapshot,
+  history,
+  songs,
+  isPlaying,
+  playSong,
+  togglePlay,
+  seek,
+}: {
+  currentSong: Song | null;
+  snapshot: Snapshot | null;
+  history: Song[];
+  songs: Song[];
+  isPlaying: boolean;
+  playSong: ReturnType<typeof usePlayer>['playSong'];
+  togglePlay: ReturnType<typeof usePlayer>['togglePlay'];
+  seek: ReturnType<typeof usePlayer>['seek'];
+}) {
+  const { progress, duration } = usePlayerProgress();
+  const [pendingSeek, setPendingSeek] = useState<{ id: string; at: number } | null>(null);
+  const resume = useMemo(() => {
+    if (currentSong) return { song: currentSong, at: progress, total: duration || currentSong.duration || 0 };
+    if (snapshot?.song) return { song: snapshot.song, at: snapshot.progress || 0, total: snapshot.duration || snapshot.song.duration || 0 };
+    if (history[0]) return { song: history[0], at: 0, total: history[0].duration || 0 };
+    return null;
+  }, [currentSong, duration, history, progress, snapshot]);
+  const resumeIsCurrent = !!resume && !!currentSong && resume.song.id === currentSong.id;
+
+  useEffect(() => {
+    if (!pendingSeek || !currentSong || currentSong.id !== pendingSeek.id || duration <= 0) return;
+    if (pendingSeek.at < duration - 5) seek(pendingSeek.at);
+    setPendingSeek(null);
+  }, [currentSong, duration, pendingSeek, seek]);
+
+  const playResume = () => {
+    if (!resume) return;
+    triggerHaptic('selection');
+    if (resumeIsCurrent) { togglePlay(); return; }
+    const at = Math.max(0, Math.floor(resume.at || 0));
+    if (at > 5) setPendingSeek({ id: resume.song.id, at });
+    playSong(resume.song, null, [resume.song, ...history.slice(0, 20), ...songs.slice(0, 30)]);
+  };
+
+  const startListening = () => {
+    const pool = cleanRail(songs, { requireCover: true });
+    if (!pool.length) return;
+    triggerHaptic('selection');
+    playSong(pool[0], null, pool.slice(0, 40));
+  };
+  const pct = resume && resume.total > 0 ? Math.min(100, (resume.at / resume.total) * 100) : 0;
+
+  return (
+    <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.18, ease: 'easeOut' }}>
+      {resume ? (
+        <div className="relative rounded-[28px] overflow-hidden bg-gradient-to-br from-primary via-primary/80 to-primary/40 p-5">
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 items-center">
+            <div className="min-w-0">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-foreground/70">Continue Listening</p>
+              <h2 className="font-display text-[28px] leading-[1.05] uppercase text-primary-foreground line-clamp-2 mt-1">{resume.song.title}</h2>
+              <p className="text-[13px] font-semibold text-primary-foreground/80 truncate mt-0.5">{resume.song.artist}</p>
+              <div className="flex items-center gap-3 mt-4">
+                <button onClick={playResume} aria-label={resumeIsCurrent && isPlaying ? 'Pause' : 'Play'} className="w-12 h-12 shrink-0 rounded-full bg-background text-foreground flex items-center justify-center shadow-lg active:scale-95 transition-transform">
+                  {resumeIsCurrent && isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="h-1 rounded-full bg-primary-foreground/25 overflow-hidden"><div className="h-full bg-primary-foreground rounded-full" style={{ width: `${pct}%` }} /></div>
+                  <div className="flex justify-between text-[11px] font-semibold text-primary-foreground/80 mt-1.5"><span>{fmt(resume.at)}</span><span>{resume.total > 0 ? fmt(resume.total) : '--:--'}</span></div>
+                </div>
+              </div>
+            </div>
+            <div className="w-[112px] h-[112px] shrink-0 rounded-[14px] overflow-hidden bg-background/30"><OptimizedImage src={resume.song.cover_url} alt={resume.song.title} eager className="w-full h-full" /></div>
+          </div>
+        </div>
+      ) : (
+        <Card className="p-6 text-center">
+          <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Nothing playing yet</p>
+          <h2 className="font-display text-[26px] uppercase mt-1">Start Listening</h2>
+          <button onClick={startListening} disabled={songs.length === 0} className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-[13px] font-bold disabled:opacity-50"><Play className="w-4 h-4 fill-current" /> Play something</button>
+        </Card>
+      )}
+    </motion.div>
+  );
+}
+
 const readSnapshot = (): Snapshot | null => {
   try {
     const raw = localStorage.getItem(PLAYER_SNAPSHOT_KEY);
@@ -63,10 +148,8 @@ const MOODS: Array<{ label: string; query: string }> = [
 
 const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null }) => {
   const { currentSong, isPlaying, playSong, togglePlay, seek } = usePlayer();
-  const { progress, duration } = usePlayerProgress();
   const rawRecents = useLocalRecents(60);
   const taste = useTasteProfile();
-  const [pendingSeek, setPendingSeek] = useState<{ id: string; at: number } | null>(null);
 
   // A repeatedly skipped or explicitly disliked artist must not come back through
   // history-derived shelves either ("Pick up again" used to resurface them).
@@ -79,49 +162,6 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
 
   // ── Continue Listening ─────────────────────────────────────────────────
   const snapshot = useMemo(() => (typeof window === 'undefined' ? null : readSnapshot()), [recents.length]);
-
-  const resume = useMemo(() => {
-    if (currentSong) {
-      return { song: currentSong, at: progress, total: duration || currentSong.duration || 0, live: true };
-    }
-    if (snapshot?.song) {
-      return { song: snapshot.song, at: snapshot.progress || 0, total: snapshot.duration || snapshot.song.duration || 0, live: false };
-    }
-    if (history[0]) {
-      return { song: history[0], at: 0, total: history[0].duration || 0, live: false };
-    }
-    return null;
-  }, [currentSong, progress, duration, snapshot, history]);
-
-  const resumeIsCurrent = !!resume && !!currentSong && resume.song.id === currentSong.id;
-
-  // Resuming really resumes: once the track we asked for is loaded and its
-  // duration is known, jump to the exact saved position.
-  useEffect(() => {
-    if (!pendingSeek || !currentSong || currentSong.id !== pendingSeek.id) return;
-    if (!duration || duration <= 0) return;
-    if (pendingSeek.at >= duration - 5) { setPendingSeek(null); return; }
-    seek(pendingSeek.at);
-    setPendingSeek(null);
-  }, [pendingSeek, currentSong?.id, duration, seek]);
-
-  const playResume = () => {
-    if (!resume) return;
-    triggerHaptic('selection');
-    if (resumeIsCurrent) { togglePlay(); return; }
-    const at = Math.max(0, Math.floor(resume.at || 0));
-    if (at > 5) setPendingSeek({ id: resume.song.id, at });
-    playSong(resume.song, null, [resume.song, ...history.slice(0, 20), ...songs.slice(0, 30)]);
-  };
-
-  const startListening = () => {
-    const pool = cleanRail(songs, { requireCover: true });
-    if (!pool.length) return;
-    triggerHaptic('selection');
-    playSong(pool[0], null, pool.slice(0, 40));
-  };
-
-  const pct = resume && resume.total > 0 ? Math.min(100, (resume.at / resume.total) * 100) : 0;
 
   // ── Jump Back In — real album/artist sets the listener was working through
   const jumpGroups = useMemo(() => jumpBackInGroups(recents, 1).slice(0, 6), [recents]);
@@ -180,56 +220,7 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
   return (
     <div className="px-5 space-y-3">
       {/* HERO — Continue Listening */}
-      <motion.div initial={{ opacity: 0, y: 14 }} animate={{ opacity: 1, y: 0 }} transition={{ type: 'spring', stiffness: 140, damping: 20 }}>
-        {resume ? (
-          <div className="relative rounded-[28px] overflow-hidden bg-gradient-to-br from-primary via-primary/80 to-primary/40 p-5">
-            <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-4 items-center">
-              <div className="min-w-0">
-                <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-primary-foreground/70">Continue Listening</p>
-                <h2 className="font-display text-[28px] leading-[1.05] uppercase text-primary-foreground line-clamp-2 mt-1">
-                  {resume.song.title}
-                </h2>
-                <p className="text-[13px] font-semibold text-primary-foreground/80 truncate mt-0.5">{resume.song.artist}</p>
-
-                <div className="flex items-center gap-3 mt-4">
-                  <button
-                    onClick={playResume}
-                    aria-label={resumeIsCurrent && isPlaying ? 'Pause' : 'Play'}
-                    className="w-12 h-12 shrink-0 rounded-full bg-background text-foreground flex items-center justify-center shadow-lg active:scale-95 transition-transform"
-                  >
-                    {resumeIsCurrent && isPlaying ? <Pause className="w-6 h-6 fill-current" /> : <Play className="w-6 h-6 fill-current ml-0.5" />}
-                  </button>
-                  <div className="min-w-0 flex-1">
-                    <div className="h-1 rounded-full bg-primary-foreground/25 overflow-hidden">
-                      <div className="h-full bg-primary-foreground rounded-full" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="flex justify-between text-[11px] font-semibold text-primary-foreground/80 mt-1.5">
-                      <span>{fmt(resume.at)}</span>
-                      <span>{resume.total > 0 ? fmt(resume.total) : '--:--'}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-[112px] h-[112px] shrink-0 rounded-[14px] overflow-hidden bg-background/30">
-                <OptimizedImage src={resume.song.cover_url} alt={resume.song.title} eager className="w-full h-full" />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <Card className="p-6 text-center">
-            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-muted-foreground">Nothing playing yet</p>
-            <h2 className="font-display text-[26px] uppercase mt-1">Start Listening</h2>
-            <button
-              onClick={startListening}
-              disabled={songs.length === 0}
-              className="mt-4 inline-flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-5 py-2.5 text-[13px] font-bold disabled:opacity-50"
-            >
-              <Play className="w-4 h-4 fill-current" /> Play something
-            </button>
-          </Card>
-        )}
-      </motion.div>
+      <ContinueListeningCard currentSong={currentSong} snapshot={snapshot} history={history} songs={songs} isPlaying={isPlaying} playSong={playSong} togglePlay={togglePlay} seek={seek} />
 
       {/* ROW 1 — ARTIST OF THE WEEK (portrait) + JUMP BACK IN (3-row list) */}
       {(artistOfWeek || jumpGroups.length > 0) && (

@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, memo, useCallback } from 'react';
+import { useEffect, useRef, memo, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Headphones, Search, Library, User } from 'lucide-react';
 import { useLocation, useNavigate } from '@/lib/router-compat';
 import { useRouter } from '@tanstack/react-router';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
+import { useChromeVisibility } from '@/hooks/useChromeVisibility';
 
 const navItems = [
   { icon: Headphones, label: 'Listen', path: '/' },
@@ -18,33 +19,8 @@ const BottomNav = memo(function BottomNav() {
   const navigate = useNavigate();
   const router = useRouter();
   const { currentSong } = usePlayer();
-  const [isVisible, setIsVisible] = useState(true);
-  const lastScrollY = useRef(0);
-  const scrollThreshold = 10;
+  const isVisible = useChromeVisibility();
   const tabRefs = useRef<Array<HTMLButtonElement | null>>([]);
-
-  useEffect(() => {
-    const handleScroll = () => {
-      const currentScrollY = window.scrollY;
-      const scrollDelta = currentScrollY - lastScrollY.current;
-      if (Math.abs(scrollDelta) > scrollThreshold) {
-        if (scrollDelta > 0 && currentScrollY > 100) {
-          setIsVisible(false);
-        } else {
-          setIsVisible(true);
-        }
-        lastScrollY.current = currentScrollY;
-      }
-    };
-
-    const scrollContainers = document.querySelectorAll('[data-scroll-container]');
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    scrollContainers.forEach(c => c.addEventListener('scroll', handleScroll, { passive: true }));
-    return () => {
-      window.removeEventListener('scroll', handleScroll);
-      scrollContainers.forEach(c => c.removeEventListener('scroll', handleScroll));
-    };
-  }, []);
 
   useEffect(() => {
     const warmRoutes = () => navItems.forEach((item) => { void router.preloadRoute({ to: item.path }); });
