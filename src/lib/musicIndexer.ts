@@ -572,8 +572,8 @@ export async function searchYouTubeMusicTracks(
     ]);
     // Unknown-uploader catalogs (Audius) are no longer mixed into search: they
     // filled thin results with non-viral / AI-made uploads.
-    const { isJunkRailTrack } = await import('./railQuality');
-    const real = (l: IndexedTrack[]) => l.filter((t) => !isAiOrSpamTrack(t.title, t.artist) && !(isJunkRailTrack(t) && /\b(ai|suno|udio)\b/i.test(`${t.title} ${t.artist}`)));
+    const { isAiOrSpamTrack } = await import('./railQuality');
+    const real = (l: IndexedTrack[]) => l.filter((t) => !isAiOrSpamTrack(t));
     if (deepYt.length) return mergeTrackSources(real(deepYt), real(saavn)).slice(0, limit);
     return real(saavn).slice(0, limit);
   });

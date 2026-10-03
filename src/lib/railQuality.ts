@@ -33,6 +33,21 @@ const JUNK_ARTIST = [
   /\b(mix|remix|status|shorts|dj)\s*(zone|world|hub|point|club)\b/i,
 ];
 
+const AI_SPAM = [
+  /\bai[\s-]?(generated|cover|song|music|version|vocals?|remix)\b/i,
+  /\(\s*ai\s*\)|\[\s*ai\s*\]/i,
+  /\b(suno|udio|aiva|boomy|mubert)\b/i,
+  /\btype\s+beat\b/i,
+  /\bsped\s+up\b/i,
+  /\bfan[\s-]?made\b/i,
+];
+
+/** AI-made, fan-made, or spam re-upload — never shown anywhere in the app. */
+export function isAiOrSpamTrack(s: { title?: string | null; artist?: string | null; album?: string | null }): boolean {
+  const hay = `${s.title || ''} ${s.artist || ''} ${s.album || ''}`;
+  return AI_SPAM.some((r) => r.test(hay));
+}
+
 /** True when a track should never appear on an editorial home rail. */
 export function isJunkRailTrack(s: { title?: string | null; artist?: string | null; album?: string | null; duration?: number | null }): boolean {
   const title = (s.title || '').trim();
@@ -43,6 +58,7 @@ export function isJunkRailTrack(s: { title?: string | null; artist?: string | nu
   // A "single" that runs 15+ minutes is a compilation upload, not a release.
   if (dur && (dur < 50 || dur > 780)) return true;
   if (JUNK_ARTIST.some((r) => r.test(artist))) return true;
+  if (isAiOrSpamTrack(s)) return true;
   const hay = `${title} ${s.album || ''}`;
   return JUNK_TITLE.some((r) => r.test(hay));
 }
