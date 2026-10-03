@@ -41,11 +41,7 @@ const handleScroll = (event: Event) => {
   const next = !(delta > 0 && current > 100);
   if (next === visible) return;
   visible = next;
-  if (frame) cancelAnimationFrame(frame);
-  frame = requestAnimationFrame(() => {
-    frame = 0;
-    listeners.forEach((listener) => listener());
-  });
+  notify();
 };
 
 const subscribe = (listener: Listener) => {
@@ -69,5 +65,13 @@ const getSnapshot = () => visible;
 const getServerSnapshot = () => true;
 
 export function useChromeVisibility() {
+  const { pathname } = useLocation();
+
+  // A new page always starts with the chrome visible, even if the previous
+  // page was scrolled down and had hidden it.
+  useEffect(() => {
+    resetVisibility();
+  }, [pathname]);
+
   return useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 }
