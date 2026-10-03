@@ -278,17 +278,8 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
           animate={{ y: 0 }} 
           exit={{ y: "100%" }} 
           transition={{ type: "spring", stiffness: 380, damping: 36, mass: 0.9 }} 
-          drag="y" 
-          dragListener={false}
-          dragControls={dragControls}
-          dragConstraints={{ top: 0, bottom: 0 }} 
-          dragElastic={{ top: 0, bottom: 0.6 }} 
-          dragMomentum={false}
-          onPointerDown={handlePointerDown}
-          onPointerMove={handlePointerMove}
-          onPointerUp={handlePointerEnd}
-          onPointerCancel={handlePointerEnd}
-          onDragEnd={handleDragEnd}
+          ref={sheetRef}
+          style={{ y: sheetY }}
         >
           {/* Lightweight artwork wash: opacity animates, filters do not. */}
           <AnimatePresence initial={false}>
