@@ -253,9 +253,6 @@ const Home = () => {
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-muted-foreground/70">
                 {hydrated ? greetingForHour(signals.hour) : 'Welcome'}
-                {insights.streak.current > 0 && (
-                  <span className="text-primary"> — {insights.streak.current} day streak 🔥</span>
-                )}
               </p>
               <h1 className="font-display text-[26px] leading-none tracking-[0.06em] uppercase text-foreground mt-1.5">
                 Universflow

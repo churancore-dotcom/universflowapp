@@ -45,7 +45,7 @@ export interface MilestoneInputs {
 }
 
 const PLAY_MILESTONES = [100, 500, 1000, 5000];
-const STREAK_MILESTONES = [7, 30, 100, 365];
+const STREAK_MILESTONES: number[] = [];
 
 /** The highest un-celebrated milestone the listener has genuinely reached. */
 export function nextMilestone(
