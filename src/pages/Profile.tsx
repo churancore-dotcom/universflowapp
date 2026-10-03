@@ -20,7 +20,6 @@ import { loadLibrarySongs } from '@/lib/streamSongs';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import RecapModal from '@/components/RecapModal';
-import StreakBadge from '@/components/StreakBadge';
 import { loadPlayRecords, computeStreak } from '@/lib/listeningInsights';
 import { readListenLog } from '@/lib/listenLog';
 
@@ -357,29 +356,6 @@ const Profile = () => {
             <EmailVerificationCard />
 
             {/* ============ STATS ============ */}
-            {profileSettled && user && listenStats.totalPlays > 0 && (
-              <section className="neu rounded-[28px] p-4">
-                <div className="flex items-center justify-between mb-4 px-1">
-                  <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none">Listening</h2>
-                  <StreakBadge streak={listenStats.streak} onClick={() => setRecapOpen(true)} />
-                </div>
-                <div className="grid grid-cols-3 gap-3">
-                  <Dial value={fmt(listenStats.minutes)} label="Minutes" />
-                  <Dial value={fmt(listenStats.totalPlays)} label="Plays" />
-                  <Dial value={`${listenStats.streak}d`} label="Streak" />
-                </div>
-
-                <button
-                  onClick={() => { triggerHaptic('selection'); setRecapOpen(true); }}
-                  className="mt-4 w-full flex items-center gap-3 rounded-[20px] p-4 text-left bg-primary/10 border border-primary/25 active:opacity-80 transition-opacity"
-                >
-                  <span className="min-w-0">
-                    <span className="block font-display text-[18px] uppercase leading-none text-foreground">Your month in music</span>
-                    <span className="block text-[11.5px] text-muted-foreground mt-1">Top artist, top song, your listening personality.</span>
-                  </span>
-                </button>
-              </section>
-            )}
 
             {/* ============ RECENTLY PLAYED ============ */}
             {recentSongs.length > 0 && (
