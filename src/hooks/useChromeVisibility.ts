@@ -1,4 +1,5 @@
-import { useSyncExternalStore } from 'react';
+import { useEffect, useSyncExternalStore } from 'react';
+import { useLocation } from '@/lib/router-compat';
 
 type Listener = () => void;
 
@@ -7,6 +8,23 @@ let visible = true;
 let listening = false;
 let frame = 0;
 const positions = new WeakMap<EventTarget, number>();
+
+const notify = () => {
+  if (frame) cancelAnimationFrame(frame);
+  frame = requestAnimationFrame(() => {
+    frame = 0;
+    listeners.forEach((listener) => listener());
+  });
+};
+
+// Navigation (and overlay dismissal) must always restore the chrome —
+// otherwise the hidden state from a scrolled page leaks into the next page.
+const resetVisibility = () => {
+  positions.clear && undefined; // WeakMap has no clear; stale entries are harmless
+  if (visible) return;
+  visible = true;
+  notify();
+};
 
 const readScrollTop = (target: EventTarget | null) => {
   if (target instanceof HTMLElement) return target.scrollTop;
