@@ -1,57 +1,40 @@
-import { motion } from 'framer-motion';
+import { motion, useTransform, type MotionValue } from 'framer-motion';
 import { RefreshCw } from 'lucide-react';
-import { iosSpring } from '@/lib/animations';
 
 interface PullToRefreshIndicatorProps {
-  pullDistance: number;
+  pullDistance: MotionValue<number>;
+  threshold: number;
   isRefreshing: boolean;
-  progress: number;
   isTriggered: boolean;
 }
 
-const PullToRefreshIndicator = ({ 
-  pullDistance, 
-  isRefreshing, 
-  progress, 
-  isTriggered 
+/** GPU-only indicator: driven by a MotionValue, no per-frame React renders. */
+const PullToRefreshIndicator = ({
+  pullDistance,
+  threshold,
+  isRefreshing,
+  isTriggered,
 }: PullToRefreshIndicatorProps) => {
-  if (pullDistance === 0 && !isRefreshing) return null;
+  const y = useTransform(pullDistance, (d) => d - 40);
+  const opacity = useTransform(pullDistance, [threshold * 0.15, threshold * 0.45], [0, 1]);
+  const scale = useTransform(pullDistance, [0, threshold], [0.8, 1], { clamp: true });
+  const rotate = useTransform(pullDistance, [0, threshold], [0, 180]);
 
   return (
     <motion.div
-      className="absolute left-0 right-0 flex justify-center pointer-events-none z-40"
-      style={{ top: 60 }}
-      initial={{ opacity: 0 }}
-      animate={{ 
-        opacity: progress > 0.2 ? 1 : 0,
-        y: pullDistance - 40,
-      }}
-      transition={isRefreshing ? { duration: 0.2 } : { duration: 0 }}
+      className="absolute left-0 right-0 flex justify-center pointer-events-none z-40 will-change-transform"
+      style={{ top: 60, y, opacity }}
     >
       <motion.div
-        className="w-10 h-10 rounded-full flex items-center justify-center"
-        style={{
-          background: 'rgba(28, 28, 30, 0.95)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-        }}
-        animate={{
-          scale: isTriggered || isRefreshing ? 1 : 0.8 + progress * 0.2,
-        }}
-        transition={iosSpring}
+        className="w-10 h-10 rounded-full flex items-center justify-center bg-card border border-border shadow-lg"
+        style={{ scale }}
       >
-        <motion.div
-          animate={isRefreshing ? { rotate: 360 } : { rotate: progress * 180 }}
-          transition={isRefreshing 
-            ? { duration: 0.8, repeat: Infinity, ease: "linear" }
-            : { duration: 0 }
-          }
+        <motion.div style={isRefreshing ? undefined : { rotate }}
+          animate={isRefreshing ? { rotate: 360 } : undefined}
+          transition={isRefreshing ? { duration: 0.8, repeat: Infinity, ease: 'linear' } : undefined}
         >
-          <RefreshCw 
-            className={`w-5 h-5 transition-colors ${
-              isTriggered || isRefreshing ? 'text-primary' : 'text-muted-foreground'
-            }`}
+          <RefreshCw
+            className={`w-5 h-5 transition-colors ${isTriggered || isRefreshing ? 'text-primary' : 'text-muted-foreground'}`}
           />
         </motion.div>
       </motion.div>

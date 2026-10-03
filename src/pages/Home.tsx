@@ -305,8 +305,8 @@ const Home = () => {
         >
           <PullToRefreshIndicator
             pullDistance={pullToRefresh.pullDistance}
+            threshold={pullToRefresh.threshold}
             isRefreshing={pullToRefresh.isRefreshing}
-            progress={pullToRefresh.progress}
             isTriggered={pullToRefresh.isTriggered}
           />
 
