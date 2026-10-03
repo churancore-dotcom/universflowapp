@@ -12,6 +12,7 @@ import LikeButton from './LikeButton';
 
 import DownloadButton from './DownloadButton';
 import SocialShareModal from './SocialShareModal';
+import SongStorySheet from './SongStorySheet';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import EqualizerModal from './EqualizerModal';
@@ -596,7 +597,15 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
         </motion.div>
       </AnimatePresence>
 
-      {showShareModal && <SocialShareModal isOpen={showShareModal} onClose={() => setShowShareModal(false)} song={currentSong} />}
+      {showShareModal && !showShareOptions && (
+        <SongStorySheet
+          song={currentSong}
+          positionSec={Math.floor(playerProgressStore.getEstimatedProgress())}
+          onClose={() => setShowShareModal(false)}
+          onMoreOptions={() => setShowShareOptions(true)}
+        />
+      )}
+      {showShareOptions && <SocialShareModal isOpen={showShareOptions} onClose={() => { setShowShareOptions(false); setShowShareModal(false); }} song={currentSong} />}
       {showPlaylistModal && <AddToPlaylistModal isOpen={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} song={currentSong} onCreateNew={() => { setShowPlaylistModal(false); setShowCreatePlaylist(true); }} />}
       {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} initialSong={currentSong} onCreated={() => setShowCreatePlaylist(false)} />}
       {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
