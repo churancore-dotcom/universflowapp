@@ -1,5 +1,5 @@
 import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
-import { motion, AnimatePresence, PanInfo, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
 import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines, ImagePlus } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
 import { usePlayer } from '@/contexts/PlayerContext';
@@ -184,34 +184,68 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     upcoming.forEach((song) => fetchLyrics(song.artist, song.title, song.duration, song.id));
   }, [currentSong, queue]);
 
-  const dragControls = useDragControls();
+  const sheetRef = useRef<HTMLDivElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
-  const handleDragEnd = useCallback((_: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
-    if (info.offset.y > 80 || info.velocity.y > 400) {
-      setExpanded(false);
-    }
-  }, [setExpanded]);
-  // Decide on first movement: a downward pull at scroll-top starts the dismiss
-  // drag; any upward movement is left to native scrolling.
-  const gestureRef = useRef<{ y: number; x: number; decided: boolean } | null>(null);
-  const handlePointerDown = useCallback((e: React.PointerEvent) => {
-    const target = e.target as HTMLElement;
-    if (target.closest('button, [role="slider"], input, [data-no-drag]')) { gestureRef.current = null; return; }
-    gestureRef.current = { y: e.clientY, x: e.clientX, decided: false };
-  }, []);
-  const handlePointerMove = useCallback((e: React.PointerEvent) => {
-    const g = gestureRef.current;
-    if (!g || g.decided) return;
-    const dy = e.clientY - g.y;
-    const dx = e.clientX - g.x;
-    if (Math.abs(dy) < 6 && Math.abs(dx) < 6) return;
-    g.decided = true;
-    const el = scrollRef.current;
-    if (dy > 0 && Math.abs(dy) > Math.abs(dx) && (!el || el.scrollTop <= 0)) {
-      dragControls.start(e);
-    }
-  }, [dragControls]);
-  const handlePointerEnd = useCallback(() => { gestureRef.current = null; }, []);
+  const sheetY = useMotionValue(0);
+  const hasPlayer = !!currentSong && isExpanded;
+
+  // Native, non-passive touch handling: pointer-based drag gets cancelled by
+  // the browser as soon as it claims the gesture for scrolling, so swipe-down
+  // never worked on phones. Here we own the gesture only when the content is
+  // scrolled to top and the finger moves down.
+  useEffect(() => {
+    const sheet = sheetRef.current;
+    if (!hasPlayer || !sheet) return;
+    sheetY.set(0);
+    let startY = 0, startX = 0, lastY = 0, lastT = 0, velocity = 0;
+    let mode: 'idle' | 'undecided' | 'drag' | 'scroll' = 'idle';
+    const onStart = (e: TouchEvent) => {
+      const t = e.touches[0];
+      const target = e.target as HTMLElement;
+      if (e.touches.length > 1 || target.closest('[role="slider"], input, [data-no-drag]')) { mode = 'idle'; return; }
+      startY = lastY = t.clientY; startX = t.clientX; lastT = e.timeStamp; velocity = 0;
+      mode = 'undecided';
+    };
+    const onMove = (e: TouchEvent) => {
+      if (mode === 'idle' || mode === 'scroll') return;
+      const t = e.touches[0];
+      const dy = t.clientY - startY;
+      const dx = t.clientX - startX;
+      if (mode === 'undecided') {
+        if (Math.abs(dy) < 6 && Math.abs(dx) < 6) return;
+        const atTop = (scrollRef.current?.scrollTop ?? 0) <= 0;
+        mode = dy > 0 && Math.abs(dy) > Math.abs(dx) && atTop ? 'drag' : 'scroll';
+        if (mode === 'scroll') return;
+      }
+      e.preventDefault();
+      const dt = Math.max(1, e.timeStamp - lastT);
+      velocity = (t.clientY - lastY) / dt;
+      lastY = t.clientY; lastT = e.timeStamp;
+      sheetY.set(Math.max(0, dy));
+    };
+    const onEnd = () => {
+      if (mode !== 'drag') { mode = 'idle'; return; }
+      mode = 'idle';
+      const offset = sheetY.get();
+      if (offset > 100 || velocity > 0.5) {
+        triggerHaptic('impactLight');
+        animate(sheetY, window.innerHeight, { duration: 0.22, ease: 'easeOut' })
+          .then(() => setExpanded(false));
+      } else {
+        animate(sheetY, 0, { type: 'spring', stiffness: 500, damping: 40 });
+      }
+    };
+    sheet.addEventListener('touchstart', onStart, { passive: true });
+    sheet.addEventListener('touchmove', onMove, { passive: false });
+    sheet.addEventListener('touchend', onEnd);
+    sheet.addEventListener('touchcancel', onEnd);
+    return () => {
+      sheet.removeEventListener('touchstart', onStart);
+      sheet.removeEventListener('touchmove', onMove);
+      sheet.removeEventListener('touchend', onEnd);
+      sheet.removeEventListener('touchcancel', onEnd);
+    };
+  }, [hasPlayer, sheetY, setExpanded]);
 
   const handleNext = useCallback(() => {
     triggerHaptic('impactMedium');
