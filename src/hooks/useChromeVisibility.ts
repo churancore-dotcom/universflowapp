@@ -20,7 +20,6 @@ const notify = () => {
 // Navigation (and overlay dismissal) must always restore the chrome —
 // otherwise the hidden state from a scrolled page leaks into the next page.
 const resetVisibility = () => {
-  positions.clear && undefined; // WeakMap has no clear; stale entries are harmless
   if (visible) return;
   visible = true;
   notify();
