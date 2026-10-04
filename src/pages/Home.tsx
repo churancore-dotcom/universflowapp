@@ -27,6 +27,7 @@ import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import HomeBento from '@/components/HomeBento';
+import FlowCoreSection from '@/components/FlowCoreSection';
 
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
@@ -328,6 +329,7 @@ const Home = () => {
 
               {/* ── The full feed: charts, fresh music, personal rails ── */}
               <div className="uf-feed-sections px-6 mt-9 space-y-11 pb-24">
+                <FlowCoreSection pool={clean.length ? clean : allSongs} />
                 <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
                 <FreshReleasesSection enabled={homeReady} />
                 <OnRepeatSection />
