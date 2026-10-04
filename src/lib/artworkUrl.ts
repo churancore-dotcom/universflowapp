@@ -28,6 +28,18 @@ export function artworkCandidates(url?: string | null, size = 320): string[] {
     return [sized, src];
   }
 
+  // Some catalogue responses use an explicit width query instead of a path
+  // suffix. Keep the original as fallback, but request enough physical pixels
+  // for high-density Android displays first.
+  if (/[?&](w|width)=\d+/i.test(src)) {
+    const dpr = typeof window !== 'undefined' ? Math.min(3, Math.max(1, window.devicePixelRatio || 1)) : 2;
+    const px = Math.max(360, Math.min(720, Math.round(size * dpr)));
+    const sized = src
+      .replace(/([?&])w=\d+/i, `$1w=${px}`)
+      .replace(/([?&])width=\d+/i, `$1width=${px}`);
+    return [sized, src];
+  }
+
   const yt = src.match(/i\.ytimg\.com\/vi\/([A-Za-z0-9_-]{11})\//);
   if (yt) {
     const id = yt[1];
@@ -42,8 +54,8 @@ export function artworkCandidates(url?: string | null, size = 320): string[] {
 
   // JioSaavn ships tiny 50x50 / 150x150 thumbs by default — upscaling those is
   // the blurry-cover look. The same image exists at 500x500 on its CDN.
-  if (/saavncdn\.com|jiosaavn/i.test(src) && /-\d{2,3}x\d{2,3}\.(jpe?g|png|webp)/i.test(src)) {
-    return [src.replace(/-\d{2,3}x\d{2,3}\.(jpe?g|png|webp)/i, '-500x500.$1'), src];
+  if (/saavncdn\.com|jiosaavn/i.test(src) && /-\d{2,4}x\d{2,4}\.(jpe?g|png|webp)/i.test(src)) {
+    return [src.replace(/-\d{2,4}x\d{2,4}\.(jpe?g|png|webp)/i, '-500x500.$1'), src];
   }
 
   // Apple / iTunes artwork: ask for a sharp size instead of the 100x100 default.
