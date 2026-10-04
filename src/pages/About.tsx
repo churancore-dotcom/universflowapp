@@ -27,7 +27,7 @@ const SECTIONS: { heading: string; body: string }[] = [
 export default function About() {
   return (
     <div className="min-h-dvh bg-background text-foreground pb-24">
-      <header className="sticky top-0 z-10 flex items-center gap-3 bg-background/85 px-4 py-4 backdrop-blur-xl">
+      <header className="sticky top-0 z-10 flex items-center gap-3 border-b border-border/60 bg-background/85 px-4 py-4 backdrop-blur-xl">
         <Link
           to="/"
           aria-label="Back"
@@ -35,25 +35,29 @@ export default function About() {
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <h1 className="font-display text-[26px] font-black uppercase tracking-tight">
+        <h1 className="font-display text-[22px] font-black uppercase tracking-tight">
           About Universflow
         </h1>
       </header>
 
-      <main className="space-y-8 px-5 pt-2">
-        <p className="text-[15px] leading-relaxed text-muted-foreground">
+      <main className="mx-auto max-w-2xl px-6 pt-8">
+        <p className="mb-10 text-[15px] leading-relaxed text-muted-foreground">
           Free music streaming and offline downloads — for every listener, and every artist
           the big services skipped.
         </p>
 
         {SECTIONS.map((section) => (
-          <section key={section.heading} className="space-y-2">
-            <h2 className="text-[17px] font-bold">{section.heading}</h2>
-            <p className="text-[14px] leading-relaxed text-muted-foreground">{section.body}</p>
+          <section key={section.heading} className="mb-9 space-y-2.5">
+            <h2 className="text-[17px] font-semibold tracking-tight text-foreground">
+              {section.heading}
+            </h2>
+            <p className="text-[14.5px] leading-relaxed text-muted-foreground">
+              {section.body}
+            </p>
           </section>
         ))}
 
-        <nav className="flex flex-wrap gap-3 pt-2 text-[13px] font-semibold">
+        <nav className="flex flex-wrap gap-3 pb-4 pt-2 text-[13px] font-semibold">
           <Link to="/support" className="rounded-full border border-border px-4 py-2">Support</Link>
           <Link to="/legal/privacy" className="rounded-full border border-border px-4 py-2">Privacy</Link>
           <Link to="/legal/terms" className="rounded-full border border-border px-4 py-2">Terms</Link>

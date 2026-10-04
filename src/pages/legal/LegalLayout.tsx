@@ -22,7 +22,7 @@ export default function LegalLayout({
     <FadeTransition>
       <SEOHead title={`${title} — Universflow`} description={description} path={path} />
       <div className="min-h-[100dvh] bg-background text-foreground">
-        <header className="sticky top-0 z-20 bg-background/85 backdrop-blur-xl border-b border-white/5">
+        <header className="sticky top-0 z-20 bg-background/85 backdrop-blur-xl border-b border-border/60">
           <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
             <button
               onClick={() => navigate(-1)}
@@ -35,20 +35,11 @@ export default function LegalLayout({
           </div>
         </header>
 
-        <main className="max-w-2xl mx-auto px-5 pb-32 pt-6">
-          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 mb-6">
+        <main className="max-w-2xl mx-auto px-6 pb-32 pt-8">
+          <p className="text-[11px] uppercase tracking-[0.18em] text-muted-foreground/70 mb-8">
             Last updated · {updated}
           </p>
-          <article
-            className="prose prose-invert prose-sm max-w-none
-              prose-headings:text-foreground prose-headings:font-semibold prose-headings:tracking-tight
-              prose-h2:text-[17px] prose-h2:mt-7 prose-h2:mb-2
-              prose-p:text-[14px] prose-p:leading-relaxed prose-p:text-muted-foreground
-              prose-li:text-[14px] prose-li:text-muted-foreground
-              prose-strong:text-foreground"
-          >
-            {children}
-          </article>
+          <article className="legal-article max-w-none">{children}</article>
         </main>
       </div>
     </FadeTransition>
