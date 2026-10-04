@@ -329,11 +329,11 @@ const Home = () => {
 
               {/* ── The full feed: charts, fresh music, personal rails ── */}
               <div className="uf-feed-sections px-6 mt-9 space-y-11 pb-24">
-                <FlowCoreSection pool={clean.length ? clean : allSongs} />
                 <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
                 <FreshReleasesSection enabled={homeReady} />
                 <OnRepeatSection />
                 <MadeForYouSection />
+                <FlowCoreSection pool={clean.length ? clean : allSongs} />
                 <HistoryPlaylistsSection />
                 <YourArtistsSection />
                 <FeaturedArtistsSection songs={clean.length ? clean : allSongs} circle />
