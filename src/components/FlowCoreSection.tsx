@@ -106,35 +106,28 @@ const FlowCoreSection = memo(({ pool }: { pool: Song[] }) => {
 
   return (
     <section className="space-y-6" aria-label="Flow Core">
-      <div className="relative overflow-hidden rounded-[28px] border border-border bg-card p-5">
-        <div className="pointer-events-none absolute -right-10 -top-10 h-44 w-44 rounded-full bg-primary/25 blur-3xl animate-[pulse_4s_ease-in-out_infinite]" />
-        <div className="relative flex items-center gap-4">
-          <div className="relative h-20 w-20 shrink-0">
-            <span className="absolute inset-0 rounded-full bg-primary/30 animate-ping [animation-duration:2.6s]" />
-            <div className="relative h-full w-full overflow-hidden rounded-full ring-2 ring-primary/60">
-              {covers[0]?.cover_url ? (
-                <OptimizedImage src={covers[0].cover_url} alt="" className="h-full w-full object-cover" />
-              ) : <div className="h-full w-full bg-primary/20" />}
-            </div>
-          </div>
-          <div className="min-w-0">
-            <p className="flex items-center gap-1 text-[11px] font-semibold uppercase tracking-widest text-primary">
-              <Sparkles className="h-3 w-3" /> Flow Core
-            </p>
-            <h2 className="mt-1 truncate text-xl font-bold text-foreground">{vibe.label}</h2>
-            <p className="truncate text-xs text-muted-foreground">
-              {topArtist ? `${vibe.hint} · built around ${topArtist}` : `${vibe.hint} · from today's charts`}
-            </p>
-          </div>
+      <button
+        type="button"
+        onClick={() => start(flowQueue)}
+        disabled={!flowQueue.length}
+        className="flex w-full items-center gap-3 rounded-2xl border border-border bg-card p-2.5 pr-3 text-left active:scale-[0.98] transition-transform disabled:opacity-50"
+      >
+        <div className="h-11 w-11 shrink-0 overflow-hidden rounded-xl bg-muted">
+          {covers[0]?.cover_url && (
+            <OptimizedImage src={covers[0].cover_url} alt="" className="h-full w-full object-cover" />
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => start(flowQueue)}
-          className="relative mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-primary py-3 text-sm font-semibold text-primary-foreground active:scale-[0.98] transition-transform"
-        >
-          <Play className="h-4 w-4 fill-current" /> Enter Flow · {flowQueue.length} songs
-        </button>
-      </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-sm font-semibold text-foreground">{vibe.label}</p>
+          <p className="truncate text-[11px] text-muted-foreground">
+            {topArtist ? `Built around ${topArtist}` : "From today's charts"} · {flowQueue.length} songs
+          </p>
+        </div>
+        <span className="flex h-8 shrink-0 items-center gap-1 rounded-full bg-primary px-3 text-xs font-semibold text-primary-foreground">
+          <Play className="h-3 w-3 fill-current" /> Flow
+        </span>
+      </button>
+
 
       {vault.length >= 2 && (
         <div>
