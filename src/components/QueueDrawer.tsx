@@ -210,18 +210,14 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 z-[60] flex items-end justify-center bg-black/60 backdrop-blur-sm"
+        className="fixed inset-0 z-[60] flex items-end justify-center bg-background/80"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         onClick={onClose}
       >
         <motion.div
-          className="w-full max-w-md h-[70vh] rounded-t-3xl flex flex-col overflow-hidden"
-          style={{
-            background: 'linear-gradient(180deg, rgba(38, 38, 40, 0.98), rgba(28, 28, 30, 0.98))',
-            backdropFilter: 'blur(40px)',
-          }}
+          className="w-full max-w-md h-[70vh] rounded-t-3xl flex flex-col overflow-hidden bg-card border-t border-border"
           initial={{ y: '100%' }}
           animate={{ y: 0 }}
           exit={{ y: '100%' }}

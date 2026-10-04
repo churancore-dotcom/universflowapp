@@ -67,13 +67,15 @@ const SongArtwork = memo(({ song, className, size = 44, alt, fetchPriority = 'au
           decoding="async"
           referrerPolicy="no-referrer"
           draggable={false}
-          className={cn('relative w-full h-full object-cover transition-opacity duration-200', loaded ? 'opacity-100' : 'opacity-0')}
+          className={cn('relative block w-full h-full object-cover object-center transition-opacity duration-200 [image-rendering:auto]', loaded ? 'opacity-100' : 'opacity-0')}
           onLoad={(e) => {
             // YouTube serves a 120x90 grey "no thumbnail" bitmap instead of a
             // 404; upscaling it is exactly the blur users reported. Fall
             // through to the next candidate when a better one exists.
             const img = e.currentTarget;
-            if (img.naturalWidth > 0 && img.naturalWidth <= 200 && index < sources.length - 1) {
+            const renderedPixels = Math.max(1, size * (window.devicePixelRatio || 1));
+            const tooSmall = img.naturalWidth > 0 && img.naturalWidth < Math.min(360, renderedPixels);
+            if (tooSmall && index < sources.length - 1) {
               setIndex((i) => i + 1);
               return;
             }
