@@ -100,7 +100,7 @@ const FlowCoreSection = memo(({ pool }: { pool: Song[] }) => {
 
   const start = (queue: Song[], i = 0) => {
     if (!queue[i]) return;
-    triggerHaptic('medium');
+    triggerHaptic();
     playSong(queue[i], null, queue);
   };
 
