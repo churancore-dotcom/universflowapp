@@ -50,7 +50,8 @@ export const usePullToRefresh = ({
       return;
     }
     // Rubber-band resistance that eases toward maxPull.
-    const distance = maxPull * (1 - Math.exp((-diff * 0.5) / maxPull));
+    // Trigger (~76px) is reached at ~120px of finger travel.
+    const distance = maxPull * (1 - Math.exp(-diff / maxPull));
     pullDistance.set(distance);
     setTriggered(distance >= threshold * 0.95);
     // eslint-disable-next-line react-hooks/exhaustive-deps
