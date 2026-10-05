@@ -43,6 +43,13 @@
       "when": 1791191618569,
       "tag": "0005_validate_payment_request_pricing",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1791191717800,
+      "tag": "0006_preserve_pending_payment_price",
+      "breakpoints": true
     }
   ]
 }
