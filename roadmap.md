@@ -11,4 +11,4 @@
 - [x] Make Trending follow official YouTube Music/Apple chart order only, with no in-app listener or AI ranking.
 - [x] Isolate playback progress, unify scroll tracking, and simplify mobile player/page transitions.
 - [x] Complete whole-app health audit: automated checks, live routes, backend logs, monitoring, and security.
-- [ ] Fix every confirmed issue found by the health audit and re-run verification.
+- [x] Fix every confirmed user-facing issue found by the health audit and re-run verification.
