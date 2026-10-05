@@ -270,6 +270,12 @@ const AppContent = () => {
 
   return (
     <MobileShell>
+      <a
+        href="#main-content"
+        className="sr-only fixed left-3 top-3 z-[100] rounded-md bg-background px-4 py-2 text-foreground shadow-lg focus:not-sr-only"
+      >
+        Skip to content
+      </a>
       <Suspense fallback={null}>
         <Toaster />
       </Suspense>
@@ -278,7 +284,7 @@ const AppContent = () => {
           <OfflineGate />
         </Suspense>
         <Suspense fallback={<LazyFallback />}>
-          <div id="main-content" style={{ display: 'contents' }}>
+          <div id="main-content" tabIndex={-1} style={{ display: 'contents' }}>
             <Outlet />
           </div>
         </Suspense>

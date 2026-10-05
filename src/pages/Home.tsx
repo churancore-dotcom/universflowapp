@@ -236,13 +236,13 @@ const Home = () => {
         <SEOHead
           title="Univers Flow — Free Music Streaming & Playlists"
           description="Your personalized music feed: trending tracks, fresh releases and your listening history. Stream and download free."
-          path="/home"
+          path="/"
           jsonLdId="home-jsonld"
           jsonLd={{
             '@context': 'https://schema.org',
             '@type': 'CollectionPage',
             name: 'Univers Flow — Home',
-            url: 'https://universflow.in/home',
+            url: 'https://universflow.in/',
             description: 'Personalized music feed with trending tracks and fresh releases.',
             isPartOf: { '@type': 'WebSite', name: 'Univers Flow', url: 'https://universflow.in' },
           }}

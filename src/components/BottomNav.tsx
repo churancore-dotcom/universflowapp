@@ -52,9 +52,8 @@ const BottomNav = memo(function BottomNav() {
       e.preventDefault();
       tabRefs.current[next]?.focus();
       triggerHaptic('selection');
-      navigate(navItems[next].path);
     }
-  }, [navigate]);
+  }, []);
 
   return (
     <motion.nav
