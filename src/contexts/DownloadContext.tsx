@@ -721,7 +721,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       
       // Remove from queue after download attempt
-      setDownloadQueue(prev => prev.slice(1));
+      setDownloadQueue(prev => prev.filter((song) => song.id !== nextSong.id));
       
       processingRef.current = false;
       setIsProcessingQueue(false);

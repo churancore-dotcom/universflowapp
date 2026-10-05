@@ -3628,10 +3628,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   const setQueue = useCallback((songs: Song[]) => {
     const uniqueSongs = dedupePlayerQueue(songs);
+    const currentFingerprint = currentSong ? getQueueFingerprint(currentSong) : null;
+    const preservedIndex = currentFingerprint
+      ? uniqueSongs.findIndex((song) => getQueueFingerprint(song) === currentFingerprint)
+      : -1;
     queueRef.current = uniqueSongs;
     setQueueState(uniqueSongs);
-    setCurrentIndex(0);
-  }, []);
+    setCurrentIndex(preservedIndex >= 0 ? preservedIndex : 0);
+    shuffleHistoryRef.current.clear();
+  }, [currentSong]);
 
   const addToQueue = useCallback((song: Song) => {
     setQueueState(prev => {

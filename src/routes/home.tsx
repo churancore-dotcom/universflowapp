@@ -1,6 +1,7 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { Navigate } from "@/lib/router-compat";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/home")({
-  component: () => <Navigate to="/" replace />,
+  beforeLoad: () => {
+    throw redirect({ to: "/", replace: true });
+  },
 });

@@ -6,7 +6,7 @@ import SongArtwork from './SongArtwork';
 import { iosSpring } from '@/lib/animations';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { toast } from 'sonner';
-import { getVersionLabel } from '@/lib/playerQueue';
+import { getQueueFingerprint, getVersionLabel } from '@/lib/playerQueue';
 
 interface QueueDrawerProps {
   isOpen: boolean;
@@ -185,15 +185,15 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
   }, [fillSmartQueue, isMixing]);
 
   const handlePlay = useCallback((song: Song) => {
-    if (currentSong?.id === song.id) {
+    if (currentSong && getQueueFingerprint(currentSong) === getQueueFingerprint(song)) {
       togglePlay();
     } else {
       playSong(song);
     }
   }, [currentSong, togglePlay, playSong]);
 
-  const handleRemove = useCallback((songId: string) => {
-    setQueue(queue.filter(s => s.id !== songId));
+  const handleRemove = useCallback((songFingerprint: string) => {
+    setQueue(queue.filter((song) => getQueueFingerprint(song) !== songFingerprint));
   }, [queue, setQueue]);
 
   const handleReorder = useCallback((newOrder: Song[]) => {
@@ -314,7 +314,7 @@ const QueueDrawer = memo(({ isOpen, onClose }: QueueDrawerProps) => {
                     isActive={currentSong?.id === song.id}
                     isPlaying={currentSong?.id === song.id && isPlaying}
                     onPlay={() => handlePlay(song)}
-                    onRemove={() => handleRemove(song.id)}
+                    onRemove={() => handleRemove(getQueueFingerprint(song))}
                   />
                 ))}
               </Reorder.Group>
