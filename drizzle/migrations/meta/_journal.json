@@ -36,6 +36,13 @@
       "when": 1790860377557,
       "tag": "0004_migration",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791191618569,
+      "tag": "0005_validate_payment_request_pricing",
+      "breakpoints": true
     }
   ]
 }
