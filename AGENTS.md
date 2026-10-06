@@ -7,4 +7,5 @@
 - Trending follows official external chart order only: YouTube Music regional charts first, then fresh Apple Music most-played fallback; never use app listeners, AI, taste, Audius, JioSaavn, or keyword search to rank it.
 - Player sharing must remain lightweight: share song details with the UniversFlow app URL only; never generate video cards or expose per-song URLs.
 - Ad completion is single-use and starts a cooldown before another completed-song boundary can schedule an ad.
+- Private artist identity-photo paths must be rooted in the authenticated artist's own storage folder before persistence and privileged reads.
 - Keep playback progress in the external progress store and use one shared scroll-visibility signal so high-frequency updates never repaint whole pages.

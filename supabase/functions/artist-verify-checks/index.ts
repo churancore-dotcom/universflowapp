@@ -205,6 +205,19 @@ Deno.serve(async (req) => {
       });
     }
 
+    const expectedSelfiePrefix = `${userId}/`;
+    if (
+      app.selfie_path &&
+      (!app.selfie_path.startsWith(expectedSelfiePrefix) ||
+        app.selfie_path.includes("..") ||
+        app.selfie_path.startsWith("/") ||
+        app.selfie_path.length > 500)
+    ) {
+      return new Response(JSON.stringify({ error: "Invalid identity photo" }), {
+        status: 400, headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const warnings: string[] = [];
     let ownershipVerifiedAt: string | null = null;
     let platformPhotoUrl: string | null = null;
