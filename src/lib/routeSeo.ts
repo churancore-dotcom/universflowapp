@@ -63,6 +63,7 @@ export function routeSeo({
       { property: "og:description", content: description },
       { property: "og:url", content: url },
       { property: "og:image", content: SOCIAL_IMAGE },
+      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:title", content: title },
       { name: "twitter:description", content: description },
       { name: "twitter:url", content: url },

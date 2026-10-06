@@ -113,10 +113,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" },
-      { title: "Universflow — Free Music Streaming App" },
       { name: "google-site-verification", content: "9i6sSAmlmRyKCJS2U4vNTHoKzSLvG4qx7bViokCa7Ik" },
-      { name: "title", content: "Universflow — Free Music Streaming App" },
-      { name: "description", content: "Universflow is a free music streaming app: play millions of songs, follow artists and download tracks for offline listening." },
       { name: "keywords", content: "free music app, music streaming app, offline music app, Universflow" },
       { name: "author", content: "Universflow Team" },
       { name: "creator", content: "Universflow Team" },
@@ -135,26 +132,12 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "theme-color", content: "#000000" },
       { name: "msapplication-navbutton-color", content: "#000000" },
       { name: "msapplication-TileColor", content: "#000000" },
-      { property: "og:type", content: "website" },
       { property: "og:site_name", content: "Universflow" },
       { property: "og:locale", content: "en_US" },
       { property: "og:locale:alternate", content: "hi_IN" },
-      // og:title / og:description / og:url are defined per-route (see leaf head()).
-
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
-      { property: "og:image:secure_url", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
-      { property: "og:image:type", content: "image/webp" },
-      { property: "og:image:width", content: "1200" },
-      { property: "og:image:height", content: "630" },
-      { property: "og:image:alt", content: "Universflow — Free music streaming and download app for Android" },
-      { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@UniversFlow" },
       { name: "twitter:creator", content: "@UniversFlow" },
       { name: "twitter:domain", content: "universflow.in" },
-      // twitter:url / twitter:title / twitter:description are defined per-route.
-
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/s8DT7gYYLcVOTZXqNcZ7CA0DHkg2/social-images/social-1778415482112-Screenshot_2026-05-08_185337-modified.webp" },
-      { name: "twitter:image:alt", content: "Universflow — Free music streaming and download app for Android" },
       { name: "twitter:app:name:googleplay", content: "Universflow" },
       { name: "twitter:app:url:googleplay", content: "https://universflow.in/get" },
       { name: "pinterest-rich-pin", content: "true" },
