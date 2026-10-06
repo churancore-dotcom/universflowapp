@@ -136,6 +136,20 @@ export default function SocialShareModal({ isOpen, onClose, song }: SocialShareM
               </Button>
             </div>
 
+            <div className="mb-3 flex justify-center">
+              <div className="aspect-[9/16] h-64 overflow-hidden rounded-md border border-border bg-muted">
+                {card ? (
+                  <img src={card.url} alt={`Share card for ${song.title}`} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full items-center justify-center">{cardBusy && <Loader2 className="animate-spin text-muted-foreground" />}</div>
+                )}
+              </div>
+            </div>
+            <Button className="mb-3 w-full" onClick={shareCard} disabled={!card}>
+              <ImageIcon />
+              Share Card
+            </Button>
+
             <div className="grid grid-cols-3 gap-2">
               <Button variant="secondary" className="h-16 flex-col gap-1" onClick={() => openShare(`https://wa.me/?text=${encodeURIComponent(shareText)}`)}>
                 <MessageCircle />
