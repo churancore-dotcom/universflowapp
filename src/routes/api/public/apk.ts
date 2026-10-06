@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createClient } from "@supabase/supabase-js";
 
 /**
  * Public APK download.
@@ -28,7 +27,7 @@ export const Route = createFileRoute("/api/public/apk")({
 
         return new Response(null, {
           status: 302,
-          headers: { Location: data.signedUrl, "Cache-Control": "no-store" },
+          headers: { Location: data.signedUrl, "Cache-Control": "no-store, max-age=0", Pragma: "no-cache" },
         });
       },
     },

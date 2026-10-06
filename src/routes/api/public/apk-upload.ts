@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createHmac, timingSafeEqual } from "crypto";
+import { timingSafeEqual } from "crypto";
 
 /**
  * CI-only APK publish endpoint.
@@ -55,6 +55,7 @@ export const Route = createFileRoute("/api/public/apk-upload")({
           .from("music")
           .upload(APK_OBJECT_PATH, body, {
             contentType: "application/vnd.android.package-archive",
+            cacheControl: "0",
             upsert: true,
           });
 

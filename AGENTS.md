@@ -9,3 +9,4 @@
 - Ad completion is single-use and starts a cooldown before another completed-song boundary can schedule an ad.
 - Private artist identity-photo paths must be rooted in the authenticated artist's own storage folder before persistence and privileged reads.
 - Keep playback progress in the external progress store and use one shared scroll-visibility signal so high-frequency updates never repaint whole pages.
+- Website APK releases use one fixed storage object replaced only after a successful CI build; downloads bypass caching and static release sizes/versions are omitted to prevent stale claims.
