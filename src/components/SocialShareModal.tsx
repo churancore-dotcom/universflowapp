@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
 import { Check, Copy, ImageIcon, Loader2, MessageCircle, Share2, X } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { renderShareCard } from '@/lib/shareCard';
 import { toast } from 'sonner';
 import type { Song } from '@/contexts/PlayerContext';
@@ -104,12 +105,13 @@ export default function SocialShareModal({ isOpen, onClose, song }: SocialShareM
 
   const openShare = (url: string) => window.open(url, '_blank', 'noopener,noreferrer');
 
-  return (
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
           <motion.div
-            className="fixed inset-0 z-[70] bg-background/80 backdrop-blur-sm"
+            className="fixed inset-0 z-[200] bg-background/80"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -119,7 +121,7 @@ export default function SocialShareModal({ isOpen, onClose, song }: SocialShareM
             role="dialog"
             aria-modal="true"
             aria-label="Share song"
-            className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-[71] mx-auto max-w-md rounded-lg border border-border bg-card p-4 shadow-2xl"
+            className="fixed inset-x-3 bottom-[max(env(safe-area-inset-bottom),12px)] z-[201] mx-auto max-h-[calc(100dvh-24px)] max-w-md overflow-y-auto rounded-lg border border-border bg-card p-4 shadow-2xl"
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: 24 }}
@@ -137,7 +139,7 @@ export default function SocialShareModal({ isOpen, onClose, song }: SocialShareM
             </div>
 
             <div className="mb-3 flex justify-center">
-              <div className="aspect-[9/16] h-64 overflow-hidden rounded-md border border-border bg-muted">
+              <div className="aspect-[9/16] h-[min(16rem,38dvh)] overflow-hidden rounded-md border border-border bg-muted">
                 {card ? (
                   <img src={card.url} alt={`Share card for ${song.title}`} className="h-full w-full object-cover" />
                 ) : (
@@ -172,6 +174,7 @@ export default function SocialShareModal({ isOpen, onClose, song }: SocialShareM
           </motion.section>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 }
