@@ -1,6 +1,7 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Copy, MessageCircle, Share2, X } from 'lucide-react';
-import { useState } from 'react';
+import { Check, Copy, ImageIcon, Loader2, MessageCircle, Share2, X } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { renderShareCard } from '@/lib/shareCard';
 import { toast } from 'sonner';
 import type { Song } from '@/contexts/PlayerContext';
 import { Button } from '@/components/ui/button';
@@ -16,9 +17,61 @@ const APP_URL = 'https://universflow.in';
 
 export default function SocialShareModal({ isOpen, onClose, song }: SocialShareModalProps) {
   const [copied, setCopied] = useState(false);
+  const [card, setCard] = useState<{ blob: Blob; url: string } | null>(null);
+  const [cardBusy, setCardBusy] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !song) return;
+    let cancelled = false;
+    let made: string | null = null;
+    setCard(null);
+    setCardBusy(true);
+    renderShareCard(song)
+      .then((blob) => {
+        if (cancelled) return;
+        made = URL.createObjectURL(blob);
+        setCard({ blob, url: made });
+      })
+      .catch(() => {})
+      .finally(() => !cancelled && setCardBusy(false));
+    return () => { cancelled = true; if (made) URL.revokeObjectURL(made); };
+  }, [isOpen, song?.id, song?.title]);
+
   if (!song) return null;
 
   const shareText = `Listening to “${song.title}” by ${song.artist} on UniversFlow 🎧\n${APP_URL}`;
+
+  const shareCard = async () => {
+    if (!card) return;
+    const fileName = `universflow-${Date.now()}.png`;
+    try {
+      const { Capacitor } = await import('@capacitor/core');
+      if (Capacitor.isNativePlatform()) {
+        const { Filesystem, Directory } = await import('@capacitor/filesystem');
+        const { Share } = await import('@capacitor/share');
+        const base64 = await new Promise<string>((res, rej) => {
+          const r = new FileReader();
+          r.onload = () => res(String(r.result).split(',')[1]);
+          r.onerror = rej;
+          r.readAsDataURL(card.blob);
+        });
+        const saved = await Filesystem.writeFile({ path: fileName, data: base64, directory: Directory.Cache });
+        await Share.share({ title: song.title, text: shareText, files: [saved.uri], dialogTitle: 'Share card' });
+        return;
+      }
+      const file = new File([card.blob], fileName, { type: 'image/png' });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], text: shareText });
+        return;
+      }
+      const a = document.createElement('a');
+      a.href = card.url; a.download = fileName; a.click();
+      toast.success('Card saved');
+    } catch (error) {
+      if ((error as Error)?.name !== 'AbortError') toast.error('Could not share the card');
+    }
+  };
+
 
   const copyAppLink = async () => {
     try {
