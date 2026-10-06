@@ -386,9 +386,10 @@ jobs:
           ls -la "android/app/build/outputs/apk/debug/renamed/"
 
       - name: Upload APK
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
-          name: Univers Flow
+          # archive: false uploads the raw .apk (no ZIP wrapper)
+          archive: false
           path: "android/app/build/outputs/apk/debug/renamed/Univers Flow.apk"
           retention-days: 1
 
