@@ -9,6 +9,10 @@ on:
       - '**.md'
       - '.gitignore'
 
+concurrency:
+  group: website-android-apk
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -386,17 +390,17 @@ jobs:
         with:
           name: Univers Flow
           path: "android/app/build/outputs/apk/debug/renamed/Univers Flow.apk"
-          retention-days: 30
+          retention-days: 1
 
       - name: Publish APK to website download
         # Uploads the freshly built APK over the one served at
         # universflow.in/api/public/apk, so the site always offers the latest build.
         run: |
           if [ -z "$APK_UPLOAD_SECRET" ]; then
-            echo "::warning::APK_UPLOAD_SECRET secret missing — skipping website APK publish."
-            exit 0
+            echo "::error::APK_UPLOAD_SECRET is required to update the website APK. Add the matching repository secret."
+            exit 1
           fi
-          curl -sf -X POST \
+          curl --fail-with-body --silent --show-error --retry 3 --retry-delay 5 -X POST \
             "https://universflow.in/api/public/apk-upload" \
             -H "Authorization: Bearer $APK_UPLOAD_SECRET" \
             -H "Content-Type: application/vnd.android.package-archive" \

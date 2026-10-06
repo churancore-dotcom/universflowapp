@@ -10,8 +10,6 @@ import libraryScreenshot from "@/assets/get/screen-5.png.asset.json";
 
 
 const APK_URL = "https://universflow.in/api/public/apk";
-const VERSION = "1.0.0";
-const SIZE = "11 MB";
 
 const SHOTS = [
   { src: homeScreenshot.url, alt: "Universflow Home with music recommendations and trending songs" },
@@ -40,8 +38,6 @@ const GetApp = () => {
       url: "https://universflow.in/get",
       installUrl: APK_URL,
       downloadUrl: APK_URL,
-      softwareVersion: VERSION,
-      fileSize: SIZE,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
       image: "https://universflow.in/pwa-512x512.png",
       screenshot: SHOTS.map((s) => `https://universflow.in${s.src}`),
@@ -107,11 +103,10 @@ const GetApp = () => {
             >
               <Download className="w-5 h-5" />
               Download APK
-              <span className="ml-1 text-[11px] font-medium text-white/80">· {SIZE}</span>
             </a>
 
             <div className="mt-3 flex items-center gap-4 text-[11px] text-white/55">
-              <span>v{VERSION}</span>
+              <span>Latest release</span>
               <span className="w-1 h-1 rounded-full bg-white/30" />
               <span>Android 5.1+</span>
               <span className="w-1 h-1 rounded-full bg-white/30" />
@@ -161,7 +156,7 @@ const GetApp = () => {
 
           <ol className="relative pl-7 space-y-5 before:content-[''] before:absolute before:left-[11px] before:top-2 before:bottom-2 before:w-px before:bg-gradient-to-b before:from-[#FF2D55]/60 before:to-transparent">
             {[
-              { t: "Download APK", b: "11 MB file in your Downloads folder." },
+              { t: "Download APK", b: "The latest available APK saves to your Downloads folder." },
               { t: "Open the file", b: "Tap the download notification." },
               { t: "Allow this source", b: "First time only — Android will ask." },
               { t: "Install · Open · Play", b: "Done." },
@@ -196,7 +191,7 @@ const GetApp = () => {
                 className="mt-6 inline-flex items-center justify-center gap-2 w-full py-4 rounded-2xl bg-white text-black font-bold text-[16px] active:scale-[0.97] transition"
               >
                 <Download className="w-5 h-5" />
-                Download · {SIZE}
+                Download APK
               </a>
               <p className="mt-3 text-[10px] text-white/40 tracking-wider uppercase">Free · No sign-up to install</p>
             </div>
@@ -213,7 +208,7 @@ const GetApp = () => {
             <Link to="/support" className="hover:text-white">Support</Link>
             <Link to="/auth" className="hover:text-white">Sign in</Link>
           </div>
-          <div className="mt-3 text-white/40">v{VERSION} · © Universflow</div>
+          <div className="mt-3 text-white/40">© Universflow</div>
         </footer>
       </main>
     </>

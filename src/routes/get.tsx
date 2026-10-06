@@ -8,7 +8,7 @@ export const Route = createFileRoute("/get")({
     const seo = routeSeo({
       title: "Download Universflow APK — Free Music App for Android",
       description:
-        "Get the Universflow Android app. Free music streaming, offline downloads, equalizer and background playback in a lightweight 24MB APK.",
+        "Download the latest available Universflow Android APK. Free music streaming, offline downloads, equalizer and background playback.",
       path: "/get",
     });
     return {
