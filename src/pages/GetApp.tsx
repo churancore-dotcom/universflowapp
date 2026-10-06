@@ -2,6 +2,11 @@ import { Link } from "@/lib/router-compat";
 import { Download, Share2 } from "lucide-react";
 import SEOHead from "@/components/SEOHead";
 import appLogo from "@/assets/app-logo.webp";
+import homeScreenshot from "@/assets/get/screen-1.png.asset.json";
+import playerScreenshot from "@/assets/get/screen-2.png.asset.json";
+import searchScreenshot from "@/assets/get/screen-3.png.asset.json";
+import playlistScreenshot from "@/assets/get/screen-4.png.asset.json";
+import libraryScreenshot from "@/assets/get/screen-5.png.asset.json";
 
 
 const APK_URL = "https://universflow.in/api/public/apk";
@@ -9,13 +14,11 @@ const VERSION = "1.0.0";
 const SIZE = "11 MB";
 
 const SHOTS = [
-  { src: "/screenshots/home.png", alt: "Universflow home feed with personalized rails" },
-  { src: "/screenshots/search.png", alt: "Search results with instant like buttons" },
-  { src: "/screenshots/library.png", alt: "Your Library — liked songs" },
-  { src: "/screenshots/playlist.png", alt: "Playlist detail screen" },
-  { src: "/screenshots/downloads.png", alt: "Offline downloads screen" },
-  { src: "/screenshots/profile.png", alt: "Profile and listening stats" },
-  { src: "/screenshots/settings.png", alt: "Playback and download settings" },
+  { src: homeScreenshot.url, alt: "Universflow Home with music recommendations and trending songs" },
+  { src: playerScreenshot.url, alt: "Universflow music player with album artwork and playback controls" },
+  { src: searchScreenshot.url, alt: "Universflow search with song results" },
+  { src: playlistScreenshot.url, alt: "Universflow playlist with songs and the mini player" },
+  { src: libraryScreenshot.url, alt: "Universflow Library with personal playlists" },
 ];
 
 const handleShare = async () => {
@@ -128,21 +131,20 @@ const GetApp = () => {
 
         {/* ─── SCREENSHOTS ───────────────────────────────────── */}
         <section className="pb-14 -mt-2">
-          <div className="flex gap-4 overflow-x-auto no-scrollbar px-6 snap-x snap-mandatory pb-2">
+          <div aria-label="Universflow app screenshots" className="flex gap-4 overflow-x-auto no-scrollbar px-6 snap-x snap-mandatory py-2">
             {SHOTS.map((s, i) => (
               <div
                 key={i}
-                className="snap-center shrink-0 w-[62vw] max-w-[260px] aspect-[9/19.5] rounded-[28px] overflow-hidden border border-white/10 bg-black shadow-[0_30px_80px_-20px_rgba(255,45,85,0.35)]"
-                style={{ transform: i % 2 === 0 ? "translateY(0) rotate(-2deg)" : "translateY(12px) rotate(2deg)" }}
+                className="snap-center shrink-0 w-[62vw] max-w-[260px] aspect-[1290/2796] rounded-lg overflow-hidden border border-border bg-background"
               >
                 <img
                   src={s.src}
                   alt={s.alt}
                   loading={i === 0 ? "eager" : "lazy"}
                   decoding="async"
-                  className="w-full h-full object-cover"
-                  width={260}
-                  height={563}
+                  className="w-full h-full object-contain"
+                  width={1290}
+                  height={2796}
                   {...((i === 0 ? { fetchPriority: "high" } : {}) as React.ImgHTMLAttributes<HTMLImageElement>)}
                 />
               </div>
