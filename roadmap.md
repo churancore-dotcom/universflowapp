@@ -15,3 +15,4 @@
 - [x] Prevent dismissed ads from immediately repeating.
 - [x] Support proper timed video ads with image fallback and admin upload.
 - [x] Restore lightweight song sharing and remove animated story generation.
+- [ ] Ensure successful Android builds automatically replace the website APK; remove outdated download details and inspect old APK copies.
