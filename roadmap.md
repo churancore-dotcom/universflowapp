@@ -12,3 +12,6 @@
 - [x] Isolate playback progress, unify scroll tracking, and simplify mobile player/page transitions.
 - [x] Complete whole-app health audit: automated checks, live routes, backend logs, monitoring, and security.
 - [x] Fix every confirmed user-facing issue found by the health audit and re-run verification.
+- [ ] Prevent dismissed ads from immediately repeating.
+- [ ] Support proper timed video ads with image fallback and admin upload.
+- [ ] Restore lightweight song sharing and remove animated story generation.

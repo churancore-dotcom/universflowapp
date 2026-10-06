@@ -19,6 +19,7 @@ export interface AdCampaign {
   headline: string;
   subtext: string | null;
   image_url: string | null;
+  video_url: string | null;
   cta_label: string;
   cta_url: string;
   duration_seconds: number;
@@ -41,7 +42,7 @@ let cachedAt = 0;
 let inflight: Promise<AdCampaign | null> | null = null;
 
 const SELECT_COLS =
-  'id,name,advertiser,kind,headline,subtext,image_url,cta_label,cta_url,duration_seconds,songs_interval,skippable,skip_after_seconds,is_active,priority,starts_at,ends_at';
+  'id,name,advertiser,kind,headline,subtext,image_url,video_url,cta_label,cta_url,duration_seconds,songs_interval,skippable,skip_after_seconds,is_active,priority,starts_at,ends_at';
 
 const isLive = (c: AdCampaign): boolean => {
   const now = Date.now();

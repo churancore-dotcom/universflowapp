@@ -1,5 +1,5 @@
 import { AnimatePresence, motion } from 'framer-motion';
-import { Check, Copy, ExternalLink, Share2, X } from 'lucide-react';
+import { Check, Copy, MessageCircle, Share2, X } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import type { Song } from '@/contexts/PlayerContext';
@@ -85,11 +85,11 @@ export default function SocialShareModal({ isOpen, onClose, song }: SocialShareM
 
             <div className="grid grid-cols-3 gap-2">
               <Button variant="secondary" className="h-16 flex-col gap-1" onClick={() => openShare(`https://wa.me/?text=${encodeURIComponent(shareText)}`)}>
-                <ExternalLink />
+                <MessageCircle />
                 <span className="text-xs">WhatsApp</span>
               </Button>
               <Button variant="secondary" className="h-16 flex-col gap-1" onClick={() => openShare(`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareText)}`)}>
-                <ExternalLink />
+                <span className="text-lg font-semibold leading-none" aria-hidden="true">𝕏</span>
                 <span className="text-xs">X</span>
               </Button>
               <Button variant="secondary" className="h-16 flex-col gap-1" onClick={shareSystem}>

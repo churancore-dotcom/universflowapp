@@ -12,7 +12,6 @@ import LikeButton from './LikeButton';
 
 import DownloadButton from './DownloadButton';
 import SocialShareModal from './SocialShareModal';
-import SongStorySheet from './SongStorySheet';
 import AddToPlaylistModal from './AddToPlaylistModal';
 import CreatePlaylistModal from './CreatePlaylistModal';
 import EqualizerModal from './EqualizerModal';
@@ -90,7 +89,6 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   } = usePlayer();
   const { progress, duration } = usePlayerProgress();
   
-  const [showShareModal, setShowShareModal] = useState(false);
   const [showShareOptions, setShowShareOptions] = useState(false);
   const [showPlaylistModal, setShowPlaylistModal] = useState(false);
   const [showCreatePlaylist, setShowCreatePlaylist] = useState(false);
@@ -558,7 +556,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               <div className="flex items-center justify-around">
                 <button 
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform" 
-                  onClick={() => { triggerHaptic('selection'); setShowShareModal(true); }}
+                  onClick={() => { triggerHaptic('selection'); setShowShareOptions(true); }}
                   aria-label="Share"
                 >
                   <Share2 className="w-[18px] h-[18px] text-muted-foreground" />
@@ -598,15 +596,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
         </motion.div>
       </AnimatePresence>
 
-      {showShareModal && !showShareOptions && (
-        <SongStorySheet
-          song={currentSong}
-          positionSec={Math.floor(playerProgressStore.getEstimatedProgress())}
-          onClose={() => setShowShareModal(false)}
-          onMoreOptions={() => setShowShareOptions(true)}
-        />
-      )}
-      {showShareOptions && <SocialShareModal isOpen={showShareOptions} onClose={() => { setShowShareOptions(false); setShowShareModal(false); }} song={currentSong} />}
+      {showShareOptions && <SocialShareModal isOpen={showShareOptions} onClose={() => setShowShareOptions(false)} song={currentSong} />}
       {showPlaylistModal && <AddToPlaylistModal isOpen={showPlaylistModal} onClose={() => setShowPlaylistModal(false)} song={currentSong} onCreateNew={() => { setShowPlaylistModal(false); setShowCreatePlaylist(true); }} />}
       {showCreatePlaylist && <CreatePlaylistModal isOpen={showCreatePlaylist} onClose={() => setShowCreatePlaylist(false)} initialSong={currentSong} onCreated={() => setShowCreatePlaylist(false)} />}
       {showEqualizer && <EqualizerModal isOpen={showEqualizer} onClose={() => setShowEqualizer(false)} />}
