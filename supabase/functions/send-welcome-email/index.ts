@@ -1,5 +1,7 @@
 // Sends a welcome / confirmation email via Resend after signup.
-// Public endpoint (no JWT) — recipient + username are validated server-side.
+// Authenticated endpoint — the recipient must be the signed-in caller.
+
+import { createClient } from "npm:@supabase/supabase-js@2";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -52,6 +54,22 @@ Deno.serve(async (req) => {
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
+    const authHeader = req.headers.get('Authorization') ?? '';
+    if (!authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+    const authClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
+      global: { headers: { Authorization: authHeader } },
+    });
+    const { data: caller, error: callerError } = await authClient.auth.getUser();
+    if (callerError || !caller.user || caller.user.email?.trim().toLowerCase() !== email) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Per-IP throttle: max 10 attempts / minute / IP. Silently swallow excess.
     try {
       const ipUuid = await idToUuid(clientIp(req));
@@ -74,22 +92,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Anti-abuse: only send if a matching auth user exists and was created in the last 10 minutes.
-    const lookup = await fetch(
-      `${SUPABASE_URL}/auth/v1/admin/users?email=${encodeURIComponent(email)}`,
-      { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } }
-    );
-    if (!lookup.ok) {
-      return new Response(JSON.stringify({ error: 'Lookup failed' }), {
-        status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const lookupData = await lookup.json().catch(() => ({}));
-    const u = (lookupData?.users ?? []).find((x: any) => String(x?.email ?? '').toLowerCase() === email);
-    // Uniform success to prevent account enumeration — never reveal whether
-    // an email exists or how recently it was created.
-    if (!u) return UNIFORM_OK;
-    const createdAt = new Date(u.created_at).getTime();
+    // Only a genuinely new caller receives this one-time welcome sequence.
+    const createdAt = new Date(caller.user.created_at).getTime();
     if (!createdAt || Date.now() - createdAt > 10 * 60 * 1000) return UNIFORM_OK;
 
     // Per-email throttle: at most 1 welcome email every 5 minutes, max 3 total.
