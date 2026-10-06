@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Loader2, Plus, Trash2, Upload, Eye, MousePointerClick, SkipForward, Megaphone } from 'lucide-react';
+import { Loader2, Plus, Trash2, Upload, Eye, MousePointerClick, SkipForward, Megaphone, Video } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -17,6 +17,7 @@ type Campaign = {
   headline: string;
   subtext: string | null;
   image_url: string | null;
+  video_url: string | null;
   cta_label: string;
   cta_url: string;
   duration_seconds: number;
@@ -33,7 +34,7 @@ type Campaign = {
 };
 
 const COLS =
-  'id,name,advertiser,kind,headline,subtext,image_url,cta_label,cta_url,duration_seconds,songs_interval,skippable,skip_after_seconds,is_active,priority,starts_at,ends_at,impression_count,skip_count,click_count';
+  'id,name,advertiser,kind,headline,subtext,image_url,video_url,cta_label,cta_url,duration_seconds,songs_interval,skippable,skip_after_seconds,is_active,priority,starts_at,ends_at,impression_count,skip_count,click_count';
 
 const numField = (v: string, fallback: number) => {
   const n = Number(v);
@@ -46,6 +47,7 @@ export default function AdsManager() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [uploadingId, setUploadingId] = useState<string | null>(null);
   const fileInputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const videoInputs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -165,6 +167,38 @@ export default function AdsManager() {
     invalidateAdCampaign();
     setUploadingId(null);
     toast.success('Image updated');
+  };
+
+  const uploadVideo = async (row: Campaign, file: File) => {
+    if (!file.type.startsWith('video/')) {
+      toast.error('Pick a video file');
+      return;
+    }
+    if (file.size > 40 * 1024 * 1024) {
+      toast.error('Video must be under 40 MB');
+      return;
+    }
+    setUploadingId(row.id);
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'mp4';
+    const path = `ads/${row.id}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage.from('covers').upload(path, file, {
+      cacheControl: '31536000', upsert: true, contentType: file.type,
+    });
+    if (error) {
+      setUploadingId(null);
+      toast.error(error.message);
+      return;
+    }
+    const { data } = supabase.storage.from('covers').getPublicUrl(path);
+    const { error: updateError } = await supabase.from('ad_campaigns').update({ video_url: data.publicUrl }).eq('id', row.id);
+    setUploadingId(null);
+    if (updateError) {
+      toast.error(updateError.message);
+      return;
+    }
+    patch(row.id, { video_url: data.publicUrl });
+    invalidateAdCampaign();
+    toast.success('Video creative updated');
   };
 
   if (loading) {
@@ -367,10 +401,12 @@ export default function AdsManager() {
               </div>
             </div>
 
-            {/* Image */}
-            <div className="flex items-center gap-3">
+            {/* Creative */}
+            <div className="flex flex-wrap items-center gap-3">
               <div className="h-16 w-28 overflow-hidden rounded-xl border border-border/60 bg-background/40">
-                {row.image_url ? (
+                {row.video_url ? (
+                  <video src={row.video_url} poster={row.image_url ?? undefined} muted playsInline className="h-full w-full object-cover" />
+                ) : row.image_url ? (
                   <img src={row.image_url} alt={`${row.name} creative`} className="h-full w-full object-cover" />
                 ) : (
                   <div className="flex h-full items-center justify-center text-[10px] text-muted-foreground">
@@ -404,6 +440,27 @@ export default function AdsManager() {
                   <Upload className="h-4 w-4" />
                 )}
                 {row.image_url ? 'Replace image' : 'Upload image'}
+              </Button>
+              <input
+                ref={(el) => { videoInputs.current[row.id] = el; }}
+                type="file"
+                accept="video/mp4,video/webm,video/quicktime"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (file) void uploadVideo(row, file);
+                  e.target.value = '';
+                }}
+              />
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => videoInputs.current[row.id]?.click()}
+                disabled={uploadingId === row.id}
+                className="gap-1.5"
+              >
+                <Video className="h-4 w-4" />
+                {row.video_url ? 'Replace video' : 'Upload video'}
               </Button>
             </div>
 

@@ -39,6 +39,7 @@ export type Database = {
           starts_at: string | null
           subtext: string | null
           updated_at: string
+          video_url: string | null
         }
         Insert: {
           advertiser?: string | null
@@ -64,6 +65,7 @@ export type Database = {
           starts_at?: string | null
           subtext?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Update: {
           advertiser?: string | null
@@ -89,6 +91,7 @@ export type Database = {
           starts_at?: string | null
           subtext?: string | null
           updated_at?: string
+          video_url?: string | null
         }
         Relationships: []
       }

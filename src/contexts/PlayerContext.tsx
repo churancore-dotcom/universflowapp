@@ -10,7 +10,7 @@ import { EQ_SETTINGS_KEY, getEQSettings, hasWebAudioEffects, isEqActive } from '
 import { wrapStreamUrl, isStreamProxyUrl } from '@/lib/streamProxy';
 import { signStorageAudioUrl } from '@/lib/storageAudio';
 import { getRuntimePremium, subscribeRuntimePremium } from '@/lib/premiumState';
-import { noteSongCompleted, primeAdEngine } from '@/lib/adEngine';
+import { noteSongCompleted, primeAdEngine, resetAdCounter } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
 import { isNativePlayerAvailable, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack, setNativeMiniPlayerState, setNativePlaybackSpeed, onNativeMediaButton } from '@/lib/nativePlayer';
@@ -556,6 +556,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Native and WebView completion signals can describe the same boundary.
   // Count/show one ad for that boundary, never once per transport callback.
   const lastAdBoundaryRef = useRef<string | null>(null);
+  const adCompletionInFlightRef = useRef(false);
+  const adCooldownUntilRef = useRef(0);
   // Auto-mix guard: prevents repeated extend calls while the network is in
   // flight, and remembers song-ids already added so we don't loop the same
   // recommendations forever.
@@ -2167,7 +2169,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const adBoundary = `${currentIdentity}>${nextTrack ? getSongIdentity(nextTrack) : nextIdx}`;
         const shouldCountBoundary = lastAdBoundaryRef.current !== adBoundary;
         if (shouldCountBoundary) lastAdBoundaryRef.current = adBoundary;
-        if (shouldCountBoundary && noteSongCompleted()) {
+        if (shouldCountBoundary && Date.now() >= adCooldownUntilRef.current && noteSongCompleted()) {
           if (nextTrack) {
             try { audio.pause(); } catch { /* noop */ }
             wasPlayingRef.current = false;
@@ -2668,7 +2670,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const adBoundary = `${currentIdentity}>${getSongIdentity(nextSong)}`;
           const shouldCountBoundary = lastAdBoundaryRef.current !== adBoundary;
           if (shouldCountBoundary) lastAdBoundaryRef.current = adBoundary;
-          if (shouldCountBoundary && noteSongCompleted()) {
+          if (shouldCountBoundary && Date.now() >= adCooldownUntilRef.current && noteSongCompleted()) {
             void ExoPlayerPlugin.pause().catch(() => undefined);
             nativeUserPausedRef.current = true;
             wasPlayingRef.current = false;
@@ -3278,6 +3280,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     curatedQueueRef.current = options?.curated === true;
     setShowPrerollAd(false);
     setPendingSong(null);
+    adCompletionInFlightRef.current = false;
     playActualSong(song, offlineUrl, songsQueue);
   }, [playActualSong]);
 
@@ -3299,14 +3302,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, [playActualSong]);
 
   const onPrerollAdComplete = useCallback(() => {
+    if (adCompletionInFlightRef.current) return;
+    adCompletionInFlightRef.current = true;
+    const queued = pendingSong;
     setShowPrerollAd(false);
+    setPendingSong(null);
+    resetAdCounter();
+    adCooldownUntilRef.current = Date.now() + 15_000;
     // The overlay owns playback while visible. Do not silently discard the
     // queued track merely because a native/background event advanced the global
     // request counter during the ad.
-    if (pendingSong) {
-      playActualSong(pendingSong.song, pendingSong.offlineUrl, pendingSong.songsQueue);
+    if (queued) {
+      playActualSong(queued.song, queued.offlineUrl, queued.songsQueue);
     }
-    setPendingSong(null);
+    window.setTimeout(() => { adCompletionInFlightRef.current = false; }, 1000);
   }, [pendingSong, playActualSong]);
 
   // NOTE: isPlaying is the single source of truth shared by MiniPlayer +

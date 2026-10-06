@@ -1,6 +1,7 @@
 import { useState, useEffect, memo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, SkipForward, ArrowUpRight, Zap, Download, Waves, Sparkle } from 'lucide-react';
+import { Crown, SkipForward, ArrowUpRight, Zap, Download, Waves, Sparkle, Volume2, VolumeX } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { useNavigate } from '@/lib/router-compat';
 import { usePremium } from '@/hooks/usePremium';
 import { iosSpring } from '@/lib/animations';
@@ -26,6 +27,8 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
   const [campaign, setCampaign] = useState<AdCampaign | null>(getScheduledAdCampaign());
   const [elapsed, setElapsed] = useState(0);
   const [entitlementTimedOut, setEntitlementTimedOut] = useState(false);
+  const [muted, setMuted] = useState(true);
+  const [videoFailed, setVideoFailed] = useState(false);
   const viewLoggedFor = useRef<string | null>(null);
 
   const duration = campaign?.duration_seconds ?? 8;
@@ -67,6 +70,8 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
   useEffect(() => {
     if (!isOpen) {
       setElapsed(0);
+      setMuted(true);
+      setVideoFailed(false);
       return;
     }
     if (isPremium && !isLoading) {
@@ -162,16 +167,16 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
               </div>
 
               {canSkip ? (
-                <motion.button
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
                   onClick={handleSkip}
-                  className="flex items-center gap-1.5 rounded-full border border-border/60 bg-card/70 px-3 py-1.5 text-[11px] font-semibold text-foreground"
-                  initial={{ opacity: 0, x: 8 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  whileTap={{ scale: 0.94 }}
+                  className="h-8 gap-1.5 rounded-full px-3 text-[11px]"
                 >
                   Skip ad
                   <SkipForward className="h-3.5 w-3.5" />
-                </motion.button>
+                </Button>
               ) : (
                 <span className="text-[11px] text-muted-foreground/70">
                   {campaign?.skippable
@@ -192,7 +197,33 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
 
             {/* Card */}
             <div className="overflow-hidden rounded-[28px] border border-border/60 bg-card/80 shadow-2xl backdrop-blur-xl">
-              {campaign?.image_url ? (
+              {campaign?.video_url && !videoFailed ? (
+                <div className="relative aspect-[9/12] max-h-[56dvh] w-full overflow-hidden bg-muted">
+                  <video
+                    key={campaign.video_url}
+                    src={campaign.video_url}
+                    poster={campaign.image_url ?? undefined}
+                    className="h-full w-full object-cover"
+                    autoPlay
+                    muted={muted}
+                    loop
+                    playsInline
+                    preload="auto"
+                    onError={() => setVideoFailed(true)}
+                  />
+                  <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-card to-transparent" />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="icon"
+                    className="absolute right-3 top-3 rounded-full"
+                    onClick={() => setMuted((value) => !value)}
+                    aria-label={muted ? 'Unmute ad' : 'Mute ad'}
+                  >
+                    {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
+                  </Button>
+                </div>
+              ) : campaign?.image_url ? (
                 <div className="relative aspect-[16/10] w-full overflow-hidden">
                   <motion.img
                     src={campaign.image_url}
@@ -237,10 +268,10 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
                   </div>
                 )}
 
-                <motion.button
+                <Button
+                  type="button"
                   onClick={handleCta}
-                  className="relative mt-5 flex w-full items-center justify-center gap-2 overflow-hidden rounded-2xl bg-gradient-to-r from-primary to-accent py-3.5 text-[15px] font-bold text-primary-foreground"
-                  whileTap={{ scale: 0.98 }}
+                  className="relative mt-5 h-12 w-full gap-2 overflow-hidden rounded-lg text-[15px] font-bold"
                 >
                   <motion.span
                     className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
@@ -249,7 +280,7 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
                   />
                   <span className="relative z-10">{ctaLabel}</span>
                   <ArrowUpRight className="relative z-10 h-4 w-4" />
-                </motion.button>
+                </Button>
 
                 <p className="mt-3 text-center text-[11px] text-muted-foreground/70">
                   {isBrand

@@ -50,6 +50,13 @@
       "when": 1791191717800,
       "tag": "0006_preserve_pending_payment_price",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791293861808,
+      "tag": "0007_add_video_creatives_to_ad_campaigns",
+      "breakpoints": true
     }
   ]
 }
