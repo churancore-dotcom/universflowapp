@@ -121,7 +121,7 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
           <SongArtwork song={song} size={160} className="w-full h-full object-cover" />
 
           {/* Keep the overlay light so the cover stays clearly visible. */}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/15">
+          <div className="absolute inset-0 flex items-center justify-center bg-black/15 no-glass">
             {isActive && isPlaying ? (
               <Pause className="w-4 h-4 text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" fill="white" />
             ) : (
