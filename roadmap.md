@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Produce and verify a portrait Univers Flow launch video with real app screens, music, and sound effects.
+- [x] Produce and verify a portrait Univers Flow launch video with real app screens, music, and sound effects.
 
 - [x] Remove mobile player/download overlaps and short-screen clipping.
 - [x] Use sharp artwork fallbacks in full player and recommendations.
