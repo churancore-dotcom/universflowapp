@@ -394,12 +394,13 @@ jobs:
           retention-days: 1
 
       - name: Publish APK to website download
+        continue-on-error: true
         # Uploads the freshly built APK over the one served at
         # universflow.in/api/public/apk, so the site always offers the latest build.
         run: |
           if [ -z "$APK_UPLOAD_SECRET" ]; then
-            echo "::error::APK_UPLOAD_SECRET is required to update the website APK. Add the matching repository secret."
-            exit 1
+            echo "::warning::APK_UPLOAD_SECRET GitHub secret is missing, so the website APK was not updated. The APK artifact above is still available."
+            exit 0
           fi
           curl --fail-with-body --silent --show-error --retry 3 --retry-delay 5 -X POST \
             "https://universflow.in/api/public/apk-upload" \
