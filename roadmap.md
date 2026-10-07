@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Replace screenshot-based launch scenes with actual recorded app use and motion graphics; export and verify a new video version.
+
 - [x] Produce and verify a portrait Univers Flow launch video with real app screens, music, and sound effects.
 
 - [x] Remove mobile player/download overlaps and short-screen clipping.
