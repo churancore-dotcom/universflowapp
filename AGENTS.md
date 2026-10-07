@@ -1,5 +1,7 @@
 # Project architecture rules
 
+- Keep native launch covered only until the shell paints; never stack a web logo reveal or fixed plugin-initialization delays over it, to avoid startup stalls.
+
 - Keep India-specific JioSaavn editorial fallbacks gated to the IN market; other markets degrade to fresh global sources to avoid geographic feed bias.
 - Smart queue expansion may return fewer tracks but must never use unrelated global popularity as filler; recommendation relevance beats queue length.
 - Playback trend events include the silently detected two-letter market so country charts reflect local listening.

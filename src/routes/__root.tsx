@@ -1,4 +1,4 @@
-import { useEffect, useState, Suspense, lazy } from "react";
+import { useEffect, useState, useCallback, Suspense, lazy } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
 import {
@@ -249,7 +249,7 @@ const AppContent = () => {
   useUserEQSettingsSync(user?.id);
   useAutoEQ();
 
-  const handleSplashComplete = () => setShowSplash(false);
+  const handleSplashComplete = useCallback(() => setShowSplash(false), []);
 
   return (
     <MobileShell>
