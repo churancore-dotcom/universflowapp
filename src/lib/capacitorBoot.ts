@@ -5,6 +5,20 @@ import { Capacitor } from '@capacitor/core';
 export async function initCapacitorNative() {
   if (!Capacitor.isNativePlatform()) return;
 
+  // Release the native cover after the shell has had two paint opportunities.
+  // Never put this behind audio/status-bar initialization or a fixed sleep.
+  void import('@capacitor/splash-screen').then(({ SplashScreen }) => {
+    let hidden = false;
+    const hide = () => {
+      if (hidden) return;
+      hidden = true;
+      window.clearTimeout(fallback);
+      void SplashScreen.hide({ fadeOutDuration: 180 }).catch(() => {});
+    };
+    const fallback = window.setTimeout(hide, 800);
+    window.requestAnimationFrame(() => window.requestAnimationFrame(hide));
+  }).catch((error) => console.warn('[capacitor] SplashScreen init failed:', error));
+
   // Streaming Quality tier → on-device InnerTube resolver. Applied at boot and
   // re-applied whenever Settings changes the tier, so Saver/Normal/High/Ultra
   // genuinely change which stream the APK requests.
@@ -32,15 +46,4 @@ export async function initCapacitorNative() {
     console.warn('[capacitor] StatusBar init failed:', e);
   }
 
-  // Splash — config.ts already sets a 2s launchShowDuration with the
-  // brand background. We just guarantee it hides after the web shell loads.
-  try {
-    const { SplashScreen } = await import('@capacitor/splash-screen');
-    // Give the React shell ~1.6s to paint, then fade out.
-    setTimeout(() => {
-      SplashScreen.hide({ fadeOutDuration: 350 }).catch(() => {});
-    }, 1600);
-  } catch (e) {
-    console.warn('[capacitor] SplashScreen init failed:', e);
-  }
 }
