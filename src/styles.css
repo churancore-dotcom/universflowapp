@@ -1614,3 +1614,6 @@ body {
 .legal-article em {
   font-style: italic;
 }
+
+/* Overlays sitting on top of artwork must never frost it (blurred covers bug). */
+.no-glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
