@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Audit other APK playback, download, navigation, and lifecycle issues; fix confirmed bugs and run available checks.
+
 - [x] Smooth the opening logo and remove stacked native/web launch delays; verify startup (Android device handoff still requires a new APK).
 
 - [x] Replace screenshot-based launch scenes with actual recorded app use and motion graphics; export and verify a new video version.
