@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Fix offline cold startup and show device downloads without waiting for sign-in or internet; verify disconnected launch and playback.
+
 - [x] Audit APK playback, downloads, navigation, and lifecycle; guard stale retries, detach native listeners, extend cold-start readiness, and fix offline URL cleanup (30 logic tests passed).
 - [ ] Verify changed native playback on a newly built APK — blocked by unavailable Android build tools/device; browser smoke checks remain partly blocked by repeated celebration overlays and outdated selectors.
 
