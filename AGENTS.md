@@ -1,5 +1,7 @@
 # Project architecture rules
 
+- Detect APK connectivity with Capacitor Network, never a bundled localhost fetch; route offline startup to device downloads before remote auth or profile gates.
+
 - Own offline audio/cover object URLs in one registry and release them on removal, clearing, and teardown; native file URLs never need blob allocation.
 - Native playback retries must match the active generation, player, item, and play intent; detach plugin listeners without stopping the background service.
 

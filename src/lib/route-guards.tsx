@@ -17,7 +17,8 @@ const GetApp = lazy(() => import('@/pages/GetApp'));
 export const LazyFallback = () => <div className="min-h-dvh bg-background" />;
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading, emailVerified } = useAuth();
+  const { user, isLoading, emailVerified, isOffline } = useAuth();
+  if (isOffline) return <Navigate to="/offline-player" replace />;
   if (isLoading) return <LazyFallback />;
   if (!user) return <Navigate to="/auth" replace />;
   if (emailVerified === null) return <LazyFallback />;
@@ -74,7 +75,7 @@ export const ArtistProtectedRoute = ({ children, requireArtistRole = false }: { 
 };
 
 export const ListenerRoute = ({ children }: { children: React.ReactNode }) => {
-  const { user, isLoading, emailVerified } = useAuth();
+  const { user, isLoading, emailVerified, isOffline } = useAuth();
   const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(
     () => peekAccess<ArtistDestination>(user?.id, 'artist-destination'),
   );
@@ -153,7 +154,7 @@ const useHydrated = () => {
 
 
 export const RootGate = () => {
-  const { user, isLoading, emailVerified } = useAuth();
+  const { user, isLoading, emailVerified, isOffline } = useAuth();
   const hydrated = useHydrated();
   const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(
     () => peekAccess<ArtistDestination>(user?.id, 'artist-destination'),
@@ -172,6 +173,7 @@ export const RootGate = () => {
     return () => { cancelled = true; };
   }, [user, emailVerified]);
 
+  if (isOffline) return <Navigate to="/offline-player" replace />;
   if (isLoading) return <LazyFallback />;
   if (user) {
     if (emailVerified === null) return <LazyFallback />;
