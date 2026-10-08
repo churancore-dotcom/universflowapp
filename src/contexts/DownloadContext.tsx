@@ -8,6 +8,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { isNativePlayerAvailable, resolveNativeMetadataStream } from '@/lib/nativePlayer';
 import { retry } from '@/utils/retry';
 import { deleteOfflineAudioFile, offlineAudioFileExists, saveOfflineAudioFile } from '@/lib/offlineFiles';
+import { DownloadObjectUrls } from '@/lib/downloadObjectUrls';
 
 
 // Build a proxy URL for cross-origin streams that fail direct fetch.
@@ -353,9 +354,11 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const processingRef = useRef(false);
   const abortRef = useRef<AbortController | null>(null);
   const cancelledIdsRef = useRef<Set<string>>(new Set());
+  const objectUrls = useRef(new DownloadObjectUrls());
 
   // Load downloads from IndexedDB on mount
   useEffect(() => {
+    let cancelled = false;
     const loadDownloads = async () => {
       // Check IndexedDB support first
       const supported = checkIndexedDBSupport();
@@ -368,13 +371,12 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       try {
         const storedSongs = await getAllFromDB();
+        if (cancelled) return;
         const songs: DownloadedSong[] = [];
         const urls: Record<string, string> = {};
         
         for (const { song, audioBlob, coverBlob } of storedSongs) {
           try {
-            const blobUrl = URL.createObjectURL(audioBlob);
-            const coverBlobUrl = coverBlob ? URL.createObjectURL(coverBlob) : null;
 
             // Android: play the real file, not the blob URL. Songs downloaded
             // before this existed get their file written now, so old downloads
@@ -389,7 +391,9 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
               }
             }
 
-            const playableUrl = nativeUrl || blobUrl;
+            if (cancelled) return;
+            const playableUrl = nativeUrl || objectUrls.current.create(audioBlob);
+            const coverBlobUrl = coverBlob ? objectUrls.current.create(coverBlob) : null;
             urls[song.id] = playableUrl;
             songs.push({ ...song, blobUrl: playableUrl, nativeUrl, cover_url: coverBlobUrl || song.cover_url });
           } catch (e) {
@@ -408,13 +412,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Cleanup blob URLs on unmount
     return () => {
-      Object.values(blobUrls).forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (e) {
-          // Ignore errors during cleanup
-        }
-      });
+      cancelled = true;
+      objectUrls.current.clear();
     };
   }, []);
 
@@ -528,7 +527,6 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           [song.id]: { songId: song.id, progress: 90, status: 'downloading' }
         }));
       }
-      const blobUrl = URL.createObjectURL(blob);
       let coverBlob: Blob | null = null;
       let offlineCoverUrl = downloadableSong.cover_url;
 
@@ -537,7 +535,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           const coverResponse = await robustFetch(downloadableSong.cover_url, { mode: 'cors', credentials: 'omit' });
           if (coverResponse.ok) {
             coverBlob = await coverResponse.blob();
-            offlineCoverUrl = URL.createObjectURL(coverBlob);
+            offlineCoverUrl = objectUrls.current.create(coverBlob);
           }
         } catch {
           // Cover caching is best effort; audio download must still succeed.
@@ -546,7 +544,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
       // Android needs a real file for ExoPlayer; the web keeps the blob URL.
       const nativeUrl = await saveOfflineAudioFile(song.id, blob);
-      const playableUrl = nativeUrl || blobUrl;
+      const playableUrl = nativeUrl || objectUrls.current.create(blob);
 
       const downloadedSong: DownloadedSong = {
         ...downloadableSong,
@@ -629,13 +627,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await deleteFromDB(songId);
       
       // Revoke blob URL
-      if (blobUrls[songId]) {
-        try {
-          URL.revokeObjectURL(blobUrls[songId]);
-        } catch (e) {
-          // Ignore errors
-        }
-      }
+      objectUrls.current.release(blobUrls[songId]);
+      objectUrls.current.release(existing?.cover_url);
       
       setDownloads(prev => prev.filter(d => d.id !== songId));
       setBlobUrls(prev => {
@@ -667,20 +660,14 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     try {
       await Promise.all(downloads.map(d => deleteOfflineAudioFile(d.nativeUrl ?? null)));
       await clearDB();
-      Object.values(blobUrls).forEach(url => {
-        try {
-          URL.revokeObjectURL(url);
-        } catch (e) {
-          // Ignore errors
-        }
-      });
+      objectUrls.current.clear();
       setDownloads([]);
       setBlobUrls({});
     } catch (error: any) {
       console.error('Failed to clear downloads:', error);
       toast.error('Could not clear your downloads. Please try again.');
     }
-  }, [blobUrls]);
+  }, [downloads]);
 
   // Queue management functions
   const addToQueue = useCallback((songs: Song[]) => {
