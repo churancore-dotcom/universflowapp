@@ -1,5 +1,8 @@
 # Project architecture rules
 
+- Own offline audio/cover object URLs in one registry and release them on removal, clearing, and teardown; native file URLs never need blob allocation.
+- Native playback retries must match the active generation, player, item, and play intent; detach plugin listeners without stopping the background service.
+
 - Keep native launch covered only until the shell paints; never stack a web logo reveal or fixed plugin-initialization delays over it, to avoid startup stalls.
 
 - Keep India-specific JioSaavn editorial fallbacks gated to the IN market; other markets degrade to fresh global sources to avoid geographic feed bias.

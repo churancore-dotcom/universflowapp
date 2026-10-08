@@ -43,6 +43,7 @@ class ExoPlayerPlugin : Plugin() {
     private var progressTimer: Runnable? = null
     private var listenerAttached = false
     private var listenerPlayer: Player? = null
+    private var playerListener: Player.Listener? = null
     @Volatile private var isStartingUp = false
     private val playGeneration = AtomicLong(0L)
 
@@ -307,7 +308,8 @@ class ExoPlayerPlugin : Plugin() {
         val svc = service() ?: return
         val player = svc.player ?: return
         if (listenerAttached && listenerPlayer === player) return
-        player.addListener(object : Player.Listener {
+        playerListener?.let { listenerPlayer?.removeListener(it) }
+        val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 emitPlaybackState(player)
                 if (player.playWhenReady && state != Player.STATE_IDLE && state != Player.STATE_ENDED) {
@@ -345,8 +347,12 @@ class ExoPlayerPlugin : Plugin() {
                         }
                     }
                     val delayMs = 350L * errorRetryCount
+                    val generation = playGeneration.get()
+                    val mediaId = player.currentMediaItem?.mediaId
                     main.postDelayed({
+                        if (playGeneration.get() != generation) return@postDelayed
                         val p = service()?.player ?: return@postDelayed
+                        if (p !== player || p.currentMediaItem?.mediaId != mediaId || !p.playWhenReady) return@postDelayed
                         try {
                             p.prepare()
                             p.playWhenReady = true
@@ -372,7 +378,9 @@ class ExoPlayerPlugin : Plugin() {
                     )
                 }
             }
-        })
+        }
+        playerListener = listener
+        player.addListener(listener)
         listenerAttached = true
         listenerPlayer = player
     }
@@ -451,7 +459,7 @@ class ExoPlayerPlugin : Plugin() {
         }
 
         runWhenReady(
-            timeoutMs = 3000L,
+            timeoutMs = 8000L,
             onTimeout = {
                 isStartingUp = false
                 notifyListeners("playbackError", JSObject().put("message", "ExoPlayer service did not become ready"))
@@ -553,9 +561,9 @@ class ExoPlayerPlugin : Plugin() {
         }
 
         runWhenReady(
-            timeoutMs = 3000L,
+            timeoutMs = 8000L,
             onTimeout = {
-                Log.e("ExoPlayerPlugin", "ExoPlayer service did not connect within 3s")
+                Log.e("ExoPlayerPlugin", "ExoPlayer service did not connect within 8s")
                 isStartingUp = false
                 notifyListeners(
                     "playbackError",
@@ -599,6 +607,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun skipToNext(call: PluginCall) {
+        playGeneration.incrementAndGet()
         runOnMain {
             val p = service()?.player
             val advanced = p?.hasNextMediaItem() == true
@@ -614,6 +623,7 @@ class ExoPlayerPlugin : Plugin() {
 
     @PluginMethod
     fun skipToPrevious(call: PluginCall) {
+        playGeneration.incrementAndGet()
         runOnMain {
             val p = service()?.player
             val advanced = p?.hasPreviousMediaItem() == true
@@ -932,7 +942,14 @@ class ExoPlayerPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        playGeneration.incrementAndGet()
         stopProgress()
+        playerListener?.let { listenerPlayer?.removeListener(it) }
+        playerListener = null
+        listenerPlayer = null
+        listenerAttached = false
+        main.removeCallbacksAndMessages(null)
+        synchronized(pendingCommands) { pendingCommands.clear() }
         try {
             context.applicationContext.unbindService(connection)
         } catch (_: Throwable) {}
