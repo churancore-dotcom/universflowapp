@@ -93,6 +93,7 @@ export const ListenerRoute = ({ children }: { children: React.ReactNode }) => {
     return () => { cancelled = true; };
   }, [user, emailVerified]);
 
+  if (isOffline) return <Navigate to="/offline-player" replace />;
   if (isLoading) return <LazyFallback />;
   if (!user) return <Navigate to="/auth" replace />;
   if (emailVerified === false) return <Navigate to="/check-email" replace />;

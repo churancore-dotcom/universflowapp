@@ -185,6 +185,7 @@ interface DownloadContextType {
   clearAllDownloads: () => void;
   isIndexedDBSupported: boolean;
   isProcessingQueue: boolean;
+  isLoadingDownloads: boolean;
 }
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined);
@@ -345,6 +346,7 @@ const clearDB = async (): Promise<void> => {
 
 export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [downloads, setDownloads] = useState<DownloadedSong[]>([]);
+  const [isLoadingDownloads, setIsLoadingDownloads] = useState(true);
   const [downloadProgress, setDownloadProgress] = useState<Record<string, DownloadProgress>>({});
   const [blobUrls, setBlobUrls] = useState<Record<string, string>>({});
   const [isIndexedDBSupported, setIsIndexedDBSupported] = useState(true);
@@ -366,6 +368,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       
       if (!supported) {
         console.warn('IndexedDB not supported in this environment');
+        setIsLoadingDownloads(false);
         return;
       }
 
@@ -405,6 +408,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setBlobUrls(urls);
       } catch (error: any) {
         console.warn('Failed to load downloads:', error);
+      } finally {
+        if (!cancelled) setIsLoadingDownloads(false);
       }
     };
     
@@ -735,6 +740,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       totalStorageUsed,
       clearAllDownloads,
       isIndexedDBSupported,
+      isLoadingDownloads,
       isProcessingQueue,
     }}>
       {children}
