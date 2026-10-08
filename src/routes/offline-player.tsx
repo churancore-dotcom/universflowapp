@@ -4,9 +4,12 @@ import { routeSeo } from "@/lib/routeSeo";
 
 export const Route = createFileRoute("/offline-player")({
   component: OfflinePlayerShell,
-  head: () => routeSeo({
-    title: "Your Offline Songs — Univers Flow",
-    description: "Listen to your downloaded Univers Flow songs without an internet connection.",
-    path: "/offline-player",
-  }),
+  head: () => {
+    const seo = routeSeo({
+      title: "Your Offline Songs — Univers Flow",
+      description: "Listen to your downloaded Univers Flow songs without an internet connection.",
+      path: "/offline-player",
+    });
+    return { ...seo, meta: seo.meta.filter(tag => !(('property' in tag && tag.property === 'og:image') || ('name' in tag && tag.name === 'twitter:image'))) };
+  },
 });
