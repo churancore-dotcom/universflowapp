@@ -1,6 +1,7 @@
 # Roadmap
 
-- [ ] Audit other APK playback, download, navigation, and lifecycle issues; fix confirmed bugs and run available checks.
+- [x] Audit APK playback, downloads, navigation, and lifecycle; guard stale retries, detach native listeners, extend cold-start readiness, and fix offline URL cleanup (30 logic tests passed).
+- [ ] Verify changed native playback on a newly built APK — blocked by unavailable Android build tools/device; browser smoke checks remain partly blocked by repeated celebration overlays and outdated selectors.
 
 - [x] Smooth the opening logo and remove stacked native/web launch delays; verify startup (Android device handoff still requires a new APK).
 
