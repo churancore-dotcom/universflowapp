@@ -13,12 +13,15 @@ import FullscreenPlayer from '@/components/FullscreenPlayer';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { iosSpring, staggerContainer, staggerItem } from '@/lib/animations';
 import appLogo from '@/assets/app-logo.webp';
+import { Button } from '@/components/ui/button';
+import { useAuth } from '@/contexts/AuthContext';
 
 type Tab = 'all' | 'artists' | 'recent';
 
 const OfflinePlayerShell = memo(function OfflinePlayerShell() {
   const { playSong, currentSong, isPlaying, setQueue, togglePlay } = usePlayer();
-  const { downloads } = useDownloads();
+  const { downloads, isLoadingDownloads } = useDownloads();
+  const { isOffline } = useAuth();
   const navigate = useNavigate();
   const [storageUsed, setStorageUsed] = useState('0 MB');
   const [quota, setQuota] = useState(0);
@@ -56,7 +59,7 @@ const OfflinePlayerShell = memo(function OfflinePlayerShell() {
     cachedSongs.forEach((s) => {
       const key = s.artist || 'Unknown';
       if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(s);
+      map.get(key)?.push(s);
     });
     return Array.from(map.entries()).sort((a, b) => b[1].length - a[1].length);
   }, [cachedSongs]);
@@ -92,7 +95,7 @@ const OfflinePlayerShell = memo(function OfflinePlayerShell() {
   };
 
   const handleSignIn = () => {
-    if (!navigator.onLine) {
+    if (isOffline) {
       toast.error('You’re offline. Reconnect to sign in.');
       return;
     }
@@ -128,17 +131,21 @@ const OfflinePlayerShell = memo(function OfflinePlayerShell() {
             </div>
             <h1 className="text-[17px] font-bold text-foreground leading-tight">Your Vault</h1>
           </div>
-          <button
+          <Button
             onClick={handleSignIn}
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/[0.06] border border-white/[0.08] active:scale-95 transition-transform"
           >
             <LogIn className="w-3.5 h-3.5" />
             <span className="text-[11px] font-medium">Sign In</span>
-          </button>
+          </Button>
         </div>
       </header>
 
-      {cachedSongs.length === 0 ? (
+      {isLoadingDownloads ? (
+        <div role="status" className="flex-1 flex items-center justify-center px-6 py-20 text-muted-foreground text-sm">
+          Loading downloaded songs…
+        </div>
+      ) : cachedSongs.length === 0 ? (
         <EmptyState />
       ) : (
         <div className="px-4 mt-4 space-y-5">

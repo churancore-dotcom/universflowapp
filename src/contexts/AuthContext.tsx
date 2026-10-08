@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { getAuthError } from '@/lib/errorMessages';
 import { setSentryUser } from '@/lib/sentry';
 import { clearAccessCache } from '@/lib/accessCache';
+import { watchOfflineConnectivity } from '@/lib/offlineConnectivity';
 import type { User, Session } from '@supabase/supabase-js';
 
 interface AuthContextType {
@@ -88,67 +89,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch { return null; }
   });
   const [isLoading, setIsLoading] = useState(true);
-  // Trust navigator.onLine only for the "true" (online) signal. It reports
-  // false positives constantly (Capacitor webviews, brief network transitions,
-  // VPN handoffs), so we always verify an "offline" claim with a real reachability
-  // ping before locking the user into the offline shell.
+  // Resolve after hydration; native Network is authoritative because localhost
+  // serves APK assets even in airplane mode.
   const [isOffline, setIsOffline] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
-    let verifyTimer: ReturnType<typeof setTimeout> | null = null;
-
-    const reachable = async (): Promise<boolean> => {
-      // Test this app's own origin. Third-party connectivity endpoints are
-      // commonly blocked by private DNS, VPNs, captive portals, or WebView
-      // policies even while Univers Flow and its music APIs are reachable.
-      const controller = new AbortController();
-      const t = setTimeout(() => controller.abort(), 3500);
-      try {
-        const response = await fetch(`/manifest.json?reachability=${Date.now()}`, {
-          method: 'GET',
-          cache: 'no-store',
-          signal: controller.signal,
-        });
-        clearTimeout(t);
-        return response.ok;
-      } catch {
-        clearTimeout(t);
-        return false;
-      }
-    };
-
-    const verifyOffline = () => {
-      if (verifyTimer) clearTimeout(verifyTimer);
-      // Debounce: brief flaps shouldn't kick users to the offline page.
-      verifyTimer = setTimeout(async () => {
-        const ok = await reachable();
-        if (cancelled) return;
-        setIsOffline(!ok);
-      }, 1500);
-    };
-
-    const onOnline = () => {
-      if (verifyTimer) clearTimeout(verifyTimer);
-      setIsOffline(false);
-    };
-    const onOffline = () => verifyOffline();
-
-    window.addEventListener('online', onOnline);
-    window.addEventListener('offline', onOffline);
-
-    // On boot: if the browser claims offline, verify before trusting it.
-    if (typeof navigator !== 'undefined' && !navigator.onLine) {
-      verifyOffline();
-    }
-
-    return () => {
-      cancelled = true;
-      if (verifyTimer) clearTimeout(verifyTimer);
-      window.removeEventListener('online', onOnline);
-      window.removeEventListener('offline', onOffline);
-    };
-  }, []);
+  useEffect(() => watchOfflineConnectivity(setIsOffline), []);
 
   const ensureUserProfile = useCallback(async (sessionUser: User) => {
     try {
@@ -234,7 +179,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   }, [user, loadEmailVerified]);
 
   useEffect(() => {
+    let cancelled = false;
+    // Session refresh can stall offline. Local downloads never depend on it.
+    const loadingGuard = setTimeout(() => { if (!cancelled) setIsLoading(false); }, 3500);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+      if (cancelled) return;
       // CRITICAL: never wipe the local session as a side effect of being offline.
       // When the device has no internet, Supabase's auto-refresh fails and emits
       // SIGNED_OUT / TOKEN_REFRESHED with a null session — that would log the user
@@ -277,11 +226,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
+      if (cancelled) return;
       setSession(existingSession);
       setUser(existingSession?.user ?? null);
+      setIsLoading(false);
 
       if (existingSession?.user) {
-        await Promise.allSettled([
+        void Promise.allSettled([
           ensureUserProfile(existingSession.user),
           checkAdminRole(existingSession.user.id),
           loadEmailVerified(existingSession.user.id),
@@ -301,10 +252,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       }
 
-      setIsLoading(false);
-    });
+    }).catch(() => { if (!cancelled) setIsLoading(false); });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      cancelled = true;
+      clearTimeout(loadingGuard);
+      subscription.unsubscribe();
+    };
   }, [checkAdminRole, ensureUserProfile, loadEmailVerified]);
 
   const signIn = useCallback(async (email: string, password: string) => {

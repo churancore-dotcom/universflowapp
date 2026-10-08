@@ -27,6 +27,7 @@ import { useAutoEQ } from "@/hooks/useAutoEQ";
 import NotFound from "@/pages/NotFound";
 import PrerollAd from "@/components/ads/PrerollAd";
 import LiquidGlassFilters from "@/components/LiquidGlassFilters";
+import OfflineGate from "@/components/OfflineGate";
 
 
 // Lazy load non-critical components
@@ -34,7 +35,6 @@ const RateUsPopup = lazy(() => import("@/components/RateUsPopup"));
 const ReviewModal = lazy(() => import("@/components/ReviewModal"));
 const GlobalPlayerLayer = lazy(() => import("@/components/GlobalPlayerLayer"));
 const AnnouncementBanner = lazy(() => import("@/components/AnnouncementBanner"));
-const OfflineGate = lazy(() => import("@/components/OfflineGate"));
 const Toaster = lazy(() => import("@/components/ui/sonner").then(m => ({ default: m.Toaster })));
 const DownloadQueuePanel = lazy(() => import("@/components/DownloadQueuePanel"));
 const PWAInstallBanner = lazy(() => import("@/components/PWAInstallBanner"));
