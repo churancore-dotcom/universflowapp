@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Make the Google Play release submission-ready: Play Billing for Premium, accurate pre-purchase refund disclosure, seven-day recoverable account deletion, policy corrections, honest provider branding, Android security hardening, and deterministic signed AAB validation.
+- [ ] Complete Google Play Console declarations and the personal-account closed test — blocked on the developer account, rights documents, tester group, and Play Console access.
+
 - [x] Fix offline cold startup and show device downloads before remote auth gates; 5 logic tests passed, disconnected browser cold start displayed a seeded local song and played its blob audio with no page errors.
 - [ ] Verify offline cold startup on a newly built Android APK in airplane mode — blocked by unavailable Android build tools/device.
 
