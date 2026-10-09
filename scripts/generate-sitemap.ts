@@ -46,6 +46,7 @@ const staticEntries: SitemapEntry[] = [
   { path: "/blog/best-bhojpuri-song-download-apps", changefreq: "monthly", priority: "0.75" },
   { path: "/legal/terms", changefreq: "yearly", priority: "0.35" },
   { path: "/legal/privacy", changefreq: "yearly", priority: "0.35" },
+  { path: "/legal/delete-account", changefreq: "yearly", priority: "0.35" },
   { path: "/legal/artist-terms", changefreq: "yearly", priority: "0.3" },
   { path: "/legal/artist-privacy", changefreq: "yearly", priority: "0.3" },
 ];

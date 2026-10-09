@@ -2,10 +2,12 @@ import { useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X, AlertTriangle } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useNavigate } from '@/lib/router-compat';
 import { toast } from 'sonner';
+import { useServerFn } from '@tanstack/react-start';
+import { requestAccountDeletion } from '@/lib/accountDeletion.functions';
+import { Button } from '@/components/ui/button';
 
 interface Props { isOpen: boolean; onClose: () => void; }
 
@@ -15,6 +17,7 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
   const navigate = useNavigate();
   const [confirm, setConfirm] = useState('');
   const [loading, setLoading] = useState(false);
+  const scheduleDeletion = useServerFn(requestAccountDeletion);
 
   useEffect(() => setMounted(true), []);
 
@@ -23,14 +26,13 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
     if (confirm !== 'DELETE') { toast.error('Type DELETE to confirm'); return; }
     setLoading(true);
     try {
-      // Soft delete — flip profile status. Actual data removal is admin-only.
-      const { error } = await supabase.from('profiles').update({ status: 'deactivated' }).eq('user_id', user.id);
-      if (error) throw error;
-      toast.success('Account deactivated');
+      const result = await scheduleDeletion();
+      const date = new Date(result.deleteAfter).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' });
+      toast.success(`Deletion scheduled for ${date}`);
       await signOut();
       navigate('/auth');
     } catch (e) {
-      const msg = e instanceof Error ? e.message : 'Failed to deactivate';
+      const msg = e instanceof Error ? e.message : 'Failed to schedule deletion';
       toast.error(msg);
     } finally {
       setLoading(false);
@@ -54,10 +56,10 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
                 <div className="w-9 h-9 rounded-2xl bg-destructive/15 flex items-center justify-center"><AlertTriangle className="w-4 h-4 text-destructive" /></div>
                 <h2 className="font-display text-xl tracking-tight">Delete Account</h2>
               </div>
-              <button onClick={onClose} aria-label="Close" className="w-8 h-8 rounded-full bg-white/10 flex items-center justify-center"><X className="w-4 h-4" /></button>
+              <Button type="button" variant="ghost" size="icon" onClick={onClose} aria-label="Close" className="rounded-full bg-foreground/10"><X className="w-4 h-4" /></Button>
             </div>
             <p className="text-sm text-white/60 mb-4 leading-relaxed">
-              This deactivates your profile immediately. Your data is preserved but hidden. Contact support to fully erase your account.
+              Your account will be scheduled for permanent deletion in 7 days. Sign back in before then to cancel. After the deadline, deletion cannot be undone; records required by law may be retained.
             </p>
             <p className="text-[11px] font-black uppercase tracking-[0.2em] text-white/40 mb-1.5">Type <span className="text-destructive">DELETE</span> to confirm</p>
             <input
@@ -66,12 +68,14 @@ const DeleteAccountModal = ({ isOpen, onClose }: Props) => {
               aria-label="Type DELETE to confirm account deletion"
               className="w-full mb-4 rounded-2xl bg-white/[0.06] border border-white/10 px-4 py-3 text-sm outline-none font-mono"
             />
-            <button
+            <Button
+              type="button"
+              variant="destructive"
               onClick={submit} disabled={loading || confirm !== 'DELETE'}
-              className="w-full rounded-2xl bg-destructive text-destructive-foreground py-3 text-sm font-semibold active:scale-[0.98] disabled:opacity-40"
+              className="w-full rounded-2xl py-3 h-auto"
             >
-              {loading ? 'Deactivating…' : 'Deactivate Account'}
-            </button>
+              {loading ? 'Scheduling…' : 'Schedule Account Deletion'}
+            </Button>
           </motion.div>
           </div>
         </>
