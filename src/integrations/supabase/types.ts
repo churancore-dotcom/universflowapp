@@ -14,6 +14,38 @@ export type Database = {
   }
   public: {
     Tables: {
+      account_deletion_requests: {
+        Row: {
+          cancelled_at: string | null
+          completed_at: string | null
+          delete_after: string
+          requested_at: string
+          user_id: string
+        }
+        Insert: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          delete_after?: string
+          requested_at?: string
+          user_id: string
+        }
+        Update: {
+          cancelled_at?: string | null
+          completed_at?: string | null
+          delete_after?: string
+          requested_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_deletion_requests_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
       ad_campaigns: {
         Row: {
           advertiser: string | null
@@ -2559,6 +2591,7 @@ export type Database = {
         }[]
       }
       cache_stream_songs: { Args: { _rows: Json }; Returns: number }
+      cancel_account_deletion: { Args: never; Returns: boolean }
       check_and_increment_ip_rate_limit: {
         Args: { _endpoint: string; _ip_hash: string; _max_per_minute: number }
         Returns: boolean
@@ -2718,6 +2751,7 @@ export type Database = {
         Args: { _device_info?: Json; _platform?: string; _token: string }
         Returns: string
       }
+      request_account_deletion: { Args: never; Returns: string }
       request_artist_payout: { Args: { _upi_id: string }; Returns: Json }
       revoke_artist_member: {
         Args: { _artist_profile_id: string; _user_id: string }
