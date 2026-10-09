@@ -22,8 +22,7 @@ const config: CapacitorConfig = {
   // through Capacitor's https://localhost scheme.
   server: {
     androidScheme: 'https',
-    // Allow http subresources so legacy CDN covers don't break the WebView.
-    cleartext: true,
+    cleartext: false,
   },
   plugins: {
     SplashScreen: {
@@ -54,7 +53,7 @@ const config: CapacitorConfig = {
     // Set explicitly so the WebView never falls back to a transparent surface
     // (a transparent WebView over a black activity = "black screen" reports).
     backgroundColor: '#000000',
-    allowMixedContent: true,
+    allowMixedContent: false,
     // captureInput must be FALSE — true breaks IME composition (emoji
     // keyboard, swipe typing, autocomplete/autosuggest) inside the WebView.
     captureInput: false,

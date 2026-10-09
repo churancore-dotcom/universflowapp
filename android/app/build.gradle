@@ -80,6 +80,7 @@ dependencies {
     implementation 'androidx.media3:media3-session:1.4.1'
     implementation 'androidx.media3:media3-ui:1.4.1'
     implementation 'com.squareup.okhttp3:okhttp:4.12.0'
+    implementation 'com.android.billingclient:billing-ktx:7.1.1'
     // Rhino JS engine — used by PlayerJsManager to run YouTube's
     // signatureCipher + n-param functions ON DEVICE, exactly like NewPipe
     // does. This is what lets us race the WEB client and stop relying on

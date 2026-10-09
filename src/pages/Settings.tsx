@@ -34,7 +34,6 @@ import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLan
 import SEOHead from '@/components/SEOHead';
 import { isNativePlayerAvailable, setNativePlaybackSpeed } from '@/lib/nativePlayer';
 import { APP_RELEASE, getInstalledAppVersion } from '@/lib/buildInfo';
-import { YouTubeAccountSection } from '@/components/YouTubeAccountSection';
 
 
 const EQ_KEY = 'eq_settings';
@@ -445,7 +444,7 @@ const Settings = () => {
               )}
             </div>
             <Row icon={<KeyRound className="w-4 h-4" />} label="Change Password" chevron onClick={() => setShowPassword(true)} />
-            <Row icon={<Trash2 className="w-4 h-4" />} label="Deactivate Account" destructive chevron last onClick={() => setShowDelete(true)} />
+            <Row icon={<Trash2 className="w-4 h-4" />} label="Delete Account" sub="Seven-day recovery period" destructive chevron last onClick={() => setShowDelete(true)} />
           </Section>
 
           {/* ============ 2. PLAYBACK ============ */}

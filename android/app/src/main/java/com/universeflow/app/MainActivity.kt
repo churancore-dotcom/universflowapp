@@ -24,6 +24,7 @@ class MainActivity : BridgeActivity() {
         registerPlugin(InnerTubePlugin::class.java)
         registerPlugin(ExoPlayerPlugin::class.java)
         registerPlugin(StreamResolverPlugin::class.java)
+        registerPlugin(PlayBillingPlugin::class.java)
         super.onCreate(savedInstanceState)
 
         // Android 13+ requires runtime POST_NOTIFICATIONS permission before the
