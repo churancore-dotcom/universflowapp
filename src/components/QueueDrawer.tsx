@@ -24,21 +24,9 @@ interface QueueItemProps {
 
 const SWIPE_DELETE_THRESHOLD = 100;
 
-/** Where this exact row will actually stream from, in plain words. */
-const getSourceLabel = (song: Song) => {
-  const url = song.audio_url || '';
-  if (!url || url === 'resolving') return 'Finding source';
-  if (url.startsWith('yt-video:') || url.includes('googlevideo.com') || url.includes('youtube')) return 'YouTube';
-  if (url.includes('saavn')) return 'JioSaavn';
-  if (song.source === 'audius' || url.includes('audius')) return 'Audius';
-  if (song.source === 'library') return 'Universflow';
-  return 'Streaming';
-};
-
 const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: QueueItemProps) => {
   const [isRemoving, setIsRemoving] = useState(false);
   const versionLabel = getVersionLabel(song.title);
-  const sourceLabel = getSourceLabel(song);
   const x = useMotionValue(0);
   const deleteOpacity = useTransform(x, [-SWIPE_DELETE_THRESHOLD, -40], [1, 0]);
   const deleteScale = useTransform(x, [-SWIPE_DELETE_THRESHOLD, -40], [1, 0.6]);
@@ -143,9 +131,6 @@ const QueueItem = memo(({ song, index, isActive, isPlaying, onPlay, onRemove }: 
                 {versionLabel}
               </span>
             )}
-            <span className="px-1.5 py-0.5 rounded-md bg-white/10 text-muted-foreground text-[10px] font-medium uppercase tracking-wide">
-              {sourceLabel}
-            </span>
           </div>
         </div>
 

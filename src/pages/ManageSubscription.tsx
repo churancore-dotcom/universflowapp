@@ -89,7 +89,7 @@ const ManageSubscription = () => {
     { icon: Headphones, title: 'High-Quality Audio', description: 'Crystal clear up to 320kbps', color: 'from-purple-500 to-violet-500' },
     { icon: Shield, title: 'Ad-Free Experience', description: 'No interruptions, ever', color: 'from-emerald-500 to-teal-500' },
     { icon: Disc3, title: 'Exclusive Tracks', description: 'Premium-only releases & content', color: 'from-amber-500 to-orange-500' },
-    { icon: Heart, title: 'Listen Together', description: 'Sync sessions with friends in real time', color: 'from-rose-500 to-pink-500' },
+    { icon: Heart, title: 'Memory Tape', description: 'Save and replay your favorite song moments', color: 'from-rose-500 to-pink-500' },
   ];
 
   if (isLoading) {
