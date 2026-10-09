@@ -64,6 +64,13 @@
       "when": 1791294180251,
       "tag": "0008_bind_artist_selfie_paths_to_owner",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1791545275790,
+      "tag": "0009_account_deletion_recovery",
+      "breakpoints": true
     }
   ]
 }
