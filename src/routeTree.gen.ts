@@ -89,6 +89,7 @@ import { Route as BlogTrendingPunjabiSongs2026RouteImport } from './routes/blog.
 import { Route as BlogUniversflowVsJiosaavnVsGaanaRouteImport } from './routes/blog.universflow-vs-jiosaavn-vs-gaana'
 import { Route as LegalArtistPrivacyRouteImport } from './routes/legal.artist-privacy'
 import { Route as LegalArtistTermsRouteImport } from './routes/legal.artist-terms'
+import { Route as LegalDeleteAccountRouteImport } from './routes/legal.delete-account'
 import { Route as LegalPrivacyRouteImport } from './routes/legal.privacy'
 import { Route as LegalTermsRouteImport } from './routes/legal.terms'
 import { Route as PlaylistIdRouteImport } from './routes/playlist.$id'
@@ -519,6 +520,11 @@ const LegalArtistTermsRoute = LegalArtistTermsRouteImport.update({
   path: '/legal/artist-terms',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LegalDeleteAccountRoute = LegalDeleteAccountRouteImport.update({
+  id: '/legal/delete-account',
+  path: '/legal/delete-account',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const LegalPrivacyRoute = LegalPrivacyRouteImport.update({
   id: '/legal/privacy',
   path: '/legal/privacy',
@@ -714,6 +720,7 @@ export interface FileRoutesByFullPath {
   '/blog/universflow-vs-jiosaavn-vs-gaana': typeof BlogUniversflowVsJiosaavnVsGaanaRoute
   '/legal/artist-privacy': typeof LegalArtistPrivacyRoute
   '/legal/artist-terms': typeof LegalArtistTermsRoute
+  '/legal/delete-account': typeof LegalDeleteAccountRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/playlist/$id': typeof PlaylistIdRoute
@@ -816,6 +823,7 @@ export interface FileRoutesByTo {
   '/blog/universflow-vs-jiosaavn-vs-gaana': typeof BlogUniversflowVsJiosaavnVsGaanaRoute
   '/legal/artist-privacy': typeof LegalArtistPrivacyRoute
   '/legal/artist-terms': typeof LegalArtistTermsRoute
+  '/legal/delete-account': typeof LegalDeleteAccountRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/playlist/$id': typeof PlaylistIdRoute
@@ -921,6 +929,7 @@ export interface FileRoutesById {
   '/blog/universflow-vs-jiosaavn-vs-gaana': typeof BlogUniversflowVsJiosaavnVsGaanaRoute
   '/legal/artist-privacy': typeof LegalArtistPrivacyRoute
   '/legal/artist-terms': typeof LegalArtistTermsRoute
+  '/legal/delete-account': typeof LegalDeleteAccountRoute
   '/legal/privacy': typeof LegalPrivacyRoute
   '/legal/terms': typeof LegalTermsRoute
   '/playlist/$id': typeof PlaylistIdRoute
@@ -1027,6 +1036,7 @@ export interface FileRouteTypes {
     | '/blog/universflow-vs-jiosaavn-vs-gaana'
     | '/legal/artist-privacy'
     | '/legal/artist-terms'
+    | '/legal/delete-account'
     | '/legal/privacy'
     | '/legal/terms'
     | '/playlist/$id'
@@ -1129,6 +1139,7 @@ export interface FileRouteTypes {
     | '/blog/universflow-vs-jiosaavn-vs-gaana'
     | '/legal/artist-privacy'
     | '/legal/artist-terms'
+    | '/legal/delete-account'
     | '/legal/privacy'
     | '/legal/terms'
     | '/playlist/$id'
@@ -1233,6 +1244,7 @@ export interface FileRouteTypes {
     | '/blog/universflow-vs-jiosaavn-vs-gaana'
     | '/legal/artist-privacy'
     | '/legal/artist-terms'
+    | '/legal/delete-account'
     | '/legal/privacy'
     | '/legal/terms'
     | '/playlist/$id'
@@ -1305,6 +1317,7 @@ export interface RootRouteChildren {
   BlogUniversflowVsJiosaavnVsGaanaRoute: typeof BlogUniversflowVsJiosaavnVsGaanaRoute
   LegalArtistPrivacyRoute: typeof LegalArtistPrivacyRoute
   LegalArtistTermsRoute: typeof LegalArtistTermsRoute
+  LegalDeleteAccountRoute: typeof LegalDeleteAccountRoute
   LegalPrivacyRoute: typeof LegalPrivacyRoute
   LegalTermsRoute: typeof LegalTermsRoute
   PlaylistIdRoute: typeof PlaylistIdRoute
@@ -1878,6 +1891,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LegalArtistTermsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/legal/delete-account': {
+      id: '/legal/delete-account'
+      path: '/legal/delete-account'
+      fullPath: '/legal/delete-account'
+      preLoaderRoute: typeof LegalDeleteAccountRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/legal/privacy': {
       id: '/legal/privacy'
       path: '/legal/privacy'
@@ -2196,6 +2216,7 @@ const rootRouteChildren: RootRouteChildren = {
   BlogUniversflowVsJiosaavnVsGaanaRoute: BlogUniversflowVsJiosaavnVsGaanaRoute,
   LegalArtistPrivacyRoute: LegalArtistPrivacyRoute,
   LegalArtistTermsRoute: LegalArtistTermsRoute,
+  LegalDeleteAccountRoute: LegalDeleteAccountRoute,
   LegalPrivacyRoute: LegalPrivacyRoute,
   LegalTermsRoute: LegalTermsRoute,
   PlaylistIdRoute: PlaylistIdRoute,

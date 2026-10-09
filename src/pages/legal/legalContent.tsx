@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 
-export const USER_TERMS_UPDATED = '17 June 2026';
-export const ARTIST_TERMS_UPDATED = '17 June 2026';
+export const USER_TERMS_UPDATED = '9 October 2026';
+export const ARTIST_TERMS_UPDATED = '9 October 2026';
 
 export const SUPPORT_EMAIL = 'universflow.in@gmail.com';
 export const COMPANY_DISPLAY = 'Universflow';
@@ -18,17 +18,20 @@ export const UserTermsBody = (): ReactNode => (
     <p>You are responsible for keeping your password safe and for everything that happens under your account. Notify us immediately at {SUPPORT_EMAIL} if you suspect unauthorized access.</p>
 
     <h2>4. Content & use of the service</h2>
-    <p>The App lets you stream music from various sources, build libraries and playlists, and (where supported) download for offline listening. You may use the App for personal, non-commercial enjoyment only.</p>
+    <p>The App lets you stream licensed music, build libraries and playlists, and (where supported) download for offline listening. You may use the App for personal, non-commercial enjoyment only. Offline copies stay inside the App and may stop playing after the applicable access period ends.</p>
     <p>You agree not to: (a) attempt to reverse-engineer, scrape, or rip the audio streams; (b) bypass any rate limits, ads, or premium gates; (c) use bots; (d) upload anything that is illegal, infringing, hateful, or harmful.</p>
 
     <h2>5. Premium subscriptions</h2>
-    <p>Premium plans purchased via UPI or promo code give you ad-free playback, unlimited downloads and other features for the duration shown at checkout. Premium auto-expires at the end of the paid period and does not auto-renew. Refunds are handled case-by-case via {SUPPORT_EMAIL}.</p>
+    <p>Premium gives you ad-free playback, downloads and other features for the duration shown before purchase. Android purchases distributed through Google Play use Google Play Billing. Availability, price, tax and renewal terms are shown in the purchase screen before confirmation.</p>
+    <p><strong>Refund policy:</strong> Premium purchases are final and non-refundable after activation, except where Google Play policy or applicable law requires a refund. A failed, duplicate or unactivated charge does not count as an activated Premium purchase; contact {SUPPORT_EMAIL} or use Google Play&rsquo;s purchase support. Cancelling an auto-renewing plan stops future renewal but does not refund the current access period.</p>
 
-    <h2>6. Third-party content</h2>
-    <p>Some catalog content is served from third parties. We are not the source or owner of all music available through the App. If you believe content infringes your rights, see our takedown process at {SUPPORT_EMAIL}.</p>
+    <h2>6. Copyright notices</h2>
+    <p>If you believe content infringes your rights, email {SUPPORT_EMAIL} with your name and contact details, the work claimed, the exact song or page, proof of ownership or authority, a good-faith statement, and a statement that the information is accurate. We may remove or restrict disputed content while reviewing the notice.</p>
+    <p>Affected rights holders may send a counter-notice identifying the removed material, explaining why removal was mistaken, and providing evidence of authorization. We may restore content when the dispute is resolved or the law permits it. Repeated infringement may result in termination.</p>
+    <p>{COMPANY_DISPLAY} is an independent service. References to third-party platforms or trademarks identify compatibility or factual comparisons only and do not imply ownership, sponsorship, endorsement or affiliation.</p>
 
     <h2>7. Termination</h2>
-    <p>We may suspend or terminate your account for violating these Terms. You can delete your account at any time from Settings.</p>
+    <p>We may suspend or terminate your account for violating these Terms. You can schedule account deletion from Settings. A seven-day recovery period begins immediately; signing back in during that period lets you cancel. Eligible account data is permanently deleted after the deadline.</p>
 
     <h2>8. Disclaimers & liability</h2>
     <p>The App is provided "as is". To the extent permitted by law, {COMPANY_DISPLAY} is not liable for indirect, incidental, or consequential damages arising from your use of the service.</p>
@@ -37,7 +40,11 @@ export const UserTermsBody = (): ReactNode => (
     <p>We may update these Terms. Continued use after an update means you accept the new Terms.</p>
 
     <h2>10. Contact</h2>
-    <p>Questions? Email {SUPPORT_EMAIL}.</p>
+    <h2>10. Advertising</h2>
+    <p>The free service may show clearly identified in-app advertising. Premium suppresses those ad placements while active. We do not sell personal data or share it with advertising networks.</p>
+
+    <h2>11. Contact</h2>
+    <p>Questions, billing issues or copyright notices: {SUPPORT_EMAIL}.</p>
   </>
 );
 
@@ -48,7 +55,7 @@ export const UserPrivacyBody = (): ReactNode => (
       <li><strong>Account:</strong> email, username, optional country and avatar.</li>
       <li><strong>Usage:</strong> songs you play, like, download, and add to playlists, plus device + app version.</li>
       <li><strong>Approximate location:</strong> derived from IP at the country level for charts and recommendations. We do not collect precise GPS.</li>
-      <li><strong>Payments:</strong> if you buy Premium via UPI, we record the transaction reference, amount and plan. We never see your bank or UPI PIN.</li>
+      <li><strong>Payments:</strong> for Google Play purchases, we receive the product, purchase token, order reference and entitlement status needed to activate Premium. Google processes the payment details; we do not receive your full card or bank credentials.</li>
     </ul>
 
     <h2>2. Device permissions we ask for</h2>
@@ -73,24 +80,24 @@ export const UserPrivacyBody = (): ReactNode => (
     <p>To run the service (playlists, downloads, recommendations), keep it secure, send important notifications, and improve features. Aggregate, non-personal stats may be shown publicly (e.g. global top charts).</p>
 
     <h2>5. Sharing</h2>
-    <p>We share data only with: (a) infrastructure providers needed to run the App (database, push notifications, email), (b) authorities when legally required. We do not sell your data and we do not share it with data brokers or advertising networks.</p>
+    <p>We share data only with: (a) infrastructure providers needed to run the App (hosting, database, push notifications and email), (b) Google Play for Android purchase processing and verification, and (c) authorities when legally required. We do not sell your data and we do not share it with data brokers or advertising networks.</p>
+    <p>The free service may display in-app ads selected by our own campaign system. Premium suppresses those ads while active. We do not use sensitive identity documents to select advertising.</p>
 
     <h2>6. Retention at a glance</h2>
     <ul>
       <li><strong>Account (email, username, avatar, country):</strong> until you delete your account.</li>
       <li><strong>Listening history, likes, playlists:</strong> until you delete your account, or earlier if you clear history in Settings.</li>
-      <li><strong>Downloaded songs:</strong> stored only on your device; removed when you delete the download or uninstall the App.</li>
+      <li><strong>Downloaded songs:</strong> stored only on your device; removed when you delete the download or uninstall the App. Access may stop when the applicable Premium or content entitlement ends.</li>
       <li><strong>Verification ID and selfie:</strong> deleted on approval or rejection, and in all cases within 7 days.</li>
       <li><strong>Payment records:</strong> retained only as long as tax and accounting law requires.</li>
       <li><strong>Security and error logs:</strong> up to 90 days, then deleted.</li>
     </ul>
 
     <h2 id="delete-your-data">7. Deleting your account and data</h2>
-    <p>You can delete your account yourself, at any time, with no email required: open the App and go to <strong>Settings &rarr; Delete Account</strong>, then confirm.</p>
-    <p><strong>What is deleted permanently and immediately:</strong> your profile, email and username, listening history, likes, playlists, follows, download records, artist profile and any remaining verification data, device and session records.</p>
+    <p>You can schedule deletion yourself, at any time, with no email required: open the App and go to <strong>Settings &rarr; Delete Account</strong>, then confirm. A seven-day recovery period begins immediately. Sign back in before the displayed deadline to cancel the request.</p>
+    <p><strong>After the recovery period:</strong> we permanently delete eligible profile, authentication, listening, likes, playlists, follows, download records, artist profile, verification data, device and session records. Deletion cannot be undone after processing.</p>
     <p><strong>What may be kept, and why:</strong> payment and invoice records where tax law requires it, and anonymised aggregate counts that can no longer identify you (for example a song&rsquo;s total play count). Backups are rotated out within 30 days.</p>
-    <p>Deletion cannot be undone, and the same email can be used to sign up again afterwards as a brand-new account.</p>
-    <p>If you can no longer sign in, or you want us to do it for you, email {SUPPORT_EMAIL} from your registered address with the subject &ldquo;Delete my account&rdquo;. We confirm within 7 days and complete the deletion within 30 days.</p>
+    <p>The same email may be used to sign up again afterwards as a brand-new account. If you can no longer sign in, email {SUPPORT_EMAIL} from your registered address with the subject &ldquo;Delete my account&rdquo;.</p>
     <p>You can also delete only part of your data: clear listening history in Settings, remove individual downloads from the Offline screen, or ask us to remove a specific item by email.</p>
 
     <h2>8. Your rights</h2>
@@ -119,7 +126,7 @@ export const ArtistTermsBody = (): ReactNode => (
     <p>You confirm that the identity document, photo and social links you submit belong to you and that you have the right to be promoted as the artist named in the application. Verification typically takes 1 to 3 days. We may approve or reject any application at our sole discretion.</p>
 
     <h2>3. Your content</h2>
-    <p>You may publish only music you own or have full rights to distribute. By uploading a song you grant {COMPANY_DISPLAY} a non-exclusive, worldwide, royalty-free licence to stream the audio at the URL you provide and to display the title, artwork, lyrics excerpts and your artist profile inside the App.</p>
+    <p>You may publish only music you own or have full rights to distribute. By uploading a song you grant {COMPANY_DISPLAY} a non-exclusive, worldwide, royalty-free licence to stream the audio at the URL you provide and to display the title, artwork, lyrics excerpts and your artist profile inside the App. You warrant that these rights are valid for every territory and period you select and agree to be responsible for claims caused by a breach of that warranty.</p>
 
     <h2>4. URL-only publishing</h2>
     <p>You publish songs by providing a direct stream URL (your own website, CDN, label HLS, etc.). We do <strong>not</strong> accept YouTube, JioSaavn, Spotify, SoundCloud or other aggregator links — those will be rejected automatically. You are responsible for keeping the URL online; if it stops responding the song will appear unavailable.</p>

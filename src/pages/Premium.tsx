@@ -17,6 +17,9 @@ import { useEmailVerified } from '@/hooks/useEmailVerified';
 import { toast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
 import appLogo from '@/assets/app-logo.webp';
+import { isPlayStoreBuild, startPlayPurchase, type PlayPlan } from '@/lib/playBilling';
+import { verifyPlayPurchase } from '@/lib/playPurchase.functions';
+import { useServerFn } from '@tanstack/react-start';
 
 
 const LogoBadge = ({ size = 56 }: { size?: number }) => (
@@ -106,6 +109,9 @@ const PremiumPage = memo(function PremiumPage() {
   const [pending, setPending] = useState<PendingPayment | null>(null);
   const [openFeature, setOpenFeature] = useState<Feature | null>(null);
   const pendingBannerRef = useRef<HTMLDivElement | null>(null);
+  const verifyPurchase = useServerFn(verifyPlayPurchase);
+  const [playBuying, setPlayBuying] = useState(false);
+  const playBuild = isPlayStoreBuild();
 
   useEffect(() => {
     (async () => {
@@ -131,7 +137,7 @@ const PremiumPage = memo(function PremiumPage() {
   }, []);
 
   useEffect(() => {
-    if (!user || isPremium) { setPending(null); return; }
+    if (playBuild || !user || isPremium) { setPending(null); return; }
     let cancelled = false;
     const fetchPending = async () => {
       const { data } = await supabase
@@ -187,7 +193,7 @@ const PremiumPage = memo(function PremiumPage() {
       supabase.removeChannel(prChannel);
       supabase.removeChannel(subChannel);
     };
-  }, [user, isPremium, refetchPremium]);
+  }, [user, isPremium, refetchPremium, playBuild]);
 
   const monthly = settings?.monthlyPrice ?? 99;
   const bimonthly = settings?.bimonthlyPrice ?? 199;
@@ -198,10 +204,26 @@ const PremiumPage = memo(function PremiumPage() {
   const quarterlySave = Math.max(0, Math.round((1 - (quarterly / 3) / monthly) * 100));
   const selectedPrice = selectedPlan === 'quarterly' ? quarterly : selectedPlan === 'bimonthly' ? bimonthly : monthly;
 
-  const handleUpgrade = useCallback(() => {
+  const handleUpgrade = useCallback(async () => {
     haptics.medium();
+    if (playBuild) {
+      if (!user) { navigate('/auth'); return; }
+      setPlayBuying(true);
+      try {
+        const purchase = await startPlayPurchase(selectedPlan as PlayPlan);
+        await verifyPurchase({ data: purchase });
+        await refetchPremium();
+        toast({ title: 'Premium activated', description: 'Your Google Play purchase was verified.' });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : 'Purchase was not completed';
+        if (!/cancel/i.test(message)) toast({ title: 'Purchase not completed', description: message, variant: 'destructive' });
+      } finally {
+        setPlayBuying(false);
+      }
+      return;
+    }
     setShowCheckout(true);
-  }, [haptics]);
+  }, [haptics, navigate, playBuild, refetchPremium, selectedPlan, user, verifyPurchase]);
 
   const handlePaymentSubmitted = useCallback((payment: PendingPayment) => {
     setPending(payment);
@@ -430,9 +452,9 @@ const PremiumPage = memo(function PremiumPage() {
 
           {/* Trust strip */}
           <div className="flex items-center justify-center gap-3 text-[11px] text-muted-foreground mb-8">
-            <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-primary" /> UPI Secure</span>
+            <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-primary" /> {playBuild ? 'Google Play purchase' : 'UPI Secure'}</span>
             <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
-            <span>Activates in minutes</span>
+            <span>{playBuild ? 'No refund after activation*' : 'Activates in minutes'}</span>
           </div>
 
         </main>
@@ -466,12 +488,13 @@ const PremiumPage = memo(function PremiumPage() {
                 </p>
               </div>
               <motion.button
-                onClick={handleUpgrade}
+                onClick={() => { void handleUpgrade(); }}
+                disabled={playBuying}
                 whileTap={{ scale: 0.96 }}
                 className="px-6 py-3.5 rounded-xl text-[15px] font-bold bg-primary-strong text-primary-foreground flex items-center gap-2"
                 style={{ boxShadow: '0 10px 30px -8px hsl(var(--primary) / 0.5)' }}
               >
-                Subscribe
+                {playBuying ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buy with Google Play'}
               </motion.button>
             </div>
           </motion.div>
@@ -480,7 +503,7 @@ const PremiumPage = memo(function PremiumPage() {
         <BottomNav />
 
         <AnimatePresence>
-          {showCheckout && settings && (
+          {!playBuild && showCheckout && settings && (
             <UpiCheckoutSheet
               settings={settings}
               plan={selectedPlan}

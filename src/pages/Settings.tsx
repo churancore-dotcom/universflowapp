@@ -594,9 +594,6 @@ const Settings = () => {
             <Row icon={<RotateCcw className="w-4 h-4" />} label="Reset Playback Settings" chevron last onClick={handleResetPlayback} />
           </Section>
 
-          {/* Deep source pairing — improves coverage for rare tracks */}
-          <YouTubeAccountSection />
-
           <Section label="Premium Studio">
             <Row
               icon={<Bookmark className="w-4 h-4" />}

@@ -65,8 +65,9 @@ export const verifyPlayPurchase = createServerFn({ method: 'POST' })
 
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
     const { data: claimed } = await supabaseAdmin.from('user_subscriptions')
-      .select('user_id').eq('purchase_token', data.purchaseToken).maybeSingle();
+      .select('user_id, expires_at').eq('purchase_token', data.purchaseToken).maybeSingle();
     if (claimed && claimed.user_id !== context.userId) throw new Error('Purchase already belongs to another account');
+    if (claimed?.user_id === context.userId) return { success: true, expiresAt: claimed.expires_at };
 
     const { data: existing } = await supabaseAdmin.from('user_subscriptions')
       .select('expires_at').eq('user_id', context.userId).maybeSingle();
