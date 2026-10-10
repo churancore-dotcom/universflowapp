@@ -101,6 +101,11 @@
     <priority>0.35</priority>
   </url>
   <url>
+    <loc>https://universflow.in/legal/delete-account</loc>
+    <changefreq>yearly</changefreq>
+    <priority>0.35</priority>
+  </url>
+  <url>
     <loc>https://universflow.in/legal/artist-terms</loc>
     <changefreq>yearly</changefreq>
     <priority>0.3</priority>
