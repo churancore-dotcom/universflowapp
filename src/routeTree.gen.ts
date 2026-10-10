@@ -98,6 +98,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as AdminArtistApplicationsStatusRouteImport } from './routes/admin/artist-applications_.$status'
 import { Route as ApiPublicApkRouteImport } from './routes/api/public/apk'
 import { Route as ApiPublicApkUploadRouteImport } from './routes/api/public/apk-upload'
+import { Route as ApiPublicProcessAccountDeletionsRouteImport } from './routes/api/public/process-account-deletions'
 import { Route as ArtistLabelAccessRouteImport } from './routes/artist.label.access'
 import { Route as ArtistStudioIndexRouteImport } from './routes/artist/studio/index'
 import { Route as ArtistStudioActivityRouteImport } from './routes/artist/studio/activity'
@@ -567,6 +568,12 @@ const ApiPublicApkUploadRoute = ApiPublicApkUploadRouteImport.update({
   path: '/api/public/apk-upload',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicProcessAccountDeletionsRoute =
+  ApiPublicProcessAccountDeletionsRouteImport.update({
+    id: '/api/public/process-account-deletions',
+    path: '/api/public/process-account-deletions',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ArtistLabelAccessRoute = ArtistLabelAccessRouteImport.update({
   id: '/artist/label/access',
   path: '/artist/label/access',
@@ -730,6 +737,7 @@ export interface FileRoutesByFullPath {
   '/admin/artist-applications/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
   '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
+  '/api/public/process-account-deletions': typeof ApiPublicProcessAccountDeletionsRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
   '/artist/studio/analytics': typeof ArtistStudioAnalyticsRoute
@@ -833,6 +841,7 @@ export interface FileRoutesByTo {
   '/admin/artist-applications/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
   '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
+  '/api/public/process-account-deletions': typeof ApiPublicProcessAccountDeletionsRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
   '/artist/studio/analytics': typeof ArtistStudioAnalyticsRoute
@@ -939,6 +948,7 @@ export interface FileRoutesById {
   '/admin/artist-applications_/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
   '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
+  '/api/public/process-account-deletions': typeof ApiPublicProcessAccountDeletionsRoute
   '/artist/label/access': typeof ArtistLabelAccessRoute
   '/artist/studio/activity': typeof ArtistStudioActivityRoute
   '/artist/studio/analytics': typeof ArtistStudioAnalyticsRoute
@@ -1046,6 +1056,7 @@ export interface FileRouteTypes {
     | '/admin/artist-applications/$status'
     | '/api/public/apk'
     | '/api/public/apk-upload'
+    | '/api/public/process-account-deletions'
     | '/artist/label/access'
     | '/artist/studio/activity'
     | '/artist/studio/analytics'
@@ -1149,6 +1160,7 @@ export interface FileRouteTypes {
     | '/admin/artist-applications/$status'
     | '/api/public/apk'
     | '/api/public/apk-upload'
+    | '/api/public/process-account-deletions'
     | '/artist/label/access'
     | '/artist/studio/activity'
     | '/artist/studio/analytics'
@@ -1254,6 +1266,7 @@ export interface FileRouteTypes {
     | '/admin/artist-applications_/$status'
     | '/api/public/apk'
     | '/api/public/apk-upload'
+    | '/api/public/process-account-deletions'
     | '/artist/label/access'
     | '/artist/studio/activity'
     | '/artist/studio/analytics'
@@ -1325,6 +1338,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicApkRoute: typeof ApiPublicApkRoute
   ApiPublicApkUploadRoute: typeof ApiPublicApkUploadRoute
+  ApiPublicProcessAccountDeletionsRoute: typeof ApiPublicProcessAccountDeletionsRoute
   ArtistLabelAccessRoute: typeof ArtistLabelAccessRoute
   ArtistTeamJoinRoute: typeof ArtistTeamJoinRoute
 }
@@ -1954,6 +1968,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicApkUploadRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/process-account-deletions': {
+      id: '/api/public/process-account-deletions'
+      path: '/api/public/process-account-deletions'
+      fullPath: '/api/public/process-account-deletions'
+      preLoaderRoute: typeof ApiPublicProcessAccountDeletionsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/artist/label/access': {
       id: '/artist/label/access'
       path: '/artist/label/access'
@@ -2224,6 +2245,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicApkRoute: ApiPublicApkRoute,
   ApiPublicApkUploadRoute: ApiPublicApkUploadRoute,
+  ApiPublicProcessAccountDeletionsRoute: ApiPublicProcessAccountDeletionsRoute,
   ArtistLabelAccessRoute: ArtistLabelAccessRoute,
   ArtistTeamJoinRoute: ArtistTeamJoinRoute,
 }

@@ -2719,6 +2719,7 @@ export type Database = {
         Args: { _song_id: string }
         Returns: undefined
       }
+      invoke_account_deletion_cleanup: { Args: never; Returns: undefined }
       is_active_user: { Args: { _user_id: string }; Returns: boolean }
       is_following_artist: {
         Args: { _artist_user_id: string }
