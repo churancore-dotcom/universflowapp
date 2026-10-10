@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Make the Google Play release submission-ready: Play Billing for Premium, accurate pre-purchase refund disclosure, seven-day recoverable account deletion, policy corrections, honest provider branding, Android security hardening, and deterministic signed AAB validation.
+- [ ] Make the Google Play release submission-ready: Play Billing fixed-duration products, Play-supplied pricing/restore, accurate refund disclosure, seven-day recoverable account deletion with hourly cleanup, policy corrections, Android security hardening, and deterministic signed AAB validation are implemented; blocked on publishing the cleanup endpoint and validating a real signed AAB/Play purchase on-device.
 - [ ] Complete Google Play Console declarations and the personal-account closed test — blocked on the developer account, rights documents, tester group, and Play Console access.
 
 - [x] Fix offline cold startup and show device downloads before remote auth gates; 5 logic tests passed, disconnected browser cold start displayed a seeded local song and played its blob audio with no page errors.

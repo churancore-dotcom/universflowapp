@@ -34,6 +34,8 @@ import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLan
 import SEOHead from '@/components/SEOHead';
 import { isNativePlayerAvailable, setNativePlaybackSpeed } from '@/lib/nativePlayer';
 import { APP_RELEASE, getInstalledAppVersion } from '@/lib/buildInfo';
+import { cancelAccountDeletion } from '@/lib/accountDeletion.functions';
+import { useServerFn } from '@tanstack/react-start';
 
 
 const EQ_KEY = 'eq_settings';
@@ -183,6 +185,8 @@ const Settings = () => {
     versionName: APP_RELEASE.versionName,
     versionCode: String(APP_RELEASE.versionCode),
   });
+  const [deletionDeadline, setDeletionDeadline] = useState<string | null>(null);
+  const cancelDeletion = useServerFn(cancelAccountDeletion);
 
   useEffect(() => { void getInstalledAppVersion().then(setAppVersion); }, []);
 
@@ -212,6 +216,22 @@ const Settings = () => {
   }, [user]);
 
   useEffect(() => { loadDevices(); loadProfileMeta(); }, [loadDevices, loadProfileMeta]);
+
+  useEffect(() => {
+    if (!user) { setDeletionDeadline(null); return; }
+    void supabase.from('account_deletion_requests').select('delete_after, cancelled_at, completed_at').eq('user_id', user.id).maybeSingle()
+      .then(({ data }) => setDeletionDeadline(data && !data.cancelled_at && !data.completed_at ? data.delete_after : null));
+  }, [user]);
+
+  const handleCancelDeletion = async () => {
+    try {
+      await cancelDeletion();
+      setDeletionDeadline(null);
+      toast.success('Account deletion cancelled');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Could not cancel deletion');
+    }
+  };
 
   const togglePrivate = async (val: boolean) => {
     if (!user) return;
@@ -444,7 +464,11 @@ const Settings = () => {
               )}
             </div>
             <Row icon={<KeyRound className="w-4 h-4" />} label="Change Password" chevron onClick={() => setShowPassword(true)} />
-            <Row icon={<Trash2 className="w-4 h-4" />} label="Delete Account" sub="Seven-day recovery period" destructive chevron last onClick={() => setShowDelete(true)} />
+            {deletionDeadline ? (
+              <Row icon={<Trash2 className="w-4 h-4" />} label="Cancel Account Deletion" sub={`Scheduled for ${new Date(deletionDeadline).toLocaleDateString()}`} destructive chevron last onClick={() => { void handleCancelDeletion(); }} />
+            ) : (
+              <Row icon={<Trash2 className="w-4 h-4" />} label="Delete Account" sub="Seven-day recovery period" destructive chevron last onClick={() => setShowDelete(true)} />
+            )}
           </Section>
 
           {/* ============ 2. PLAYBACK ============ */}
@@ -765,7 +789,8 @@ const Settings = () => {
           {/* ============ 10. LEGAL ============ */}
           <Section label="Legal">
             <Row icon={<FileText className="w-4 h-4" />} label="Terms of Service" chevron onClick={() => navigate('/legal/terms')} />
-            <Row icon={<ShieldCheck className="w-4 h-4" />} label="Privacy Policy" chevron last onClick={() => navigate('/legal/privacy')} />
+            <Row icon={<ShieldCheck className="w-4 h-4" />} label="Privacy Policy" chevron onClick={() => navigate('/legal/privacy')} />
+            <Row icon={<Trash2 className="w-4 h-4" />} label="Account Deletion" chevron last onClick={() => navigate('/legal/delete-account')} />
           </Section>
 
           {/* ============ 11. ABOUT ============ */}

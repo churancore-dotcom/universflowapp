@@ -17,7 +17,7 @@ import { useEmailVerified } from '@/hooks/useEmailVerified';
 import { toast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
 import appLogo from '@/assets/app-logo.webp';
-import { isPlayStoreBuild, startPlayPurchase, type PlayPlan } from '@/lib/playBilling';
+import { getPlayProducts, isPlayStoreBuild, restorePlayPurchases, startPlayPurchase, PLAY_PRODUCTS, type PlayPlan, type PlayProduct } from '@/lib/playBilling';
 import { verifyPlayPurchase } from '@/lib/playPurchase.functions';
 import { useServerFn } from '@tanstack/react-start';
 
@@ -111,7 +111,15 @@ const PremiumPage = memo(function PremiumPage() {
   const pendingBannerRef = useRef<HTMLDivElement | null>(null);
   const verifyPurchase = useServerFn(verifyPlayPurchase);
   const [playBuying, setPlayBuying] = useState(false);
+  const [playProducts, setPlayProducts] = useState<PlayProduct[]>([]);
   const playBuild = isPlayStoreBuild();
+
+  useEffect(() => {
+    if (!playBuild) return;
+    void getPlayProducts()
+      .then(setPlayProducts)
+      .catch(() => toast({ title: 'Google Play prices unavailable', description: 'Check your connection and try again.', variant: 'destructive' }));
+  }, [playBuild]);
 
   useEffect(() => {
     (async () => {
@@ -203,6 +211,9 @@ const PremiumPage = memo(function PremiumPage() {
   const bimonthlySave = Math.max(0, Math.round((1 - (bimonthly / 2) / monthly) * 100));
   const quarterlySave = Math.max(0, Math.round((1 - (quarterly / 3) / monthly) * 100));
   const selectedPrice = selectedPlan === 'quarterly' ? quarterly : selectedPlan === 'bimonthly' ? bimonthly : monthly;
+  const playPriceByPlan = Object.fromEntries(
+    (Object.entries(PLAY_PRODUCTS) as Array<[PlayPlan, string]>).map(([plan, productId]) => [plan, playProducts.find((product) => product.productId === productId)?.formattedPrice]),
+  ) as Partial<Record<PlayPlan, string>>;
 
   const handleUpgrade = useCallback(async () => {
     haptics.medium();
@@ -232,6 +243,25 @@ const PremiumPage = memo(function PremiumPage() {
       pendingBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }, 80);
   }, []);
+
+  const handleRestore = useCallback(async () => {
+    if (!user) { navigate('/auth'); return; }
+    setPlayBuying(true);
+    try {
+      const purchases = await restorePlayPurchases();
+      if (purchases.length === 0) {
+        toast({ title: 'No purchase to restore' });
+        return;
+      }
+      for (const purchase of purchases) await verifyPurchase({ data: purchase });
+      await refetchPremium();
+      toast({ title: 'Premium restored' });
+    } catch (error) {
+      toast({ title: 'Restore failed', description: error instanceof Error ? error.message : 'Try again later', variant: 'destructive' });
+    } finally {
+      setPlayBuying(false);
+    }
+  }, [navigate, refetchPremium, user, verifyPurchase]);
 
   const expiryText = subscription?.expires_at
     ? new Date(subscription.expires_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
@@ -320,7 +350,7 @@ const PremiumPage = memo(function PremiumPage() {
           <section className="pt-10 pb-8">
             <div className="mb-5"><LogoBadge size={64} /></div>
             <p className="text-[10.5px] font-bold tracking-[0.32em] uppercase text-primary mb-3">
-              Subscription
+              Fixed-term access
             </p>
             <h1 className="text-[36px] leading-[1.04] font-bold tracking-tight mb-3">
               Universflow <span className="text-primary">Premium</span>
@@ -376,27 +406,30 @@ const PremiumPage = memo(function PremiumPage() {
                 <PlanCard
                   selected={selectedPlan === 'bimonthly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('bimonthly'); }}
-                  badge={`Save ${bimonthlySave}%`}
+                  badge={playBuild ? undefined : `Save ${bimonthlySave}%`}
                   title="2 Months"
                   price={bimonthly}
-                  perMonth={`₹${bimonthlyPerMo}/mo`}
+                  formattedPrice={playBuild ? playPriceByPlan.bimonthly : undefined}
+                  perMonth={playBuild ? '60 days' : `₹${bimonthlyPerMo}/mo`}
                   tagline="Most popular"
                   recommended
                 />
                 <PlanCard
                   selected={selectedPlan === 'quarterly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('quarterly'); }}
-                  badge={`Save ${quarterlySave}%`}
+                  badge={playBuild ? undefined : `Save ${quarterlySave}%`}
                   title="3 Months"
                   price={quarterly}
-                  perMonth={`₹${quarterlyPerMo}/mo`}
+                  formattedPrice={playBuild ? playPriceByPlan.quarterly : undefined}
+                  perMonth={playBuild ? '90 days' : `₹${quarterlyPerMo}/mo`}
                   tagline="Best value"
                 />
                 <PlanCard
                   selected={selectedPlan === 'monthly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('monthly'); }}
-                  title="Monthly"
+                  title={playBuild ? '30 Days' : 'Monthly'}
                   price={monthly}
+                  formattedPrice={playBuild ? playPriceByPlan.monthly : undefined}
                   perMonth="30 days"
                   tagline="Try it out"
                 />
@@ -456,11 +489,16 @@ const PremiumPage = memo(function PremiumPage() {
             <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
             <span>{playBuild ? 'No refund after activation*' : 'Activates in minutes'}</span>
           </div>
+          {playBuild && (
+            <div className="text-center -mt-5 mb-8">
+              <button type="button" disabled={playBuying} onClick={() => { void handleRestore(); }} className="text-xs font-semibold text-primary disabled:opacity-50">Restore purchase</button>
+            </div>
+          )}
 
         </main>
 
         {/* ─── Sticky bottom CTA ─── */}
-        {!isPremium && !pending && settings && (
+        {!isPremium && !pending && (playBuild || settings) && (
           <motion.div
             initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
             transition={{ ...iosSpring, delay: 0.15 }}
@@ -484,17 +522,17 @@ const PremiumPage = memo(function PremiumPage() {
                   {PLAN_LABEL[selectedPlan]}
                 </p>
                 <p className="text-[22px] font-bold leading-tight tracking-tight">
-                  ₹{selectedPrice}
+                  {playBuild ? (playPriceByPlan[selectedPlan] || '—') : `₹${selectedPrice}`}
                 </p>
               </div>
               <motion.button
                 onClick={() => { void handleUpgrade(); }}
-                disabled={playBuying}
+                disabled={playBuying || (playBuild && !playPriceByPlan[selectedPlan])}
                 whileTap={{ scale: 0.96 }}
                 className="px-6 py-3.5 rounded-xl text-[15px] font-bold bg-primary-strong text-primary-foreground flex items-center gap-2"
                 style={{ boxShadow: '0 10px 30px -8px hsl(var(--primary) / 0.5)' }}
               >
-                {playBuying ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Buy with Google Play'}
+                {playBuying ? <Loader2 className="w-4 h-4 animate-spin" /> : playBuild ? 'Buy with Google Play' : 'Subscribe'}
               </motion.button>
             </div>
           </motion.div>
@@ -530,6 +568,7 @@ interface PlanCardProps {
   onSelect: () => void;
   title: string;
   price: number;
+  formattedPrice?: string;
   perMonth: string;
   tagline: string;
   badge?: string;
@@ -537,7 +576,7 @@ interface PlanCardProps {
 }
 
 const PlanCard = memo(function PlanCard({
-  selected, onSelect, title, price, perMonth, tagline, badge, recommended,
+  selected, onSelect, title, price, formattedPrice, perMonth, tagline, badge, recommended,
 }: PlanCardProps) {
   return (
     <motion.button
@@ -592,7 +631,7 @@ const PlanCard = memo(function PlanCard({
 
       {/* Price */}
       <div className="text-right shrink-0">
-        <p className="text-[20px] font-bold leading-none tracking-tight">₹{price}</p>
+        <p className="text-[20px] font-bold leading-none tracking-tight">{formattedPrice || `₹${price}`}</p>
         <p className="text-[10px] mt-1 text-muted-foreground">{perMonth}</p>
       </div>
     </motion.button>

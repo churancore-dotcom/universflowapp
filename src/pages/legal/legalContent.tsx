@@ -21,9 +21,9 @@ export const UserTermsBody = (): ReactNode => (
     <p>The App lets you stream licensed music, build libraries and playlists, and (where supported) download for offline listening. You may use the App for personal, non-commercial enjoyment only. Offline copies stay inside the App and may stop playing after the applicable access period ends.</p>
     <p>You agree not to: (a) attempt to reverse-engineer, scrape, or rip the audio streams; (b) bypass any rate limits, ads, or premium gates; (c) use bots; (d) upload anything that is illegal, infringing, hateful, or harmful.</p>
 
-    <h2>5. Premium subscriptions</h2>
-    <p>Premium gives you ad-free playback, downloads and other features for the duration shown before purchase. Android purchases distributed through Google Play use Google Play Billing. Availability, price, tax and renewal terms are shown in the purchase screen before confirmation.</p>
-    <p><strong>Refund policy:</strong> Premium purchases are final and non-refundable after activation, except where Google Play policy or applicable law requires a refund. A failed, duplicate or unactivated charge does not count as an activated Premium purchase; contact {SUPPORT_EMAIL} or use Google Play&rsquo;s purchase support. Cancelling an auto-renewing plan stops future renewal but does not refund the current access period.</p>
+    <h2>5. Premium access</h2>
+    <p>Premium gives you ad-free playback, downloads and other features for the fixed duration shown before purchase. Android purchases distributed through Google Play use Google Play Billing. The current 30-, 60- and 90-day access packs do not auto-renew. Availability, price and tax are shown by Google Play before confirmation.</p>
+    <p><strong>Refund policy:</strong> Premium purchases are final and non-refundable after activation, except where Google Play policy or applicable law requires a refund. A failed, duplicate or unactivated charge does not count as an activated Premium purchase; contact {SUPPORT_EMAIL} or use Google Play&rsquo;s purchase support.</p>
 
     <h2>6. Copyright notices</h2>
     <p>If you believe content infringes your rights, email {SUPPORT_EMAIL} with your name and contact details, the work claimed, the exact song or page, proof of ownership or authority, a good-faith statement, and a statement that the information is accurate. We may remove or restrict disputed content while reviewing the notice.</p>
@@ -39,7 +39,6 @@ export const UserTermsBody = (): ReactNode => (
     <h2>9. Changes</h2>
     <p>We may update these Terms. Continued use after an update means you accept the new Terms.</p>
 
-    <h2>10. Contact</h2>
     <h2>10. Advertising</h2>
     <p>The free service may show clearly identified in-app advertising. Premium suppresses those ad placements while active. We do not sell personal data or share it with advertising networks.</p>
 
