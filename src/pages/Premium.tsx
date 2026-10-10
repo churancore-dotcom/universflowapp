@@ -350,7 +350,7 @@ const PremiumPage = memo(function PremiumPage() {
           <section className="pt-10 pb-8">
             <div className="mb-5"><LogoBadge size={64} /></div>
             <p className="text-[10.5px] font-bold tracking-[0.32em] uppercase text-primary mb-3">
-              Subscription
+              Fixed-term access
             </p>
             <h1 className="text-[36px] leading-[1.04] font-bold tracking-tight mb-3">
               Universflow <span className="text-primary">Premium</span>
@@ -406,28 +406,28 @@ const PremiumPage = memo(function PremiumPage() {
                 <PlanCard
                   selected={selectedPlan === 'bimonthly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('bimonthly'); }}
-                  badge={`Save ${bimonthlySave}%`}
+                  badge={playBuild ? undefined : `Save ${bimonthlySave}%`}
                   title="2 Months"
                   price={bimonthly}
                   formattedPrice={playBuild ? playPriceByPlan.bimonthly : undefined}
-                  perMonth={`₹${bimonthlyPerMo}/mo`}
+                  perMonth={playBuild ? '60 days' : `₹${bimonthlyPerMo}/mo`}
                   tagline="Most popular"
                   recommended
                 />
                 <PlanCard
                   selected={selectedPlan === 'quarterly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('quarterly'); }}
-                  badge={`Save ${quarterlySave}%`}
+                  badge={playBuild ? undefined : `Save ${quarterlySave}%`}
                   title="3 Months"
                   price={quarterly}
                   formattedPrice={playBuild ? playPriceByPlan.quarterly : undefined}
-                  perMonth={`₹${quarterlyPerMo}/mo`}
+                  perMonth={playBuild ? '90 days' : `₹${quarterlyPerMo}/mo`}
                   tagline="Best value"
                 />
                 <PlanCard
                   selected={selectedPlan === 'monthly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('monthly'); }}
-                  title="Monthly"
+                  title={playBuild ? '30 Days' : 'Monthly'}
                   price={monthly}
                   formattedPrice={playBuild ? playPriceByPlan.monthly : undefined}
                   perMonth="30 days"
@@ -498,7 +498,7 @@ const PremiumPage = memo(function PremiumPage() {
         </main>
 
         {/* ─── Sticky bottom CTA ─── */}
-        {!isPremium && !pending && settings && (
+        {!isPremium && !pending && (playBuild || settings) && (
           <motion.div
             initial={{ y: 80, opacity: 0 }} animate={{ y: 0, opacity: 1 }}
             transition={{ ...iosSpring, delay: 0.15 }}
