@@ -1,14 +1,9 @@
 import { createServerFn } from '@tanstack/react-start';
 import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
 import { z } from 'zod';
+import { entitlementExpiry, PLAY_PRODUCT_DAYS, type PlayProductId } from '@/lib/playEntitlements';
 
 const PACKAGE_NAME = 'com.universeflow.app';
-const PRODUCT_DAYS: Record<string, number> = {
-  universflow_premium_1m: 30,
-  universflow_premium_2m: 60,
-  universflow_premium_3m: 90,
-};
-
 const inputSchema = z.object({
   productId: z.enum(['universflow_premium_1m', 'universflow_premium_2m', 'universflow_premium_3m']),
   purchaseToken: z.string().min(20).max(4096),
@@ -73,7 +68,9 @@ export const verifyPlayPurchase = createServerFn({ method: 'POST' })
       .select('expires_at').eq('user_id', context.userId).maybeSingle();
     const existingExpiry = existing?.expires_at ? new Date(existing.expires_at).getTime() : 0;
     const startAt = Math.max(Date.now(), existingExpiry);
-    const expiresAt = new Date(startAt + PRODUCT_DAYS[data.productId] * 24 * 60 * 60 * 1000).toISOString();
+    const productId = data.productId as PlayProductId;
+    if (!PLAY_PRODUCT_DAYS[productId]) throw new Error('Unknown Premium product');
+    const expiresAt = entitlementExpiry(productId, startAt);
     const transactionId = purchase.orderId || data.orderId || `play:${data.productId}`;
     const { error } = await supabaseAdmin.from('user_subscriptions').upsert({
       user_id: context.userId,
