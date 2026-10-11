@@ -281,7 +281,7 @@ const DownloadsPage = memo(function DownloadsPage() {
                   {downloads.map(song => (
                     <motion.div
                       key={song.id}
-                      layout
+                      layout={downloads.length <= 30}
                       initial={{ opacity: 0, y: 6 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: 16 }}
@@ -290,6 +290,8 @@ const DownloadsPage = memo(function DownloadsPage() {
                       style={{
                         background: 'hsl(var(--card) / 0.55)',
                         border: '0.5px solid hsl(var(--border) / 0.45)',
+                        contentVisibility: 'auto',
+                        containIntrinsicSize: 'auto 72px',
                       }}
                     >
                       <button
