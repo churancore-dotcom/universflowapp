@@ -682,6 +682,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const upSteps = 14;
         void ExoPlayerPlugin.setVolume({ volume: 0 }).catch(() => undefined);
         nativeFadeUpTimerRef.current = window.setInterval(() => {
+          // A manual skip or another play request invalidates this ramp. Letting
+          // it continue would make an old transition change the new song's volume.
+          if (playRequestSeqRef.current !== startSeq) {
+            if (nativeFadeUpTimerRef.current != null) {
+              window.clearInterval(nativeFadeUpTimerRef.current);
+              nativeFadeUpTimerRef.current = null;
+            }
+            void ExoPlayerPlugin.setVolume({ volume: volumeRef.current }).catch(() => undefined);
+            return;
+          }
           up++;
           const progress = Math.min(1, up / upSteps);
           const g = Math.max(0, Math.min(1, 1 - curveGain(1 - progress)));
@@ -1011,6 +1021,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     // Native app resume — only fires inside Capacitor APK. Web preview ignores.
     let appResumeRemove: (() => void) | null = null;
+    let appResumeCancelled = false;
     (async () => {
       try {
         const modName = '@capacitor/app';
@@ -1053,11 +1064,16 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             a.play().catch(() => {});
           }
         });
+        if (appResumeCancelled) {
+          try { await handle.remove?.(); } catch { /* ignore */ }
+          return;
+        }
         appResumeRemove = () => { try { handle.remove?.(); } catch { /* ignore */ } };
       } catch { /* ignore */ }
     })();
 
     return () => {
+      appResumeCancelled = true;
       if (waitingTimer != null) clearTimeout(waitingTimer);
       for (const el of mediaEls) {
         el.removeEventListener('waiting', handleWaiting);

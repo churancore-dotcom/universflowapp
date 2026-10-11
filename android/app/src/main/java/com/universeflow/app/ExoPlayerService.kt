@@ -53,6 +53,7 @@ class ExoPlayerService : MediaSessionService() {
         private const val WAKELOCK_TAG = "UniverseFlow::ExoWakeLock"
         private const val WIFILOCK_TAG = "UniverseFlow::ExoWifiLock"
         private const val WAKELOCK_TIMEOUT_MS = 4L * 60L * 60L * 1000L
+        private const val LOCK_RENEWAL_MS = 3L * 60L * 60L * 1000L
         const val NOTIFICATION_CHANNEL_ID = "uf_playback"
         const val NOTIFICATION_ID = 8801
         // Smoothed effect-ramp shape (see applySavedEffectsToBoundSession).
@@ -121,6 +122,15 @@ class ExoPlayerService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var wakeLock: PowerManager.WakeLock? = null
     private var wifiLock: WifiManager.WifiLock? = null
+    private val lockHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val lockRenewal = object : Runnable {
+        override fun run() {
+            val p = player
+            if (p == null || (!p.isPlaying && !(p.playWhenReady && p.playbackState == Player.STATE_BUFFERING))) return
+            renewLocks()
+            lockHandler.postDelayed(this, LOCK_RENEWAL_MS)
+        }
+    }
 
     // ---- Lock-screen / Control-Center mini player extras ----
     @Volatile private var liked: Boolean = false
@@ -779,10 +789,20 @@ class ExoPlayerService : MediaSessionService() {
                 }
             }
             if (wifiLock?.isHeld != true) wifiLock?.acquire()
+            lockHandler.removeCallbacks(lockRenewal)
+            lockHandler.postDelayed(lockRenewal, LOCK_RENEWAL_MS)
         } catch (_: Throwable) { /* noop */ }
     }
 
+    private fun renewLocks() {
+        try {
+            if (wakeLock?.isHeld == true) wakeLock?.release()
+        } catch (_: Throwable) {}
+        acquireLocks()
+    }
+
     private fun releaseLocks() {
+        lockHandler.removeCallbacks(lockRenewal)
         try { if (wakeLock?.isHeld == true) wakeLock?.release() } catch (_: Throwable) {}
         try { if (wifiLock?.isHeld == true) wifiLock?.release() } catch (_: Throwable) {}
     }
