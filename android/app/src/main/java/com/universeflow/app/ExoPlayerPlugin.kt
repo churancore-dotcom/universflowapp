@@ -157,6 +157,9 @@ class ExoPlayerPlugin : Plugin() {
         }
         override fun onServiceDisconnected(name: ComponentName?) {
             Log.d("ExoPlayerPlugin", "ServiceConnection.onServiceDisconnected")
+            playerListener?.let { listener ->
+                try { listenerPlayer?.removeListener(listener) } catch (_: Throwable) {}
+            }
             serviceConnected = false
             serviceBindAttempted = false
             listenerAttached = false
@@ -371,6 +374,10 @@ class ExoPlayerPlugin : Plugin() {
                 )
             }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                // Retry allowance belongs to one media item. Without resetting
+                // here, failures on earlier songs eventually disabled recovery
+                // for every later song in a long listening session.
+                errorRetryCount = 0
                 mediaItem?.let {
                     notifyListeners(
                         "mediaItemTransition",

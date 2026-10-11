@@ -1,5 +1,9 @@
 # Roadmap
 
+- [x] Correct the Play Console ownership record and remove the mistakenly supplied Play service credential.
+- [x] Harden long listening sessions: reset per-song retries, prevent duplicate native listeners, cancel stale app-resume listeners and volume ramps, and renew Android playback locks before timeout.
+- [ ] Verify long-session playback on a newly built Android APK — blocked by unavailable Android build tools/device.
+
 - [ ] Make the Google Play release submission-ready: Play Billing fixed-duration products, Play-supplied pricing/restore, accurate refund disclosure, seven-day recoverable account deletion with hourly cleanup, policy corrections, Android security hardening, and deterministic signed AAB validation are implemented; blocked on publishing the cleanup endpoint and validating a real signed AAB/Play purchase on-device.
 - [ ] Complete Google Play Console declarations and the personal-account closed test — blocked on the developer account, rights documents, tester group, and Play Console access.
 
