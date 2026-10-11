@@ -711,6 +711,17 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
   const memHit = chartsMemCache.get(cacheKey);
   const now = Date.now();
   if (memHit && memHit.expiresAt > now) return memHit.data;
+  // Device cache: charts saved within the last 30 min open instantly on launch.
+  try {
+    const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(`uf:${cacheKey}`) : null;
+    if (raw) {
+      const disk = JSON.parse(raw) as { data: YtmCharts; savedAt: number };
+      if (now - disk.savedAt < 30 * 60 * 1000) {
+        chartsMemCache.set(cacheKey, { data: disk.data, expiresAt: disk.savedAt + 30 * 60 * 1000 });
+        return disk.data;
+      }
+    }
+  } catch { /* ignore corrupt cache */ }
   const inflight = chartsInflight.get(cacheKey);
   if (inflight) return inflight;
   const p = (async () => {
@@ -730,6 +741,7 @@ export async function getYouTubeMusicCharts(country = 'ZZ', limit = 40): Promise
           country: data?.country || cc,
         };
         chartsMemCache.set(cacheKey, { data: out, expiresAt: Date.now() + 30 * 60 * 1000 });
+        try { localStorage.setItem(`uf:${cacheKey}`, JSON.stringify({ data: out, savedAt: Date.now() })); } catch { /* quota */ }
         return out;
       }
       return { top: [], trending: [], videos: [], country: cc } as YtmCharts;

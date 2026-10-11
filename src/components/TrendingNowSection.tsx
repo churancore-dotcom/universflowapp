@@ -36,8 +36,11 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // search for "top songs this week" is not a chart and skewed every market
   // toward the same rows. This path also works while signed out.
   const { data: countryChart, isLoading: countryChartLoading } = useCountryCharts(country, enabled);
+  // Official weekly Top Songs (most-played) leads — those are the real hits.
+  // The fast-mover Trending chart follows; the music-video chart is excluded
+  // because it surfaced older, non-viral uploads at the top.
   const youtubePool = useMemo(
-    () => [...(charts?.trending ?? []), ...(charts?.top ?? []), ...(charts?.videos ?? [])],
+    () => [...(charts?.top ?? []), ...(charts?.trending ?? [])],
     [charts],
   );
   const servedCountry = youtubePool.length ? (charts?.country || country) : (countryChart?.country ?? country);
