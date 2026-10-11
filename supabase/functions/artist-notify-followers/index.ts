@@ -4,8 +4,6 @@ import { corsHeaders } from 'npm:@supabase/supabase-js@2/cors';
 interface Body {
   slug?: string;
   song_id?: string | null;
-  title?: string;
-  body?: string;
 }
 
 const COOLDOWN_MS = 24 * 60 * 60 * 1000;
@@ -32,7 +30,8 @@ Deno.serve(async (req) => {
 
   let body: Body = {};
   try { body = await req.json(); } catch { /* ignore */ }
-  // Strip control chars, URLs and domains so artist text can't be used for phishing.
+
+  // Strip control chars and URLs/domains from names that get embedded in templates.
   const clean = (s: unknown, max: number) => String(s ?? '')
     .replace(/[\u0000-\u001F\u007F]/g, ' ')
     .replace(/\b(?:https?:\/\/|www\.)\S+/gi, '')
@@ -40,9 +39,6 @@ Deno.serve(async (req) => {
     .replace(/\s+/g, ' ')
     .trim()
     .slice(0, max);
-  const rawTitle = clean(body.title, 80);
-  const message = clean(body.body, 200);
-  if (!rawTitle || !message) return json({ error: 'Title and body are required.' }, 400);
 
   const admin = createClient(url, serviceKey);
 
@@ -58,9 +54,31 @@ Deno.serve(async (req) => {
   const { data: isArtist } = await admin.rpc('has_role', { _user_id: userId, _role: 'artist' });
   if (!isArtist) return json({ error: 'Not an artist account.' }, 403);
 
-  // Always attribute the notification to the artist so it can't impersonate the app.
+  // Fixed templates only: notification wording is written by the app, never by the caller.
+  // The artist's name is always attached so it can't impersonate the app.
   const stage = clean(prof.stage_name, 40) || 'An artist you follow';
-  const title = `${stage}: ${rawTitle}`.slice(0, 120);
+  let title = `${stage} has an update`;
+  let message = "Open the artist page to see what's new.";
+
+  const requestedSong = typeof body.song_id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(body.song_id)
+    ? body.song_id
+    : null;
+  let songId: string | null = null;
+  if (requestedSong) {
+    // The song must belong to this artist; its title comes from the database, not the request.
+    const { data: song } = await admin
+      .from('artist_songs')
+      .select('id, title')
+      .eq('id', requestedSong)
+      .eq('artist_user_id', userId)
+      .maybeSingle();
+    if (!song) return json({ error: 'Song not found.' }, 404);
+    songId = song.id;
+    const songTitle = clean(song.title, 60) || 'a new song';
+    title = `${stage} dropped “${songTitle}”`;
+    message = 'Tap to listen — fresh from the studio.';
+  }
+  title = title.slice(0, 120);
 
   // Throttle: 24h cooldown
   const { data: thr } = await admin
@@ -96,9 +114,6 @@ Deno.serve(async (req) => {
     return json({ ok: true, notified: 0 });
   }
 
-  const songId = typeof body.song_id === 'string' && /^[a-zA-Z0-9_-]{1,80}$/.test(body.song_id)
-    ? body.song_id
-    : null;
   const safeSlug = encodeURIComponent(prof.slug);
   const deepLink = songId
     ? `/a/${safeSlug}?song=${encodeURIComponent(songId)}`
