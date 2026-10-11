@@ -438,10 +438,12 @@ const Library = () => {
                         <motion.div
                           key={`dl-${song.id}-${i}`}
                           className="flex items-center gap-2.5 p-2.5 rounded-xl"
-                          initial={{ opacity: 0, x: -10 }}
+                          initial={i < 12 ? { opacity: 0, x: -10 } : false}
                           animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.03 }}
+                          transition={{ delay: Math.min(i, 12) * 0.03 }}
                           style={{
+                            contentVisibility: 'auto',
+                            containIntrinsicSize: 'auto 64px',
                             background: currentSong?.id === song.id ? 'hsl(var(--primary) / 0.08)' : 'transparent',
                           }}
                         >
