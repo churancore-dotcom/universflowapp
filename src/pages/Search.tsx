@@ -1127,7 +1127,7 @@ const Search = () => {
                         onClick={() => navigate(`/artists?focus=${encodeURIComponent(a.name)}`)}
                         initial={{ opacity: 0, y: 6 }}
                         animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: i * 0.03, duration: 0.25 }}
+                        transition={{ delay: Math.min(i, 10) * 0.03, duration: 0.25 }}
                         className="relative aspect-square overflow-hidden rounded-[28px] text-left active:scale-[0.97] transition-transform bg-card border border-border"
                       >
                         <img

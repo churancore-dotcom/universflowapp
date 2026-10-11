@@ -352,7 +352,7 @@ const Library = () => {
                         className="relative flex flex-col items-center p-3 rounded-[28px]"
                         initial={{ opacity: 0, scale: 0.9 }}
                         animate={{ opacity: 1, scale: 1 }}
-                        transition={{ delay: i * 0.05 }}
+                        transition={{ delay: Math.min(i, 10) * 0.05 }}
                         style={{
                           background: 'hsl(var(--foreground) / 0.05)',
                           border: '1px solid hsl(var(--foreground) / 0.05)',
@@ -505,7 +505,7 @@ const Library = () => {
                         className="w-full flex items-center gap-2.5 p-2.5 rounded-xl active:scale-[0.98] transition-transform"
                         initial={{ opacity: 0, x: -10 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.05 }}
+                        transition={{ delay: Math.min(i, 10) * 0.05 }}
                       >
                         <button
                           className="flex-1 flex items-center gap-2.5 text-left min-w-0"
