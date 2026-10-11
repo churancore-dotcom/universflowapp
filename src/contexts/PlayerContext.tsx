@@ -758,10 +758,13 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const persistPlayerSnapshot = useCallback(() => {
     if (!queueRestoredRef.current) return;
     try {
-      const trimmed = queue.slice(0, 100);
+      // Keep a 100-song window AROUND the current song. Slicing from the start
+      // dropped the playing song in long sessions, so relaunch resumed an old one.
+      const start = Math.max(0, Math.min(currentIndex - 20, queue.length - 100));
+      const trimmed = queue.slice(start, start + 100);
       localStorage.setItem(PLAYER_QUEUE_STATE_KEY, JSON.stringify({
         queue: trimmed,
-        index: Math.min(currentIndex, trimmed.length - 1),
+        index: Math.max(0, Math.min(currentIndex - start, trimmed.length - 1)),
         song: currentSong,
         progress: playerProgressStore.getEstimatedProgress(),
         duration: playerProgressStore.getDuration(),
