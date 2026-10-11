@@ -580,8 +580,6 @@ function NotifyFollowers({
         body: {
           slug,
           song_id: selected?.id ?? null,
-          title: selected ? `${stageName} dropped “${selected.title}”` : `${stageName} has an update`,
-          body: selected ? 'Tap to listen — fresh from the studio.' : 'Open the artist page to see what\'s new.',
         },
       });
       if (error) throw error;
