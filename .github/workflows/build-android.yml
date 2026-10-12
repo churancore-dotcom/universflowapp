@@ -280,25 +280,20 @@ jobs:
           fi
           echo "Native package verified: com.universeflow.app"
 
-      - name: Apply custom app launcher icon (Universflow logo)
+      - name: Verify committed launcher icon (Universflow U logo)
         run: |
-          ICON="android-config/app-icon.png"
-          if [ -f "$ICON" ]; then
-            for d in mipmap-mdpi mipmap-hdpi mipmap-xhdpi mipmap-xxhdpi mipmap-xxxhdpi; do
-              DIR="android/app/src/main/res/$d"
-              mkdir -p "$DIR"
-              cp "$ICON" "$DIR/ic_launcher.png"
-              cp "$ICON" "$DIR/ic_launcher_round.png"
-              cp "$ICON" "$DIR/ic_launcher_foreground.png"
+          # The committed adaptive + round icons in android/app/src/main/res are the
+          # source of truth; do not overwrite them with a raw PNG.
+          RES="android/app/src/main/res"
+          for d in mdpi hdpi xhdpi xxhdpi xxxhdpi; do
+            for f in ic_launcher ic_launcher_round ic_launcher_foreground; do
+              if [ ! -f "$RES/mipmap-$d/$f.png" ]; then
+                echo "::error::Missing launcher icon $RES/mipmap-$d/$f.png"
+                exit 1
+              fi
             done
-            # Remove any adaptive-icon XMLs so the raw PNG is used directly
-            # (no zoom / no inset clipping by the system).
-            rm -f android/app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml \
-                  android/app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml || true
-            echo "Custom launcher icon applied (raw, no adaptive crop)."
-          else
-            echo "No custom icon found, using Capacitor default."
-          fi
+          done
+          echo "Committed launcher icons found."
 
       - name: Install notification status-bar icon (white silhouette)
         run: |
