@@ -64,7 +64,7 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
                     return@queryProductDetailsAsync
                 }
                 val list = JSArray()
-                details.productDetailsList.forEach { item ->
+                details.forEach { item ->
                     list.put(JSObject().apply {
                         put("productId", item.productId)
                         put("name", item.name)
@@ -92,7 +92,7 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
             billingClient.queryProductDetailsAsync(
                 QueryProductDetailsParams.newBuilder().setProductList(listOf(product)).build()
             ) { result, details ->
-                val item = details.productDetailsList.firstOrNull()
+                val item = details.firstOrNull()
                 if (result.responseCode != BillingClient.BillingResponseCode.OK || item == null) {
                     call.reject("Play product unavailable")
                     return@queryProductDetailsAsync
