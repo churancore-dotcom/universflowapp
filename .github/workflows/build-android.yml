@@ -394,15 +394,22 @@ jobs:
         # universflow.in/api/public/apk, so the site always offers the latest build.
         run: |
           if [ -z "$APK_UPLOAD_SECRET" ]; then
-            echo "::warning::APK_UPLOAD_SECRET GitHub secret is missing, so the website APK was not updated. The APK artifact above is still available."
+            echo "::error::No APK upload key reached this build, so the website APK was NOT updated. Add a repository secret named exactly APK_UPLOAD_SECRET (Settings > Secrets and variables > Actions > Secrets)."
             exit 0
           fi
-          curl --fail-with-body --silent --show-error --retry 3 --retry-delay 5 -X POST \
+          HTTP_CODE=$(curl --silent --show-error --retry 3 --retry-delay 5 \
+            -o /tmp/apk-upload-response.txt -w '%{http_code}' -X POST \
             "https://universflow.in/api/public/apk-upload" \
             -H "Authorization: Bearer $APK_UPLOAD_SECRET" \
             -H "Content-Type: application/vnd.android.package-archive" \
-            --data-binary @"android/app/build/outputs/apk/debug/renamed/Univers Flow.apk"
-          echo "APK published to website download endpoint."
+            --data-binary @"android/app/build/outputs/apk/debug/renamed/Univers Flow.apk")
+          if [ "$HTTP_CODE" = "200" ]; then
+            echo "APK published to website download endpoint."
+          else
+            echo "::error::Website APK upload failed with HTTP $HTTP_CODE: $(head -c 300 /tmp/apk-upload-response.txt 2>/dev/null)"
+          fi
         env:
-          APK_UPLOAD_SECRET: ${{ secrets.APK_UPLOAD_SECRET }}
+          # The repo secret was first saved as APK_UPLOAD_SECRE (missing the
+          # trailing T); accept that spelling until it is renamed.
+          APK_UPLOAD_SECRET: ${{ secrets.APK_UPLOAD_SECRET || secrets.APK_UPLOAD_SECRE }}
 
