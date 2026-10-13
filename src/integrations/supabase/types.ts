@@ -2725,6 +2725,7 @@ export type Database = {
         Args: { _artist_user_id: string }
         Returns: boolean
       }
+      is_username_available: { Args: { _username: string }; Returns: boolean }
       join_jam_room: {
         Args: { p_code: string; p_display_name?: string }
         Returns: string

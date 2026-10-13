@@ -324,14 +324,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return { error: new Error('Username can only contain letters, numbers, dots and underscores') };
       }
 
-      // Pre-flight uniqueness check (case-insensitive). Race-safe because the DB has a unique index too.
-      const { data: existing } = await supabase
-        .from('profiles')
-        .select('user_id')
-        .ilike('username', trimmedUsername)
-        .maybeSingle();
-      if (existing) {
-        return { error: new Error('That username is already taken') };
+      // Pre-flight uniqueness check (case-insensitive) via a signed-out-safe RPC;
+      // profile rows are not readable before sign-in, so a direct select always missed.
+      const { data: available } = await (supabase.rpc as any)('is_username_available', { _username: trimmedUsername });
+      if (available === false) {
+        return { error: new Error('That username is already taken. Please pick another one.') };
       }
 
       const { data: signUpData, error } = await supabase.auth.signUp({
