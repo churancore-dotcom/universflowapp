@@ -35,4 +35,4 @@
 - [x] Support proper timed video ads with image fallback and admin upload.
 - [x] Restore lightweight song sharing and remove animated story generation.
 - [x] Harden automatic website APK replacement after successful Android builds; remove outdated download details and confirm only one website APK exists.
-- [ ] Verify a real automatic APK upload — blocked on GitHub repository secret configuration and a successful Android workflow run, unavailable from this workspace.
+- [ ] Verify a real automatic APK upload — blocked on GitHub repository secret configuration and a successful Android workflow run, unavailable from this workspace.- [ ] Connect GitHub API in new workspace and re-check build runs
