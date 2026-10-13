@@ -78,6 +78,13 @@
       "when": 1791651132922,
       "tag": "0010_schedule_account_deletion_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1791914102783,
+      "tag": "0011_username_available",
+      "breakpoints": true
     }
   ]
 }
