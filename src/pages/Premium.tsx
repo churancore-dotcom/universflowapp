@@ -13,7 +13,6 @@ import { usePremium } from '@/hooks/usePremium';
 import { useHaptics } from '@/hooks/useHaptics';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useEmailVerified } from '@/hooks/useEmailVerified';
 import { toast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
 import appLogo from '@/assets/app-logo.webp';
@@ -652,7 +651,6 @@ type Step = 'pay' | 'confirm';
 const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClose, onSubmitted }: CheckoutProps) {
   const haptics = useHaptics();
   const { user } = useAuth();
-  const { requireVerified } = useEmailVerified();
   const [step, setStep] = useState<Step>('pay');
   const [utr, setUtr] = useState('');
   const [submitting, setSubmitting] = useState(false);
