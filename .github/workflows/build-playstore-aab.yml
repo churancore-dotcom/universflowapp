@@ -71,7 +71,7 @@ jobs:
             echo "::error::Supabase env missing — the bundle would black-screen. Aborting build."
             exit 1
           fi
-          npm run build:native
+          VITE_PLAY_STORE=true npm run build:native
           if [ ! -f dist/client/index.html ]; then
             echo "::error::dist/client/index.html missing — the bundle would be a black screen. Aborting."
             exit 1
