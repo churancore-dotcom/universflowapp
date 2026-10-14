@@ -29,7 +29,9 @@ interface PlayBillingPluginShape {
 
 const PlayBilling = registerPlugin<PlayBillingPluginShape>('PlayBilling');
 
-export const isPlayStoreBuild = () => Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+// Only the signed Play Store AAB build sets VITE_PLAY_STORE=true. Website APKs use UPI checkout.
+export const isPlayStoreBuild = () =>
+  import.meta.env.VITE_PLAY_STORE === 'true' && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
 
 export async function getPlayProducts(): Promise<PlayProduct[]> {
   if (!isPlayStoreBuild()) return [];
