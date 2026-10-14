@@ -37,3 +37,4 @@
 - [x] Harden automatic website APK replacement after successful Android builds; remove outdated download details and confirm only one website APK exists.
 - [ ] Verify a real automatic APK upload — cause found: the repository secret was saved as `APK_UPLOAD_SECRE` (missing the final T), so every build skipped publishing and the site still serves the 30 Sep file; workflow now accepts that spelling and reports upload failures loudly, awaiting a build that replaces the website APK.
 - [x] Connect GitHub API in new workspace and re-check build runs
+- [ ] Connect GitHub API in new workspace
