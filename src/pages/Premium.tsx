@@ -675,7 +675,6 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
 
   const submitUtr = async () => {
     if (!user) { toast({ title: 'Please sign in first', variant: 'destructive' }); return; }
-    if (!requireVerified('submit a payment')) return;
     const cleanUtr = utr.replace(/\D/g, '');
     if (cleanUtr.length !== 12) { toast({ title: 'UTR must be exactly 12 digits', variant: 'destructive' }); return; }
     setSubmitting(true);
