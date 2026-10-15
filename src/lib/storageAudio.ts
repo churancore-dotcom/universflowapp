@@ -11,8 +11,8 @@ import { supabase } from '@/integrations/supabase/client';
  * blobs, covers, app releases) is returned untouched.
  */
 const PUBLIC_MUSIC_PREFIX = '/storage/v1/object/public/music/';
-const SIGNED_TTL_SECONDS = 60 * 60; // 1 hour
-const CACHE_TTL_MS = 50 * 60 * 1000; // refresh before expiry
+const SIGNED_TTL_SECONDS = 10 * 60; // 10 minutes: limits playback after Premium cancellation
+const CACHE_TTL_MS = 8 * 60 * 1000; // refresh before expiry
 
 const signedCache = new Map<string, { url: string; expiresAt: number }>();
 
