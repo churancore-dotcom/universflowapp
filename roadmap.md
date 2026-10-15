@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Extend song management with visibility/AI-review filters, bounded pages, catalog export, and editorial placement controls.
+- [ ] Recheck real-song feed coverage and APK icon source consistency.
+
 - [x] Reconnect GitHub API after the latest workspace move (15 October); do not reuse earlier connections.
 
 - [x] Strengthen Trending/New Releases filtering against explicitly synthetic songs without changing official chart order; 11 focused tests passed.

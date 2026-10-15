@@ -4,7 +4,7 @@ import { cleanRail } from '../railQuality';
 import type { Song } from '@/contexts/PlayerContext';
 
 describe('real music editorial rails', () => {
-  it.each(['Made with AI', 'AI-generated vocals', 'A.I. cover', 'Synthetic vocals', 'ＡＩ music', 'Suno version', 'Song using AI', 'Song [AI]'])('rejects disclosed synthetic music: %s', (label) => {
+  it.each(['Made with AI', 'AI-generated vocals', 'A.I. cover', 'Synthetic vocals', 'ＡＩ music', 'Suno version', 'Song using AI', 'Song [AI]', 'AI-assisted composition', 'Composed by AI', 'Made-with-AI', 'A\u200bI-generated vocals'])('rejects disclosed synthetic music: %s', (label) => {
     expect(isAiGeneratedTrack({ title: label, artist: 'Uploader' })).toBe(true);
   });
   it('rejects AI disclosure in album metadata', () => {

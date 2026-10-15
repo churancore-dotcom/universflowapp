@@ -7,6 +7,8 @@
  */
 
 const AI_TITLE_PATTERNS: RegExp[] = [
+  /\bai[\s_-]*(?:assisted|composed|composition|production)\b/i,
+  /\b(?:generated|created|produced|written|made|composed)[\s_-]+(?:by[\s_-]+|with[\s_-]+|using[\s_-]+)?(?:ai|suno|udio)\b/i,
   /\b(?:ai|a\s*\.\s*i\s*\.)[\s_-]*(?:generated|made|powered|cover|music|song|voice|remix|vocals?)\b/i,
   /\b(?:song|music|cover|voice|vocals?|track)\s*(?:by|using|with)\s*ai\b/i,
   /(?:\(|\[)\s*(?:ai|a\s*\.\s*i\s*\.)\s*(?:\)|\])/i,
