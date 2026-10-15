@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Connect GitHub API fresh in the new workspace; do not reuse earlier connections.
+- [ ] Reconnect GitHub API after the latest workspace move (15 October); do not reuse earlier connections.
 
 - [ ] Strengthen Trending/New Releases filtering against explicitly synthetic songs without changing official chart order.
 - [ ] Reduce APK launcher mark size consistently across adaptive, round, and themed icons.
