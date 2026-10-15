@@ -4,6 +4,7 @@ import { Music, Users, PlayCircle, TrendingUp, Upload, Disc, Clock, Download, Ac
 import { supabase } from '@/integrations/supabase/client';
 import { useNavigate } from '@/lib/router-compat';
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
+import AdminWorkQueue from '@/components/admin/AdminWorkQueue';
 
 
 interface Stats {
@@ -257,6 +258,7 @@ const AdminDashboard = () => {
       </motion.div>
 
       {/* Stats Grid */}
+      <AdminWorkQueue />
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-4 mb-8">
         {statCards.map((stat, index) => {
           const Icon = stat.icon;

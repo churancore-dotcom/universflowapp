@@ -13,6 +13,9 @@
 - Playback trend events include the silently detected two-letter market so country charts reflect local listening.
 - Chart reads reject data older than 48 hours and exclude Last.fm all-time rows from the viral fallback because evergreen popularity is not current virality.
 - Trending follows official external chart order only: YouTube Music regional charts first, then fresh Apple Music most-played fallback; never use app listeners, AI, taste, Audius, JioSaavn, or keyword search to rank it.
+- Editorial rails use the shared AI-disclosure filter before display, preserving provider order; metadata detection cannot certify undisclosed synthetic tracks.
+- Admin work queues use existing RLS-protected counts and management destinations; pinned navigation is user-scoped convenience state, never authorization.
+- Launcher density assets share a centered, safe-zone foreground and monochrome mark; committed resources remain the build source of truth to prevent cropping and overwrites.
 - Player share uses a static image card plus link sharing only; never animated or video cards (user rejected them).
 - Ad completion is single-use and starts a cooldown before another completed-song boundary can schedule an ad.
 - Private artist identity-photo paths must be rooted in the authenticated artist's own storage folder before persistence and privileged reads.
