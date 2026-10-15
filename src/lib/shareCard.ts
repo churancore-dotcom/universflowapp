@@ -44,6 +44,7 @@ function sampleTint(img: HTMLImageElement | null): RGB {
       r += d[i] * w; g += d[i + 1] * w; b += d[i + 2] * w; n += w;
     }
     let t: RGB = [r / n, g / n, b / n];
+    if (Math.max(...t) - Math.min(...t) < 18) return fallback; // grey cover -> reference blue
     // normalise brightness so the card is never muddy or washed out
     const l = (t[0] + t[1] + t[2]) / 3 || 1;
     t = t.map((v) => Math.min(235, (v / l) * 140)) as RGB;
@@ -175,16 +176,17 @@ export async function renderShareCard(song: { title: string; artist: string; cov
   ctx.fillText('universflow.in   ·   no ads   ·   lossless', 72, 1864);
 
   // Footer brand pill
-  const pw = 348, ph = 84, px = W - 48 - pw, py = 1728;
+  const pw = 400, ph = 84, px = W - 48 - pw, py = 1728;
   roundRect(ctx, px, py, pw, ph, 42); ctx.fillStyle = 'rgba(8,8,12,0.88)'; ctx.fill();
   ctx.strokeStyle = 'rgba(255,255,255,0.1)'; ctx.lineWidth = 2; ctx.stroke();
   const lcx = px + 54, lcy = py + ph / 2;
   ctx.save(); ctx.beginPath(); ctx.arc(lcx, lcy, 27, 0, Math.PI * 2); ctx.fillStyle = '#000'; ctx.fill(); ctx.clip();
   if (logo) ctx.drawImage(logo, lcx - 27, lcy - 27, 54, 54);
   ctx.restore();
-  ctx.font = `40px ${DISPLAY}`; ctx.fillStyle = '#ffffff'; ctx.fillText('UniversFlow', px + 96, lcy + 14);
+  ctx.font = '700 32px "Barlow", sans-serif'; ctx.fillStyle = '#ffffff'; ctx.fillText('UniversFlow', px + 96, lcy + 11);
+  const bwid = ctx.measureText('UniversFlow').width;
   ctx.font = '500 20px "Barlow", sans-serif'; ctx.fillStyle = 'rgba(255,255,255,0.7)';
-  ctx.fillText('·  universflow.in', px + 228, lcy + 8);
+  ctx.fillText('·  universflow.in', px + 96 + bwid + 14, lcy + 8);
 
   return new Promise((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error('render'))), 'image/png'));
 }
