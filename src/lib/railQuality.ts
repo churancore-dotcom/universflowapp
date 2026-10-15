@@ -9,6 +9,7 @@
  */
 import { useSyncExternalStore } from 'react';
 import type { Song } from '@/contexts/PlayerContext';
+import { isAiGeneratedTrack } from './aiSlopFilter';
 
 const JUNK_TITLE = [
   /\bjukebox\b/i,
@@ -45,7 +46,7 @@ const AI_SPAM = [
 /** AI-made, fan-made, or spam re-upload — never shown anywhere in the app. */
 export function isAiOrSpamTrack(s: { title?: string | null; artist?: string | null; album?: string | null }): boolean {
   const hay = `${s.title || ''} ${s.artist || ''} ${s.album || ''}`;
-  return AI_SPAM.some((r) => r.test(hay));
+  return isAiGeneratedTrack(s) || AI_SPAM.some((r) => r.test(hay));
 }
 
 /** True when a track should never appear on an editorial home rail. */
