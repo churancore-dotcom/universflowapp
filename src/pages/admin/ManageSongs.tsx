@@ -1,12 +1,16 @@
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Music, Edit2, Trash2, Eye, EyeOff, Search, MoreVertical, Play, X, Save, HardDrive, Clock, Download } from 'lucide-react';
+import { Music, Edit2, Trash2, Eye, EyeOff, Search, MoreVertical, Play, Save, HardDrive, Clock, Download, ChevronLeft, ChevronRight, RefreshCw, ShieldAlert } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
+import { Switch } from '@/components/ui/switch';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { filterCatalog, csvCell, type CatalogFilter } from '@/lib/adminCatalog';
+import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
 
 interface Song {
   id: string;
@@ -17,6 +21,8 @@ interface Song {
   cover_url: string | null;
   audio_url: string;
   is_visible: boolean;
+  show_in_trending: boolean;
+  show_in_new_releases: boolean;
   play_count: number;
   created_at: string;
   file_size: number;
@@ -28,8 +34,12 @@ const ManageSongs = () => {
   const [songs, setSongs] = useState<Song[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
+  const [filter, setFilter] = useState<CatalogFilter>('all');
+  const [page, setPage] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [fetchError, setFetchError] = useState(false);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
-  const [editForm, setEditForm] = useState({ title: '', artist: '', album: '', genre: '', play_count: 0 });
+  const [editForm, setEditForm] = useState({ title: '', artist: '', album: '', genre: '', play_count: 0, show_in_trending: false, show_in_new_releases: false });
   const [totalStats, setTotalStats] = useState({ size: 0, duration: 0, downloads: 0 });
 
   useEffect(() => {
@@ -67,21 +77,20 @@ const ManageSongs = () => {
   }, []);
 
   const fetchSongs = async () => {
-    const { data, error } = await supabase
-      .from('songs')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (!error && data) {
-      setSongs(data as any);
-      
-      // Calculate totals
-      const size = data.reduce((acc, s) => acc + (s.file_size || 0), 0);
-      const duration = data.reduce((acc, s) => acc + (s.duration || 0), 0);
-      const downloads = data.reduce((acc, s) => acc + (s.download_count || 0), 0);
-      setTotalStats({ size, duration, downloads });
-    }
-    setLoading(false);
+    setFetchError(false);
+    try {
+      const all: Song[] = [];
+      for (let offset = 0; ; offset += 500) {
+        const { data, error } = await supabase.from('songs').select('id,title,artist,album,genre,cover_url,audio_url,is_visible,show_in_trending,show_in_new_releases,play_count,created_at,file_size,duration,download_count').order('created_at', { ascending: false }).order('id').range(offset, offset + 499);
+        if (error) throw error;
+        const batch = (data || []).map(s => ({ ...s, file_size: s.file_size || 0, duration: s.duration || 0, download_count: s.download_count || 0 }));
+        all.push(...batch);
+        if (batch.length < 500) break;
+      }
+      setSongs(all);
+      setTotalStats({ size: all.reduce((n, s) => n + s.file_size, 0), duration: all.reduce((n, s) => n + s.duration, 0), downloads: all.reduce((n, s) => n + s.download_count, 0) });
+    } catch { setFetchError(true); toast.error('Could not load the song catalog'); }
+    finally { setLoading(false); }
   };
 
   const formatFileSize = (bytes: number) => {
@@ -114,6 +123,7 @@ const ManageSongs = () => {
     if (error) {
       toast.error('Failed to update visibility');
     } else {
+      setSongs(prev => prev.map(s => s.id === song.id ? { ...s, is_visible: !song.is_visible } : s));
       toast.success(song.is_visible ? 'Song hidden' : 'Song visible');
     }
   };
@@ -138,11 +148,15 @@ const ManageSongs = () => {
       album: song.album || '',
       genre: song.genre || '',
       play_count: song.play_count || 0,
+      show_in_trending: song.show_in_trending,
+      show_in_new_releases: song.show_in_new_releases,
     });
   };
 
   const saveEdit = async () => {
-    if (!editingSong) return;
+    if (!editingSong || saving) return;
+    if (!editForm.title.trim() || !editForm.artist.trim()) { toast.error('Song title and artist are required'); return; }
+    setSaving(true);
 
     const { error } = await supabase
       .from('songs')
@@ -152,24 +166,35 @@ const ManageSongs = () => {
         album: editForm.album || null,
         genre: editForm.genre || null,
         play_count: editForm.play_count,
+        show_in_trending: editForm.show_in_trending,
+        show_in_new_releases: editForm.show_in_new_releases,
       })
       .eq('id', editingSong.id);
+    setSaving(false);
 
     if (error) {
       toast.error('Failed to update song');
     } else {
       toast.success('Song updated');
       setEditingSong(null);
+      void fetchSongs();
     }
   };
 
-  const filteredSongs = songs.filter(song =>
-    song.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    song.artist.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const filteredSongs = filterCatalog(songs, searchQuery, filter);
+  const pages = Math.max(1, Math.ceil(filteredSongs.length / 50));
+  const currentPage = Math.min(page, pages - 1);
+  const visibleSongs = filteredSongs.slice(currentPage * 50, currentPage * 50 + 50);
+  const exportCatalog = () => {
+    const columns = ['title', 'artist', 'album', 'is_visible', 'show_in_trending', 'show_in_new_releases', 'play_count'] as const;
+    const csv = [columns.map(csvCell).join(','), ...filteredSongs.map(song => columns.map(key => csvCell(song[key])).join(','))].join('\r\n');
+    const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
+    const link = document.createElement('a'); link.href = url; link.download = 'universflow-song-catalog.csv'; link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
 
   return (
-    <div className="p-8">
+    <div className="p-4 md:p-8">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -226,7 +251,7 @@ const ManageSongs = () => {
 
       {/* Search */}
       <motion.div
-        className="mb-6"
+        className="mb-6 flex flex-wrap gap-3 items-center"
         initial={{ opacity: 0, y: 10 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
@@ -235,12 +260,21 @@ const ManageSongs = () => {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
           <Input
             value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
+            onChange={(e) => { setSearchQuery(e.target.value); setPage(0); }}
             placeholder="Search songs..."
             className="pl-10 bg-muted/50 border-white/10"
           />
         </div>
+        <Select value={filter} onValueChange={(v) => { setFilter(v as CatalogFilter); setPage(0); }}>
+          <SelectTrigger className="w-44" aria-label="Filter song catalog"><SelectValue /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All songs</SelectItem><SelectItem value="visible">Visible</SelectItem><SelectItem value="hidden">Hidden</SelectItem><SelectItem value="ai-review">AI disclosure review</SelectItem><SelectItem value="trending">Trending placement</SelectItem><SelectItem value="releases">New Releases placement</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button variant="outline" size="icon" title="Refresh catalog" aria-label="Refresh catalog" onClick={() => { setLoading(true); void fetchSongs(); }} disabled={loading}><RefreshCw /></Button>
+        <Button variant="outline" onClick={exportCatalog} disabled={!filteredSongs.length}><Download /> Export CSV</Button>
       </motion.div>
+      {fetchError && <p role="alert" className="text-destructive mb-4">Catalog unavailable. Refresh to try again.</p>}
 
       {/* Songs Table */}
       <motion.div
@@ -274,14 +308,14 @@ const ManageSongs = () => {
               </thead>
               <tbody>
                 <AnimatePresence>
-                  {filteredSongs.map((song, index) => (
+                  {visibleSongs.map((song, index) => (
                     <motion.tr
                       key={song.id}
                       className="border-b border-white/5 hover:bg-white/5 transition-colors"
                       initial={{ opacity: 0, y: 10 }}
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -20 }}
-                      transition={{ delay: index * 0.02 }}
+                      transition={{ delay: Math.min(index * 0.01, 0.15) }}
                     >
                       <td className="p-4">
                         <div className="flex items-center gap-3">
@@ -295,6 +329,7 @@ const ManageSongs = () => {
                           <div className="min-w-0">
                             <p className="font-medium truncate">{song.title}</p>
                             <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                            {isAiGeneratedTrack(song) && <p className="text-xs text-destructive flex items-center gap-1"><ShieldAlert className="w-3 h-3" />AI disclosure detected</p>}
                           </div>
                         </div>
                       </td>
@@ -347,6 +382,10 @@ const ManageSongs = () => {
           </div>
         )}
       </motion.div>
+      <div className="flex items-center justify-between gap-3 py-4">
+        <span className="text-sm text-muted-foreground">{filteredSongs.length} songs · Page {currentPage + 1} of {pages}</span>
+        <div className="flex gap-2"><Button variant="outline" size="icon" aria-label="Previous catalog page" disabled={currentPage === 0} onClick={() => setPage(currentPage - 1)}><ChevronLeft /></Button><Button variant="outline" size="icon" aria-label="Next catalog page" disabled={currentPage + 1 >= pages} onClick={() => setPage(currentPage + 1)}><ChevronRight /></Button></div>
+      </div>
 
       {/* Edit Dialog */}
       <Dialog open={!!editingSong} onOpenChange={() => setEditingSong(null)}>
@@ -398,12 +437,16 @@ const ManageSongs = () => {
               />
               <p className="text-xs text-muted-foreground mt-1">Set the displayed view count for this song</p>
             </div>
+            <div className="border-t border-border pt-4 space-y-3">
+              <div className="flex items-center justify-between gap-4"><label htmlFor="song-trending" className="text-sm font-medium">Trending placement</label><Switch id="song-trending" checked={editForm.show_in_trending} onCheckedChange={v => setEditForm(prev => ({ ...prev, show_in_trending: v }))} /></div>
+              <div className="flex items-center justify-between gap-4"><label htmlFor="song-releases" className="text-sm font-medium">New Releases placement</label><Switch id="song-releases" checked={editForm.show_in_new_releases} onCheckedChange={v => setEditForm(prev => ({ ...prev, show_in_new_releases: v }))} /></div>
+            </div>
             <div className="flex gap-3 pt-4">
               <Button variant="outline" onClick={() => setEditingSong(null)} className="flex-1">
                 Cancel
               </Button>
-              <Button onClick={saveEdit} className="flex-1 btn-premium">
-                <Save className="w-4 h-4 mr-2" /> Save Changes
+              <Button onClick={saveEdit} disabled={saving} className="flex-1 btn-premium">
+                <Save className="w-4 h-4 mr-2" /> {saving ? 'Saving…' : 'Save Changes'}
               </Button>
             </div>
           </div>
