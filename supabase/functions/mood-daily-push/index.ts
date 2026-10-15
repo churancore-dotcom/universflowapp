@@ -112,7 +112,9 @@ Deno.serve(async (req) => {
       const songs = plays.map((x) => `${x.title} - ${x.artist}`);
       const hour = new Date().getUTCHours(); // approximate; could be refined per-country
       const mood = await inferMood(songs, hour, GEMINI_KEY);
-      const country = p.country_code || plays[0]?.country_code || null;
+      // Only a strict 2-letter country code may reach the PostgREST filter string.
+      const rawCountry = String(p.country_code || plays[0]?.country_code || "").trim().toUpperCase();
+      const country = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
 
       // Pick a real viral track matching mood region; fallback to global
       const { data: picks } = await admin
