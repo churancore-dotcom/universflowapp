@@ -7,6 +7,10 @@
  */
 
 const AI_TITLE_PATTERNS: RegExp[] = [
+  /\b(?:ai|a\s*\.\s*i\s*\.)[\s_-]*(?:generated|made|powered|cover|music|song|voice|remix|vocals?)\b/i,
+  /\b(?:song|music|cover|voice|vocals?|track)\s*(?:by|using|with)\s*ai\b/i,
+  /(?:\(|\[)\s*(?:ai|a\s*\.\s*i\s*\.)\s*(?:\)|\])/i,
+  /\b(?:artificial\s+intelligence|synthetic\s+(?:voice|vocals?|music)|ai\s*music\s*factory)\b/i,
   /\bai[\s\-_]*(song|songs|music|cover|covers|voice|vocals?|generated|version|remix|mashup|track|beat|band|artist)\b/i,
   /\b(generated|created|produced|written|made)\s*(by|with|using)?\s*(ai|a\.i\.|chatgpt|gpt|suno|udio|riffusion)\b/i,
   /\b(suno|udio|riffusion|musicgen|boomy|soundraw|mubert|aiva)\b/i,
@@ -27,9 +31,11 @@ export function isAiGeneratedTrack(input: {
   artist?: string | null;
   album?: string | null;
 }): boolean {
-  const title = input.title || '';
-  const artist = input.artist || '';
-  const album = input.album || '';
+  // Normalize full-width letters and separators used to disguise AI labels.
+  const normalize = (value?: string | null) => (value || '').normalize('NFKC').replace(/[\u200B-\u200D\uFEFF]/g, '');
+  const title = normalize(input.title);
+  const artist = normalize(input.artist);
+  const album = normalize(input.album);
   if (AI_ARTIST_PATTERNS.some((p) => p.test(artist))) return true;
   const haystack = `${title} ${artist} ${album}`;
   return AI_TITLE_PATTERNS.some((p) => p.test(haystack));
