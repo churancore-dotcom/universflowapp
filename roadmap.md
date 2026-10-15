@@ -1,10 +1,11 @@
 # Roadmap
 
-- [ ] Reconnect GitHub API after the latest workspace move (15 October); do not reuse earlier connections.
+- [x] Reconnect GitHub API after the latest workspace move (15 October); do not reuse earlier connections.
 
-- [ ] Strengthen Trending/New Releases filtering against explicitly synthetic songs without changing official chart order.
-- [ ] Reduce APK launcher mark size consistently across adaptive, round, and themed icons.
-- [ ] Add searchable admin navigation, pinned controls, and a live pending-work overview using existing management pages.
+- [x] Strengthen Trending/New Releases filtering against explicitly synthetic songs without changing official chart order; 11 focused tests passed.
+- [x] Reduce APK launcher mark size consistently across adaptive, round, and themed icons; circular-mask previews checked.
+- [x] Add searchable admin navigation, pinned controls, and a live pending-work overview using existing management pages.
+- [ ] Verify the admin controls end to end — signed-in requesting account receives the access guard's Not Found screen; requires an authorized admin session.
 - [ ] Verify the new APK launcher on a phone — blocked by unavailable Android device.
 
 - [x] Correct the Play Console ownership record and remove the mistakenly supplied Play service credential.
