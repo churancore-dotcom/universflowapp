@@ -1,5 +1,10 @@
 # Roadmap
 
+- [ ] Strengthen Trending/New Releases filtering against explicitly synthetic songs without changing official chart order.
+- [ ] Reduce APK launcher mark size consistently across adaptive, round, and themed icons.
+- [ ] Add searchable admin navigation, pinned controls, and a live pending-work overview using existing management pages.
+- [ ] Verify the new APK launcher on a phone — blocked by unavailable Android device.
+
 - [x] Correct the Play Console ownership record and remove the mistakenly supplied Play service credential.
 - [x] Harden long listening sessions: reset per-song retries, prevent duplicate native listeners, cancel stale app-resume listeners and volume ramps, and renew Android playback locks before timeout.
 - [ ] Verify long-session playback on a newly built Android APK — blocked by unavailable Android build tools/device.
