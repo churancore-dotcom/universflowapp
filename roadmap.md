@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Connect GitHub API fresh in the new workspace; do not reuse earlier connections.
+
 - [ ] Strengthen Trending/New Releases filtering against explicitly synthetic songs without changing official chart order.
 - [ ] Reduce APK launcher mark size consistently across adaptive, round, and themed icons.
 - [ ] Add searchable admin navigation, pinned controls, and a live pending-work overview using existing management pages.
