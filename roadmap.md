@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Remove misleading admin controls and add catalog quality review, sorting, and confirmed bulk visibility actions; verify with an authorized account.
+
 - [x] Reconnect GitHub API after the new 16 October 11:02 UTC workspace move; freshly linked connection verified with the account read.
 
 - [x] Reconnect GitHub API after the 16 October workspace move; newly linked connection verified with the GitHub account read.
