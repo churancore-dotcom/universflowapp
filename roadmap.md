@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Reconnect GitHub API after the 16 October workspace move; discard earlier connection IDs.
+
 - [ ] Test current filtering and the release feed with signed-in live data; fix confirmed failures.
 - [ ] Verify admin catalog filters and CSV export using an authorized account.
 - [ ] Build the latest APK and inspect packaged launcher icons at phone sizes; report device-test limits.
