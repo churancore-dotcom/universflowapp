@@ -1,9 +1,9 @@
 # Roadmap
 
-- [ ] Reconnect GitHub API after the 16 October workspace move; discard earlier connection IDs.
+- [x] Reconnect GitHub API after the 16 October workspace move; newly linked connection verified with the GitHub account read.
 
-- [ ] Test current filtering and the release feed with signed-in live data; fix confirmed failures.
-- [ ] Verify admin catalog filters and CSV export using an authorized account.
+- [x] Test current filtering and the release feed with signed-in live data; 23 release-shelf tracks returned with no disclosed-AI matches, no browser errors, and focused tests passed. Metadata cannot certify undisclosed synthetic tracks.
+- [x] Verify admin catalog filters and CSV export using an authorized account; all six filters, album search, exact filtered CSV, full CSV, and formula escaping passed with hidden temporary rows, all removed afterward.
 - [ ] Build the latest APK and inspect packaged launcher icons at phone sizes; report device-test limits.
 
 - [x] Extend song management with visibility/AI-review filters, bounded pages, catalog export, and editorial placement controls; schema fields verified and 7 catalog tests passed.
@@ -14,7 +14,7 @@
 - [x] Strengthen Trending/New Releases filtering against explicitly synthetic songs without changing official chart order; 11 focused tests passed.
 - [x] Reduce APK launcher mark size consistently across adaptive, round, and themed icons; circular-mask previews checked.
 - [x] Add searchable admin navigation, pinned controls, and a live pending-work overview using existing management pages.
-- [ ] Verify the admin controls end to end — signed-in requesting account receives the access guard's Not Found screen; requires an authorized admin session.
+- [x] Verify the admin catalog controls end to end — tested with an existing authorized admin session without changing roles or access rules.
 - [ ] Verify the new APK launcher on a phone — blocked by unavailable Android device.
 
 - [x] Correct the Play Console ownership record and remove the mistakenly supplied Play service credential.

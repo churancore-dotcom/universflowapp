@@ -1,16 +1,16 @@
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { cleanRail, claimRailSongs, claimedByOtherRails, songFingerprint } from '../railQuality';
 import { isSpamSong } from '../../pages/Search';
 import type { Song } from '@/contexts/PlayerContext';
 
 describe('Release Feed & Filtering Integration', () => {
   const mockSongs: Song[] = [
-    { id: '1', title: 'Fresh Single', artist: 'Real Artist', cover_url: 'c1' },
-    { id: '2', title: 'Trending Hit', artist: 'Popular Artist', cover_url: 'c2' },
-    { id: '3', title: 'AI Song (Suno)', artist: 'Uploader', cover_url: 'c3' },
-    { id: '4', title: 'Trash (Slowed + Reverb)', artist: 'Uploader', cover_url: 'c4' },
-    { id: '5', title: 'Jukebox Medley', artist: 'Various Artists', cover_url: 'c5' },
-    { id: '6', title: 'Fresh Single', artist: 'Real Artist', cover_url: 'c6' }, // Duplicate
+    { id: '1', title: 'Fresh Single', artist: 'Real Artist', cover_url: 'c1', audio_url: '' },
+    { id: '2', title: 'Trending Hit', artist: 'Popular Artist', cover_url: 'c2', audio_url: '' },
+    { id: '3', title: 'AI Song (Suno)', artist: 'Uploader', cover_url: 'c3', audio_url: '' },
+    { id: '4', title: 'Trash (Slowed + Reverb)', artist: 'Uploader', cover_url: 'c4', audio_url: '' },
+    { id: '5', title: 'Jukebox Medley', artist: 'Various Artists', cover_url: 'c5', audio_url: '' },
+    { id: '6', title: 'Fresh Single', artist: 'Real Artist', cover_url: 'c6', audio_url: '' }, // Duplicate
   ];
 
   it('filters spam and junk correctly for FreshReleasesSection', () => {
