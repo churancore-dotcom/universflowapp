@@ -1,7 +1,7 @@
 # Roadmap
 
-- [ ] Extend song management with visibility/AI-review filters, bounded pages, catalog export, and editorial placement controls.
-- [ ] Recheck real-song feed coverage and APK icon source consistency.
+- [x] Extend song management with visibility/AI-review filters, bounded pages, catalog export, and editorial placement controls; schema fields verified and 7 catalog tests passed.
+- [x] Recheck real-song feed coverage and APK icon source consistency; New Releases uses the explicit release shelf without chart/search filler, 24 focused tests passed, circular icon previews checked, and AAB builds preserve committed icons.
 
 - [x] Reconnect GitHub API after the latest workspace move (15 October); do not reuse earlier connections.
 
