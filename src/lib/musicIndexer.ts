@@ -647,14 +647,12 @@ async function youtubeCountryRail(cc: string, queries: string[], limit: number):
 }
 
 /**
- * Fresh releases — real releases only. Order: official national chart (non-IN),
- * JioSaavn editorial (IN only), country-tuned catalog search, then the global
- * official chart. Unknown-uploader feeds (Audius underground) are never used:
- * they surfaced non-viral / AI-made uploads on Home. Name kept for callers.
+ * New releases come from the provider's release shelf, never search/chart hits.
+ * An unavailable release feed is empty rather than mislabeled evergreen filler.
  */
 export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Promise<IndexedTrack[]> {
   const cc = /^[A-Z]{2}$/.test((country || '').toUpperCase()) ? country.toUpperCase() : 'ZZ';
-  const key = `fresh-releases-v4:${cc}:${limit}`;
+  const key = `fresh-releases-v5:${cc}:${limit}`;
   const hit = newReleasesMemCache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.data;
   const save = (out: IndexedTrack[]) => {
@@ -662,24 +660,12 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
     return out;
   };
   try {
-    const year = new Date().getFullYear();
-    if (cc !== 'IN' && cc !== 'ZZ') {
-      const local = await countryChartTracks(cc, Math.max(limit, 40));
-      if (local.length >= 6) return save(local.slice(Math.floor(local.length / 3)).concat(local).slice(0, limit));
-    }
-    if (cc === 'IN') {
-      const { searchSongsAsTracksPaged } = await import('./jiosaavn');
-      const [hindi, punjabi] = await Promise.all([
-        searchSongsAsTracksPaged(`latest Bollywood songs ${year}`, Math.max(limit, 40)),
-        searchSongsAsTracksPaged(`new Punjabi songs ${year}`, Math.max(20, Math.ceil(limit / 2))),
-      ]);
-      const primary = mergeTrackSources(hindi, punjabi).slice(0, limit);
-      if (primary.length >= 6) return save(primary);
-    }
-    const ytNew = await youtubeCountryRail(cc, [`new songs ${year}`, `new music this week ${year}`], limit);
-    if (ytNew.length >= 6) return save(ytNew);
-    const global = await countryChartTracks('US', Math.max(limit, 40));
-    return global.length ? save(global.slice(0, limit)) : [];
+    const { data, error } = await supabase.functions.invoke<YoutubeNewReleasesResponse>('yt-music-search', {
+      body: { mode: 'new-releases', country: cc === 'ZZ' ? 'US' : cc, limit: Math.min(40, limit) },
+    });
+    if (error || !data?.success || !Array.isArray(data.results)) return [];
+    const { isJunkRailTrack } = await import('./railQuality');
+    return save(data.results.filter(track => track && !isJunkRailTrack(track)).slice(0, limit));
   } catch {
     return [];
   }

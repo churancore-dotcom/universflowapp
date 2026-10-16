@@ -14,6 +14,7 @@
 - Chart reads reject data older than 48 hours and exclude Last.fm all-time rows from the viral fallback because evergreen popularity is not current virality.
 - Trending follows official external chart order only: YouTube Music regional charts first, then fresh Apple Music most-played fallback; never use app listeners, AI, taste, Audius, JioSaavn, or keyword search to rank it.
 - Editorial rails use the shared AI-disclosure filter before display, preserving provider order; metadata detection cannot certify undisclosed synthetic tracks.
+- New Releases uses the provider's explicit release shelf and never substitutes keyword search or most-played charts; an empty shelf is preferable to mislabeled old songs.
 - Admin work queues use existing RLS-protected counts and management destinations; pinned navigation is user-scoped convenience state, never authorization.
 - Catalog management pages render bounded row windows, fetch all catalog batches for accurate filters/export, and neutralize spreadsheet formulas in CSV cells; this avoids truncated reviews and unsafe exports.
 - Launcher density assets share a centered, safe-zone foreground and monochrome mark; committed resources remain the build source of truth to prevent cropping and overwrites.
