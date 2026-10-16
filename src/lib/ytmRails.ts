@@ -56,7 +56,7 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
 
 export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
   return useQuery({
-    queryKey: ['ytm-new-releases-v3', country, limit, hourBucket()],
+    queryKey: ['ytm-new-releases-v4', country, limit, hourBucket()],
     enabled,
     staleTime: 10 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
