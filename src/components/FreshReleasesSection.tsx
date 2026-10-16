@@ -4,13 +4,11 @@ import { Song, usePlayer } from '@/contexts/PlayerContext';
 import OptimizedImage from './OptimizedImage';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { prewarmSongs, prewarmIntentProps } from '@/lib/instantPlay';
-import { useTasteProfile } from '@/hooks/useTasteProfile';
-import { tasteScore } from '@/lib/feedPersonalizer';
 import { isSpamSong } from '@/pages/Search';
 import { useYtmNewReleases } from '@/lib/ytmRails';
 import { useUserCountry } from '@/hooks/useUserCountry';
 import { RailSkeleton } from './PageSkeletons';
-import { cleanRail, diversifyByArtist, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
+import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 import { sliceUp, sliceTransition, pressShear } from '@/lib/ufMotion';
 import RailHeader from './RailHeader';
 
@@ -19,7 +17,6 @@ interface Props { songs?: Song[]; enabled?: boolean }
 
 const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   const { playSong } = usePlayer();
-  const taste = useTasteProfile();
   const country = useUserCountry();
   const { data: pool = [], isLoading } = useYtmNewReleases(country, 24, enabled);
   // Re-run the memo when another rail (Trending) changes what it claims.
@@ -35,20 +32,15 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
     // already showing is dropped here — that duplication is what made Home look
     // like it kept repeating the same songs.
     const claimed = claimedByOtherRails('fresh');
-    const clean = diversifyByArtist(
-      cleanRail(
+    const clean = cleanRail(
         pool.filter((s) => !isSpamSong(s) && !claimed.has(songFingerprint(s))),
         { requireCover: true },
-      ),
     );
     // New Releases must stay chronological (that's what "new" means). We only
     // bubble taste matches to the front, preserving recency inside each group,
     // instead of re-ranking or filtering real fresh drops out of the rail.
-    if (taste.signalCount < 5) return clean.slice(0, 12);
-    const liked = clean.filter((song) => tasteScore(song, taste) > 0);
-    const rest = clean.filter((song) => tasteScore(song, taste) <= 0);
-    return [...liked, ...rest].slice(0, 12);
-  }, [pool, taste, claimVersion]);
+    return clean.slice(0, 12);
+  }, [pool, claimVersion]);
 
 
 

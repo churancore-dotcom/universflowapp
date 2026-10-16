@@ -49,7 +49,7 @@ export function useYtmRail(key: string, query: string, limit = 20, enabled = tru
       }
       // Reshuffle per session so rails don't repeat identical order.
       // The API returns newest-first; do not randomize recency into an old-looking rail.
-      return out.slice(0, limit);
+      return cleanRail(out, { requireCover: true }).slice(0, limit);
     },
   });
 }
@@ -106,7 +106,7 @@ export function useYtmCharts(country: string, enabled = true) {
           const s = toSong(t);
           if (s) out.push(s);
         }
-        return out;
+        return cleanRail(out, { requireCover: true });
       };
       return {
         // Top Songs stays ranked (users expect the #1 to be #1).
