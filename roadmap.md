@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Test current filtering and the release feed with signed-in live data; fix confirmed failures.
+- [ ] Verify admin catalog filters and CSV export using an authorized account.
+- [ ] Build the latest APK and inspect packaged launcher icons at phone sizes; report device-test limits.
+
 - [x] Extend song management with visibility/AI-review filters, bounded pages, catalog export, and editorial placement controls; schema fields verified and 7 catalog tests passed.
 - [x] Recheck real-song feed coverage and APK icon source consistency; New Releases uses the explicit release shelf without chart/search filler, 24 focused tests passed, circular icon previews checked, and AAB builds preserve committed icons.
 
