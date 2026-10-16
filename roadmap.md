@@ -1,12 +1,12 @@
 # Roadmap
 
-- [ ] Reconnect GitHub API after the new 16 October 11:02 UTC workspace move; do not reuse earlier workspace connections.
+- [x] Reconnect GitHub API after the new 16 October 11:02 UTC workspace move; freshly linked connection verified with the account read.
 
 - [x] Reconnect GitHub API after the 16 October workspace move; newly linked connection verified with the GitHub account read.
 
 - [x] Test current filtering and the release feed with signed-in live data; 23 release-shelf tracks returned with no disclosed-AI matches, no browser errors, and focused tests passed. Metadata cannot certify undisclosed synthetic tracks.
 - [x] Verify admin catalog filters and CSV export using an authorized account; all six filters, album search, exact filtered CSV, full CSV, and formula escaping passed with hidden temporary rows, all removed afterward.
-- [ ] Build the latest APK and inspect packaged launcher icons at phone sizes; report device-test limits.
+- [x] Build the latest APK and inspect packaged launcher icons at phone sizes; run #933 succeeded, website APK replaced on 16 October, all 20 packaged PNGs match source and 48/64dp previews are centered. Physical phone testing remains unavailable.
 
 - [x] Extend song management with visibility/AI-review filters, bounded pages, catalog export, and editorial placement controls; schema fields verified and 7 catalog tests passed.
 - [x] Recheck real-song feed coverage and APK icon source consistency; New Releases uses the explicit release shelf without chart/search filler, 24 focused tests passed, circular icon previews checked, and AAB builds preserve committed icons.
@@ -54,6 +54,6 @@
 - [x] Support proper timed video ads with image fallback and admin upload.
 - [x] Restore lightweight song sharing and remove animated story generation.
 - [x] Harden automatic website APK replacement after successful Android builds; remove outdated download details and confirm only one website APK exists.
-- [ ] Verify a real automatic APK upload — cause found: the repository secret was saved as `APK_UPLOAD_SECRE` (missing the final T), so every build skipped publishing and the site still serves the 30 Sep file; workflow now accepts that spelling and reports upload failures loudly, awaiting a build that replaces the website APK.
+- [x] Verify a real automatic APK upload — run #933 completed publication on 16 October at 10:58 UTC, and the newly replaced website APK was downloaded and its packaged icons inspected.
 - [x] Connect GitHub API in new workspace and re-check build runs
 - [x] Connect GitHub API in new workspace
