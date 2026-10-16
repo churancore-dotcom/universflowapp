@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Reconnect GitHub API after the new 16 October 11:02 UTC workspace move; do not reuse earlier workspace connections.
+
 - [x] Reconnect GitHub API after the 16 October workspace move; newly linked connection verified with the GitHub account read.
 
 - [x] Test current filtering and the release feed with signed-in live data; 23 release-shelf tracks returned with no disclosed-AI matches, no browser errors, and focused tests passed. Metadata cannot certify undisclosed synthetic tracks.
