@@ -205,7 +205,12 @@ jobs:
         run: |
           AAB="android/app/build/outputs/bundle/release/app-release.aab"
           test -f "$AAB" || { echo "::error::No AAB produced"; exit 1; }
-          jarsigner -verify -strict -certs "$AAB"
+          # Upload keys are self-signed by design, so -strict would always fail.
+          # Only require that the bundle carries a valid signature.
+          OUT="$(jarsigner -verify "$AAB" 2>&1 || true)"
+          echo "$OUT" | tail -n 5
+          echo "$OUT" | grep -q "jar verified" || { echo "::error::AAB is not signed"; exit 1; }
+          echo "$OUT" | grep -q "unsigned" && { echo "::error::AAB is unsigned"; exit 1; } || true
           unzip -t "$AAB"
           unzip -l "$AAB" | grep -q "base/manifest/AndroidManifest.xml" || { echo "::error::AAB manifest missing"; exit 1; }
           unzip -l "$AAB" | grep -q "base/dex/classes.dex" || { echo "::error::AAB app code missing"; exit 1; }
