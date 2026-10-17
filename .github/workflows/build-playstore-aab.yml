@@ -62,6 +62,9 @@ jobs:
       - name: Install dependencies
         run: npm install --legacy-peer-deps
 
+      - name: Check Play payment safety rules
+        run: npx vitest run src/lib/__tests__/playPaymentPolicy.test.ts src/lib/__tests__/playEntitlements.test.ts
+
       - name: Build web assets (native shell)
         run: |
           export VITE_SUPABASE_URL="${VITE_SUPABASE_URL:-$(grep '^VITE_SUPABASE_URL=' .env | cut -d= -f2- | tr -d '"')}"

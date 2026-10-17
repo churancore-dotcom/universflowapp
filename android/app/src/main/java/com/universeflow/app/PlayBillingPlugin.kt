@@ -1,6 +1,5 @@
 package com.universeflow.app
 
-import com.android.billingclient.api.AcknowledgePurchaseParams
 import com.android.billingclient.api.BillingClient
 import com.android.billingclient.api.BillingClientStateListener
 import com.android.billingclient.api.BillingFlowParams
@@ -64,12 +63,12 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
                     return@queryProductDetailsAsync
                 }
                 val list = JSArray()
-                details.forEach { item ->
+                details.productDetailsList.forEach { item ->
                     list.put(JSObject().apply {
                         put("productId", item.productId)
                         put("name", item.name)
                         put("description", item.description)
-                        put("formattedPrice", item.oneTimePurchaseOfferDetails?.formattedPrice ?: "")
+                        put("formattedPrice", item.oneTimePurchaseOfferDetailsList?.firstOrNull()?.formattedPrice ?: "")
                     })
                 }
                 call.resolve(JSObject().apply { put("products", list) })
@@ -79,6 +78,10 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
 
     @PluginMethod
     fun purchase(call: PluginCall) {
+        if (pendingPurchaseCall != null) {
+            call.reject("A purchase is already in progress")
+            return
+        }
         val productId = call.getString("productId")
         if (productId.isNullOrBlank()) {
             call.reject("productId required")
@@ -92,15 +95,21 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
             billingClient.queryProductDetailsAsync(
                 QueryProductDetailsParams.newBuilder().setProductList(listOf(product)).build()
             ) { result, details ->
-                val item = details.firstOrNull()
+                val item = details.productDetailsList.firstOrNull()
                 if (result.responseCode != BillingClient.BillingResponseCode.OK || item == null) {
                     call.reject("Play product unavailable")
+                    return@queryProductDetailsAsync
+                }
+                val offer = item.oneTimePurchaseOfferDetailsList?.firstOrNull()
+                if (offer == null) {
+                    call.reject("Play purchase offer unavailable")
                     return@queryProductDetailsAsync
                 }
                 pendingPurchaseCall = call
                 val params = BillingFlowParams.newBuilder()
                     .setProductDetailsParamsList(listOf(
-                        BillingFlowParams.ProductDetailsParams.newBuilder().setProductDetails(item).build()
+                        BillingFlowParams.ProductDetailsParams.newBuilder()
+                            .setProductDetails(item).setOfferToken(offer.offerToken).build()
                     )).build()
                 val launch = billingClient.launchBillingFlow(activity, params)
                 if (launch.responseCode != BillingClient.BillingResponseCode.OK) {

@@ -17,8 +17,10 @@ import { toast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
 import appLogo from '@/assets/app-logo.webp';
 import { getPlayProducts, isPlayStoreBuild, restorePlayPurchases, startPlayPurchase, PLAY_PRODUCTS, type PlayPlan, type PlayProduct } from '@/lib/playBilling';
-import { verifyPlayPurchase } from '@/lib/playPurchase.functions';
+import { checkPlayBillingReady, verifyPlayPurchase } from '@/lib/playPurchase.functions';
 import { useServerFn } from '@tanstack/react-start';
+import { canBuyPlayProduct, planDisplayPrice } from '@/lib/playPaymentPolicy';
+import { Button } from '@/components/ui/button';
 
 
 const LogoBadge = ({ size = 56 }: { size?: number }) => (
@@ -109,18 +111,32 @@ const PremiumPage = memo(function PremiumPage() {
   const [openFeature, setOpenFeature] = useState<Feature | null>(null);
   const pendingBannerRef = useRef<HTMLDivElement | null>(null);
   const verifyPurchase = useServerFn(verifyPlayPurchase);
+  const checkBillingReady = useServerFn(checkPlayBillingReady);
+  const [playVerificationReady, setPlayVerificationReady] = useState(false);
+  const [playAvailability, setPlayAvailability] = useState<'loading' | 'ready' | 'unavailable'>('loading');
   const [playBuying, setPlayBuying] = useState(false);
   const [playProducts, setPlayProducts] = useState<PlayProduct[]>([]);
   const playBuild = isPlayStoreBuild();
 
-  useEffect(() => {
+  const loadPlayBilling = useCallback(async () => {
     if (!playBuild) return;
-    void getPlayProducts()
-      .then(setPlayProducts)
-      .catch(() => toast({ title: 'Google Play prices unavailable', description: 'Check your connection and try again.', variant: 'destructive' }));
-  }, [playBuild]);
+    setPlayAvailability('loading');
+    setPlayVerificationReady(false);
+    try {
+      const products = await getPlayProducts();
+      setPlayProducts(products);
+      const readiness = user ? await checkBillingReady() : { ready: false };
+      setPlayVerificationReady(readiness.ready);
+      setPlayAvailability(products.length && readiness.ready ? 'ready' : 'unavailable');
+    } catch {
+      setPlayAvailability('unavailable');
+    }
+  }, [checkBillingReady, playBuild, user]);
+
+  useEffect(() => { void loadPlayBilling(); }, [loadPlayBilling]);
 
   useEffect(() => {
+    if (playBuild) return;
     (async () => {
       const { data } = await supabase
         .from('app_settings')
@@ -141,7 +157,7 @@ const PremiumPage = memo(function PremiumPage() {
         payeeName: String(map.upi_payee_name ?? 'Universflow') || 'Universflow',
       });
     })();
-  }, []);
+  }, [playBuild]);
 
   useEffect(() => {
     if (playBuild || !user || isPremium) { setPending(null); return; }
@@ -218,6 +234,10 @@ const PremiumPage = memo(function PremiumPage() {
     haptics.medium();
     if (playBuild) {
       if (!user) { navigate('/auth'); return; }
+      if (playBuying || !canBuyPlayProduct(playPriceByPlan[selectedPlan], playVerificationReady)) {
+        toast({ title: 'Google Play purchase unavailable', description: 'No payment was taken. Please try again later.', variant: 'destructive' });
+        return;
+      }
       setPlayBuying(true);
       try {
         const purchase = await startPlayPurchase(selectedPlan as PlayPlan);
@@ -233,7 +253,7 @@ const PremiumPage = memo(function PremiumPage() {
       return;
     }
     setShowCheckout(true);
-  }, [haptics, navigate, playBuild, refetchPremium, selectedPlan, user, verifyPurchase]);
+  }, [haptics, navigate, playBuild, playBuying, playPriceByPlan, playVerificationReady, refetchPremium, selectedPlan, user, verifyPurchase]);
 
   const handlePaymentSubmitted = useCallback((payment: PendingPayment) => {
     setPending(payment);
@@ -377,12 +397,13 @@ const PremiumPage = memo(function PremiumPage() {
                   Active until {expiryText}
                 </p>
               )}
-              <button
+              <Button
                 onClick={handleUpgrade}
+                disabled={playBuying || (playBuild && !canBuyPlayProduct(playPriceByPlan[selectedPlan], playVerificationReady))}
                 className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold bg-primary-strong text-primary-foreground"
               >
                 Extend membership
-              </button>
+              </Button>
             </motion.section>
           )}
 
@@ -408,9 +429,9 @@ const PremiumPage = memo(function PremiumPage() {
                   badge={playBuild ? undefined : `Save ${bimonthlySave}%`}
                   title="2 Months"
                   price={bimonthly}
-                  formattedPrice={playBuild ? playPriceByPlan.bimonthly : undefined}
+                  formattedPrice={planDisplayPrice(playBuild, playPriceByPlan.bimonthly, bimonthly)}
                   perMonth={playBuild ? '60 days' : `₹${bimonthlyPerMo}/mo`}
-                  tagline="Most popular"
+                  tagline={playBuild ? 'One-time purchase' : 'Most popular'}
                   recommended
                 />
                 <PlanCard
@@ -419,16 +440,16 @@ const PremiumPage = memo(function PremiumPage() {
                   badge={playBuild ? undefined : `Save ${quarterlySave}%`}
                   title="3 Months"
                   price={quarterly}
-                  formattedPrice={playBuild ? playPriceByPlan.quarterly : undefined}
+                  formattedPrice={planDisplayPrice(playBuild, playPriceByPlan.quarterly, quarterly)}
                   perMonth={playBuild ? '90 days' : `₹${quarterlyPerMo}/mo`}
-                  tagline="Best value"
+                  tagline={playBuild ? 'One-time purchase' : 'Best value'}
                 />
                 <PlanCard
                   selected={selectedPlan === 'monthly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('monthly'); }}
                   title={playBuild ? '30 Days' : 'Monthly'}
                   price={monthly}
-                  formattedPrice={playBuild ? playPriceByPlan.monthly : undefined}
+                  formattedPrice={planDisplayPrice(playBuild, playPriceByPlan.monthly, monthly)}
                   perMonth="30 days"
                   tagline="Try it out"
                 />
@@ -486,11 +507,18 @@ const PremiumPage = memo(function PremiumPage() {
           <div className="flex items-center justify-center gap-3 text-[11px] text-muted-foreground mb-8">
             <span className="inline-flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5 text-primary" /> {playBuild ? 'Google Play purchase' : 'UPI Secure'}</span>
             <span className="w-1 h-1 rounded-full bg-muted-foreground/40" />
-            <span>{playBuild ? 'No refund after activation*' : 'Activates in minutes'}</span>
+            <span>{playBuild ? 'Does not auto-renew' : 'Activates in minutes'}</span>
           </div>
           {playBuild && (
             <div className="text-center -mt-5 mb-8">
-              <button type="button" disabled={playBuying} onClick={() => { void handleRestore(); }} className="text-xs font-semibold text-primary disabled:opacity-50">Restore purchase</button>
+              <p className="text-xs text-muted-foreground mb-3">One payment for {selectedPlan === 'monthly' ? 30 : selectedPlan === 'bimonthly' ? 60 : 90} days. No automatic renewal. Non-refundable after activation, except where Google Play policy or applicable law requires a refund.</p>
+              {playAvailability !== 'ready' && (
+                <p role="status" className="text-xs text-muted-foreground mb-2">
+                  {!user ? 'Sign in to buy with Google Play.' : playAvailability === 'loading' ? 'Checking Google Play availability…' : 'Google Play purchases are currently unavailable. No payment will be taken.'}
+                </p>
+              )}
+              <Button variant="link" size="sm" disabled={playBuying || !playVerificationReady} onClick={() => { void handleRestore(); }}>Restore purchase</Button>
+              {playAvailability === 'unavailable' && <Button variant="link" size="sm" onClick={() => { if (!user) navigate('/auth'); else void loadPlayBilling(); }}>{user ? 'Try again' : 'Sign in'}</Button>}
             </div>
           )}
 
@@ -524,15 +552,14 @@ const PremiumPage = memo(function PremiumPage() {
                   {playBuild ? (playPriceByPlan[selectedPlan] || '—') : `₹${selectedPrice}`}
                 </p>
               </div>
-              <motion.button
+              <Button
                 onClick={() => { void handleUpgrade(); }}
-                disabled={playBuying || (playBuild && !playPriceByPlan[selectedPlan])}
-                whileTap={{ scale: 0.96 }}
+                disabled={playBuying || (playBuild && !canBuyPlayProduct(playPriceByPlan[selectedPlan], playVerificationReady))}
                 className="px-6 py-3.5 rounded-xl text-[15px] font-bold bg-primary-strong text-primary-foreground flex items-center gap-2"
                 style={{ boxShadow: '0 10px 30px -8px hsl(var(--primary) / 0.5)' }}
               >
                 {playBuying ? <Loader2 className="w-4 h-4 animate-spin" /> : playBuild ? 'Buy with Google Play' : 'Subscribe'}
-              </motion.button>
+              </Button>
             </div>
           </motion.div>
         )}
@@ -669,9 +696,10 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
 
   const copyUpi = () => { navigator.clipboard.writeText(settings.upiId); haptics.light(); toast({ title: 'UPI ID copied' }); };
   const copyAmount = () => { navigator.clipboard.writeText(amountFinal); haptics.light(); toast({ title: 'Amount copied' }); };
-  const openUpiApp = () => { haptics.medium(); window.location.href = upiUrl; };
+  const openUpiApp = () => { if (isPlayStoreBuild()) return; haptics.medium(); window.location.href = upiUrl; };
 
   const submitUtr = async () => {
+    if (isPlayStoreBuild()) return;
     if (!user) { toast({ title: 'Please sign in first', variant: 'destructive' }); return; }
     const cleanUtr = utr.replace(/\D/g, '');
     if (cleanUtr.length !== 12) { toast({ title: 'UTR must be exactly 12 digits', variant: 'destructive' }); return; }

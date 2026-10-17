@@ -219,7 +219,7 @@ const ManageSubscription = () => {
               <div className="rounded-3xl bg-black/20 backdrop-blur-sm p-3">
                 <p className="text-[10px] uppercase tracking-wider text-white/70 font-semibold mb-1 flex items-center gap-1">
                   <Calendar className="w-3 h-3" />
-                  {isLifetime ? 'Valid until' : 'Renews'}
+                  Valid until
                 </p>
                 <p className="text-sm font-bold text-white">
                   {isLifetime ? 'Lifetime ♾️' : formatDate(subscription?.expires_at || null)}
@@ -297,7 +297,7 @@ const ManageSubscription = () => {
               <Row label="Status" value="Active" valueClass="text-emerald-400" />
               <Row label="Platform" value={(subscription?.platform || 'web').toUpperCase()} />
               <Row
-                label={isLifetime ? 'Valid until' : 'Next billing date'}
+                label="Valid until"
                 value={isLifetime ? 'Forever (Lifetime)' : formatDate(subscription?.expires_at || null)}
               />
             </div>
