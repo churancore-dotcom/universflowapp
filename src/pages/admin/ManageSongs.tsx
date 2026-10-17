@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { toast } from 'sonner';
-import { Switch } from '@/components/ui/switch';
+import CatalogBulkActions from '@/components/admin/CatalogBulkActions';
+import { sortCatalog, duplicateIds, bulkVisibilityTargets, type CatalogSort } from '@/lib/catalogQuality';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { filterCatalog, csvCell, type CatalogFilter } from '@/lib/adminCatalog';
 import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
@@ -36,10 +37,13 @@ const ManageSongs = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [filter, setFilter] = useState<CatalogFilter>('all');
   const [page, setPage] = useState(0);
+  const [sort, setSort] = useState<CatalogSort>('newest');
+  const [selected, setSelected] = useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [fetchError, setFetchError] = useState(false);
   const [editingSong, setEditingSong] = useState<Song | null>(null);
-  const [editForm, setEditForm] = useState({ title: '', artist: '', album: '', genre: '', play_count: 0, show_in_trending: false, show_in_new_releases: false });
+  const [editForm, setEditForm] = useState({ title: '', artist: '', album: '', genre: '' });
   const [totalStats, setTotalStats] = useState({ size: 0, duration: 0, downloads: 0 });
 
   useEffect(() => {
@@ -88,6 +92,7 @@ const ManageSongs = () => {
         if (batch.length < 500) break;
       }
       setSongs(all);
+      setSelected(prev => prev.filter(id => all.some(song => song.id === id)));
       setTotalStats({ size: all.reduce((n, s) => n + s.file_size, 0), duration: all.reduce((n, s) => n + s.duration, 0), downloads: all.reduce((n, s) => n + s.download_count, 0) });
     } catch { setFetchError(true); toast.error('Could not load the song catalog'); }
     finally { setLoading(false); }
@@ -147,9 +152,6 @@ const ManageSongs = () => {
       artist: song.artist,
       album: song.album || '',
       genre: song.genre || '',
-      play_count: song.play_count || 0,
-      show_in_trending: song.show_in_trending,
-      show_in_new_releases: song.show_in_new_releases,
     });
   };
 
@@ -165,9 +167,6 @@ const ManageSongs = () => {
         artist: editForm.artist,
         album: editForm.album || null,
         genre: editForm.genre || null,
-        play_count: editForm.play_count,
-        show_in_trending: editForm.show_in_trending,
-        show_in_new_releases: editForm.show_in_new_releases,
       })
       .eq('id', editingSong.id);
     setSaving(false);
@@ -181,12 +180,34 @@ const ManageSongs = () => {
     }
   };
 
-  const filteredSongs = filterCatalog(songs, searchQuery, filter);
+  const duplicateSongs = duplicateIds(songs);
+  const filteredSongs = sortCatalog(filterCatalog(songs, searchQuery, filter), sort);
+  const applyBulkVisibility = async (visible: boolean) => {
+    if (bulkBusy) return;
+    const targets = bulkVisibilityTargets(songs, selected, visible);
+    if (!targets.length) { toast.info('Selected songs already have this visibility'); setSelected([]); return; }
+    setBulkBusy(true);
+    let changed = 0;
+    try {
+      for (let offset = 0; offset < targets.length; offset += 100) {
+        const ids = targets.slice(offset, offset + 100).map(song => song.id);
+        const { data, error } = await supabase.from('songs').update({ is_visible: visible }).in('id', ids).select('id');
+        if (error) throw error;
+        const updated = new Set((data || []).map(song => song.id));
+        changed += updated.size;
+        setSongs(prev => prev.map(song => updated.has(song.id) ? { ...song, is_visible: visible } : song));
+        if (updated.size !== ids.length) throw new Error('Some selected songs were not updated');
+      }
+      toast.success(`${changed} songs ${visible ? 'shown' : 'hidden'}`);
+      setSelected([]);
+    } catch { toast.error(`${changed} songs updated; remaining changes failed. Refresh before retrying.`); await fetchSongs(); }
+    finally { setBulkBusy(false); }
+  };
   const pages = Math.max(1, Math.ceil(filteredSongs.length / 50));
   const currentPage = Math.min(page, pages - 1);
   const visibleSongs = filteredSongs.slice(currentPage * 50, currentPage * 50 + 50);
   const exportCatalog = () => {
-    const columns = ['title', 'artist', 'album', 'is_visible', 'show_in_trending', 'show_in_new_releases', 'play_count'] as const;
+    const columns = ['title', 'artist', 'album', 'is_visible', 'play_count'] as const;
     const csv = [columns.map(csvCell).join(','), ...filteredSongs.map(song => columns.map(key => csvCell(song[key])).join(','))].join('\r\n');
     const url = URL.createObjectURL(new Blob(['\uFEFF', csv], { type: 'text/csv;charset=utf-8' }));
     const link = document.createElement('a'); link.href = url; link.download = 'universflow-song-catalog.csv'; link.click();
@@ -268,14 +289,24 @@ const ManageSongs = () => {
         <Select value={filter} onValueChange={(v) => { setFilter(v as CatalogFilter); setPage(0); }}>
           <SelectTrigger className="w-44" aria-label="Filter song catalog"><SelectValue /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All songs</SelectItem><SelectItem value="visible">Visible</SelectItem><SelectItem value="hidden">Hidden</SelectItem><SelectItem value="ai-review">AI disclosure review</SelectItem><SelectItem value="trending">Trending placement</SelectItem><SelectItem value="releases">New Releases placement</SelectItem>
+            <SelectItem value="all">All songs</SelectItem><SelectItem value="visible">Visible</SelectItem><SelectItem value="hidden">Hidden</SelectItem><SelectItem value="ai-review">AI disclosure review</SelectItem><SelectItem value="missing-audio">Missing audio</SelectItem><SelectItem value="missing-cover">Missing artwork</SelectItem><SelectItem value="duplicates">Potential duplicates</SelectItem>
           </SelectContent>
+        </Select>
+        <Select value={sort} onValueChange={value => { setSort(value as CatalogSort); setPage(0); }}>
+          <SelectTrigger className="w-44" aria-label="Sort song catalog"><SelectValue /></SelectTrigger>
+          <SelectContent><SelectItem value="newest">Newest first</SelectItem><SelectItem value="oldest">Oldest first</SelectItem><SelectItem value="title">Title A–Z</SelectItem><SelectItem value="plays">Most played</SelectItem></SelectContent>
         </Select>
         <Button variant="outline" size="icon" title="Refresh catalog" aria-label="Refresh catalog" onClick={() => { setLoading(true); void fetchSongs(); }} disabled={loading}><RefreshCw /></Button>
         <Button variant="outline" onClick={exportCatalog} disabled={!filteredSongs.length}><Download /> Export CSV</Button>
       </motion.div>
       {fetchError && <p role="alert" className="text-destructive mb-4">Catalog unavailable. Refresh to try again.</p>}
 
+      <div className="flex flex-wrap gap-2 mb-4">
+        {(['missing-audio', 'missing-cover', 'duplicates', 'ai-review'] as const).map(value => <Button key={value} variant={filter === value ? 'secondary' : 'outline'} onClick={() => { setFilter(value); setPage(0); }}>
+          {value === 'missing-audio' ? 'Missing audio' : value === 'missing-cover' ? 'Missing artwork' : value === 'duplicates' ? 'Potential duplicates' : 'AI disclosure'} · {filterCatalog(songs, '', value).length}
+        </Button>)}
+      </div>
+      <CatalogBulkActions count={selected.length} busy={bulkBusy} clear={() => setSelected([])} apply={applyBulkVisibility} />
       {/* Songs Table */}
       <motion.div
         className="glass rounded-2xl overflow-hidden"
@@ -290,13 +321,14 @@ const ManageSongs = () => {
         ) : filteredSongs.length === 0 ? (
           <div className="p-12 text-center text-muted-foreground">
             <Music className="w-12 h-12 mx-auto mb-3 opacity-50" />
-            <p>{searchQuery ? 'No songs match your search' : 'No songs uploaded yet'}</p>
+            <p>{songs.length ? 'No songs match these filters' : 'No songs uploaded yet'}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="border-b border-white/5">
+                  <th className="p-3 w-12"><input type="checkbox" aria-label="Select current page" disabled={bulkBusy} checked={visibleSongs.length > 0 && visibleSongs.every(song => selected.includes(song.id))} onChange={event => setSelected(prev => event.target.checked ? [...new Set([...prev, ...visibleSongs.map(song => song.id)])] : prev.filter(id => !visibleSongs.some(song => song.id === id)))} /></th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground">Song</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden md:table-cell">Album</th>
                   <th className="text-left p-4 text-sm font-medium text-muted-foreground hidden lg:table-cell">Duration</th>
@@ -317,6 +349,7 @@ const ManageSongs = () => {
                       exit={{ opacity: 0, x: -20 }}
                       transition={{ delay: Math.min(index * 0.01, 0.15) }}
                     >
+                      <td className="p-3"><input type="checkbox" aria-label={`Select ${song.title}`} disabled={bulkBusy} checked={selected.includes(song.id)} onChange={event => setSelected(prev => event.target.checked ? [...prev, song.id] : prev.filter(id => id !== song.id))} /></td>
                       <td className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-primary/30 to-accent/30 flex items-center justify-center overflow-hidden flex-shrink-0">
@@ -329,6 +362,7 @@ const ManageSongs = () => {
                           <div className="min-w-0">
                             <p className="font-medium truncate">{song.title}</p>
                             <p className="text-sm text-muted-foreground truncate">{song.artist}</p>
+                            {(!song.audio_url?.trim() || !song.cover_url?.trim() || duplicateSongs.has(song.id)) && <p className="text-xs text-muted-foreground">{[!song.audio_url?.trim() && 'Missing audio', !song.cover_url?.trim() && 'Missing artwork', duplicateSongs.has(song.id) && 'Potential duplicate'].filter(Boolean).join(' · ')}</p>}
                             {isAiGeneratedTrack(song) && <p className="text-xs text-destructive flex items-center gap-1"><ShieldAlert className="w-3 h-3" />AI disclosure detected</p>}
                           </div>
                         </div>
@@ -425,21 +459,6 @@ const ManageSongs = () => {
                 onChange={(e) => setEditForm(prev => ({ ...prev, genre: e.target.value }))}
                 className="mt-1.5 bg-muted/50 border-white/10"
               />
-            </div>
-            <div>
-              <label className="text-sm font-medium">Play Count (Views)</label>
-              <Input
-                type="number"
-                value={editForm.play_count}
-                onChange={(e) => setEditForm(prev => ({ ...prev, play_count: parseInt(e.target.value) || 0 }))}
-                className="mt-1.5 bg-muted/50 border-white/10"
-                min={0}
-              />
-              <p className="text-xs text-muted-foreground mt-1">Set the displayed view count for this song</p>
-            </div>
-            <div className="border-t border-border pt-4 space-y-3">
-              <div className="flex items-center justify-between gap-4"><label htmlFor="song-trending" className="text-sm font-medium">Trending placement</label><Switch id="song-trending" checked={editForm.show_in_trending} onCheckedChange={v => setEditForm(prev => ({ ...prev, show_in_trending: v }))} /></div>
-              <div className="flex items-center justify-between gap-4"><label htmlFor="song-releases" className="text-sm font-medium">New Releases placement</label><Switch id="song-releases" checked={editForm.show_in_new_releases} onCheckedChange={v => setEditForm(prev => ({ ...prev, show_in_new_releases: v }))} /></div>
             </div>
             <div className="flex gap-3 pt-4">
               <Button variant="outline" onClick={() => setEditingSong(null)} className="flex-1">

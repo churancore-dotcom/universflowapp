@@ -18,7 +18,6 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 
 interface HealthCheck {
   name: string;
@@ -32,7 +31,6 @@ interface SystemStats {
   totalUsers: number;
   totalPlays: number;
   storageUsed: number;
-  storageLimit: number;
   avgResponseTime: number;
 }
 
@@ -42,14 +40,12 @@ const SystemHealth = () => {
     { name: 'Authentication Service', status: 'checking', message: 'Checking...' },
     { name: 'Storage Service', status: 'checking', message: 'Checking...' },
     { name: 'Realtime Service', status: 'checking', message: 'Checking...' },
-    { name: 'Edge Functions', status: 'checking', message: 'Checking...' },
   ]);
   const [stats, setStats] = useState<SystemStats>({
     totalSongs: 0,
     totalUsers: 0,
     totalPlays: 0,
     storageUsed: 0,
-    storageLimit: 100 * 1024 * 1024 * 1024, // 100GB
     avgResponseTime: 0,
   });
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
@@ -79,7 +75,6 @@ const SystemHealth = () => {
       totalUsers: usersRes.data?.length || 0,
       totalPlays,
       storageUsed,
-      storageLimit: 100 * 1024 * 1024 * 1024,
       avgResponseTime: Math.round(responseTime),
     });
   };
@@ -111,13 +106,13 @@ const SystemHealth = () => {
     // Auth Check
     try {
       const start = performance.now();
-      const { data: session } = await supabase.auth.getSession();
+      const { data, error } = await supabase.auth.getUser();
       const time = Math.round(performance.now() - start);
       
       newChecks.push({
         name: 'Authentication Service',
-        status: 'healthy',
-        message: session?.session ? 'Authenticated' : 'Service available',
+        status: error || !data.user ? 'error' : 'healthy',
+        message: error ? error.message : data.user ? 'Account verified by authentication service' : 'No authenticated account',
         responseTime: time,
       });
     } catch (e) {
@@ -152,42 +147,20 @@ const SystemHealth = () => {
     try {
       const start = performance.now();
       const channel = supabase.channel('health-check');
-      await new Promise((resolve) => {
+      const result = await new Promise<string>((resolve) => {
+        const timer = setTimeout(() => resolve('TIMED_OUT'), 5000);
         channel.subscribe((status) => {
-          resolve(status);
+          if (status === 'SUBSCRIBED' || status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') { clearTimeout(timer); resolve(status); }
         });
-        setTimeout(resolve, 2000);
       });
       const time = Math.round(performance.now() - start);
-      supabase.removeChannel(channel);
-      
-      newChecks.push({
-        name: 'Realtime Service',
-        status: time < 3000 ? 'healthy' : 'warning',
-        message: time < 3000 ? 'Connected' : 'Slow response',
-        responseTime: time,
-      });
+      await supabase.removeChannel(channel);
+      newChecks.push({ name: 'Realtime Service', status: result === 'SUBSCRIBED' ? 'healthy' : 'warning', message: result === 'SUBSCRIBED' ? 'Subscription connected' : `Subscription not verified: ${result}`, responseTime: time });
     } catch (e) {
       newChecks.push({
         name: 'Realtime Service',
         status: 'warning',
         message: 'Check manually',
-      });
-    }
-
-    // Edge Functions Check
-    try {
-      newChecks.push({
-        name: 'Edge Functions',
-        status: 'healthy',
-        message: 'Available',
-        responseTime: 0,
-      });
-    } catch (e) {
-      newChecks.push({
-        name: 'Edge Functions',
-        status: 'warning',
-        message: 'Unable to verify',
       });
     }
 
@@ -227,7 +200,6 @@ const SystemHealth = () => {
     : checks.some(c => c.status === 'warning') ? 'warning' 
     : 'checking';
 
-  const storagePercentage = Math.min((stats.storageUsed / stats.storageLimit) * 100, 100);
 
   return (
     <div className="p-4 md:p-8">
@@ -269,7 +241,7 @@ const SystemHealth = () => {
           </div>
           <div>
             <h2 className="text-xl font-bold">
-              {overallHealth === 'healthy' ? 'All Systems Operational' :
+              {overallHealth === 'healthy' ? 'Checked Services Operational' :
                overallHealth === 'warning' ? 'Minor Issues Detected' :
                overallHealth === 'error' ? 'System Issues' : 'Checking...'}
             </h2>
@@ -286,7 +258,7 @@ const SystemHealth = () => {
           { icon: Music, label: 'Total Songs', value: stats.totalSongs, color: 'from-primary to-cyan-400' },
           { icon: Users, label: 'Total Users', value: stats.totalUsers, color: 'from-accent to-pink-400' },
           { icon: Activity, label: 'Total Plays', value: stats.totalPlays, color: 'from-green-500 to-emerald-400' },
-          { icon: Zap, label: 'Avg Response', value: `${stats.avgResponseTime}ms`, color: 'from-yellow-500 to-amber-400' },
+          { icon: Zap, label: 'Stats query time', value: `${stats.avgResponseTime}ms`, color: 'from-yellow-500 to-amber-400' },
         ].map((stat, index) => {
           const Icon = stat.icon;
           return (
@@ -307,7 +279,7 @@ const SystemHealth = () => {
         })}
       </div>
 
-      {/* Storage Usage */}
+      {/* Catalog File Sizes */}
       <motion.div
         className="glass rounded-2xl p-6 mb-8"
         initial={{ opacity: 0, y: 10 }}
@@ -316,22 +288,15 @@ const SystemHealth = () => {
       >
         <div className="flex items-center gap-2 mb-4">
           <HardDrive className="w-5 h-5 text-primary" />
-          <h2 className="text-lg font-bold">Storage Usage</h2>
+          <h2 className="text-lg font-bold">Catalog File Sizes</h2>
         </div>
         <div className="space-y-2">
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Used</span>
             <span className="font-medium">
-              {formatBytes(stats.storageUsed)} / {formatBytes(stats.storageLimit)}
+              {formatBytes(stats.storageUsed)}
             </span>
           </div>
-          <Progress 
-            value={storagePercentage} 
-            className={`h-3 ${storagePercentage > 90 ? '[&>div]:bg-red-500' : storagePercentage > 70 ? '[&>div]:bg-yellow-500' : ''}`}
-          />
-          <p className="text-xs text-muted-foreground">
-            {storagePercentage.toFixed(1)}% used • {formatBytes(stats.storageLimit - stats.storageUsed)} remaining
-          </p>
         </div>
       </motion.div>
 

@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { TrendingUp, Music, Users, PlayCircle, Calendar, HardDrive, Download, BarChart3 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { Progress } from '@/components/ui/progress';
 
 interface TopSong {
   id: string;
@@ -116,10 +115,7 @@ const Analytics = () => {
     return `${mins} min`;
   };
 
-  // Storage limit for visualization (100GB for Pro plan)
-  const STORAGE_LIMIT = 100 * 1024 * 1024 * 1024; // 100GB
   const totalStorage = storageStats.totalMusicSize + storageStats.totalCoverSize;
-  const storagePercentage = Math.min((totalStorage / STORAGE_LIMIT) * 100, 100);
 
   return (
     <div className="p-8">
@@ -136,7 +132,7 @@ const Analytics = () => {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
         {[
           { icon: PlayCircle, label: 'Total Plays', value: stats.totalPlays, color: 'from-primary to-cyan-400' },
-          { icon: Users, label: 'Unique Listeners', value: stats.uniqueListeners, color: 'from-accent to-pink-400' },
+          { icon: Users, label: 'Registered Accounts', value: stats.uniqueListeners, color: 'from-accent to-pink-400' },
           { icon: Calendar, label: 'Songs This Month', value: stats.songsThisMonth, color: 'from-green-500 to-emerald-400' },
         ].map((stat, index) => {
           const Icon = stat.icon;
@@ -179,7 +175,7 @@ const Analytics = () => {
           <div className="text-center p-4 bg-muted/30 rounded-xl">
             <HardDrive className="w-8 h-8 mx-auto mb-2 text-accent" />
             <p className="text-2xl font-bold">{formatFileSize(totalStorage)}</p>
-            <p className="text-sm text-muted-foreground">Total Storage</p>
+            <p className="text-sm text-muted-foreground">Catalog File Sizes</p>
           </div>
           <div className="text-center p-4 bg-muted/30 rounded-xl">
             <Download className="w-8 h-8 mx-auto mb-2 text-green-500" />
@@ -198,10 +194,9 @@ const Analytics = () => {
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Storage Used</span>
             <span className="font-medium">
-              {formatFileSize(totalStorage)} / {formatFileSize(STORAGE_LIMIT)}
+              {formatFileSize(totalStorage)}
             </span>
           </div>
-          <Progress value={storagePercentage} className="h-3" />
           <div className="flex gap-4 text-xs text-muted-foreground mt-3">
             <span className="flex items-center gap-1">
               <span className="w-2 h-2 rounded-full bg-primary" />
