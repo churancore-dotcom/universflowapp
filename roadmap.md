@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Audit and harden Google Play Premium payment paths without changing website APK UPI; test fail-closed checkout and pricing. Real Play purchase verification requires configured Play products, credentials and a Play-installed device.
+
 - [x] Remove mock function health, fabricated storage quotas, manual play-count editing and unused editorial placement switches; add missing-file/duplicate review, sorting and confirmed bulk visibility. Authorized show/hide persistence, cancel and CSV export passed; temporary songs removed. Device testing unavailable.
 
 - [x] Reconnect GitHub API after the new 16 October 11:02 UTC workspace move; freshly linked connection verified with the account read.
