@@ -59,3 +59,4 @@
 - [x] Verify a real automatic APK upload — run #933 completed publication on 16 October at 10:58 UTC, and the newly replaced website APK was downloaded and its packaged icons inspected.
 - [x] Connect GitHub API in new workspace and re-check build runs
 - [x] Connect GitHub API in new workspace
+- [x] Reconnect GitHub API after the 17 October 13:12 UTC workspace move; freshly linked connection verified with the GitHub account read. Earlier workspace connection identifiers no longer apply.
