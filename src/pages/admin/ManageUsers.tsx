@@ -274,7 +274,7 @@ const ManageUsers = () => {
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end" className="glass border-white/10">
                       <DropdownMenuItem onClick={() => u.email && window.open(`mailto:${u.email}`)}>
-                        <Mail className="w-4 h-4 mr-2" /> Send Email
+                        <Mail className="w-4 h-4 mr-2" /> Open email app
                       </DropdownMenuItem>
                       <DropdownMenuSeparator />
                       {u.status !== 'banned' && (
