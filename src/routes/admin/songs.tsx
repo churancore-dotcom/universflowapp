@@ -5,7 +5,7 @@ export const Route = createFileRoute("/admin/songs")({
   component: ManageSongs,
   head: () => ({ meta: [
     { title: 'UniversFlow Admin — Song Catalog' },
-    { name: 'description', content: 'Review and manage the UniversFlow song catalog, visibility and editorial placement.' },
+    { name: 'description', content: 'Review UniversFlow catalog quality, sort and export songs, and manage visibility.' },
     { property: 'og:title', content: 'UniversFlow Admin — Song Catalog' },
     { property: 'og:description', content: 'UniversFlow catalog management and song review.' },
     { property: 'og:type', content: 'website' },

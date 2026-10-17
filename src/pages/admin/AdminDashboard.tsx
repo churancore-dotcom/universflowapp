@@ -221,7 +221,7 @@ const AdminDashboard = () => {
     { icon: Disc, label: 'Albums', value: stats.totalAlbums, color: 'from-orange-500 to-amber-400' },
     { icon: Download, label: 'Downloads', value: stats.totalDownloads, color: 'from-purple-500 to-violet-400' },
     { icon: Clock, label: 'Pending Requests', value: stats.pendingRequests, color: 'from-sky-500 to-cyan-400' },
-    { icon: Activity, label: 'Online Now', value: stats.activeUsers, color: 'from-emerald-500 to-lime-400' },
+    { icon: Activity, label: 'Listeners · 15 min', value: stats.activeUsers, color: 'from-emerald-500 to-lime-400' },
     { icon: Activity, label: 'Storage', value: formatBytes(stats.storageUsed), color: 'from-rose-500 to-pink-400', isString: true },
   ];
 

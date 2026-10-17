@@ -17,6 +17,7 @@
 - New Releases uses the provider's explicit release shelf and never substitutes keyword search or most-played charts; an empty shelf is preferable to mislabeled old songs.
 - Admin work queues use existing RLS-protected counts and management destinations; pinned navigation is user-scoped convenience state, never authorization.
 - Catalog management pages render bounded row windows, fetch all catalog batches for accurate filters/export, and neutralize spreadsheet formulas in CSV cells; this avoids truncated reviews and unsafe exports.
+- Catalog quality diagnostics and bulk target selection use pure tested helpers; bulk visibility updates require confirmation and verify returned row IDs so partial or denied writes cannot appear successful.
 - Launcher density assets share a centered, safe-zone foreground and monochrome mark; committed resources remain the build source of truth to prevent cropping and overwrites.
 - Player share uses a static image card plus link sharing only; never animated or video cards (user rejected them).
 - Ad completion is single-use and starts a cooldown before another completed-song boundary can schedule an ad.
