@@ -1562,6 +1562,33 @@ export type Database = {
         }
         Relationships: []
       }
+      play_purchase_claims: {
+        Row: {
+          consumed_at: string | null
+          created_at: string
+          expires_at: string
+          product_id: string
+          purchase_token: string
+          user_id: string
+        }
+        Insert: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at: string
+          product_id: string
+          purchase_token: string
+          user_id: string
+        }
+        Update: {
+          consumed_at?: string | null
+          created_at?: string
+          expires_at?: string
+          product_id?: string
+          purchase_token?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       playback_state: {
         Row: {
           device_id: string | null
@@ -2607,6 +2634,16 @@ export type Database = {
       check_artist_stage_name_taken: {
         Args: { p_stage_name: string }
         Returns: boolean
+      }
+      claim_verified_play_purchase: {
+        Args: {
+          _consumed: boolean
+          _order_id: string
+          _product_id: string
+          _purchase_token: string
+          _user_id: string
+        }
+        Returns: Json
       }
       consume_free_skip: { Args: never; Returns: Json }
       create_artist_invite: {
