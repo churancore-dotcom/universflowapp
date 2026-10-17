@@ -25,4 +25,6 @@
 - Keep playback progress in the external progress store and use one shared scroll-visibility signal so high-frequency updates never repaint whole pages.
 - Website APK releases use one fixed storage object replaced only after a successful CI build; downloads bypass caching and static release sizes/versions are omitted to prevent stale claims.
 - Play-distributed Premium uses consumable fixed-duration products whose prices come from Google Play; server verification grants 30, 60, or 90 days and consumes each token once.
-- Account deletion is recoverable for exactly seven days, then a privileged scheduled worker removes the authentication identity and cascading app data.- Google Play Billing activates only when the Play AAB build sets VITE_PLAY_STORE=true; website APKs keep UPI checkout because they are not installed from Play.
+- Account deletion is recoverable for exactly seven days, then a privileged scheduled worker removes the authentication identity and cascading app data.
+- The Play AAB distribution flag selects Play-only checkout independent of bridge availability; require Play prices and server verification readiness before purchase, while website APKs retain UPI.
+- Claim verified Play tokens atomically in a permanent server-only ledger before granting fixed-term access; retries must reattempt consumption without regranting access.

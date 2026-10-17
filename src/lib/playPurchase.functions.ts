@@ -1,7 +1,7 @@
 import { createServerFn } from '@tanstack/react-start';
 import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
 import { z } from 'zod';
-import { entitlementExpiry, PLAY_PRODUCT_DAYS, type PlayProductId } from '@/lib/playEntitlements';
+import { assertCompletedPlayPurchase, type VerifiedPlayPurchase } from '@/lib/playPaymentPolicy';
 
 const PACKAGE_NAME = 'com.universeflow.app';
 const inputSchema = z.object({
@@ -47,6 +47,17 @@ const getGoogleAccessToken = async () => {
   return token.access_token;
 };
 
+export const checkPlayBillingReady = createServerFn({ method: 'POST' })
+  .middleware([requireSupabaseAuth])
+  .handler(async () => {
+    try {
+      await getGoogleAccessToken();
+      return { ready: true };
+    } catch {
+      return { ready: false };
+    }
+  });
+
 export const verifyPlayPurchase = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => inputSchema.parse(input))
@@ -55,40 +66,37 @@ export const verifyPlayPurchase = createServerFn({ method: 'POST' })
     const purchaseUrl = `https://androidpublisher.googleapis.com/androidpublisher/v3/applications/${PACKAGE_NAME}/purchases/products/${data.productId}/tokens/${encodeURIComponent(data.purchaseToken)}`;
     const verifyResponse = await fetch(purchaseUrl, { headers: { authorization: `Bearer ${accessToken}` } });
     if (!verifyResponse.ok) throw new Error('Google Play could not verify this purchase');
-    const purchase = await verifyResponse.json() as { purchaseState?: number; orderId?: string; purchaseTimeMillis?: string };
-    if (purchase.purchaseState !== 0) throw new Error('Purchase is not complete');
+    const purchase = await verifyResponse.json() as VerifiedPlayPurchase;
+    assertCompletedPlayPurchase(purchase);
 
     const { supabaseAdmin } = await import('@/integrations/supabase/client.server');
-    const { data: claimed } = await supabaseAdmin.from('user_subscriptions')
-      .select('user_id, expires_at').eq('purchase_token', data.purchaseToken).maybeSingle();
-    if (claimed && claimed.user_id !== context.userId) throw new Error('Purchase already belongs to another account');
-    if (claimed?.user_id === context.userId) return { success: true, expiresAt: claimed.expires_at };
-
-    const { data: existing } = await supabaseAdmin.from('user_subscriptions')
-      .select('expires_at').eq('user_id', context.userId).maybeSingle();
-    const existingExpiry = existing?.expires_at ? new Date(existing.expires_at).getTime() : 0;
-    const startAt = Math.max(Date.now(), existingExpiry);
-    const productId = data.productId as PlayProductId;
-    if (!PLAY_PRODUCT_DAYS[productId]) throw new Error('Unknown Premium product');
-    const expiresAt = entitlementExpiry(productId, startAt);
-    const transactionId = purchase.orderId || data.orderId || `play:${data.productId}`;
-    const { error } = await supabaseAdmin.from('user_subscriptions').upsert({
-      user_id: context.userId,
-      subscription_type: 'premium_monthly',
-      platform: 'android',
-      purchase_token: data.purchaseToken,
-      transaction_id: transactionId,
-      expires_at: expiresAt,
-      status: 'active',
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-    if (error) throw new Error('Could not activate Premium');
-
-    const consumeResponse = await fetch(`${purchaseUrl}:consume`, {
-      method: 'POST',
-      headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
-      body: '{}',
+    const { data: claim, error } = await supabaseAdmin.rpc('claim_verified_play_purchase', {
+      _user_id: context.userId,
+      _purchase_token: data.purchaseToken,
+      _product_id: data.productId,
+      _order_id: purchase.orderId || '',
+      _consumed: purchase.consumptionState === 1,
     });
-    if (!consumeResponse.ok) console.error('[PlayBilling] Purchase verified but consume failed', consumeResponse.status);
-    return { success: true, expiresAt };
+    if (error) throw new Error('Could not claim this purchase. It may already belong to another account.');
+    const result = z.object({ expiresAt: z.string(), alreadyGranted: z.boolean() }).parse(claim);
+
+    // Always retry consumption on restore, including tokens already granted.
+    // The atomic ledger makes retries safe without extending access again.
+    if (purchase.consumptionState !== 1) {
+      let consumed = false;
+      for (let attempt = 0; attempt < 3 && !consumed; attempt += 1) {
+        const response = await fetch(`${purchaseUrl}:consume`, {
+          method: 'POST',
+          headers: { authorization: `Bearer ${accessToken}`, 'content-type': 'application/json' },
+          body: '{}',
+        });
+        consumed = response.ok;
+        if (!consumed && response.status < 500 && response.status !== 429) break;
+      }
+      if (!consumed) throw new Error('Payment verified, but Google Play completion needs a retry. Use Restore purchase before buying again.');
+      const { error: markError } = await supabaseAdmin.from('play_purchase_claims')
+        .update({ consumed_at: new Date().toISOString() }).eq('purchase_token', data.purchaseToken);
+      if (markError) console.error('[PlayBilling] Could not record consumption');
+    }
+    return { success: true, expiresAt: result.expiresAt };
   });

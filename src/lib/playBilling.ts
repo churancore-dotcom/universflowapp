@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import { usesPlayCheckout } from '@/lib/playPaymentPolicy';
 
 export const PLAY_PRODUCTS = {
   monthly: 'universflow_premium_1m',
@@ -31,18 +32,27 @@ const PlayBilling = registerPlugin<PlayBillingPluginShape>('PlayBilling');
 
 // Only the signed Play Store AAB build sets VITE_PLAY_STORE=true. Website APKs use UPI checkout.
 export const isPlayStoreBuild = () =>
-  import.meta.env.VITE_PLAY_STORE === 'true' && Capacitor.isNativePlatform() && Capacitor.getPlatform() === 'android';
+  usesPlayCheckout(import.meta.env.VITE_PLAY_STORE);
+
+function requirePlayRuntime() {
+  if (!isPlayStoreBuild() || !Capacitor.isNativePlatform() || Capacitor.getPlatform() !== 'android') {
+    throw new Error('Google Play Billing is unavailable on this device');
+  }
+}
 
 export async function getPlayProducts(): Promise<PlayProduct[]> {
   if (!isPlayStoreBuild()) return [];
+  requirePlayRuntime();
   return (await PlayBilling.getProducts({ productIds: Object.values(PLAY_PRODUCTS) })).products;
 }
 
 export async function startPlayPurchase(plan: PlayPlan): Promise<PlayPurchase> {
+  requirePlayRuntime();
   return PlayBilling.purchase({ productId: PLAY_PRODUCTS[plan] });
 }
 
 export async function restorePlayPurchases(): Promise<PlayPurchase[]> {
   if (!isPlayStoreBuild()) return [];
+  requirePlayRuntime();
   return (await PlayBilling.restorePurchases()).purchases;
 }
