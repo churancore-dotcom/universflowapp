@@ -1,6 +1,6 @@
 # Roadmap
 
-- [ ] Remove misleading admin controls and add catalog quality review, sorting, and confirmed bulk visibility actions; verify with an authorized account.
+- [x] Remove mock function health, fabricated storage quotas, manual play-count editing and unused editorial placement switches; add missing-file/duplicate review, sorting and confirmed bulk visibility. Authorized show/hide persistence, cancel and CSV export passed; temporary songs removed. Device testing unavailable.
 
 - [x] Reconnect GitHub API after the new 16 October 11:02 UTC workspace move; freshly linked connection verified with the account read.
 
