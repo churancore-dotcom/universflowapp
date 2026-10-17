@@ -12,7 +12,6 @@ import { FadeTransition } from '@/components/PageTransition';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import FaceLivenessCapture, { LivenessShots } from '@/components/FaceLivenessCapture';
 import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import type { Json } from '@/integrations/supabase/types';
@@ -22,7 +21,6 @@ import {
   getArtistReapplyState,
   getMyApplication,
   uploadArtistPhoto,
-  uploadLivenessCapture,
 } from '@/lib/artist';
 import type { ArtistApplicationSafe } from '@/lib/artist';
 import ArtistLoading from './ArtistLoading';
@@ -54,7 +52,7 @@ function getApplicationId(value: unknown): string | null {
 const STEP_META: Record<Step, { label: string; icon: typeof User }> = {
   1: { label: 'About you',      icon: User },
   2: { label: 'Your music',     icon: Music },
-  3: { label: 'Live face check', icon: Camera },
+  3: { label: 'Profile photo',  icon: ImageIcon },
   4: { label: 'Profile photo',  icon: ImageIcon },
   5: { label: 'Submit',         icon: ShieldCheck },
 };
@@ -169,7 +167,6 @@ export default function ArtistApply() {
   const [photo, setPhoto] = useState<File | null>(null);
   const [agreeTerms, setAgreeTerms] = useState(false);
   const [agreePrivacy, setAgreePrivacy] = useState(false);
-  const [livenessShots, setLivenessShots] = useState<LivenessShots | null>(null);
   const [ownershipConfirmed, setOwnershipConfirmed] = useState(false);
 
   // A short per-user code the artist temporarily pastes into their
@@ -358,14 +355,14 @@ export default function ArtistApply() {
   const canNext = () => {
     if (step === 1) return stageName.trim().length >= 2 && !stageTaken && realName.trim().length >= 2 && !!country && phoneCheck.ok && !phoneTaken && !phoneChecking;
     if (step === 2) return musicCheck.ok && dualSocialsOk && linksCheck.ok && ownershipConfirmed;
-    if (step === 3) return !!livenessShots;
+    if (step === 3) return true;
     if (step === 4) return !!photo;
     return agreeTerms && agreePrivacy;
   };
 
 
   const handleBack = async () => {
-    if (step > 1) { setStep((s) => (s - 1) as Step); return; }
+    if (step > 1) { setStep((s) => (s === 4 ? 2 : s - 1) as Step); return; }
     try {
       localStorage.removeItem('uf_artist_signup');
       localStorage.removeItem('uf_post_verify_next');
@@ -378,11 +375,6 @@ export default function ArtistApply() {
     if (!user) return;
     if (!agreeTerms || !agreePrivacy) {
       toast.error('Please accept the Artist Terms and Privacy Policy.');
-      return;
-    }
-    if (!livenessShots) {
-      toast.error('Complete the live face check first.');
-      setStep(3);
       return;
     }
     if (!photo) {
@@ -405,10 +397,8 @@ export default function ArtistApply() {
       }
 
       const blobToFile = (b: Blob, name: string) => new File([b], name, { type: b.type || 'image/jpeg' });
-      const [selfiePath, photoUrl] = await Promise.all([
-        uploadLivenessCapture(user.id, blobToFile(livenessShots.capture, 'face-capture.jpg')),
-        uploadArtistPhoto(user.id, photo),
-      ]);
+      const selfiePath: string | null = null;
+      const photoUrl = await uploadArtistPhoto(user.id, photo);
 
       const sha256Hex = async (data: ArrayBuffer | string) => {
         const buf = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
@@ -424,7 +414,7 @@ export default function ArtistApply() {
         spotify: spotify.trim() || null,
         apple_music: appleMusic.trim() || null,
         bio: bio.trim() || null,
-        face_shots: [selfiePath],
+        face_shots: [],
         music_platform: musicCheck.platform,
         ownership_code: ownershipCode,
       };
@@ -436,7 +426,7 @@ export default function ArtistApply() {
         p_country_code: country,
         p_social_links: socialLinks,
         p_music_platform_url: musicCheck.normalized,
-        p_selfie_path: selfiePath,
+        p_selfie_path: selfiePath as unknown as string,
         p_artist_photo_path: photoUrl,
         p_phone_hash: phoneHash,
         p_ownership_code: ownershipCode,
@@ -860,30 +850,6 @@ export default function ArtistApply() {
               )}
 
 
-              {step === 3 && (
-                <>
-                  <div className="flex items-start gap-3 p-4 rounded-2xl bg-primary/8 border border-primary/15">
-                    <ShieldCheck className="w-5 h-5 text-primary shrink-0 mt-0.5" />
-                    <p className="text-[12.5px] leading-relaxed text-foreground/90">
-                      We use your camera to confirm you're a real person — <strong>blink twice, then smile</strong>.
-                      Nothing is uploaded until the check passes.
-                    </p>
-                  </div>
-                  {livenessShots ? (
-                    <div className="rounded-2xl p-4 bg-emerald-500/10 border border-emerald-500/25 flex items-center gap-3">
-                      <Check className="w-5 h-5 text-emerald-300" />
-                      <div className="flex-1">
-                        <p className="text-[13px] font-semibold text-emerald-200">Live face check passed</p>
-                        <p className="text-[11.5px] text-emerald-200/80">Real-human liveness confirmed. Tap Continue.</p>
-                      </div>
-                      <button type="button" onClick={() => setLivenessShots(null)} className="text-[11.5px] text-emerald-200 underline">Redo</button>
-                    </div>
-                  ) : (
-                    <FaceLivenessCapture onComplete={(s) => setLivenessShots(s)} />
-                  )}
-                </>
-              )}
-
               {step === 4 && (
                 <>
                   <p className="text-[12.5px] text-muted-foreground -mt-1">
@@ -946,7 +912,7 @@ export default function ArtistApply() {
               <Button
                 className="w-full h-13 rounded-2xl text-[14.5px] font-semibold shadow-lg shadow-primary/20"
                 disabled={!canNext()}
-                onClick={() => setStep((s) => (s + 1) as Step)}
+                onClick={() => setStep((s) => (s === 2 ? 4 : s + 1) as Step)}
                 style={{ background: '#FF2D55', color: '#fff', height: 52 }}
               >
                 Continue <ArrowRight className="w-4 h-4 ml-1.5" />
