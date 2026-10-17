@@ -1,8 +1,9 @@
 # Roadmap
 
-- [ ] Reconnect GitHub API after the 17 October 13:17 UTC workspace move; use only a freshly listed connection.
+- [x] Reconnect GitHub API after the 17 October 13:17 UTC workspace move; freshly linked connection verified with an account read.
 
-- [ ] Audit and harden Google Play Premium payment paths without changing website APK UPI; test fail-closed checkout and pricing. Real Play purchase verification requires configured Play products, credentials and a Play-installed device.
+- [x] Harden Google Play payment paths: Play-flagged builds never fall back to UPI, missing Play prices never use website prices, checkout requires verification readiness, fixed-term/refund disclosure is visible, and atomic token ledger prevents repeat grants. Twelve focused tests passed, signed-in website checkout opened, simulated Play-unavailable checkout stayed blocked, and server-only ledger grants were verified. Web build OK.
+- [ ] Verify updated Billing 8 AAB, real Play purchases, restore/consumption recovery and refund handling — blocked by missing Google Play verification credential, unverified Console product/API configuration, and unavailable Play-installed Android device; no approval guarantee.
 
 - [x] Remove mock function health, fabricated storage quotas, manual play-count editing and unused editorial placement switches; add missing-file/duplicate review, sorting and confirmed bulk visibility. Authorized show/hide persistence, cancel and CSV export passed; temporary songs removed. Device testing unavailable.
 
