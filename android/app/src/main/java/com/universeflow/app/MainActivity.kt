@@ -60,25 +60,8 @@ class MainActivity : BridgeActivity() {
             web.webChromeClient = object : BridgeWebChromeClient(bridge) {
                 override fun onPermissionRequest(request: PermissionRequest) {
                     runOnUiThread {
-                        val needsCamera = request.resources.any {
-                            it == PermissionRequest.RESOURCE_VIDEO_CAPTURE
-                        }
-                        if (needsCamera
-                            && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M
-                            && ContextCompat.checkSelfPermission(
-                                this@MainActivity, Manifest.permission.CAMERA
-                            ) != PackageManager.PERMISSION_GRANTED
-                        ) {
-                            pendingPermissionRequest = request
-                            ActivityCompat.requestPermissions(
-                                this@MainActivity,
-                                arrayOf(Manifest.permission.CAMERA),
-                                cameraReqCode
-                            )
-                        } else {
-                            try { request.grant(request.resources) }
-                            catch (_: Throwable) { request.deny() }
-                        }
+                        // Camera/microphone are never granted: the app declares no camera permission.
+                        try { request.deny() } catch (_: Throwable) {}
                     }
                 }
             }

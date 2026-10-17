@@ -60,10 +60,9 @@ export const UserPrivacyBody = (): ReactNode => (
     <h2>2. Device permissions we ask for</h2>
     <ul>
       <li><strong>Notifications:</strong> to show the playback controls on your lock screen and to send app updates you opted into. You can refuse or revoke this at any time; music still plays.</li>
-      <li><strong>Camera:</strong> requested <em>only</em> when you apply for a verified Artist account, and only while that screen is open. It is used for a one-time liveness check (a blink or a smile) that confirms a real person is applying, plus the still selfie you submit with your application. We never record video, never stream the camera anywhere, never run the camera in the background, and never use it for advertising, face-matching against other people, or building any biometric profile. The liveness check itself runs on your device; only the still image you confirm is uploaded. Declining the camera only blocks the artist application &mdash; every other part of the App keeps working.</li>
       <li><strong>Storage / offline files:</strong> used to save songs you explicitly download so they play without internet. We do not read your existing photos, files, or media.</li>
     </ul>
-    <p>We do not collect contacts, precise GPS location, SMS, call logs, microphone audio, or the list of other apps on your device.</p>
+    <p>We do not collect contacts, precise GPS location, SMS, call logs, camera, microphone audio, or the list of other apps on your device.</p>
 
     <h2>3. Identity documents (Artist applications only)</h2>
     <p>If &mdash; and only if &mdash; you apply for a Verified Artist account, we ask for a government ID (for example Voter ID, PAN, Passport or Driver&rsquo;s Licence) and a selfie so a human reviewer can confirm you are the artist you claim to be. Ordinary listeners are never asked for an ID.</p>
