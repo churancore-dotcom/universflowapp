@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Reconnect GitHub API after the 18 October 11:08 UTC workspace move; freshly linked connection verified with an account read.
+
 - [x] Reconnect GitHub API after the 17 October 13:17 UTC workspace move; freshly linked connection verified with an account read.
 
 - [x] Harden Google Play payment paths: Play-flagged builds never fall back to UPI, missing Play prices never use website prices, checkout requires verification readiness, fixed-term/refund disclosure is visible, and atomic token ledger prevents repeat grants. Twelve focused tests passed, signed-in website checkout opened, simulated Play-unavailable checkout stayed blocked, and server-only ledger grants were verified. Web build OK.
