@@ -17,7 +17,6 @@ import { Route as AppRouteImport } from './routes/app'
 import { Route as ArtistsRouteImport } from './routes/artists'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as CheckEmailRouteImport } from './routes/check-email'
-import { Route as DebugRouteImport } from './routes/debug'
 import { Route as DownloadRouteImport } from './routes/download'
 import { Route as DownloadsRouteImport } from './routes/downloads'
 import { Route as GetRouteImport } from './routes/get'
@@ -152,11 +151,6 @@ const AuthRoute = AuthRouteImport.update({
 const CheckEmailRoute = CheckEmailRouteImport.update({
   id: '/check-email',
   path: '/check-email',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DebugRoute = DebugRouteImport.update({
-  id: '/debug',
-  path: '/debug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DownloadRoute = DownloadRouteImport.update({
@@ -656,7 +650,6 @@ export interface FileRoutesByFullPath {
   '/artists': typeof ArtistsRoute
   '/auth': typeof AuthRoute
   '/check-email': typeof CheckEmailRoute
-  '/debug': typeof DebugRoute
   '/download': typeof DownloadRoute
   '/downloads': typeof DownloadsRoute
   '/get': typeof GetRoute
@@ -761,7 +754,6 @@ export interface FileRoutesByTo {
   '/artists': typeof ArtistsRoute
   '/auth': typeof AuthRoute
   '/check-email': typeof CheckEmailRoute
-  '/debug': typeof DebugRoute
   '/download': typeof DownloadRoute
   '/downloads': typeof DownloadsRoute
   '/get': typeof GetRoute
@@ -867,7 +859,6 @@ export interface FileRoutesById {
   '/artists': typeof ArtistsRoute
   '/auth': typeof AuthRoute
   '/check-email': typeof CheckEmailRoute
-  '/debug': typeof DebugRoute
   '/download': typeof DownloadRoute
   '/downloads': typeof DownloadsRoute
   '/get': typeof GetRoute
@@ -975,7 +966,6 @@ export interface FileRouteTypes {
     | '/artists'
     | '/auth'
     | '/check-email'
-    | '/debug'
     | '/download'
     | '/downloads'
     | '/get'
@@ -1080,7 +1070,6 @@ export interface FileRouteTypes {
     | '/artists'
     | '/auth'
     | '/check-email'
-    | '/debug'
     | '/download'
     | '/downloads'
     | '/get'
@@ -1185,7 +1174,6 @@ export interface FileRouteTypes {
     | '/artists'
     | '/auth'
     | '/check-email'
-    | '/debug'
     | '/download'
     | '/downloads'
     | '/get'
@@ -1292,7 +1280,6 @@ export interface RootRouteChildren {
   ArtistsRoute: typeof ArtistsRoute
   AuthRoute: typeof AuthRoute
   CheckEmailRoute: typeof CheckEmailRoute
-  DebugRoute: typeof DebugRoute
   DownloadRoute: typeof DownloadRoute
   DownloadsRoute: typeof DownloadsRoute
   GetRoute: typeof GetRoute
@@ -1399,13 +1386,6 @@ declare module '@tanstack/react-router' {
       path: '/check-email'
       fullPath: '/check-email'
       preLoaderRoute: typeof CheckEmailRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/debug': {
-      id: '/debug'
-      path: '/debug'
-      fullPath: '/debug'
-      preLoaderRoute: typeof DebugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/download': {
@@ -2198,7 +2178,6 @@ const rootRouteChildren: RootRouteChildren = {
   ArtistsRoute: ArtistsRoute,
   AuthRoute: AuthRoute,
   CheckEmailRoute: CheckEmailRoute,
-  DebugRoute: DebugRoute,
   DownloadRoute: DownloadRoute,
   DownloadsRoute: DownloadsRoute,
   GetRoute: GetRoute,
