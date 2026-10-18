@@ -1,5 +1,6 @@
 import { useCallback, useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { createPortal } from 'react-dom';
 import { X, Download, Copy, Check, Link2 } from 'lucide-react';
 import { Song } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
@@ -35,7 +36,6 @@ interface SocialShareModalProps {
 const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [cardUrl, setCardUrl] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
   const [copiedApp, setCopiedApp] = useState(false);
   const [generating, setGenerating] = useState(false);
   const appUrl = 'https://universflow.in';
@@ -445,13 +445,14 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
     },
   ];
 
-  return (
+  if (typeof document === 'undefined') return null;
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
           {/* Backdrop */}
           <motion.div
-            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[60]"
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-[200]"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -460,7 +461,7 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
 
           {/* Modal */}
           <motion.div
-            className="fixed inset-4 z-[60] flex items-center justify-center pointer-events-none"
+            className="fixed inset-4 z-[201] flex items-center justify-center pointer-events-none"
             initial={{ opacity: 0, scale: 0.9 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9 }}
@@ -565,7 +566,8 @@ const SocialShareModal = ({ isOpen, onClose, song }: SocialShareModalProps) => {
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body,
   );
 };
 
