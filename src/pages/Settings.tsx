@@ -1,10 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders,
-  KeyRound, Trash2, EyeOff, Smartphone, Mail, CheckCircle2, Wifi, Download,
-  Radio, Bell, Music2, Vibrate, Globe, HardDrive, FileText, Info, ShieldCheck,
-  Languages, Waves, Zap, Repeat, PlayCircle, HelpCircle,
-  Activity, AudioLines, Bookmark,
+  KeyRound, Trash2, Smartphone, Mail, CheckCircle2, Wifi, Download,
+  Radio, Bell, Music2, Vibrate, HardDrive, FileText, Info, ShieldCheck,
+  Waves, Zap, Repeat, PlayCircle, HelpCircle,
+  AudioLines, Bookmark,
 } from 'lucide-react';
 
 
@@ -30,7 +30,7 @@ import PremiumBadge from '@/components/PremiumBadge';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/useHaptics';
-import { applyLanguageToDocument, emitPrefsChanged, type LanguagePref as PrefLang } from '@/lib/userPrefs';
+import { emitPrefsChanged } from '@/lib/userPrefs';
 import SEOHead from '@/components/SEOHead';
 import { isNativePlayerAvailable, setNativePlaybackSpeed } from '@/lib/nativePlayer';
 import { APP_RELEASE, getInstalledAppVersion } from '@/lib/buildInfo';
@@ -68,13 +68,6 @@ const readQuality = (key: string, fallback: QualityTier): QualityTier => {
     return v && QUALITY_OPTIONS.some(o => o.id === v) ? v : fallback;
   } catch { return fallback; }
 };
-
-type LanguagePref = 'en' | 'hi' | 'pa';
-const LANGUAGE_OPTIONS: { id: LanguagePref; label: string; native: string }[] = [
-  { id: 'en', label: 'English', native: 'English' },
-  { id: 'hi', label: 'Hindi',   native: 'हिन्दी' },
-  { id: 'pa', label: 'Punjabi', native: 'ਪੰਜਾਬੀ' },
-];
 
 const monthsBetween = (iso?: string | null): string => {
   if (!iso) return '—';
@@ -169,12 +162,10 @@ const Settings = () => {
   const [showEqPremium, setShowEqPremium] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
-  const [isPrivate, setIsPrivate] = useState(false);
   const [profileCreated, setProfileCreated] = useState<string | null>(null);
   const [streamQuality, setStreamQuality] = useState<QualityTier>(() => readQuality('uf_stream_quality', 'high'));
   const [downloadQuality, setDownloadQuality] = useState<QualityTier>(() => readQuality('uf_download_quality', 'very_high'));
   const [wifiOnlyDownload, setWifiOnlyDownload] = useState<boolean>(() => localStorage.getItem('uf_download_wifi_only') === 'true');
-  const [language, setLanguage] = useState<LanguagePref>(() => (localStorage.getItem('uf_language') as LanguagePref) || 'en');
   type DeviceRow = { id: string; platform: string | null; device_info: Record<string, unknown> | null; updated_at: string | null };
   const [devices, setDevices] = useState<DeviceRow[]>([]);
   const [playbackSpeed, setPlaybackSpeed] = useState<number>(() => {
@@ -204,11 +195,10 @@ const Settings = () => {
     if (!user) return;
     const { data } = await supabase
       .from('profiles')
-      .select('is_private, created_at, mood_pushes_enabled')
+      .select('created_at, mood_pushes_enabled')
       .eq('user_id', user.id)
       .single();
-    const row = data as { is_private?: boolean; created_at?: string; mood_pushes_enabled?: boolean } | null;
-    setIsPrivate(!!row?.is_private);
+    const row = data as { created_at?: string; mood_pushes_enabled?: boolean } | null;
     if (typeof row?.mood_pushes_enabled === 'boolean') {
       setMoodPushes(row.mood_pushes_enabled);
     }
@@ -231,14 +221,6 @@ const Settings = () => {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Could not cancel deletion');
     }
-  };
-
-  const togglePrivate = async (val: boolean) => {
-    if (!user) return;
-    setIsPrivate(val);
-    const { error } = await supabase.from('profiles').update({ is_private: val }).eq('user_id', user.id);
-    if (error) { toast.error('Could not update privacy'); setIsPrivate(!val); return; }
-    toast.success(val ? 'Profile is now private' : 'Profile is now public');
   };
 
   const removeDevice = async (id: string) => {
@@ -356,14 +338,6 @@ const Settings = () => {
     emitPrefsChanged();
     toast.success(v ? 'Downloads limited to Wi-Fi' : 'Downloads allowed on any network');
   };
-  const handleLanguage = (v: LanguagePref) => {
-    setLanguage(v);
-    localStorage.setItem('uf_language', v);
-    applyLanguageToDocument(v as PrefLang);
-    emitPrefsChanged();
-    toast.success(`Language preference saved: ${LANGUAGE_OPTIONS.find(o => o.id === v)?.label}`);
-  };
-
   const handleResetPlayback = () => {
     // Reset speed directly (never route a free user to /premium from a reset).
     setPlaybackSpeed(1);
@@ -655,17 +629,6 @@ const Settings = () => {
             />
           </Section>
 
-          {/* ============ 4. PRIVACY ============ */}
-          <Section label="Privacy">
-            <Row
-              icon={<EyeOff className="w-4 h-4" />}
-              label="Private Profile"
-              sub="Hide your profile from future public discovery"
-              right={<Switch checked={isPrivate} onCheckedChange={togglePrivate} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle private profile" />}
-              last
-            />
-          </Section>
-
           {/* ============ 5. DEVICES ============ */}
           <Section label="Devices">
             {devices.length === 0 && (
@@ -730,36 +693,6 @@ const Settings = () => {
             />
           </Section>
 
-          {/* ============ 7. LANGUAGE & REGION ============ */}
-          <Section label="Language & Region">
-            <div className="px-4 py-3">
-              <div className="flex items-center gap-3 mb-3">
-                <Languages className="w-4 h-4 text-primary" />
-                <span className="text-sm">App Language</span>
-              </div>
-              <div className="grid grid-cols-3 gap-1.5">
-                {LANGUAGE_OPTIONS.map((l) => {
-                  const active = language === l.id;
-                  return (
-                    <button
-                      key={l.id}
-                      onClick={() => handleLanguage(l.id)}
-                      className={`py-2 rounded-lg text-xs font-medium transition-colors ${
-                        active ? 'bg-primary text-primary-foreground' : 'bg-muted/40 text-foreground/70 active:bg-muted'
-                      }`}
-                    >
-                      <div>{l.label}</div>
-                      <div className={`text-[10px] font-normal mt-0.5 ${active ? 'text-primary-foreground/70' : 'text-white/40'}`}>{l.native}</div>
-                    </button>
-                  );
-                })}
-              </div>
-              <p className="text-[10px] text-white/40 mt-2 inline-flex items-center gap-1">
-                <Globe className="w-3 h-3" /> Preference saved on this device
-              </p>
-            </div>
-          </Section>
-
           {/* ============ 8. SUPPORT ============ */}
           <Section label="Support">
             <Row
@@ -769,8 +702,7 @@ const Settings = () => {
               onClick={() => navigate(isPremium ? '/subscription' : '/premium')}
             />
             <Row icon={<MessageSquare className="w-4 h-4" />} label="Contact Support" chevron onClick={() => setShowSupport(true)} />
-            <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & FAQs" sub="Answers to common questions" chevron onClick={() => navigate('/support')} />
-            <Row icon={<Activity className="w-4 h-4" />} label="Playback Diagnostics" chevron last onClick={() => navigate('/debug')} />
+            <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & FAQs" sub="Answers to common questions" chevron last onClick={() => navigate('/support')} />
 
           </Section>
 

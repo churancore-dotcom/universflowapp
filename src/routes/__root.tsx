@@ -53,7 +53,6 @@ if (typeof window !== "undefined" && !window.__ufBooted) {
   void import("@/lib/median");
   void import("@/lib/sentry").then((m) => m.initSentry());
   void import("@/lib/capacitorBoot").then((m) => m.initCapacitorNative());
-  void import("@/lib/userPrefs").then((m) => m.applyLanguageToDocument());
   void import("@/hooks/useHaptics").then((m) => m.getHapticsEnabled());
   void import("@/lib/buildInfo").then(({ BUILD_INFO }) => {
     document.documentElement.dataset.appVersion = BUILD_INFO.version;

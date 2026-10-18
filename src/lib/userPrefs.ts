@@ -18,7 +18,6 @@ const KEYS = {
   streamQuality: 'uf_stream_quality',
   downloadQuality: 'uf_download_quality',
   wifiOnly: 'uf_download_wifi_only',
-  language: 'uf_language',
 } as const;
 
 const readQ = (key: string, fallback: QualityTier): QualityTier => {
@@ -36,21 +35,6 @@ export function getDownloadBitrateCap(): number { return QUALITY_BITRATE_CAP[get
 
 export function getWifiOnlyDownload(): boolean {
   try { return localStorage.getItem(KEYS.wifiOnly) === 'true'; } catch { return false; }
-}
-
-export type LanguagePref = 'en' | 'hi' | 'pa';
-export function getLanguage(): LanguagePref {
-  try {
-    const v = localStorage.getItem(KEYS.language) as LanguagePref | null;
-    if (v && ['en', 'hi', 'pa'].includes(v)) return v;
-  } catch { /* ignore */ }
-  return 'en';
-}
-
-/** Apply the current language pref to <html lang>. Safe on SSR. */
-export function applyLanguageToDocument(lang: LanguagePref = getLanguage()): void {
-  if (typeof document === 'undefined') return;
-  try { document.documentElement.lang = lang; } catch { /* ignore */ }
 }
 
 export function emitPrefsChanged(): void {
