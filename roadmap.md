@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Remove dedicated playback diagnostics code, language preference, and private-profile controls without weakening existing privacy.
+- [ ] Repair and test crossfade curves, Gapless Pro, gapless playback and autoplay on the real playback paths.
+- [ ] Verify updated Android transitions on a phone — blocked by unavailable Android device.
+
 - [x] Reconnect GitHub API after the 18 October 11:08 UTC workspace move; freshly linked connection verified with an account read.
 
 - [x] Reconnect GitHub API after the 17 October 13:17 UTC workspace move; freshly linked connection verified with an account read.
