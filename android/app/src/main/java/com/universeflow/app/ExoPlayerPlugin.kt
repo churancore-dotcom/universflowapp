@@ -634,6 +634,7 @@ class ExoPlayerPlugin : Plugin() {
     fun skipToPrevious(call: PluginCall) {
         playGeneration.incrementAndGet()
         runOnMain {
+            service()?.cancelOverlap()
             val p = service()?.player
             val advanced = p?.hasPreviousMediaItem() == true
             if (advanced) p?.seekToPreviousMediaItem() else p?.seekTo(0L)
@@ -651,7 +652,13 @@ class ExoPlayerPlugin : Plugin() {
             else -> Player.REPEAT_MODE_OFF
         }
         runOnMain {
+            service()?.cancelOverlap()
             service()?.player?.repeatMode = mode
+            service()?.setMiniPlayerState(null, null, when (mode) {
+                Player.REPEAT_MODE_ONE -> "one"
+                Player.REPEAT_MODE_ALL -> "all"
+                else -> "off"
+            })
             call.resolve()
         }
     }
