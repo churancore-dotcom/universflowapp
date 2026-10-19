@@ -3,9 +3,9 @@
 - [x] Reconnect GitHub API and Google Search Console after the 19 October workspace move; both account reads returned HTTP 200.
 - [x] Recheck both connections after the repeated 19 October 11:24 UTC workspace-move request; freshly linked and verified both accounts.
 
-- [ ] Remove dedicated playback diagnostics code, language preference, and private-profile controls without weakening existing privacy.
-- [ ] Repair and test crossfade curves, Gapless Pro, gapless playback and autoplay on the real playback paths.
-- [ ] Verify updated Android transitions on a phone — blocked by unavailable Android device.
+- [x] Remove dedicated playback diagnostics code, language preference, and private-profile controls without weakening existing privacy; signed-in settings and source-reference checks passed.
+- [x] Implement service-owned Android transitions, corrected browser gains/handover and autoplay extension; 12 focused tests passed, signed-in gapless/autoplay switches saved and restored, preview build OK.
+- [ ] Verify audible crossfade/Gapless Pro and updated Android transitions — blocked by unavailable Android toolchain/device; real-song browser attempt did not reach confirmed playback, so audible behavior remains unverified.
 
 - [x] Reconnect GitHub API after the 18 October 11:08 UTC workspace move; freshly linked connection verified with an account read.
 
