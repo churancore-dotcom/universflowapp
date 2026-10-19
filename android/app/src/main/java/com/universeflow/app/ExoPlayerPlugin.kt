@@ -587,6 +587,7 @@ class ExoPlayerPlugin : Plugin() {
     fun pause(call: PluginCall) {
         playGeneration.incrementAndGet()
         runOnMain {
+            service()?.cancelOverlap()
             isStartingUp = false
             service()?.player?.let {
                 it.playWhenReady = false
@@ -616,6 +617,7 @@ class ExoPlayerPlugin : Plugin() {
     fun skipToNext(call: PluginCall) {
         playGeneration.incrementAndGet()
         runOnMain {
+            service()?.cancelOverlap()
             val p = service()?.player
             val advanced = p?.hasNextMediaItem() == true
             if (advanced) {
@@ -658,6 +660,7 @@ class ExoPlayerPlugin : Plugin() {
     fun stop(call: PluginCall) {
         playGeneration.incrementAndGet()
         runOnMain {
+            service()?.cancelOverlap()
             service()?.player?.let {
                 it.stop()
                 it.clearMediaItems()
@@ -671,6 +674,7 @@ class ExoPlayerPlugin : Plugin() {
     fun seekTo(call: PluginCall) {
         val positionMs = call.getLong("positionMs") ?: run { call.reject("missing positionMs"); return }
         runOnMain {
+            service()?.cancelOverlap()
             service()?.player?.seekTo(positionMs)
             call.resolve()
         }
@@ -680,7 +684,20 @@ class ExoPlayerPlugin : Plugin() {
     fun setVolume(call: PluginCall) {
         val volume = call.getFloat("volume") ?: 1.0f
         runOnMain {
-            service()?.player?.volume = volume.coerceIn(0f, 1f)
+            service()?.setMasterVolume(volume)
+            call.resolve()
+        }
+    }
+
+    @PluginMethod
+    fun configureTransitions(call: PluginCall) {
+        val crossfade = call.getBoolean("crossfade") ?: false
+        val duration = call.getDouble("duration") ?: 6.0
+        val curve = call.getString("curve") ?: "equal-power"
+        val pro = call.getBoolean("gaplessPro") ?: false
+        val gapless = call.getBoolean("gapless") ?: true
+        runWhenReady(8000L, { call.reject("Audio service unavailable") }) {
+            service()?.configureTransitions(crossfade, duration, curve, pro, gapless)
             call.resolve()
         }
     }
