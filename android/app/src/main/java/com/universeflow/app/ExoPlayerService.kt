@@ -104,7 +104,7 @@ class ExoPlayerService : MediaSessionService() {
                 val item = p.currentMediaItem
                 if (window > 0 && p.duration > 0 && left > 80 && left <= window * 1000 && item != null && attemptedItem != item.mediaId) {
                     attemptedItem = item.mediaId
-                    prepareOverlap(p, left)
+                    prepareOverlap(p)
                 }
             }
             transitionHandler.postDelayed(this, 25L)
@@ -138,7 +138,7 @@ class ExoPlayerService : MediaSessionService() {
         player?.volume = masterVolume
     }
 
-    private fun prepareOverlap(p: ExoPlayer, remainingMs: Long) {
+    private fun prepareOverlap(p: ExoPlayer) {
         val item = p.currentMediaItem ?: return
         val outgoingId = item.mediaId
         val next = p.nextMediaItemIndex
@@ -166,7 +166,7 @@ class ExoPlayerService : MediaSessionService() {
                 tail.volume = masterVolume
                 tail.playWhenReady = true
                 incomingItem = nextId
-                overlapDurationMs = (available / p.playbackParameters.speed).toLong().coerceAtLeast(80L)
+                overlapDurationMs = available.coerceAtLeast(80L)
                 overlapStartedAt = android.os.SystemClock.elapsedRealtime()
                 p.volume = 0f
                 p.seekToNextMediaItem()
