@@ -2003,12 +2003,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     if (isGaplessPreloadEnabled() && nextIdx !== index && nextAudioRef.current) {
       const nextSong = songQueue[nextIdx];
       if (nextSong && isPlayableUrl(nextSong.audio_url) && !isYouTubeFallbackUrl(nextSong.audio_url)) {
-        if (preloadedNextIdRef.current !== nextSong.id) configureAudioElementSource(nextAudioRef.current, buildStreamProxyUrl(nextSong.audio_url));
-    if (!connectOverlapElement(nextAudioRef.current)) { isCrossfading.current = false; return; }
-    const outgoing = audioRef.current;
-    const incoming = nextAudioRef.current;
-    const sequence = playRequestSeqRef.current;
-    incoming.playbackRate = outgoing.playbackRate;
+        configureAudioElementSource(nextAudioRef.current, buildStreamProxyUrl(nextSong.audio_url));
+        preloadedNextIdRef.current = nextSong.id;
         nextAudioRef.current.preload = 'auto';
         nextAudioRef.current.load();
       } else if (nextSong && (nextSong.source === 'indexed' || nextSong.audio_url === 'resolving')) {
@@ -2404,7 +2400,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       audio.removeEventListener('error', handleAudioError);
       window.removeEventListener('uf-native-playback-failed', handleNativePlaybackFailed as EventListener);
     };
-  }, [audioElement, queue, crossfade, crossfadeDuration, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, resolveNativePlaybackUrl, extendQueueWithMix, markNativePlayIntent, playbackSettingsVersion]);
+  }, [audioElement, queue, crossfade, crossfadeDuration, crossfadeCurve, gaplessPro, getNextIndex, playSongAtIndex, playYouTubeFallback, resolveAudioUrl, resolveNativePlaybackUrl, extendQueueWithMix, markNativePlayIntent, playbackSettingsVersion]);
 
   // ── Android: subscribe to ExoPlayer events and drive React state directly.
   useEffect(() => {
