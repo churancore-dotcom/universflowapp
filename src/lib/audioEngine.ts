@@ -1124,13 +1124,25 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
 
 /** Add a second input to the existing effects graph without stealing its owner. */
 export function connectOverlapElement(el: HTMLAudioElement): boolean {
-  if (!engine.ctx || engine.mode !== 'processed' || !engine.stemsDirectGain || !engine.stemsSplitter) return true;
+  disconnectOverlapElement();
+  if (!engine.ctx || engine.mode !== 'processed' || !engine.stemsDirectGain || !engine.stemsSplitter) {
+    const cached = getCachedSource(el);
+    if (cached) { cached.disconnect(); cached.connect(cached.context.destination); }
+    return true;
+  }
+  if (!isCorsSafe(el)) return false;
   const source = getOrCreateSource(engine.ctx, el);
   if (!source) return false;
   source.connect(engine.stemsDirectGain);
   source.connect(engine.stemsSplitter);
   overlapSource = source;
   return true;
+}
+
+export function disconnectOverlapElement() {
+  if (!overlapSource) return;
+  try { overlapSource.disconnect(); } catch { /* already detached */ }
+  overlapSource = null;
 }
 
 /** Direct path — no EQ/effects. Used when EQ is off to save CPU. */

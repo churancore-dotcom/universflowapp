@@ -38,25 +38,9 @@ object MasterResolver {
      */
     private val inFlight = java.util.concurrent.ConcurrentHashMap<String, CompletableFuture<Resolved?>>()
 
-    /** Recent resolution outcomes — proof of which source really served audio. */
-    data class LogEntry(
-        val videoId: String?,
-        val label: String,
-        val winner: String,
-        val latencyMs: Long,
-        val ytFailure: String?,
-        val at: Long,
-    )
-
-    private val log = java.util.concurrent.ConcurrentLinkedDeque<LogEntry>()
-
-    fun recentLog(limit: Int = 25): List<LogEntry> = log.take(limit)
-
     private fun record(
         videoId: String?, label: String, winner: String, latencyMs: Long, ytFailure: String?,
     ) {
-        log.addFirst(LogEntry(videoId, label, winner, latencyMs, ytFailure, System.currentTimeMillis()))
-        while (log.size > 50) log.pollLast()
         Log.i(TAG, "resolved '$label' via $winner in ${latencyMs}ms" +
             (ytFailure?.let { " (yt failure: $it)" } ?: ""))
     }
