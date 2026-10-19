@@ -145,6 +145,8 @@ const engine: Engine = {
   cachedIR: null,
 };
 
+let overlapSource: MediaElementAudioSourceNode | null = null;
+
 const sourceCache = new WeakMap<HTMLAudioElement, MediaElementAudioSourceNode>();
 
 function getSourceAudioContext(source?: MediaElementAudioSourceNode | null): AudioContext | null {
@@ -558,6 +560,7 @@ export function getStudioSpace(): StudioSpaceId {
 }
 
 function disconnectAll() {
+  if (overlapSource) { try { overlapSource.disconnect(); } catch {} overlapSource = null; }
   const nodes: (AudioNode | null)[] = [
     engine.source, ...engine.filters, engine.preGain,
     engine.dryGain, engine.wetGain, engine.convolver,
@@ -1117,6 +1120,17 @@ export function connectAudioElement(el: HTMLAudioElement): boolean {
     setMode('direct');
     return false;
   }
+}
+
+/** Add a second input to the existing effects graph without stealing its owner. */
+export function connectOverlapElement(el: HTMLAudioElement): boolean {
+  if (!engine.ctx || engine.mode !== 'processed' || !engine.stemsDirectGain || !engine.stemsSplitter) return true;
+  const source = getOrCreateSource(engine.ctx, el);
+  if (!source) return false;
+  source.connect(engine.stemsDirectGain);
+  source.connect(engine.stemsSplitter);
+  overlapSource = source;
+  return true;
 }
 
 /** Direct path — no EQ/effects. Used when EQ is off to save CPU. */

@@ -67,6 +67,117 @@ class ExoPlayerService : MediaSessionService() {
     var player: ExoPlayer? = null
         private set
 
+    private var transitionEnabled = false
+    private var transitionDuration = 6.0
+    private var transitionCurve = "equal-power"
+    private var gaplessProEnabled = false
+    private var gaplessEnabled = true
+    private var masterVolume = 0.8f
+    private var tailPlayer: ExoPlayer? = null
+    private var transitionItem: String? = null
+    private var attemptedItem: String? = null
+    private var incomingItem: String? = null
+    private var overlapStartedAt = 0L
+    private var overlapDurationMs = 0L
+    private val transitionHandler = android.os.Handler(android.os.Looper.getMainLooper())
+    private val transitionTick = object : Runnable {
+        override fun run() {
+            val p = player ?: return
+            val tail = tailPlayer
+            if (tail != null && overlapStartedAt > 0L) {
+                if (!p.playWhenReady || p.currentMediaItem?.mediaId != incomingItem) {
+                    cancelOverlap()
+                } else if (p.isPlaying) {
+                    val progress = (android.os.SystemClock.elapsedRealtime() - overlapStartedAt).toDouble() / overlapDurationMs.coerceAtLeast(1L)
+                    val gains = TransitionEnvelope.gains(transitionCurve, progress)
+                    tail.volume = masterVolume * gains.first
+                    p.volume = masterVolume * gains.second
+                    if (progress >= 1.0) cancelOverlap()
+                }
+            } else if (tail != null && (!p.isPlaying || p.currentMediaItem?.mediaId != transitionItem)) {
+                cancelOverlap()
+            } else if (p.isPlaying && tail == null && p.hasNextMediaItem() && !p.shuffleModeEnabled) {
+                val window = TransitionEnvelope.window(transitionEnabled, transitionDuration, gaplessProEnabled, p.repeatMode == Player.REPEAT_MODE_ONE)
+                val left = p.duration - p.currentPosition
+                val item = p.currentMediaItem
+                if (window > 0 && p.duration > 0 && left > 80 && left <= window * 1000 && item != null && attemptedItem != item.mediaId) {
+                    attemptedItem = item.mediaId
+                    prepareOverlap(p, left)
+                }
+            }
+            transitionHandler.postDelayed(this, 25L)
+        }
+    }
+
+    fun configureTransitions(crossfade: Boolean, duration: Double, curve: String, pro: Boolean, gapless: Boolean) {
+        cancelOverlap()
+        transitionEnabled = crossfade
+        transitionDuration = duration.coerceIn(1.0, 12.0)
+        transitionCurve = curve
+        gaplessProEnabled = pro
+        gaplessEnabled = gapless
+        player?.pauseAtEndOfMediaItems = !gapless && !crossfade && !pro
+        transitionHandler.removeCallbacks(transitionTick)
+        transitionHandler.post(transitionTick)
+    }
+
+    fun setMasterVolume(volume: Float) {
+        masterVolume = volume.coerceIn(0f, 1f)
+        if (tailPlayer == null) player?.volume = masterVolume
+    }
+
+    fun cancelOverlap() {
+        tailPlayer?.release()
+        tailPlayer = null
+        transitionItem = null
+        incomingItem = null
+        overlapStartedAt = 0L
+        player?.volume = masterVolume
+    }
+
+    private fun prepareOverlap(p: ExoPlayer, remainingMs: Long) {
+        val item = p.currentMediaItem ?: return
+        val outgoingId = item.mediaId
+        val next = p.nextMediaItemIndex
+        if (next == C.INDEX_UNSET) return
+        val nextId = p.getMediaItemAt(next).mediaId
+        val tail = ExoPlayer.Builder(this)
+            .setMediaSourceFactory(NativeMediaSourceFactory.build(this))
+            .setAudioAttributes(p.audioAttributes, false)
+            .setHandleAudioBecomingNoisy(true)
+            .build()
+        tailPlayer = tail
+        transitionItem = outgoingId
+        tail.volume = 0f
+        tail.playbackParameters = p.playbackParameters
+        tail.setMediaItem(item, p.currentPosition)
+        val preparedAt = android.os.SystemClock.elapsedRealtime()
+        tail.addListener(object : Player.Listener {
+            override fun onPlaybackStateChanged(state: Int) {
+                if (state != Player.STATE_READY || overlapStartedAt > 0L || tailPlayer !== tail) return
+                if (!p.isPlaying || p.currentMediaItem?.mediaId != outgoingId || p.nextMediaItemIndex != next || p.getMediaItemAt(next).mediaId != nextId) {
+                    cancelOverlap(); return
+                }
+                val elapsed = android.os.SystemClock.elapsedRealtime() - preparedAt
+                val available = remainingMs - elapsed
+                if (available < 80L) { cancelOverlap(); return }
+                tail.seekTo(p.currentPosition)
+                tail.volume = masterVolume
+                tail.playWhenReady = true
+                incomingItem = nextId
+                overlapDurationMs = (available / p.playbackParameters.speed).toLong().coerceAtLeast(80L)
+                overlapStartedAt = android.os.SystemClock.elapsedRealtime()
+                p.volume = 0f
+                p.seekToNextMediaItem()
+                p.play()
+            }
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                if (tailPlayer === tail) cancelOverlap()
+            }
+        })
+        tail.prepare()
+    }
+
     // ---- Audio effects (lazy on first session-id discovery) ----
     var equalizer: Equalizer? = null
         private set
@@ -326,12 +437,22 @@ class ExoPlayerService : MediaSessionService() {
                 if (playbackState == Player.STATE_READY) refreshMediaNotification()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
+                if (!isPlaying && !exo.playWhenReady) cancelOverlap()
                 if (isPlaying || (exo.playWhenReady && exo.playbackState == Player.STATE_BUFFERING)) acquireLocks() else releaseLocks()
                 ensureEffectsBound()
                 refreshMediaNotification()
             }
             override fun onAudioSessionIdChanged(audioSessionId: Int) {
                 ensureEffectsBound()
+            }
+            override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                // Gapless OFF inserts a deliberate between-track pause, not a stop.
+                if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && !gaplessEnabled) {
+                    val mediaId = exo.currentMediaItem?.mediaId
+                    transitionHandler.postDelayed({
+                        if (player === exo && exo.currentMediaItem?.mediaId == mediaId && !exo.playWhenReady) exo.play()
+                    }, 180L)
+                }
             }
             override fun onMediaMetadataChanged(mediaMetadata: androidx.media3.common.MediaMetadata) {
                 // Title/artwork arrived — repaint the shade/lock-screen player.
@@ -341,6 +462,8 @@ class ExoPlayerService : MediaSessionService() {
                 mediaItem: androidx.media3.common.MediaItem?,
                 reason: Int,
             ) {
+                if (tailPlayer != null && mediaItem?.mediaId != incomingItem) cancelOverlap()
+                if (mediaItem?.mediaId != attemptedItem) attemptedItem = null
                 // Echo-style look-ahead: pre-resolve the next two queue items so
                 // the ResolvingDataSource never blocks on the network at the
                 // moment of transition (gapless, instant next-track start).
@@ -820,6 +943,8 @@ class ExoPlayerService : MediaSessionService() {
     }
 
     override fun onDestroy() {
+        transitionHandler.removeCallbacksAndMessages(null)
+        cancelOverlap()
         ServiceRegistry.exoService = null
         releaseEffects()
         try { mediaSession?.run { player.release(); release() } } catch (_: Throwable) {}
