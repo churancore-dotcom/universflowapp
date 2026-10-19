@@ -5,6 +5,7 @@
 - Own offline audio/cover object URLs in one registry and release them on removal, clearing, and teardown; native file URLs never need blob allocation.
 - Native playback retries must match the active generation, player, item, and play intent; detach plugin listeners without stopping the background service.
 - Reset native recovery per media item, sequence volume ramps to the active play request, renew long-session power locks, and cancel asynchronously attached lifecycle listeners.
+- Schedule Android overlaps in the playback service and connect browser overlap audio to the existing effects graph; autoplay controls recommendation extension, not explicitly queued songs.
 
 - Keep native launch covered only until the shell paints; never stack a web logo reveal or fixed plugin-initialization delays over it, to avoid startup stalls.
 
