@@ -98,7 +98,7 @@ class ExoPlayerService : MediaSessionService() {
                 }
             } else if (tail != null && (!p.isPlaying || p.currentMediaItem?.mediaId != transitionItem)) {
                 cancelOverlap()
-            } else if (p.isPlaying && tail == null && p.hasNextMediaItem() && true) {
+            } else if (p.isPlaying && tail == null && p.hasNextMediaItem()) {
                 val window = TransitionEnvelope.window(transitionEnabled, transitionDuration, gaplessProEnabled, p.repeatMode == Player.REPEAT_MODE_ONE)
                 val left = p.duration - p.currentPosition
                 val item = p.currentMediaItem
