@@ -485,7 +485,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                 </motion.button>
                 
                 <motion.button 
-                  className="w-[74px] h-[74px] rounded-full bg-foreground flex items-center justify-center shadow-xl"
+                  className="w-[74px] h-[74px] rounded-full bg-primary flex items-center justify-center shadow-xl ring-2 ring-primary/30"
                   onClick={() => { triggerHaptic('impactHeavy'); togglePlay(); }}
                   whileTap={{ scale: 0.9 }}
                   aria-label={isPlaying ? 'Pause' : 'Play'}

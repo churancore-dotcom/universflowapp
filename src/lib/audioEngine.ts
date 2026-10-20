@@ -938,7 +938,9 @@ let bandHeadroom = 1;
 function applyGainStaging() {
   if (!engine.ctx || !engine.preGain) return;
   const now = engine.ctx.currentTime;
-  const base = engine.lateNightEnabled ? 2.4 : 0.92;
+  // Conservative pre-gain: the compressor is not a brick-wall limiter, so
+  // driving it hard (old 2.4×) audibly distorted loud masters.
+  const base = engine.lateNightEnabled ? 1.6 : 0.85;
   engine.preGain.gain.cancelScheduledValues(now);
   engine.preGain.gain.setTargetAtTime(base * bandHeadroom, now, SMOOTH);
 }
