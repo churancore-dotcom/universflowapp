@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import {
   Settings, LogOut, Shield, Heart, ListMusic, Crown, ChevronRight,
-  Edit2, Check, X, Download, Music2, Play,
+  Edit2, Check, X, Download, Music2,
 } from 'lucide-react';
 import { useNavigate } from '@/lib/router-compat';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,15 +26,6 @@ import { readListenLog } from '@/lib/listenLog';
 interface ProfileData {
   username: string | null;
   username_changed: boolean;
-}
-
-/** Deterministic gradient per user id for the initials avatar */
-function gradientFromSeed(seed: string): string {
-  let h = 0;
-  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
-  const a = h % 360;
-  const b = (a + 42) % 360;
-  return `linear-gradient(135deg, hsl(${a} 78% 58%), hsl(${b} 82% 42%))`;
 }
 
 const Profile = () => {
@@ -238,8 +229,24 @@ const Profile = () => {
     const src = (profileData.username || user?.email || 'U').replace(/[^a-zA-Z0-9]/g, '');
     return (src.slice(0, 2) || 'U').toUpperCase();
   }, [profileData.username, user?.email]);
-  const avatarGradient = useMemo(() => gradientFromSeed(user?.id || 'guest'), [user?.id]);
   const fmt = (n: number) => (n > 0 ? n.toLocaleString() : '0');
+
+  const Row = ({ icon, label, hint, onClick, danger }:
+    { icon: React.ReactNode; label: string; hint?: string; onClick: () => void; danger?: boolean }) => (
+    <button onClick={onClick}
+      className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left active:bg-muted/60 transition-colors">
+      <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted ${danger ? 'text-destructive' : 'text-foreground/80'}`}>{icon}</span>
+      <span className={`flex-1 min-w-0 text-[15px] ${danger ? 'text-destructive' : ''}`}>{label}</span>
+      {hint && <span className="text-[13px] text-muted-foreground truncate">{hint}</span>}
+      {!danger && <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0" />}
+    </button>
+  );
+  const Group = ({ children }: { children: React.ReactNode }) => (
+    <div className="rounded-2xl bg-card border border-border/60 overflow-hidden divide-y divide-border/60">{children}</div>
+  );
+  const Label = ({ children }: { children: React.ReactNode }) => (
+    <h2 className="px-1 mb-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</h2>
+  );
 
   return (
     <TabTransition>
@@ -248,238 +255,128 @@ const Profile = () => {
         description="Your Univers Flow profile: listening stats, library, downloads and account."
         path="/profile"
       />
-      <div className="h-[100dvh] flex flex-col overflow-hidden" style={{ background: 'hsl(var(--neu-bg))' }}>
-        <main
-          className="flex-1 overflow-y-auto pb-36 safe-area-pt"
-          style={{ WebkitOverflowScrolling: 'touch' }}
-        >
-          {/* ============ HEADER ============ */}
+      <div className="h-[100dvh] flex flex-col overflow-hidden bg-background">
+        <main className="flex-1 overflow-y-auto pb-36 safe-area-pt" style={{ WebkitOverflowScrolling: 'touch' }}>
           <header className="px-5 pt-4 flex items-center justify-between">
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.3em] text-muted-foreground/70">Univers Flow</p>
-              <p className="font-display text-[20px] leading-tight tracking-wide">PROFILE</p>
-            </div>
-            <button
-              onClick={() => navigate('/settings')}
-              aria-label="Settings"
-              className="neu-sm neu-press w-11 h-11 rounded-2xl flex items-center justify-center"
-            >
-              <Settings className="w-[18px] h-[18px] text-muted-foreground" />
+            <h1 className="text-[28px] font-bold tracking-tight">Profile</h1>
+            <button onClick={() => navigate('/settings')} aria-label="Settings"
+              className="w-10 h-10 rounded-full flex items-center justify-center bg-muted active:opacity-70">
+              <Settings className="w-[18px] h-[18px] text-foreground/80" />
             </button>
           </header>
 
-          {/* ============ IDENTITY PANEL ============ */}
-          <section className="px-5 pt-6">
-            <div className="neu rounded-[30px] p-6 flex flex-col items-center text-center">
-              <div className="neu-inset rounded-full p-3">
-                <div
-                  className="w-[92px] h-[92px] rounded-full flex items-center justify-center"
-                  style={{ background: avatarGradient, boxShadow: '0 8px 20px hsl(var(--neu-dark) / 0.9)' }}
-                >
-                  <span
-                    className="font-display font-bold select-none text-white"
-                    style={{ fontSize: 36, lineHeight: 1, textShadow: '0 2px 6px rgba(0,0,0,0.4)' }}
-                  >
-                    {initials}
-                  </span>
+          <section className="px-5 pt-5 flex items-center gap-4">
+            <div className="w-[72px] h-[72px] rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
+              <span className="text-[26px] font-semibold text-foreground select-none">{initials}</span>
+            </div>
+            <div className="flex-1 min-w-0">
+              {!profileSettled ? (
+                <div className="h-6 w-32 rounded-md bg-muted animate-pulse" />
+              ) : isEditingUsername ? (
+                <div className="flex items-center gap-2">
+                  <Input value={newUsername} onChange={(e) => setNewUsername(e.target.value)}
+                    className="h-10 rounded-xl text-base" placeholder="username" maxLength={20} autoFocus />
+                  <button onClick={handleSaveUsername} disabled={isSaving} aria-label="Save"
+                    className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <Check className="w-4 h-4 text-primary" />
+                  </button>
+                  <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }}
+                    aria-label="Cancel" className="w-10 h-10 rounded-full bg-muted flex items-center justify-center shrink-0">
+                    <X className="w-4 h-4 text-muted-foreground" />
+                  </button>
                 </div>
-              </div>
-
-              {/* Name */}
-              <div className="mt-5 w-full">
-                {!profileSettled ? (
-                  <div className="neu-inset h-8 w-40 mx-auto rounded-lg animate-pulse" />
-                ) : isEditingUsername ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={newUsername}
-                      onChange={(e) => setNewUsername(e.target.value)}
-                      className="neu-inset h-11 rounded-2xl border-0 text-center text-base"
-                      placeholder="username" maxLength={20} autoFocus
-                    />
-                    <button onClick={handleSaveUsername} disabled={isSaving} aria-label="Save"
-                      className="neu-sm neu-press w-11 h-11 rounded-2xl flex items-center justify-center shrink-0">
-                      <Check className="w-4 h-4 text-green-400" />
+              ) : (
+                <div className="flex items-center gap-2">
+                  <p className="text-[22px] font-semibold leading-tight truncate">{displayName}</p>
+                  {canChangeUsername && (
+                    <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username" className="p-1 text-muted-foreground">
+                      <Edit2 className="w-3.5 h-3.5" />
                     </button>
-                    <button onClick={() => { setIsEditingUsername(false); setNewUsername(profileData.username || ''); }}
-                      aria-label="Cancel" className="neu-sm neu-press w-11 h-11 rounded-2xl flex items-center justify-center shrink-0">
-                      <X className="w-4 h-4 text-muted-foreground" />
-                    </button>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-center gap-2">
-                    <h1 className="font-display text-[28px] leading-tight tracking-wide truncate">
-                      {displayName.toUpperCase()}
-                    </h1>
-                    {canChangeUsername && (
-                      <button onClick={() => setIsEditingUsername(true)} aria-label="Edit username"
-                        className="neu-sm neu-press w-8 h-8 rounded-xl flex items-center justify-center shrink-0">
-                        <Edit2 className="w-3 h-3 text-muted-foreground" />
-                      </button>
-                    )}
-                  </div>
-                )}
-                {user?.email && (
-                  <p className="mt-1.5 text-[11.5px] text-muted-foreground/80 truncate">{user.email}</p>
-                )}
-              </div>
-
-              {/* Badges */}
-              {profileSettled && (
-                <div className="mt-5 flex items-center justify-center gap-2 flex-wrap">
-                  {isPremium ? (
-                    <span className="neu-sm inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-amber-300">
-                      <Crown className="w-3 h-3" /> Premium
-                    </span>
-                  ) : (
-                    <span className="neu-inset inline-flex items-center px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground/80">
-                      Free
-                    </span>
-                  )}
-                  {isAdmin && (
-                    <span className="neu-sm inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-sky-300">
-                      <Shield className="w-3 h-3" /> Admin
-                    </span>
-                  )}
-                  {memberSinceLabel && (
-                    <span className="neu-inset inline-flex items-center px-3 py-1.5 rounded-full text-[10.5px] font-semibold text-muted-foreground/80">
-                      {memberSinceLabel}
-                    </span>
                   )}
                 </div>
               )}
+              <p className="mt-0.5 text-[13px] text-muted-foreground truncate">
+                {profileSettled ? [isPremium ? 'Premium' : 'Free plan', memberSinceLabel].filter(Boolean).join(' · ') : '\u00A0'}
+              </p>
             </div>
           </section>
 
+          <section className="px-5 pt-5 grid grid-cols-3 gap-2">
+            {[
+              { v: fmt(listenStats.minutes), l: 'Minutes' },
+              { v: fmt(listenStats.totalPlays), l: 'Plays' },
+              { v: `${listenStats.streak}d`, l: 'Streak' },
+            ].map((s) => (
+              <button key={s.l} onClick={() => setRecapOpen(true)} className="rounded-2xl bg-card border border-border/60 py-3 text-center active:opacity-70">
+                <p className="text-[18px] font-semibold tabular-nums leading-none">{s.v}</p>
+                <p className="mt-1.5 text-[11px] text-muted-foreground">{s.l}</p>
+              </button>
+            ))}
+          </section>
+
           <RecapModal isOpen={recapOpen} onClose={() => setRecapOpen(false)} />
-          <div className="px-5 pt-6 space-y-7">
+          <div className="px-5 pt-6 space-y-6">
             <EmailVerificationCard />
 
-            {/* ============ STATS ============ */}
-
-            {/* ============ RECENTLY PLAYED ============ */}
             {recentSongs.length > 0 && (
               <section>
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none">Recently<br/>played</h2>
-                  <button onClick={() => navigate('/library')} className="neu-sm neu-press px-3 py-1.5 rounded-full text-[10.5px] font-bold uppercase tracking-wider text-muted-foreground">
-                    Library
-                  </button>
+                <div className="flex items-baseline justify-between mb-3 px-1">
+                  <h2 className="text-[19px] font-semibold">Recently Played</h2>
+                  <button onClick={() => navigate('/library')} className="text-[14px] text-primary">See All</button>
                 </div>
-                <div className="flex gap-4 overflow-x-auto hide-scrollbar -mx-5 px-5 pb-2">
+                <div className="flex gap-3 overflow-x-auto hide-scrollbar -mx-5 px-5 pb-1">
                   {recentSongs.map((song) => (
-                    <button
-                      key={song.id}
-                      onClick={() => { triggerHaptic('selection'); playSong(song, null, recentSongs); }}
-                      className="shrink-0 w-[104px] text-left"
-                      aria-label={`Play ${song.title}`}
-                    >
-                      <div className="neu neu-press rounded-3xl p-2">
-                        <div className="neu-inset w-full aspect-square rounded-[14px] overflow-hidden">
-                          {song.cover_url ? (
-                            <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover rounded-[14px]" loading="lazy" />
-                          ) : (
-                            <div className="w-full h-full flex items-center justify-center"><Music2 className="w-6 h-6 text-muted-foreground/60" /></div>
-                          )}
-                        </div>
+                    <button key={song.id} onClick={() => { triggerHaptic('selection'); playSong(song, null, recentSongs); }}
+                      className="shrink-0 w-[112px] text-left active:opacity-70" aria-label={`Play ${song.title}`}>
+                      <div className="w-full aspect-square rounded-xl overflow-hidden bg-muted">
+                        {song.cover_url ? (
+                          <img src={song.cover_url} alt={song.title} className="w-full h-full object-cover" loading="lazy" />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center"><Music2 className="w-6 h-6 text-muted-foreground/60" /></div>
+                        )}
                       </div>
-                      <p className="mt-2.5 px-1 text-[12px] font-semibold text-foreground truncate leading-tight">{song.title}</p>
-                      <p className="px-1 text-[11px] text-muted-foreground/70 truncate">{song.artist}</p>
+                      <p className="mt-2 text-[13px] font-medium truncate leading-tight">{song.title}</p>
+                      <p className="text-[12px] text-muted-foreground truncate">{song.artist}</p>
                     </button>
                   ))}
                 </div>
               </section>
             )}
 
-            {/* ============ LIBRARY ============ */}
             <section>
-              <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-4">Your library</h2>
-              <div className="space-y-3">
-                <Key icon={<Heart className="w-[18px] h-[18px] text-primary" fill="currentColor" />}
-                  label="Liked Songs"
-                  hint={profileSettled ? `${stats.likedSongs} ${stats.likedSongs === 1 ? 'song' : 'songs'}` : '—'}
-                  onClick={() => navigate('/library?tab=liked')} />
-                <Key icon={<ListMusic className="w-[18px] h-[18px] text-muted-foreground" />}
-                  label="Playlists"
-                  hint={profileSettled ? `${stats.playlists} ${stats.playlists === 1 ? 'playlist' : 'playlists'}` : '—'}
-                  onClick={() => navigate('/library?tab=playlists')} />
-                <Key icon={<Download className="w-[18px] h-[18px] text-muted-foreground" />}
-                  label="Downloads"
-                  hint={profileSettled ? `${stats.downloads} offline` : '—'}
-                  onClick={() => navigate('/downloads')} />
-              </div>
+              <Label>Library</Label>
+              <Group>
+                <Row icon={<Heart className="w-4 h-4" />} label="Liked Songs"
+                  hint={profileSettled ? String(stats.likedSongs) : undefined} onClick={() => navigate('/library?tab=liked')} />
+                <Row icon={<ListMusic className="w-4 h-4" />} label="Playlists"
+                  hint={profileSettled ? String(stats.playlists) : undefined} onClick={() => navigate('/library?tab=playlists')} />
+                <Row icon={<Download className="w-4 h-4" />} label="Downloads"
+                  hint={profileSettled ? String(stats.downloads) : undefined} onClick={() => navigate('/downloads')} />
+              </Group>
             </section>
 
-            {/* ============ PREMIUM ============ */}
-            {profileSettled && !isPremium && (
-              <button
-                onClick={() => navigate('/premium')}
-                className="neu neu-press w-full rounded-[28px] p-5 text-left flex items-center gap-4"
-              >
-                <div className="neu-accent w-12 h-12 rounded-2xl flex items-center justify-center shrink-0">
-                  <Crown className="w-5 h-5 text-white" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-display text-[17px] tracking-wide">GO PREMIUM</p>
-                  <p className="text-[11.5px] text-muted-foreground/80 mt-0.5">Ad-free · Offline · Studio EQ · Lossless</p>
-                </div>
-                <ChevronRight className="w-4 h-4 text-muted-foreground/60" />
-              </button>
-            )}
-
-            {/* ============ ACCOUNT ============ */}
             <section>
-              <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-4">Account</h2>
-              <div className="space-y-3">
-                {profileSettled && isAdmin && (
-                  <Key icon={<Shield className="w-[18px] h-[18px] text-primary" />} label="Admin Panel"
-                    hint="Manage the platform"
-                    onClick={() => navigate('/admin')} />
+              <Label>Account</Label>
+              <Group>
+                {profileSettled && (
+                  <Row icon={<Crown className="w-4 h-4" />} label={isPremium ? 'Manage Premium' : 'Premium'}
+                    hint={isPremium ? 'Active' : 'Upgrade'} onClick={() => navigate('/premium')} />
                 )}
-                <button onClick={handleLogout}
-                  className="neu neu-press w-full flex items-center gap-4 px-4 py-4 rounded-3xl text-left">
-                  <div className="neu-inset w-11 h-11 rounded-2xl flex items-center justify-center shrink-0">
-                    <LogOut className="w-[18px] h-[18px] text-destructive" />
-                  </div>
-                  <span className="flex-1 text-[14px] font-semibold text-destructive">Sign Out</span>
-                </button>
-              </div>
+                {profileSettled && isAdmin && (
+                  <Row icon={<Shield className="w-4 h-4" />} label="Admin" onClick={() => navigate('/admin')} />
+                )}
+                <Row icon={<Settings className="w-4 h-4" />} label="Settings" onClick={() => navigate('/settings')} />
+                <Row icon={<LogOut className="w-4 h-4" />} label="Sign Out" onClick={handleLogout} danger />
+              </Group>
             </section>
 
-            <p className="text-center text-[9.5px] uppercase tracking-[0.35em] text-muted-foreground/60 pt-2 pb-1">
-              Univers Flow
-            </p>
+            {user?.email && <p className="text-center text-[12px] text-muted-foreground/70">{user.email}</p>}
           </div>
         </main>
-
         <BottomNav />
       </div>
     </TabTransition>
   );
 };
-
-function Dial({ value, label }: { value: string; label: string }) {
-  return (
-    <div className="neu-inset rounded-2xl px-3 py-4 text-center">
-      <p className="font-display font-bold text-[22px] leading-none tracking-wide">{value}</p>
-      <p className="mt-2 text-[9.5px] uppercase tracking-[0.2em] text-muted-foreground/70 font-bold">{label}</p>
-    </div>
-  );
-}
-
-function Key({ icon, label, hint, onClick }:
-  { icon: React.ReactNode; label: string; hint?: string; onClick: () => void }) {
-  return (
-    <button onClick={onClick}
-      className="neu neu-press w-full flex items-center gap-4 px-4 py-4 rounded-3xl text-left">
-      <div className="neu-inset w-11 h-11 rounded-2xl flex items-center justify-center shrink-0">{icon}</div>
-      <div className="flex-1 min-w-0">
-        <p className="text-[14px] font-semibold leading-none">{label}</p>
-        {hint && <p className="text-[11px] text-muted-foreground/70 mt-1.5 truncate">{hint}</p>}
-      </div>
-      <ChevronRight className="w-4 h-4 text-muted-foreground/60" />
-    </button>
-  );
-}
 
 export default Profile;
