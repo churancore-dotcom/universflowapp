@@ -1,5 +1,6 @@
 # Roadmap
 
+- [x] Reconnect GitHub API and Google Search Console after the 20 October workspace move; GitHub account read and Search Console property list both returned HTTP 200.
 - [x] Reconnect GitHub API and Google Search Console after the 19 October workspace move; both account reads returned HTTP 200.
 - [x] Recheck both connections after the repeated 19 October 11:24 UTC workspace-move request; freshly linked and verified both accounts.
 
