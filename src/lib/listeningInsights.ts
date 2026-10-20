@@ -114,6 +114,12 @@ export async function loadPlayRecords(userId: string | null): Promise<PlayRecord
     const fp = trackFingerprint(snap.title, snap.artist);
     const key = `${fp}|${Math.floor(entry.played_at / 60_000)}`;
     if (seen.has(key)) continue;
+    // Server and device clocks differ slightly: treat the same track within
+    // ±3 minutes as the same play so the APK never double-counts.
+    const near = Math.floor(entry.played_at / 60_000);
+    let dup = false;
+    for (let m = near - 3; m <= near + 3 && !dup; m++) dup = seen.has(`${fp}|${m}`);
+    if (dup) continue;
     seen.add(key);
     records.push({
       fingerprint: fp,
@@ -312,11 +318,13 @@ export function buildRecap(
       : new Date(now.getFullYear(), 0, 1).getTime();
 
   let scoped = records.filter((r) => r.at >= from);
+  let effectiveFrom = from;
   // A recap of an almost-empty calendar month is depressing and useless, so fall
   // back to a rolling window of the same length rather than showing nothing.
   if (scoped.length < 10) {
     const rollingFrom = Date.now() - (window === 'month' ? 30 : 365) * 86_400_000;
     scoped = records.filter((r) => r.at >= rollingFrom);
+    effectiveFrom = rollingFrom;
   }
   if (scoped.length === 0) return null;
 
@@ -354,7 +362,7 @@ export function buildRecap(
   // labelled as such in the UI.
   const log = readListenLog(userId);
   const measuredSeconds = log.days
-    .filter((d) => new Date(`${d.day}T00:00:00`).getTime() >= from)
+    .filter((d) => new Date(`${d.day}T00:00:00`).getTime() >= effectiveFrom - 86_400_000 + 1)
     .reduce((sum, d) => sum + d.seconds, 0);
   const minutesMeasured = Math.round(measuredSeconds / 60);
   const minutesEstimatedValue = Math.round(estimatedSeconds / 60);
