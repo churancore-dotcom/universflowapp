@@ -106,11 +106,11 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
                     return@queryProductDetailsAsync
                 }
                 pendingPurchaseCall = call
+                val detailsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
+                    .setProductDetails(item)
+                offer.offerToken?.let { detailsBuilder.setOfferToken(it) }
                 val params = BillingFlowParams.newBuilder()
-                    .setProductDetailsParamsList(listOf(
-                        BillingFlowParams.ProductDetailsParams.newBuilder()
-                            .setProductDetails(item).setOfferToken(offer.offerToken).build()
-                    )).build()
+                    .setProductDetailsParamsList(listOf(detailsBuilder.build())).build()
                 val launch = billingClient.launchBillingFlow(activity, params)
                 if (launch.responseCode != BillingClient.BillingResponseCode.OK) {
                     pendingPurchaseCall = null

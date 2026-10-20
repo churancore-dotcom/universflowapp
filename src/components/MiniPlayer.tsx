@@ -211,7 +211,7 @@ const MiniPlayer = memo(function MiniPlayer() {
                 <SkipBack className="w-5 h-5 text-foreground" fill="currentColor" />
               </motion.button>
               <motion.button
-                className="w-12 h-12 min-w-[48px] rounded-full flex items-center justify-center"
+                className="w-12 h-12 min-w-[48px] rounded-full flex items-center justify-center bg-primary shadow-md"
                 onClick={handleTogglePlay}
                 aria-label={isPlaying ? 'Pause' : 'Play'}
                 whileTap={{ scale: 0.85 }}
@@ -224,9 +224,9 @@ const MiniPlayer = memo(function MiniPlayer() {
                   transition={{ duration: 0.1 }}
                 >
                   {isPlaying ? (
-                    <Pause className="w-6 h-6 text-foreground" fill="currentColor" />
+                    <Pause className="w-6 h-6 text-primary-foreground" fill="currentColor" />
                   ) : (
-                    <Play className="w-6 h-6 text-foreground ml-0.5" fill="currentColor" />
+                    <Play className="w-6 h-6 text-primary-foreground ml-0.5" fill="currentColor" />
                   )}
                 </motion.div>
               </motion.button>

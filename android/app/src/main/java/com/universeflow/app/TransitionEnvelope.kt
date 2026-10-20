@@ -6,12 +6,15 @@ import kotlin.math.sin
 object TransitionEnvelope {
     fun gains(curve: String, progress: Double): Pair<Float, Float> {
         val p = progress.coerceIn(0.0, 1.0)
-        return when (curve) {
+        val raw = when (curve) {
             "equal-power" -> Pair(cos(p * Math.PI / 2).toFloat(), sin(p * Math.PI / 2).toFloat())
             "smooth" -> { val s = p * p * (3 - 2 * p); Pair((1 - s).toFloat(), s.toFloat()) }
             "exponential" -> Pair(((1 - p) * (1 - p)).toFloat(), (p * p).toFloat())
             else -> Pair((1 - p).toFloat(), p.toFloat())
         }
+        // Keep the two-player sum at or below unity so overlaps never clip.
+        val headroom = maxOf(1f, raw.first + raw.second)
+        return Pair(raw.first / headroom, raw.second / headroom)
     }
 
     fun window(crossfade: Boolean, duration: Double, pro: Boolean, repeatOne: Boolean): Double =

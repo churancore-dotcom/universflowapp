@@ -200,11 +200,14 @@ class StemAudioProcessor : BaseAudioProcessor() {
     }
 
     private fun softLimit(value: Float, amount: Float): Float {
-        if (amount <= 0.001f) return value
+        // Always-on smooth ceiling: neutral audio below ~-3.5 dBFS is untouched,
+        // overshoot from EQ/stems/width bends toward full scale instead of hard-clipping.
         val threshold = 22000f - amount * 6000f
         val magnitude = kotlin.math.abs(value)
         if (magnitude <= threshold) return value
-        val compressed = threshold + (magnitude - threshold) / (1f + amount * 5f)
+        val headroom = 32000f - threshold
+        val over = magnitude - threshold
+        val compressed = threshold + headroom * (over / (over + headroom))
         return if (value < 0f) -compressed else compressed
     }
 }
