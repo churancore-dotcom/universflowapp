@@ -75,4 +75,4 @@
 - [x] Connect GitHub API in new workspace
 - [x] Reconnect GitHub API after the 17 October 13:12 UTC workspace move; freshly linked connection verified with the GitHub account read. Earlier workspace connection identifiers no longer apply.
 
-- [ ] Reconnect GitHub API + Google Search Console in new workspace
+- [x] Reconnect GitHub API + Google Search Console in new workspace
