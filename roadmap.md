@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Reconnect GitHub API and Google Search Console after the 21 October 12:47 UTC workspace move; verify both fresh connections.
+
 - [ ] Replace page-loading gaps with a polished app-matched transition and verify navigation.
 - [ ] Fix crossfade curve behavior and preserve EQ/8D/3D across Android track changes; run focused checks and report device limitations.
 
