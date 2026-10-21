@@ -135,7 +135,6 @@ export function useGlobalAudioEngine(
       }
       const space = NATIVE_SPACES[s.studioSpace] || NATIVE_SPACES.off;
       const exciter = Math.max(0, Math.min(100, s.harmonicExciter ?? 0)) / 100;
-      const width = Math.max(0, Math.min(100, s.stereoWidth ?? 50)) / 100;
       // Real Mid/Side isolation runs inside ExoPlayer's PCM pipeline now.
       // The old tonal EQ "simulation" stacked on top of it and made isolated
       // vocals sound hollow/phasey, so the stem curve is gone — the processor
@@ -148,8 +147,6 @@ export function useGlobalAudioEngine(
       // that was inaudible on phone speakers. Combine with space loudness.
       const lateNightMb = s.lateNight ? 1400 : 0;
       const stemMakeupMb = Math.round(exciter * 450);
-      // Virtualizer: headphone surround / space width baseline.
-      const baseVirt = Math.max(s.headphoneSurround ? 1000 : 0, space.virt);
 
       // One native bridge call applies one coherent snapshot. The previous
       // sequence of 6–8 calls could be overtaken by a newer slider event and
