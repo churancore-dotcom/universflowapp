@@ -1,3 +1,4 @@
+import PageLoader from "@/components/PageLoader";
 import { useEffect, useState, useCallback, Suspense, lazy } from "react";
 import type { QueryClient } from "@tanstack/react-query";
 import { QueryClientProvider } from "@tanstack/react-query";
@@ -238,7 +239,7 @@ const PostAuthGate = () => {
   );
 };
 
-const LazyFallback = () => <div className="min-h-dvh bg-background" />;
+const LazyFallback = () => <PageLoader />;
 
 const AppContent = () => {
   const [showSplash, setShowSplash] = useState(true);

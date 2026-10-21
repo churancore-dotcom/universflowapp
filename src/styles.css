@@ -1617,3 +1617,9 @@ body {
 
 /* Overlays sitting on top of artwork must never frost it (blurred covers bug). */
 .no-glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+
+@keyframes uf-eq-bounce {
+  0%, 100% { height: 20%; opacity: 0.55; }
+  50% { height: 100%; opacity: 1; }
+}
+.uf-eq-bar { height: 20%; animation: uf-eq-bounce 0.9s ease-in-out infinite; }
