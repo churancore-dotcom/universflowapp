@@ -7,6 +7,7 @@
 - Reset native recovery per media item, sequence volume ramps to the active play request, renew long-session power locks, and cancel asynchronously attached lifecycle listeners.
 - Schedule Android overlaps in the playback service and connect browser overlap audio to the existing effects graph; autoplay controls recommendation extension, not explicitly queued songs.
 - Both Android overlap players use independent PCM processors with the same saved EQ/room/stem snapshot; 8D rotation and headphone crossfeed have separate persisted strengths so transitions never bypass effects or conflate controls.
+- Auto EQ changes tonal bands and bass only, preserving user-selected spatial, room and speed settings so song changes cannot silently disable enhancements.
 - All page, lazy-import and access-gate waits use the shared PageLoader, with navigation pending visible immediately and no artificial minimum duration to avoid blank screens.
 
 - Keep native launch covered only until the shell paints; never stack a web logo reveal or fixed plugin-initialization delays over it, to avoid startup stalls.
