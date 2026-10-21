@@ -75,6 +75,7 @@ class ExoPlayerService : MediaSessionService() {
     private var gaplessEnabled = true
     private var masterVolume = 0.8f
     private var tailPlayer: ExoPlayer? = null
+    private var tailProcessor: StemAudioProcessor? = null
     private var transitionItem: String? = null
     private var attemptedItem: String? = null
     private var incomingItem: String? = null
@@ -143,6 +144,7 @@ class ExoPlayerService : MediaSessionService() {
         boundaryResumeGeneration += 1
         tailPlayer?.release()
         tailPlayer = null
+        tailProcessor = null
         transitionItem = null
         incomingItem = null
         overlapStartedAt = 0L
@@ -173,11 +175,16 @@ class ExoPlayerService : MediaSessionService() {
         val next = p.nextMediaItemIndex
         if (next == C.INDEX_UNSET) return
         val nextId = p.getMediaItemAt(next).mediaId
+        val processor = StemAudioProcessor()
+        tailProcessor = processor
+        syncPcmState(processor)
         val tail = ExoPlayer.Builder(this)
+            .setRenderersFactory(processedRenderers(processor))
             .setMediaSourceFactory(NativeMediaSourceFactory.build(this))
             .setAudioAttributes(p.audioAttributes, false)
             .setHandleAudioBecomingNoisy(true)
             .build()
+        if (p.audioSessionId != C.AUDIO_SESSION_ID_UNSET) tail.setAudioSessionId(p.audioSessionId)
         tailPlayer = tail
         transitionItem = outgoingId
         tail.volume = 0f
@@ -221,11 +228,34 @@ class ExoPlayerService : MediaSessionService() {
     @Volatile var savedInstrumentalMix: Int = 100
     @Volatile var savedStemShine: Int = 0
     @Volatile var savedStemWidth: Int = 50
+    @Volatile private var savedSpatialStrength = 0
+    @Volatile private var savedSurroundStrength = 0
+    private var savedSpace: IntArray? = null
 
     private val stemAudioProcessor = StemAudioProcessor()
 
     /** Our own device-independent 10-band EQ (see PcmEqualizer). */
     val pcmEqualizer: PcmEqualizer get() = stemAudioProcessor.equalizer
+
+    private fun processedRenderers(processor: StemAudioProcessor): DefaultRenderersFactory =
+        object : DefaultRenderersFactory(this@ExoPlayerService) {
+            override fun buildAudioSink(context: Context, enableFloatOutput: Boolean, enableAudioTrackPlaybackParams: Boolean): AudioSink? =
+                DefaultAudioSink.Builder(context)
+                    .setAudioProcessors(arrayOf<AudioProcessor>(processor))
+                    .setEnableFloatOutput(false)
+                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
+                    .build()
+        }
+
+    private fun syncPcmState(processor: StemAudioProcessor) {
+        processor.equalizer.setEnabled(eqEnabled)
+        for (i in 0 until PcmEqualizer.BAND_COUNT) {
+            processor.equalizer.setBandMillibels(i, savedEqBands[i.toShort()]?.toInt() ?: 0)
+        }
+        processor.setStemMix(savedVocalMix, savedInstrumentalMix, savedStemShine, savedStemWidth)
+        processor.setEnhancements(savedSpatialStrength, savedSurroundStrength, savedLoudnessGainMb, savedReverbAmount)
+        savedSpace?.let { processor.setSpace(it[0], it[1], it[2], it[3], it[4], it[5]) }
+    }
 
     /**
      * Push saved band levels into the PCM equalizer. Unlike the vendor
@@ -237,6 +267,7 @@ class ExoPlayerService : MediaSessionService() {
         for (i in 0 until PcmEqualizer.BAND_COUNT) {
             pcmEqualizer.setBandMillibels(i, savedEqBands[i.toShort()]?.toInt() ?: 0)
         }
+        tailProcessor?.let { syncPcmState(it) }
     }
 
     private var boundSessionId: Int = C.AUDIO_SESSION_ID_UNSET
@@ -410,22 +441,7 @@ class ExoPlayerService : MediaSessionService() {
         // disk cache so replays are instant and expired URLs auto-refresh.
         val mediaSourceFactory = NativeMediaSourceFactory.build(this)
 
-        val renderersFactory = object : DefaultRenderersFactory(this@ExoPlayerService) {
-            override fun buildAudioSink(
-                context: Context,
-                enableFloatOutput: Boolean,
-                enableAudioTrackPlaybackParams: Boolean,
-            ): AudioSink? {
-                return DefaultAudioSink.Builder(context)
-                    .setAudioProcessors(arrayOf<AudioProcessor>(stemAudioProcessor))
-                    // Float output bypasses PCM-16 processors, which silently
-                    // disabled vocal/beat isolation on some devices. Force the
-                    // 16-bit path so the stem processor always runs.
-                    .setEnableFloatOutput(false)
-                    .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
-                    .build()
-            }
-        }
+        val renderersFactory = processedRenderers(stemAudioProcessor)
 
         // Start after a small verified audio buffer. 250ms keeps weak mobile
         // links stable while removing the fixed ~750ms floor from every tap.
@@ -722,6 +738,7 @@ class ExoPlayerService : MediaSessionService() {
             }
         } catch (_: Throwable) { environmentalReverb = null }
         boundSessionId = sid
+        scheduleEffectRamp()
     }
 
     // ---- Smoothed parameter ramps ----
@@ -800,12 +817,8 @@ class ExoPlayerService : MediaSessionService() {
 
     fun applyReverb(amount: Int) {
         savedReverbAmount = amount.coerceIn(0, 100)
-        stemAudioProcessor.setEnhancements(
-            savedVirtualizerStrength.toInt(),
-            savedVirtualizerStrength.toInt(),
-            savedLoudnessGainMb,
-            savedReverbAmount,
-        )
+        syncPcmState(stemAudioProcessor)
+        tailProcessor?.let { syncPcmState(it) }
         if (appliedReverb == savedReverbAmount) return
         // The vendor EnvironmentalReverb aux bus is intentionally left off: it
         // stacks on our own RoomReverb and its per-device voicing is what made
@@ -818,7 +831,9 @@ class ExoPlayerService : MediaSessionService() {
 
     /** Studio Space voicing (room size, damping, wet, width, pre-delay). */
     fun applySpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int) {
+        savedSpace = intArrayOf(room, damping, wet, width, preDelayMs, size)
         stemAudioProcessor.setSpace(room, damping, wet, width, preDelayMs, size)
+        tailProcessor?.setSpace(room, damping, wet, width, preDelayMs, size)
     }
 
 
@@ -828,11 +843,16 @@ class ExoPlayerService : MediaSessionService() {
         savedStemShine = shine.coerceIn(0, 100)
         savedStemWidth = width.coerceIn(0, 100)
         stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix, savedStemShine, savedStemWidth)
+        tailProcessor?.setStemMix(savedVocalMix, savedInstrumentalMix, savedStemShine, savedStemWidth)
         if (persist) persistEffectState()
     }
 
     fun applyPcmEnhancements(spatialStrength: Int, surroundStrength: Int, lateNightGainMb: Int, reverbAmount: Int = savedReverbAmount) {
+        savedSpatialStrength = spatialStrength.coerceIn(0, 1000)
+        savedSurroundStrength = surroundStrength.coerceIn(0, 1000)
+        savedSpace = null
         stemAudioProcessor.setEnhancements(spatialStrength, surroundStrength, lateNightGainMb, reverbAmount)
+        tailProcessor?.setEnhancements(spatialStrength, surroundStrength, lateNightGainMb, reverbAmount)
     }
 
     private fun applyReverbParameters(effect: EnvironmentalReverb, amount: Int) {
@@ -855,6 +875,9 @@ class ExoPlayerService : MediaSessionService() {
                 .putString("bands", bands)
                 .putInt("bass", savedBassBoostStrength.toInt())
                 .putInt("virtualizer", savedVirtualizerStrength.toInt())
+                .putInt("spatial", savedSpatialStrength)
+                .putInt("surround", savedSurroundStrength)
+                .putString("space", savedSpace?.joinToString(","))
                 .putInt("loudness", savedLoudnessGainMb)
                 .putInt("reverb", savedReverbAmount)
                 .putInt("vocalMix", savedVocalMix)
@@ -871,6 +894,9 @@ class ExoPlayerService : MediaSessionService() {
             eqEnabled = prefs.getBoolean("enabled", true)
             savedBassBoostStrength = prefs.getInt("bass", 0).coerceIn(0, 1000).toShort()
             savedVirtualizerStrength = prefs.getInt("virtualizer", 0).coerceIn(0, 1000).toShort()
+            savedSpatialStrength = prefs.getInt("spatial", 0).coerceIn(0, 1000)
+            savedSurroundStrength = prefs.getInt("surround", 0).coerceIn(0, 1000)
+            savedSpace = prefs.getString("space", null)?.split(',')?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 6 }?.toIntArray()
             savedLoudnessGainMb = prefs.getInt("loudness", 0).coerceIn(0, 2000)
             savedReverbAmount = prefs.getInt("reverb", 0).coerceIn(0, 100)
             savedVocalMix = prefs.getInt("vocalMix", 100).coerceIn(0, 140)
@@ -879,8 +905,8 @@ class ExoPlayerService : MediaSessionService() {
             savedStemWidth = prefs.getInt("stemWidth", 50).coerceIn(0, 100)
             stemAudioProcessor.setStemMix(savedVocalMix, savedInstrumentalMix, savedStemShine, savedStemWidth)
             stemAudioProcessor.setEnhancements(
-                savedVirtualizerStrength.toInt(),
-                savedVirtualizerStrength.toInt(),
+                savedSpatialStrength,
+                savedSurroundStrength,
                 savedLoudnessGainMb,
                 savedReverbAmount,
             )
@@ -893,6 +919,7 @@ class ExoPlayerService : MediaSessionService() {
                 }
             }
             applyPcmEq()
+            syncPcmState(stemAudioProcessor)
         } catch (_: Throwable) {}
 
     }

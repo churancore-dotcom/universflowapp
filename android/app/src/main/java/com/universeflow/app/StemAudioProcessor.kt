@@ -46,6 +46,12 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var currentLateNight = 0f
     private var spatialPhase = 0.0
     private var spatialPhaseStep = 0.0
+    private var crossfeedLeft = FloatArray(16)
+    private var crossfeedRight = FloatArray(16)
+    private var crossfeedCursor = 0
+    private var crossfeedLowLeft = 0f
+    private var crossfeedLowRight = 0f
+    private var crossfeedCoeff = 0.1f
 
     /** Real room reverb (pre-delay + comb/allpass network) — see RoomReverb. */
     val reverb = RoomReverb()
@@ -89,9 +95,14 @@ class StemAudioProcessor : BaseAudioProcessor() {
         // Keep the processor active for stereo PCM even when neutral. That lets
         // slider changes take effect on the next audio buffer without rebuilding
         // or flushing ExoPlayer.
-        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount < 2) {
+        if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount !in 1..2) {
             return AudioFormat.NOT_SET
         }
+        // Mono streams still need stereo output for rotating pan and crossfeed.
+        crossfeedLeft = FloatArray(max(1, (inputAudioFormat.sampleRate * 0.0003).toInt()))
+        crossfeedRight = FloatArray(crossfeedLeft.size)
+        val crossfeedDt = 1f / inputAudioFormat.sampleRate
+        crossfeedCoeff = crossfeedDt / (1f / (2f * Math.PI.toFloat() * 700f) + crossfeedDt)
         // 180 Hz one-pole cutoff for the current sample rate.
         val rc = 1f / (2f * Math.PI.toFloat() * 180f)
         val dt = 1f / inputAudioFormat.sampleRate.toFloat()
@@ -107,7 +118,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         eqActive = equalizer.tickBlock()
         eqHeadroom = equalizer.headroomGain()
         blockCounter = 0
-        return inputAudioFormat
+        return AudioFormat(inputAudioFormat.sampleRate, 2, C.ENCODING_PCM_16BIT)
     }
 
     override fun onFlush() {
@@ -115,6 +126,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
         highState = 0f
         equalizer.reset()
         reverb.reset()
+        crossfeedLeft.fill(0f)
+        crossfeedRight.fill(0f)
+        crossfeedCursor = 0
+        crossfeedLowLeft = 0f
+        crossfeedLowRight = 0f
     }
 
 
@@ -122,7 +138,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val position = inputBuffer.position()
         val limit = inputBuffer.limit()
         val bytesPerFrame = inputAudioFormat.bytesPerFrame
-        val output = replaceOutputBuffer(limit - position)
+        val output = replaceOutputBuffer((limit - position) / bytesPerFrame * 4)
         var cursor = position
         while (cursor + bytesPerFrame <= limit) {
             // Smooth EQ gains once per 64-frame block: cheap, and slider drags
@@ -147,7 +163,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
             val makeup = if (power > 0.04f) min(1.6f, max(1f, 1f / power)) else 1f
             val left = inputBuffer.getShort(cursor).toInt()
-            val right = inputBuffer.getShort(cursor + 2).toInt()
+            val right = if (inputAudioFormat.channelCount == 1) left else inputBuffer.getShort(cursor + 2).toInt()
 
             // Always use one continuous signal path. Switching between a raw
             // passthrough branch and this matrix at 100% caused a buffer-edge
@@ -160,7 +176,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val midHigh = mid - highState
             val midBand = mid - lowState - midHigh
             val centre = (midLow + midHigh) * instrument + midBand * vocal * (1f + currentShine * 0.35f)
-            val widenedSide = side * instrument * currentWidth.coerceIn(0f, 2f) * (1f + currentSurround * 0.85f)
+            val widenedSide = side * instrument * currentWidth.coerceIn(0f, 2f)
             val pan = sin(spatialPhase).toFloat() * currentSpatialDepth * 0.82f
             spatialPhase += spatialPhaseStep
             if (spatialPhase >= 2.0 * Math.PI) spatialPhase -= 2.0 * Math.PI
@@ -179,15 +195,22 @@ class StemAudioProcessor : BaseAudioProcessor() {
                 rawRight = reverbScratch[1]
             }
 
+            // Low-passed opposite-ear sound delayed by 0.3ms: headphone
+            // crossfeed is a separate static cue, never an alias for 8D pan.
+            crossfeedLowLeft += crossfeedCoeff * (rawLeft - crossfeedLowLeft)
+            crossfeedLowRight += crossfeedCoeff * (rawRight - crossfeedLowRight)
+            val delayedLeft = crossfeedLeft[crossfeedCursor]
+            val delayedRight = crossfeedRight[crossfeedCursor]
+            crossfeedLeft[crossfeedCursor] = crossfeedLowLeft
+            crossfeedRight[crossfeedCursor] = crossfeedLowRight
+            crossfeedCursor = (crossfeedCursor + 1) % crossfeedLeft.size
+            val crossfeed = currentSurround * 0.3f
+            rawLeft = (rawLeft + delayedRight * crossfeed) / (1f + crossfeed)
+            rawRight = (rawRight + delayedLeft * crossfeed) / (1f + crossfeed)
+
             output.putShort(clip16(softLimit(rawLeft, currentLateNight)))
             output.putShort(clip16(softLimit(rawRight, currentLateNight)))
 
-            // Preserve extra channels, if any, instead of dropping them.
-            var extra = 4
-            while (extra < bytesPerFrame) {
-                output.putShort(inputBuffer.getShort(cursor + extra))
-                extra += 2
-            }
             cursor += bytesPerFrame
         }
 
