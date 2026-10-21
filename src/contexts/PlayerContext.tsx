@@ -2724,10 +2724,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const p = currentStep / steps;
 
         const raw = transitionGains(crossfadeCurve, p);
-        // Keep combined overlap at or below unity so summed peaks never clip.
-        const headroom = Math.max(1, raw.outgoing + raw.incoming);
-        const fadeOut = raw.outgoing / headroom;
-        const fadeIn = raw.incoming / headroom;
+        // Preserve the selected curve; sum-normalizing erases equal-power.
+        const fadeOut = raw.outgoing;
+        const fadeIn = raw.incoming;
 
         if (audioRef.current) {
           const masterVolume = volumeRef.current;

@@ -12,9 +12,9 @@ object TransitionEnvelope {
             "exponential" -> Pair(((1 - p) * (1 - p)).toFloat(), (p * p).toFloat())
             else -> Pair((1 - p).toFloat(), p.toFloat())
         }
-        // Keep the two-player sum at or below unity so overlaps never clip.
-        val headroom = maxOf(1f, raw.first + raw.second)
-        return Pair(raw.first / headroom, raw.second / headroom)
+        // Do not normalize by the sum: it destroys the equal-power curve and
+        // makes its midpoint identical to linear. Each player stays <= unity.
+        return raw
     }
 
     fun window(crossfade: Boolean, duration: Double, pro: Boolean, repeatOne: Boolean): Double =

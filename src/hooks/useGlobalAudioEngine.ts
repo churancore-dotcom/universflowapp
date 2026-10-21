@@ -6,10 +6,10 @@ import { getActiveStemMix, isDefaultMix } from '@/lib/stemLab';
 import {
   isNativePlayerAvailable,
   applyNativeAudioEffects,
-  setNativeVirtualizer,
   setNativeStemMix,
   type NativeSpaceGeometry,
 } from '@/lib/nativePlayer';
+import { nativeSpatialSettings } from '@/lib/nativeSpatialSettings';
 
 /**
  * Harmonic exciter / stereo width can be set from two screens: the Equalizer's
@@ -109,23 +109,19 @@ export function useGlobalAudioEngine(
 
 
 
-    let native8DTimer: number | null = null;
-    const stop8D = () => {
-      if (native8DTimer != null) { window.clearInterval(native8DTimer); native8DTimer = null; }
-    };
-
     const applyNativeSnapshot = async (s: ReturnType<typeof getEQSettings>, revision: number) => {
       if (revision !== nativeApplyRevision) return;
       if (!isNativePlayerAvailable()) return;
       const stem = getActiveStemMix();
       if (!hasWebAudioEffects(s) && isDefaultMix(stem)) {
-        stop8D();
         await applyNativeAudioEffects({
           enabled: false,
           webBands: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
           webFrequenciesHz: WEB_BAND_FREQS_HZ,
           bassStrength: 0,
           virtualizerStrength: 0,
+          spatialStrength: 0,
+          surroundStrength: 0,
           loudnessGainMb: 0,
           reverbAmount: 0,
           space: null,
@@ -164,7 +160,8 @@ export function useGlobalAudioEngine(
         webFrequenciesHz: WEB_BAND_FREQS_HZ,
         nativeOffsetsMb: nativeOffsets,
         bassStrength: Math.max(userBass, space.bass),
-        virtualizerStrength: s.spatialAudio ? Math.max(800, baseVirt) : baseVirt,
+        virtualizerStrength: space.virt,
+        ...nativeSpatialSettings(s),
         loudnessGainMb: Math.max(lateNightMb, space.loud, stemMakeupMb),
         reverbAmount: Math.max(s.reverb, space.reverb),
         space: space.geo,
@@ -180,16 +177,6 @@ export function useGlobalAudioEngine(
       await setNativeStemMix(stem.vocals, stem.backing, nativeFx.shine, nativeFx.width);
       if (revision !== nativeApplyRevision) return;
 
-      // Android AudioEffect parameter writes can interrupt the hardware DSP on
-      // some devices. Keep spatial width static during playback; never animate
-      // the Virtualizer over the bridge.
-      if (s.spatialAudio) {
-        stop8D();
-        setNativeVirtualizer(Math.max(800, baseVirt));
-      } else {
-        stop8D();
-        setNativeVirtualizer(baseVirt);
-      }
     };
 
     const pushNative = (s: ReturnType<typeof getEQSettings>) => {
@@ -408,7 +395,6 @@ export function useGlobalAudioEngine(
       if (nativeApplyTimer != null) clearTimeout(nativeApplyTimer);
       pendingNativeSnapshot = null;
       clearRetries();
-      stop8D();
 
       audioElement.removeEventListener('loadstart', onMediaReady);
       audioElement.removeEventListener('loadedmetadata', onMediaReady);
