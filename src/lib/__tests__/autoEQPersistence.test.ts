@@ -1,9 +1,9 @@
-// @vitest-environment jsdom
-import { renderHook } from '@testing-library/react';
 import { expect, it, vi } from 'vitest';
 import { useAutoEQ } from '../../hooks/useAutoEQ';
 
 const state = vi.hoisted(() => ({ song: { id: 'one', title: 'Pop Song', artist: 'Singer' }, write: vi.fn() }));
+// Execute the effect for each simulated track change without a DOM renderer.
+vi.mock('react', () => ({ useEffect: (effect: () => void) => effect() }));
 vi.mock('@/contexts/PlayerContext', () => ({ usePlayer: () => ({ currentSong: state.song }) }));
 vi.mock('@/lib/premiumState', () => ({ getRuntimePremium: () => true }));
 vi.mock('@/lib/eqSettings', () => ({
@@ -12,9 +12,9 @@ vi.mock('@/lib/eqSettings', () => ({
 }));
 
 it('auto EQ changes tonal bands without resetting spatial or room effects on the next song', () => {
-  const hook = renderHook(() => useAutoEQ());
+  useAutoEQ();
   state.song = { id: 'two', title: 'Rock Song', artist: 'Singer' };
-  hook.rerender();
+  useAutoEQ();
   expect(state.write).toHaveBeenLastCalledWith({
     bands: [5, 4, 3, 1, -1, -1, 1, 3, 4, 4], bassBoost: 20, activePreset: 'auto',
   });
@@ -24,5 +24,4 @@ it('auto EQ changes tonal bands without resetting spatial or room effects on the
     expect(patch).not.toHaveProperty('studioSpace');
     expect(patch).not.toHaveProperty('playbackSpeed');
   }
-  hook.unmount();
 });
