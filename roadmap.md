@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Replace page-loading gaps with a polished app-matched transition and verify navigation.
+- [ ] Fix crossfade curve behavior and preserve EQ/8D/3D across Android track changes; run focused checks and report device limitations.
+
 - [x] Reconnect GitHub API and Google Search Console after the 21 October workspace move; both were freshly linked and verified with an account read and a property list, each returning HTTP 200.
 - [x] Reconnect GitHub API and Google Search Console after the 20 October workspace move; GitHub account read and Search Console property list both returned HTTP 200.
 - [x] Reconnect GitHub API and Google Search Console after the 19 October workspace move; both account reads returned HTTP 200.
