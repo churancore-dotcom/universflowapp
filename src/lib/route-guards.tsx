@@ -9,12 +9,13 @@ import { getArtistDestination, hasArtistSignupIntent, type ArtistDestination } f
 import { getAccess, peekAccess } from '@/lib/accessCache';
 import { isMedianApp } from '@/lib/median';
 import NotFound from '@/pages/NotFound';
+import PageLoader from '@/components/PageLoader';
 
 // Lazy load heavy page components
 const Home = lazy(() => import('@/pages/Home'));
 const GetApp = lazy(() => import('@/pages/GetApp'));
 
-export const LazyFallback = () => <div className="min-h-dvh bg-background" />;
+export const LazyFallback = PageLoader;
 
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, emailVerified, isOffline } = useAuth();

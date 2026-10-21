@@ -24,7 +24,8 @@ export const getRouter = () => {
     scrollRestoration: true,
     defaultPreload: 'intent',
     defaultPendingComponent: PageLoader,
-    defaultPendingMs: 150,
+    defaultPendingMs: 0,
+    defaultPendingMinMs: 0,
     defaultPreloadStaleTime: 5 * 60 * 1000,
   });
 

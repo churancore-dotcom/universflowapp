@@ -1,17 +1,16 @@
-/** Shown while a page's code or data loads — never a blank screen. */
+/** Shared by router pending state, lazy pages and account/access gates. */
 export default function PageLoader() {
   return (
-    <div className="min-h-dvh w-full bg-background flex flex-col items-center justify-center gap-5" role="status" aria-label="Loading">
-      <div className="flex items-end gap-1.5 h-10">
-        {[0, 1, 2, 3, 4].map((i) => (
-          <span
-            key={i}
-            className="w-1.5 rounded-full bg-primary uf-eq-bar"
-            style={{ animationDelay: `${i * 0.12}s` }}
-          />
-        ))}
+    <div className="uf-page-loading" role="status" aria-label="Loading page" aria-live="polite">
+      <div className="uf-loading-stage" aria-hidden="true">
+        <div className="uf-loading-record">
+          <div className="uf-loading-label"><span /></div>
+          <div className="uf-loading-reflection" />
+        </div>
+        <div className="uf-loading-needle"><span /></div>
       </div>
-      <p className="text-[11px] uppercase tracking-[0.3em] text-muted-foreground">Univers Flow</p>
+      <p className="uf-loading-name">Univers Flow</p>
+      <div className="uf-loading-track" aria-hidden="true"><span /></div>
     </div>
   );
 }
