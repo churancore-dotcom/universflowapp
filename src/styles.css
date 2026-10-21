@@ -1618,8 +1618,66 @@ body {
 /* Overlays sitting on top of artwork must never frost it (blurred covers bug). */
 .no-glass { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
 
-@keyframes uf-eq-bounce {
-  0%, 100% { height: 20%; opacity: 0.55; }
-  50% { height: 100%; opacity: 1; }
+.uf-page-loading {
+  position: fixed;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 24px;
+  padding: env(safe-area-inset-top) 24px calc(env(safe-area-inset-bottom) + 80px);
+  background: hsl(var(--background));
+  color: hsl(var(--foreground));
+  pointer-events: none;
 }
-.uf-eq-bar { height: 20%; animation: uf-eq-bounce 0.9s ease-in-out infinite; }
+.uf-loading-stage { position: relative; width: 148px; height: 148px; }
+.uf-loading-record {
+  position: absolute;
+  inset: 8px;
+  border-radius: 50%;
+  border: 1px solid hsl(var(--foreground) / 0.18);
+  background: repeating-radial-gradient(circle, hsl(var(--muted)) 0 2px, hsl(var(--background)) 3px 5px);
+  overflow: hidden;
+  animation: uf-record-spin 3s linear infinite;
+}
+.uf-loading-label {
+  position: absolute;
+  inset: 41px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: hsl(var(--primary));
+  border: 5px solid hsl(var(--background));
+}
+.uf-loading-label span { width: 7px; height: 7px; border-radius: 50%; background: hsl(var(--primary-foreground)); }
+.uf-loading-reflection {
+  position: absolute;
+  inset: 0;
+  background: conic-gradient(from 15deg, transparent 0 20deg, hsl(var(--foreground) / 0.12) 45deg, transparent 65deg 200deg, hsl(var(--foreground) / 0.08) 225deg, transparent 245deg);
+}
+.uf-loading-needle {
+  position: absolute;
+  right: 4px;
+  top: 0;
+  width: 5px;
+  height: 88px;
+  border-radius: 3px;
+  background: hsl(var(--foreground));
+  transform-origin: 50% 5px;
+  transform: rotate(24deg);
+  animation: uf-needle-settle 1.8s ease-in-out infinite alternate;
+}
+.uf-loading-needle::before { content: ''; position: absolute; width: 13px; height: 13px; top: 0; left: -4px; border: 3px solid hsl(var(--foreground)); border-radius: 50%; background: hsl(var(--background)); }
+.uf-loading-needle span { position: absolute; bottom: -4px; left: -2px; width: 9px; height: 17px; border-radius: 2px; background: hsl(var(--primary)); }
+.uf-loading-name { font-size: 15px; font-weight: 600; letter-spacing: 0; }
+.uf-loading-track { width: 88px; height: 2px; overflow: hidden; background: hsl(var(--muted)); }
+.uf-loading-track span { display: block; width: 40%; height: 100%; background: hsl(var(--primary)); animation: uf-loading-sweep 1.3s ease-in-out infinite alternate; }
+@keyframes uf-record-spin { to { transform: rotate(360deg); } }
+@keyframes uf-needle-settle { to { transform: rotate(26deg); } }
+@keyframes uf-loading-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+@media (prefers-reduced-motion: reduce) {
+  .uf-loading-record, .uf-loading-needle, .uf-loading-track span { animation: none; }
+  .uf-loading-track span { width: 100%; }
+}

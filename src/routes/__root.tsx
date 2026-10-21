@@ -8,6 +8,7 @@ import {
   Outlet,
   Scripts,
   useRouter,
+  useRouterState,
 } from "@tanstack/react-router";
 
 import appCss from "../styles.css?url";
@@ -241,6 +242,11 @@ const PostAuthGate = () => {
 
 const LazyFallback = () => <PageLoader />;
 
+const NavigationPending = () => {
+  const pending = useRouterState({ select: (state) => state.isLoading });
+  return pending ? <PageLoader /> : null;
+};
+
 const AppContent = () => {
   const [showSplash, setShowSplash] = useState(true);
   const { user } = useAuth();
@@ -263,6 +269,7 @@ const AppContent = () => {
         <Toaster />
       </Suspense>
       <NavDirectionProvider>
+        <NavigationPending />
         <Suspense fallback={null}>
           <OfflineGate />
         </Suspense>

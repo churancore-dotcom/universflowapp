@@ -922,6 +922,8 @@ class ExoPlayerPlugin : Plugin() {
         val bands = call.getArray("bands")
         val bass = (call.getInt("bassStrength") ?: 0).coerceIn(0, 1000)
         val virtualizer = (call.getInt("virtualizerStrength") ?: 0).coerceIn(0, 1000)
+        val spatial = (call.getInt("spatialStrength") ?: 0).coerceIn(0, 1000)
+        val surround = (call.getInt("surroundStrength") ?: 0).coerceIn(0, 1000)
         val loudness = (call.getInt("loudnessGainMb") ?: 0).coerceIn(0, 2000)
         val reverb = (call.getInt("reverbAmount") ?: 0).coerceIn(0, 100)
         val spaceWet = (call.getInt("spaceWet") ?: -1)
@@ -951,8 +953,8 @@ class ExoPlayerPlugin : Plugin() {
             svc.savedVirtualizerStrength = virtualizer.toShort()
             svc.savedLoudnessGainMb = loudness
             svc.applyPcmEnhancements(
-                spatialStrength = virtualizer,
-                surroundStrength = virtualizer,
+                spatialStrength = spatial,
+                surroundStrength = surround,
                 lateNightGainMb = loudness,
                 reverbAmount = reverb,
             )

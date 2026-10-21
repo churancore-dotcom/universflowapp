@@ -106,6 +106,8 @@ interface ExoPlayerPluginShape {
     bands: Array<{ band: number; levelMillibels: number }>;
     bassStrength: number;
     virtualizerStrength: number;
+    spatialStrength: number;
+    surroundStrength: number;
     loudnessGainMb: number;
     reverbAmount: number;
     spaceWet?: number;
@@ -391,6 +393,8 @@ export async function applyNativeAudioEffects(opts: {
   nativeOffsetsMb?: number[];
   bassStrength: number;
   virtualizerStrength: number;
+  spatialStrength?: number;
+  surroundStrength?: number;
   loudnessGainMb: number;
   reverbAmount: number;
   space?: NativeSpaceGeometry | null;
@@ -422,6 +426,8 @@ export async function applyNativeAudioEffects(opts: {
       bands,
       bassStrength: Math.max(0, Math.min(1000, Math.round(opts.bassStrength))),
       virtualizerStrength: Math.max(0, Math.min(1000, Math.round(opts.virtualizerStrength))),
+      spatialStrength: Math.max(0, Math.min(1000, Math.round(opts.spatialStrength ?? 0))),
+      surroundStrength: Math.max(0, Math.min(1000, Math.round(opts.surroundStrength ?? 0))),
       loudnessGainMb: Math.max(0, Math.min(2000, Math.round(opts.loudnessGainMb))),
       reverbAmount: Math.max(0, Math.min(100, Math.round(opts.reverbAmount))),
       // -1 tells native "no Studio Space selected — keep the plain reverb voicing".
