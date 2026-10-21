@@ -86,12 +86,8 @@ export function useAutoEQ() {
     setEQSettings({
       bands: p.bands,
       bassBoost: p.bassBoost,
-      reverb: p.reverb ?? 0,
-      spatialAudio: !!p.spatialAudio,
-      studioSpace: p.studioSpace ?? 'off',
-      lateNight: !!p.lateNight,
-      headphoneSurround: !!p.headphoneSurround,
-      playbackSpeed: 1,
+      // Auto mode chooses tonal bands only. Never turn off the listener's
+      // 8D/3D, room, reverb, late-night or speed on the next song.
       activePreset: 'auto',
     });
   }, [currentSong?.id]);

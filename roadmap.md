@@ -1,9 +1,10 @@
 # Roadmap
 
-- [ ] Reconnect GitHub API and Google Search Console after the 21 October 12:47 UTC workspace move; verify both fresh connections.
+- [x] Reconnect GitHub API and Google Search Console after the 21 October 12:47 UTC workspace move; both freshly linked and account/property reads returned HTTP 200.
 
-- [ ] Replace page-loading gaps with a polished app-matched transition and verify navigation.
-- [ ] Fix crossfade curve behavior and preserve EQ/8D/3D across Android track changes; run focused checks and report device limitations.
+- [x] Replace page-loading gaps with a shared record animation; signed-in Settings → Memory Tape showed the loader and completed without page errors at 394×777.
+- [x] Correct curve normalization, process both overlap players with saved effects, separate native 8D/3D and preserve enhancements in Auto EQ; 14 web logic tests and 4 native PCM tests passed against Media3 1.4.1; preview build OK.
+- [ ] Compile the full updated APK and verify audible overlap/EQ/8D/3D on an Android phone — blocked by unavailable Android SDK/device; isolated native PCM compilation/tests passed, not a full APK build.
 
 - [x] Reconnect GitHub API and Google Search Console after the 21 October workspace move; both were freshly linked and verified with an account read and a property list, each returning HTTP 200.
 - [x] Reconnect GitHub API and Google Search Console after the 20 October workspace move; GitHub account read and Search Console property list both returned HTTP 200.
