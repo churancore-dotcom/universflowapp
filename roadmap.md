@@ -84,3 +84,6 @@
 - [x] Reconnect GitHub API after the 17 October 13:12 UTC workspace move; freshly linked connection verified with the GitHub account read. Earlier workspace connection identifiers no longer apply.
 
 - [x] Reconnect GitHub API + Google Search Console in new workspace
+
+- [x] Fix Trending showing niche/non-viral charts (use country Trending 20 + Daily Top only)
+- [x] Reconnect GitHub API + Search Console in new workspace (Oct 22)
