@@ -459,34 +459,63 @@ async function getLocalizedNewReleases(gl: string, limit: number): Promise<Searc
     if (track) videoTracks.push(track);
   }
 
-  // Rank like real music apps: fresh drops people are actually playing.
-  // Videos carry view counts → keep popular ones, most-played first.
-  // Album/single cards have no demand signal, so only keep them when the
-  // artist is on this country's charts right now.
-  let chartArtists = new Set<string>();
-  try {
-    const charts = await getYouTubeMusicCharts(gl);
-    const norm = (a: string) => a.toLowerCase().split(/,|&| x | ft\.?| feat\.?/)[0].trim();
-    chartArtists = new Set([...charts.trending, ...charts.top, ...charts.videos].map((t) => norm(t.artist || '')).filter(Boolean));
-  } catch { /* charts unavailable: rely on views only */ }
-  const onCharts = (a?: string) => {
-    const first = (a || '').toLowerCase().split(/,|&| x | ft\.?| feat\.?/)[0].trim();
-    return !!first && chartArtists.has(first);
-  };
-  const popularVideos = (videoTracks as Array<SearchResult & { views?: number }>)
-    .filter((t) => !isDevotional(t) && ((t.views || 0) >= MIN_NEW_RELEASE_VIEWS || onCharts(t.artist)))
-    .sort((a, b) => (b.views || 0) - (a.views || 0));
-  const chartedReleases = releaseTracks.filter((t) => !isDevotional(t) && onCharts(t.artist));
+  // YouTube Music's country-specific new-release shelf IS the recency
+  // selection — trust its order. Then verify each track's real upload date
+  // through the player endpoint and drop anything that is not actually new
+  // (the shelf occasionally carries old catalog uploads). View counts and
+  // charting artists are demand signals, never proof a song is new.
+  const candidates = [...releaseTracks, ...videoTracks].filter((t) => !isDevotional(t));
+  const verified = await filterVerifiedNewReleases(candidates, gl);
 
   const seen = new Set<string>();
   const out: SearchResult[] = [];
-  for (const track of [...chartedReleases, ...popularVideos]) {
+  for (const track of verified) {
     if (!track.videoId || seen.has(track.videoId)) continue;
     seen.add(track.videoId);
     out.push(track);
     if (out.length >= limit) break;
   }
   return out;
+}
+
+// A track only counts as a new release when its real upload date is recent.
+// Verified via the player endpoint microformat, not guessed from views/charts.
+const NEW_RELEASE_MAX_AGE_DAYS = 35;
+
+async function fetchUploadDate(videoId: string, gl: string): Promise<Date | null> {
+  try {
+    const resp = await fetch('https://music.youtube.com/youtubei/v1/player?prettyPrint=false', {
+      method: 'POST',
+      headers: YTM_HEADERS,
+      body: JSON.stringify({ context: ytmContext(gl), videoId }),
+    });
+    if (!resp.ok) return null;
+    const json = await resp.json();
+    const raw =
+      json?.microformat?.playerMicroformatRenderer?.uploadDate ||
+      json?.microformat?.playerMicroformatRenderer?.publishDate ||
+      '';
+    if (!raw) return null;
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  } catch {
+    return null;
+  }
+}
+
+async function filterVerifiedNewReleases(tracks: SearchResult[], gl: string): Promise<SearchResult[]> {
+  const cutoff = Date.now() - NEW_RELEASE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+  const checks = await Promise.all(tracks.map(async (t) => ({ track: t, uploaded: await fetchUploadDate(t.videoId, gl) })));
+  const fresh: SearchResult[] = [];
+  const unknown: SearchResult[] = [];
+  for (const { track, uploaded } of checks) {
+    if (!uploaded) { unknown.push(track); continue; }
+    track.published = Math.floor(uploaded.getTime() / 1000);
+    if (uploaded.getTime() >= cutoff) fresh.push(track);
+  }
+  // Verified-fresh tracks first, in the shelf's own order. Unverifiable ones
+  // follow only to keep the shelf from going empty; stale uploads are dropped.
+  return [...fresh, ...unknown];
 }
 
 function extractFromItem(item: any): { videoId?: string; title: string; artist: string; duration: number; cover?: string; musicVideoType?: string } | null {
