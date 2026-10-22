@@ -284,14 +284,20 @@ async function getYouTubeMusicCharts(gl: string): Promise<Record<'top' | 'trendi
 
   if (!cards.length) return out;
 
+  // Only the country's overall charts count. Genre ("Top 50 Jazz"), language
+  // ("Top Weekly Videos Tamil") and "Live Performances" lists are niche shelves
+  // and must never be picked as a blind fallback — that is what surfaced
+  // random non-viral songs at the top of Trending.
+  const NICHE = /live performance|jazz|rock|metal|country|americana|dance|electronic|hip hop|latin|pop|tamil|telugu|hindi|punjabi|bhojpuri|haryanvi|international|marathi|bengali|kannada|malayalam|gujarati/i;
+  const general = cards.filter((c) => !NICHE.test(c.title));
   const pick = (re: RegExp, exclude: string[] = []) =>
-    cards.find((c) => re.test(c.title) && !exclude.includes(c.playlistId));
+    general.find((c) => re.test(c.title) && !exclude.includes(c.playlistId));
 
   const trendingCard = pick(/trending|rising|movers/i);
   const used = trendingCard ? [trendingCard.playlistId] : [];
-  const topCard = pick(/top\s*100|top\s*songs|daily top|top weekly/i, used) || cards.find((c) => !used.includes(c.playlistId));
+  const topCard = pick(/top\s*songs|daily top/i, used) || pick(/top\s*100/i, used);
   if (topCard) used.push(topCard.playlistId);
-  const videosCard = pick(/video/i, used) || cards.find((c) => !used.includes(c.playlistId));
+  const videosCard = pick(/top\s*100|video/i, used);
 
   const [trending, top, videos] = await Promise.all([
     trendingCard ? fetchChartPlaylistTracks(trendingCard.playlistId, country, 40) : Promise.resolve([]),
