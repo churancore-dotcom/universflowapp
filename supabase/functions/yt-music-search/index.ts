@@ -388,23 +388,13 @@ function extractNewReleaseVideoCard(item: any): SearchResult | null {
   const artist = subtitle.split('•')[0]?.trim() || 'Unknown Artist';
   if (!artist || looksHardSpam(title, artist, title)) return null;
   const cover = pickThumb(item?.thumbnailRenderer?.musicThumbnailRenderer?.thumbnail?.thumbnails || item?.thumbnail?.musicThumbnailRenderer?.thumbnail?.thumbnails);
-  return { id: `ytm-${videoId}`, videoId, title, artist, audio_url: `yt-video:${videoId}`, cover_url: cover, views: parseViews(subtitle) } as SearchResult & { views: number };
-}
-
-// "1.6M views" -> 1600000. Real listener demand, the signal other apps rank by.
-function parseViews(text: string): number {
-  const m = text.match(/([\d.,]+)\s*([KMB])?\s*views/i);
-  if (!m) return 0;
-  const n = parseFloat(m[1].replace(/,/g, ''));
-  const mult = { K: 1e3, M: 1e6, B: 1e9 }[(m[2] || '').toUpperCase() as 'K'] || 1;
-  return Math.round(n * mult);
+  return { id: `ytm-${videoId}`, videoId, title, artist, audio_url: `yt-video:${videoId}`, cover_url: cover };
 }
 
 // Devotional / bhakti uploads flood the regional release shelf but are not
 // what people mean by "new music".
 const DEVOTIONAL = /\b(bhakti|bhajan|aarti|aarati|chalisa|mantra|stotram?|kirtan|katha|jagran|mata\s*rani|bhole|shiv\s*bhajan|krishna\s*bhajan|hanuman|sai\s*baba|ganpati|navratri|devotional|bhagwan|bhakt|jai\s*shree|amritwani|gurbani|shabad|naat|qawwali|psalms?|worship|gospel)\b|भजन|आरती|भक्ति|चालीसा/i;
 const isDevotional = (t: { title?: string; artist?: string }) => DEVOTIONAL.test(`${t.title || ''} ${t.artist || ''}`);
-const MIN_NEW_RELEASE_VIEWS = 250_000;
 
 function extractReleaseTrack(item: any, fallbackArtist: string, fallbackCover?: string): SearchResult | null {
   const parsed = extractFromItem(item);
