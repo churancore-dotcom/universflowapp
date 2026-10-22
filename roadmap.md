@@ -87,3 +87,4 @@
 
 - [x] Fix Trending showing niche/non-viral charts (use country Trending 20 + Daily Top only)
 - [x] Reconnect GitHub API + Search Console in new workspace (Oct 22)
+- [x] New Releases: rank by real plays, keep charted artists, drop devotional uploads
