@@ -252,7 +252,13 @@ async function fetchChartPlaylistTracks(playlistId: string, gl: string, limit: n
     out.push({
       id: `ytm-${parsed.videoId}`,
       videoId: parsed.videoId,
-      title: parsed.title,
+      // Chart rows are video uploads; show the song name, not the upload title.
+      title: parsed.title
+        .split(/\s+\|\s+/)[0]
+        .replace(/[([](?:official\s*)?(?:music\s*)?(?:video|audio|lyric(?:al)?s?(?:\s*video)?|visuali[sz]er)[)\]]/gi, '')
+        .replace(/\s+lyrical\b.*$/i, '')
+        .replace(/\s{2,}/g, ' ')
+        .trim() || parsed.title,
       artist: parsed.artist,
       audio_url: `yt-video:${parsed.videoId}`,
       cover_url: parsed.cover,
