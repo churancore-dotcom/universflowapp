@@ -1626,58 +1626,40 @@ body {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 24px;
+  gap: 18px;
   padding: env(safe-area-inset-top) 24px calc(env(safe-area-inset-bottom) + 80px);
   background: hsl(var(--background));
   color: hsl(var(--foreground));
   pointer-events: none;
 }
-.uf-loading-stage { position: relative; width: 148px; height: 148px; }
-.uf-loading-record {
-  position: absolute;
-  inset: 8px;
-  border-radius: 50%;
-  border: 1px solid hsl(var(--foreground) / 0.18);
-  background: repeating-radial-gradient(circle, hsl(var(--muted)) 0 2px, hsl(var(--background)) 3px 5px);
-  overflow: hidden;
-  animation: uf-record-spin 3s linear infinite;
+.uf-loading-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 5px;
+  height: 34px;
 }
-.uf-loading-label {
-  position: absolute;
-  inset: 41px;
-  border-radius: 50%;
-  display: grid;
-  place-items: center;
+.uf-loading-bars span {
+  width: 4px;
+  border-radius: 2px;
   background: hsl(var(--primary));
-  border: 5px solid hsl(var(--background));
+  animation: uf-eq-bar 0.9s ease-in-out infinite;
 }
-.uf-loading-label span { width: 7px; height: 7px; border-radius: 50%; background: hsl(var(--primary-foreground)); }
-.uf-loading-reflection {
-  position: absolute;
-  inset: 0;
-  background: conic-gradient(from 15deg, transparent 0 20deg, hsl(var(--foreground) / 0.12) 45deg, transparent 65deg 200deg, hsl(var(--foreground) / 0.08) 225deg, transparent 245deg);
+.uf-loading-bars span:nth-child(1) { height: 40%; animation-delay: 0s; }
+.uf-loading-bars span:nth-child(2) { height: 85%; animation-delay: 0.12s; }
+.uf-loading-bars span:nth-child(3) { height: 60%; animation-delay: 0.24s; }
+.uf-loading-bars span:nth-child(4) { height: 100%; animation-delay: 0.36s; }
+.uf-loading-bars span:nth-child(5) { height: 50%; animation-delay: 0.48s; }
+.uf-loading-name {
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
 }
-.uf-loading-needle {
-  position: absolute;
-  right: 4px;
-  top: 0;
-  width: 5px;
-  height: 88px;
-  border-radius: 3px;
-  background: hsl(var(--foreground));
-  transform-origin: 50% 5px;
-  transform: rotate(24deg);
-  animation: uf-needle-settle 1.8s ease-in-out infinite alternate;
+@keyframes uf-eq-bar {
+  0%, 100% { transform: scaleY(0.35); opacity: 0.55; }
+  50% { transform: scaleY(1); opacity: 1; }
 }
-.uf-loading-needle::before { content: ''; position: absolute; width: 13px; height: 13px; top: 0; left: -4px; border: 3px solid hsl(var(--foreground)); border-radius: 50%; background: hsl(var(--background)); }
-.uf-loading-needle span { position: absolute; bottom: -4px; left: -2px; width: 9px; height: 17px; border-radius: 2px; background: hsl(var(--primary)); }
-.uf-loading-name { font-size: 15px; font-weight: 600; letter-spacing: 0; }
-.uf-loading-track { width: 88px; height: 2px; overflow: hidden; background: hsl(var(--muted)); }
-.uf-loading-track span { display: block; width: 40%; height: 100%; background: hsl(var(--primary)); animation: uf-loading-sweep 1.3s ease-in-out infinite alternate; }
-@keyframes uf-record-spin { to { transform: rotate(360deg); } }
-@keyframes uf-needle-settle { to { transform: rotate(26deg); } }
-@keyframes uf-loading-sweep { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
 @media (prefers-reduced-motion: reduce) {
-  .uf-loading-record, .uf-loading-needle, .uf-loading-track span { animation: none; }
-  .uf-loading-track span { width: 100%; }
+  .uf-loading-bars span { animation: none; transform: none; opacity: 1; }
 }

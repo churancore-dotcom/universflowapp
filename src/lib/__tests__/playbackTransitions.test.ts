@@ -6,11 +6,16 @@ describe('playback transitions', () => {
     expect(transitionGains('equal-power', 0.5).incoming).toBeCloseTo(Math.SQRT1_2);
     expect(transitionGains('linear', 0.5).incoming).toBe(0.5);
   });
-  it('curves produce different quarter-point envelopes', () => {
+  it('curves produce clearly different quarter-point envelopes', () => {
     expect(transitionGains('linear', 0.25).incoming).toBe(0.25);
-    expect(transitionGains('smooth', 0.25).incoming).toBe(0.15625);
-    expect(transitionGains('exponential', 0.25).incoming).toBe(0.0625);
+    expect(transitionGains('smooth', 0.25).incoming).toBeCloseTo(0.1035);
+    expect(transitionGains('exponential', 0.25).incoming).toBeCloseTo(0.015625);
     expect(transitionGains('equal-power', 0.25).incoming).toBeCloseTo(0.382683);
+  });
+  it('punch holds the outgoing song loud while linear dips early', () => {
+    expect(transitionGains('exponential', 0.5).outgoing).toBeCloseTo(0.125);
+    expect(transitionGains('linear', 0.5).outgoing).toBe(0.5);
+    expect(transitionGains('smooth', 0.5).incoming).toBeCloseTo(0.5);
   });
   for (const curve of ['linear', 'equal-power', 'smooth', 'exponential'] as const) {
     it(`${curve} fades the outgoing down and incoming up`, () => {
