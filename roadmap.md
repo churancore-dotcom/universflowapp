@@ -89,5 +89,5 @@
 - [x] Reconnect GitHub API + Search Console in new workspace (Oct 22)
 - [x] New Releases: rank by real plays, keep charted artists, drop devotional uploads
 
-- [ ] Reconnect GitHub API and Google Search Console after the 22 October 12:07 UTC workspace move; fresh links required, previous workspace connections do not apply.
+- [x] Reconnect GitHub API and Google Search Console after the 22 October 12:07 UTC workspace move; both freshly linked and verified with an account read and a property list, each returning HTTP 200.
 - [x] New Releases: trust YouTube Music's country new-release shelf order and verify each track's real upload date via the player endpoint (35-day cutoff); removed view-count/chart-artist gating as proof of newness.
