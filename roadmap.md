@@ -91,3 +91,4 @@
 
 - [x] Reconnect GitHub API and Google Search Console after the 22 October 12:07 UTC workspace move; both freshly linked and verified with an account read and a property list, each returning HTTP 200.
 - [x] New Releases: trust YouTube Music's country new-release shelf order and verify each track's real upload date via the player endpoint (35-day cutoff); removed view-count/chart-artist gating as proof of newness.
+- [x] Replaced vinyl page loader with a minimal rose equalizer-bar animation; made the four crossfade curves audibly distinct (linear dip, DJ constant-power, smooth quintic, punch cubic) in both web and Android service; 11 transition tests passed, type-check clean. Android side needs a new APK for device verification.
