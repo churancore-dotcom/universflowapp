@@ -304,6 +304,7 @@ const AppContent = () => {
         <PWAInstallBanner />
       </Suspense>
     </MobileShell>
+    </SplashActiveContext.Provider>
   );
 };
 
