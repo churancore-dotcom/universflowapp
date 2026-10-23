@@ -1,5 +1,7 @@
 # Roadmap
 
+- [x] Reconnect GitHub API and Google Search Console after the 23 October 11:31 UTC workspace move; both freshly linked and verified with an account read and a property list, each returning HTTP 200.
+
 - [x] Reconnect GitHub API and Google Search Console after the 21 October 12:47 UTC workspace move; both freshly linked and account/property reads returned HTTP 200.
 
 - [x] Replace page-loading gaps with a shared record animation; signed-in Settings → Memory Tape showed the loader and completed without page errors at 394×777.
