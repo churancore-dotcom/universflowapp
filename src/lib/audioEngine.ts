@@ -639,11 +639,12 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   // "pumping/warble" Android DSP exhibited with the previous brick-wall
   // settings (-1 / knee 0 / ratio 20), especially with bass boost engaged.
   const limiter = ctx.createDynamicsCompressor();
-  limiter.threshold.value = -6;
-  limiter.knee.value = 12;
-  limiter.ratio.value = 4;
-  limiter.attack.value = 0.01;
-  limiter.release.value = 0.18;
+  // Transparent safety limiter: only catches true peaks, never squashes music.
+  limiter.threshold.value = -1;
+  limiter.knee.value = 0;
+  limiter.ratio.value = 20;
+  limiter.attack.value = 0.002;
+  limiter.release.value = 0.12;
 
   // --- Headphone 3D Surround crossfeed stage ---
   // Real binaural-style crossfeed: each ear receives the opposite ear's

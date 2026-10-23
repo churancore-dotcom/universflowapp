@@ -28,7 +28,7 @@ const readQ = (key: string, fallback: QualityTier): QualityTier => {
   return fallback;
 };
 
-export function getStreamQuality(): QualityTier { return readQ(KEYS.streamQuality, 'high'); }
+export function getStreamQuality(): QualityTier { return readQ(KEYS.streamQuality, 'very_high'); }
 export function getDownloadQuality(): QualityTier { return readQ(KEYS.downloadQuality, 'very_high'); }
 export function getStreamBitrateCap(): number { return QUALITY_BITRATE_CAP[getStreamQuality()]; }
 export function getDownloadBitrateCap(): number { return QUALITY_BITRATE_CAP[getDownloadQuality()]; }
