@@ -20,6 +20,7 @@ import { DownloadProvider } from "@/contexts/DownloadContext";
 import { NavDirectionProvider } from "@/components/PageTransition";
 import { SentryErrorBoundary } from "@/components/SentryErrorBoundary";
 import SplashScreen from "@/components/SplashScreen";
+import { SplashActiveContext } from "@/components/splash-context";
 import MobileShell from "@/components/MobileShell";
 import { usePushRegistration } from "@/hooks/usePushRegistration";
 import { usePlaybackSync } from "@/hooks/usePlaybackSync";
@@ -258,6 +259,7 @@ const AppContent = () => {
   const handleSplashComplete = useCallback(() => setShowSplash(false), []);
 
   return (
+    <SplashActiveContext.Provider value={showSplash}>
     <MobileShell>
       <a
         href="#main-content"
