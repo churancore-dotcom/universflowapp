@@ -26,7 +26,16 @@ import { readListenLog } from '@/lib/listenLog';
 interface ProfileData {
   username: string | null;
   username_changed: boolean;
+  avatar_url: string | null;
 }
+
+// The avatar must paint instantly on every visit: cache the last known URL
+// per user and render it while the fresh profile row is still loading.
+const avatarCacheKey = (userId: string) => `uf_avatar_${userId}`;
+const readCachedAvatar = (userId?: string) => {
+  if (!userId) return null;
+  try { return localStorage.getItem(avatarCacheKey(userId)); } catch { return null; }
+};
 
 const Profile = () => {
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
