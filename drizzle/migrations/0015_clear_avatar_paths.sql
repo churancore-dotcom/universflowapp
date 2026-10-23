@@ -1,0 +1,1 @@
+UPDATE public.profiles SET avatar_url = NULL WHERE avatar_url IS NOT NULL AND avatar_url NOT LIKE 'http%';
