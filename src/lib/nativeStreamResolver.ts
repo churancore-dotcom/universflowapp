@@ -106,10 +106,10 @@ function pickBestAudio(data: PlayerResponse, bitrateCap?: number): string | null
   );
   if (!audio.length) return null;
   audio.sort((a, b) => {
-    const aM4a = a.mimeType?.includes('mp4') ? 1 : 0;
-    const bM4a = b.mimeType?.includes('mp4') ? 1 : 0;
-    if (aM4a !== bM4a) return bM4a - aM4a;
-    return (b.bitrate ?? 0) - (a.bitrate ?? 0);
+    // Highest bitrate wins; container is only a tie-breaker.
+    const d = (b.bitrate ?? 0) - (a.bitrate ?? 0);
+    if (d !== 0) return d;
+    return (b.mimeType?.includes('mp4') ? 1 : 0) - (a.mimeType?.includes('mp4') ? 1 : 0);
   });
   if (bitrateCap && bitrateCap > 0) {
     // Prefer the highest track under the user's quality cap; fall back to
