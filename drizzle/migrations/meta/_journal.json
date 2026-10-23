@@ -106,6 +106,13 @@
       "when": 1792754052852,
       "tag": "0014_avatars_bucket_owner_policies",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1792755627873,
+      "tag": "0015_clear_avatar_paths",
+      "breakpoints": true
     }
   ]
 }
