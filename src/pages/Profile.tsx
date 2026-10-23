@@ -286,18 +286,18 @@ const Profile = () => {
   const Row = ({ icon, label, hint, onClick, danger }:
     { icon: React.ReactNode; label: string; hint?: string; onClick: () => void; danger?: boolean }) => (
     <button onClick={onClick}
-      className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left active:bg-muted/60 transition-colors">
-      <span className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-muted ${danger ? 'text-destructive' : 'text-foreground/80'}`}>{icon}</span>
+      className="w-full flex items-center gap-3.5 px-4 py-3.5 text-left active:bg-muted/40 transition-colors">
+      <span className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 bg-muted/50 ${danger ? 'text-destructive' : 'text-foreground/70'}`}>{icon}</span>
       <span className={`flex-1 min-w-0 text-[15px] ${danger ? 'text-destructive' : ''}`}>{label}</span>
-      {hint && <span className="text-[13px] text-muted-foreground truncate">{hint}</span>}
-      {!danger && <ChevronRight className="w-4 h-4 text-muted-foreground/50 shrink-0" />}
+      {hint && <span className="text-[13px] text-muted-foreground/80 truncate">{hint}</span>}
+      {!danger && <ChevronRight className="w-4 h-4 text-muted-foreground/40 shrink-0" />}
     </button>
   );
   const Group = ({ children }: { children: React.ReactNode }) => (
-    <div className="rounded-2xl bg-card border border-border/60 overflow-hidden divide-y divide-border/60">{children}</div>
+    <div className="rounded-3xl bg-card/70 border border-border/40 shadow-[0_1px_8px_rgba(0,0,0,0.25)] overflow-hidden divide-y divide-border/30">{children}</div>
   );
   const Label = ({ children }: { children: React.ReactNode }) => (
-    <h2 className="px-1 mb-2 text-[12px] font-semibold uppercase tracking-wider text-muted-foreground">{children}</h2>
+    <h2 className="px-1 mb-2 text-[12px] font-medium uppercase tracking-wider text-muted-foreground/80">{children}</h2>
   );
 
   return (
@@ -312,8 +312,8 @@ const Profile = () => {
           <header className="px-5 pt-4 flex items-center justify-between">
             <h1 className="text-[28px] font-bold tracking-tight">Profile</h1>
             <button onClick={() => navigate('/settings')} aria-label="Settings"
-              className="w-10 h-10 rounded-full flex items-center justify-center bg-muted active:opacity-70">
-              <Settings className="w-[18px] h-[18px] text-foreground/80" />
+              className="w-10 h-10 rounded-full flex items-center justify-center bg-muted/50 active:opacity-70">
+              <Settings className="w-[18px] h-[18px] text-foreground/70" />
             </button>
           </header>
 
@@ -322,7 +322,7 @@ const Profile = () => {
               onClick={() => avatarInputRef.current?.click()}
               disabled={avatarUploading}
               aria-label="Change profile photo"
-              className="relative w-[72px] h-[72px] rounded-full bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden active:opacity-80"
+              className="relative w-[72px] h-[72px] rounded-full bg-muted/50 border border-border/50 flex items-center justify-center shrink-0 overflow-hidden active:opacity-80"
             >
               {avatarSrc ? (
                 <img src={avatarSrc} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
@@ -380,9 +380,9 @@ const Profile = () => {
               { v: fmt(listenStats.totalPlays), l: 'Plays' },
               { v: `${listenStats.streak}d`, l: 'Streak' },
             ].map((s) => (
-              <button key={s.l} onClick={() => setRecapOpen(true)} className="rounded-2xl bg-card border border-border/60 py-3 text-center active:opacity-70">
-                <p className="text-[18px] font-semibold tabular-nums leading-none">{s.v}</p>
-                <p className="mt-1.5 text-[11px] text-muted-foreground">{s.l}</p>
+              <button key={s.l} onClick={() => setRecapOpen(true)} className="rounded-3xl bg-card/70 border border-border/40 shadow-[0_1px_8px_rgba(0,0,0,0.25)] py-3.5 text-center active:opacity-70">
+                <p className="text-[18px] font-medium tabular-nums leading-none text-foreground/90">{s.v}</p>
+                <p className="mt-2 text-[11px] text-muted-foreground/80">{s.l}</p>
               </button>
             ))}
           </section>
