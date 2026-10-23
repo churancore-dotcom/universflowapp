@@ -623,8 +623,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
 
                 <ToggleRow
                   icon={Headphones}
-                  label="Headphone 3D"
-                  desc="Binaural crossfeed for a wider stage."
+                  label="9D Surround"
+                  desc="Deep headphone surround that pulls sound out of your head."
                   checked={settings.headphoneSurround}
                   onCheckedChange={(value) => setEQSettings({ headphoneSurround: value, activePreset: 'custom' })}
                 />
