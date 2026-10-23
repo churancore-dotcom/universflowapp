@@ -38,6 +38,7 @@ import SEOHead from '@/components/SEOHead';
 import PullToRefreshIndicator from '@/components/PullToRefresh';
 import { usePullToRefresh } from '@/hooks/usePullToRefresh';
 import { useUserCountry } from '@/hooks/useUserCountry';
+import { useAvatarUrl } from '@/hooks/useAvatarUrl';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { isSpamSong } from '@/pages/Search';
 import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
@@ -183,10 +184,7 @@ const Home = () => {
     },
   });
 
-  const userAvatar = useMemo(() => {
-    const metadata = (user?.user_metadata || {}) as Record<string, unknown>;
-    return typeof metadata.avatar_url === 'string' ? metadata.avatar_url : undefined;
-  }, [user]);
+  const userAvatar = useAvatarUrl();
 
   const recentEntries = useLocalRecents(20);
   const history = useMemo(() => recentSongs(recentEntries), [recentEntries]);
