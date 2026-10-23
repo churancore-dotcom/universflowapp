@@ -69,7 +69,7 @@ const FEATURES: Feature[] = [
     long: 'Bookmark the exact second of any song, attach a feeling or private note, then replay all those moments back to back as one personal tape.' },
   { icon: InfinityIcon, title: 'Smart Crossfade + Gapless Pro', desc: 'DJ-grade equal-power curves and zero-gap track swaps.', isNew: true,
     long: 'Choose between linear, equal-power, smooth, and exponential crossfade curves — the same math used in DJ software. Gapless Pro overlaps two decoded tracks so albums and live mixes play with literally zero silence between songs.' },
-  { icon: Headphones, title: '9D Headphone Surround', desc: 'Binaural crossfeed lifts sound out of your head.', isNew: true,
+  { icon: Headphones, title: '9D Headphone Surround', desc: 'Sound orbits around your head, front to back.', isNew: true,
     long: 'Lightweight binaural crossfeed reduces the harsh hard-panned-to-one-ear effect that flat stereo creates on headphones, placing instruments in a wider, more natural space — exactly like good studio monitors.' },
   { icon: Building2, title: 'Studio Spaces', desc: 'Vinyl Booth, Cathedral, Stadium — pick your room.', isNew: true,
     long: 'Six convolution-modelled rooms — Vinyl Booth, Jazz Club, Concert Hall, Cathedral, Stadium, and Off. Each adds the natural reflections and decay of a real space without smearing detail.' },

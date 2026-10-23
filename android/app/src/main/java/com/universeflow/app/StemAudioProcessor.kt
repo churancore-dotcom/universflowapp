@@ -52,6 +52,13 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var crossfeedLowLeft = 0f
     private var crossfeedLowRight = 0f
     private var crossfeedCoeff = 0.1f
+    // 9D orbit: its own slow phase (independent of 8D) plus a head-shadow
+    // lowpass that closes as the source travels behind the listener.
+    private var ninePhase = 0.0
+    private var ninePhaseStep = 0.0
+    private var nineShadowLeft = 0f
+    private var nineShadowRight = 0f
+    private var nineShadowCoeff = 0.5f
 
     /** Real room reverb (pre-delay + comb/allpass network) — see RoomReverb. */
     val reverb = RoomReverb()
@@ -111,6 +118,9 @@ class StemAudioProcessor : BaseAudioProcessor() {
         highCoeff = dt / (rcHigh + dt)
         smoothingCoeff = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.025f)).toDouble()).toFloat()
         spatialPhaseStep = 2.0 * Math.PI * 0.12 / inputAudioFormat.sampleRate.toDouble()
+        ninePhaseStep = 2.0 * Math.PI * 0.07 / inputAudioFormat.sampleRate.toDouble()
+        val rcShadow = 1f / (2f * Math.PI.toFloat() * 5500f)
+        nineShadowCoeff = dt / (rcShadow + dt)
         reverb.configure(inputAudioFormat.sampleRate)
         lowState = 0f
         highState = 0f
@@ -131,6 +141,8 @@ class StemAudioProcessor : BaseAudioProcessor() {
         crossfeedCursor = 0
         crossfeedLowLeft = 0f
         crossfeedLowRight = 0f
+        nineShadowLeft = 0f
+        nineShadowRight = 0f
     }
 
 
@@ -204,9 +216,29 @@ class StemAudioProcessor : BaseAudioProcessor() {
             crossfeedLeft[crossfeedCursor] = crossfeedLowLeft
             crossfeedRight[crossfeedCursor] = crossfeedLowRight
             crossfeedCursor = (crossfeedCursor + 1) % crossfeedLeft.size
-            val crossfeed = currentSurround * 0.3f
+            val crossfeed = currentSurround * 0.4f
             rawLeft = (rawLeft + delayedRight * crossfeed) / (1f + crossfeed)
             rawRight = (rawRight + delayedLeft * crossfeed) / (1f + crossfeed)
+
+            // 9D orbit: equal-power pan around the head; when "behind"
+            // (cos < 0) blend in the head-shadow lowpass for a rear cue.
+            if (currentSurround > 0.001f) {
+                val orbitPan = sin(ninePhase).toFloat() * currentSurround * 0.75f
+                val behind = ((1f - kotlin.math.cos(ninePhase).toFloat()) * 0.5f) * currentSurround * 0.7f
+                ninePhase += ninePhaseStep
+                if (ninePhase >= 2.0 * Math.PI) ninePhase -= 2.0 * Math.PI
+                val gl = sqrt(((1f - orbitPan) * 0.5f).toDouble()).toFloat() * 1.4142135f
+                val gr = sqrt(((1f + orbitPan) * 0.5f).toDouble()).toFloat() * 1.4142135f
+                rawLeft *= gl
+                rawRight *= gr
+                nineShadowLeft += nineShadowCoeff * (rawLeft - nineShadowLeft)
+                nineShadowRight += nineShadowCoeff * (rawRight - nineShadowRight)
+                rawLeft += (nineShadowLeft - rawLeft) * behind
+                rawRight += (nineShadowRight - rawRight) * behind
+            } else {
+                nineShadowLeft = rawLeft
+                nineShadowRight = rawRight
+            }
 
             output.putShort(clip16(softLimit(rawLeft, currentLateNight)))
             output.putShort(clip16(softLimit(rawRight, currentLateNight)))
