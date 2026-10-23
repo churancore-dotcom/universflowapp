@@ -177,14 +177,16 @@ const Profile = () => {
     if (!user) { setProfileReady(true); return; }
     try {
       const { data } = await supabase
-        .from('profiles').select('username, username_changed')
+        .from('profiles').select('username, username_changed, avatar_url')
         .eq('user_id', user.id).single();
       if (data) {
         setProfileData({
           username: data.username,
           username_changed: data.username_changed || false,
+          avatar_url: data.avatar_url || null,
         });
         setNewUsername(data.username || '');
+        void refreshAvatarUrl(data.avatar_url || null, user.id);
       }
     } finally { setProfileReady(true); }
   };
@@ -316,9 +318,30 @@ const Profile = () => {
           </header>
 
           <section className="px-5 pt-5 flex items-center gap-4">
-            <div className="w-[72px] h-[72px] rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
-              <span className="text-[26px] font-semibold text-foreground select-none">{initials}</span>
-            </div>
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              aria-label="Change profile photo"
+              className="relative w-[72px] h-[72px] rounded-full bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden active:opacity-80"
+            >
+              {avatarSrc ? (
+                <img src={avatarSrc} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+              ) : (
+                <span className="text-[26px] font-semibold text-foreground select-none">{initials}</span>
+              )}
+              <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center border-2 border-background">
+                {avatarUploading
+                  ? <Loader2 className="w-3 h-3 text-primary-foreground animate-spin" />
+                  : <Camera className="w-3 h-3 text-primary-foreground" />}
+              </span>
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { void handleAvatarPick(e.target.files?.[0] || null); e.target.value = ''; }}
+            />
             <div className="flex-1 min-w-0">
               {!profileSettled ? (
                 <div className="h-6 w-32 rounded-md bg-muted animate-pulse" />
