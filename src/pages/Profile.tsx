@@ -34,7 +34,7 @@ interface ProfileData {
 const avatarCacheKey = (userId: string) => `uf_avatar_${userId}`;
 const readCachedAvatar = (userId?: string) => {
   if (!userId) return null;
-  try { return localStorage.getItem(avatarCacheKey(userId)); } catch { return null; }
+  try { const v = localStorage.getItem(avatarCacheKey(userId)); return v && v.startsWith('data:') ? v : null; } catch { return null; }
 };
 
 const Profile = () => {
