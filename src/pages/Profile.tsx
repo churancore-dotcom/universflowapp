@@ -1,7 +1,7 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Settings, LogOut, Shield, Heart, ListMusic, Crown, ChevronRight,
-  Edit2, Check, X, Download, Music2,
+  Edit2, Check, X, Download, Music2, Camera, Loader2,
 } from 'lucide-react';
 import { useNavigate } from '@/lib/router-compat';
 import { supabase } from '@/integrations/supabase/client';
@@ -26,7 +26,16 @@ import { readListenLog } from '@/lib/listenLog';
 interface ProfileData {
   username: string | null;
   username_changed: boolean;
+  avatar_url: string | null;
 }
+
+// The avatar must paint instantly on every visit: cache the last known URL
+// per user and render it while the fresh profile row is still loading.
+const avatarCacheKey = (userId: string) => `uf_avatar_${userId}`;
+const readCachedAvatar = (userId?: string) => {
+  if (!userId) return null;
+  try { return localStorage.getItem(avatarCacheKey(userId)); } catch { return null; }
+};
 
 const Profile = () => {
   const { user, isAdmin, isLoading: authLoading, signOut } = useAuth();
@@ -42,16 +51,64 @@ const Profile = () => {
   const [statsReady, setStatsReady] = useState(false);
   const [recapOpen, setRecapOpen] = useState(false);
 
-  const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false });
+  const [profileData, setProfileData] = useState<ProfileData>({ username: null, username_changed: false, avatar_url: null });
   const [profileReady, setProfileReady] = useState(false);
   const [isEditingUsername, setIsEditingUsername] = useState(false);
   const [newUsername, setNewUsername] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  // Painted instantly from cache; replaced by a fresh signed URL once loaded.
+  const [avatarSrc, setAvatarSrc] = useState<string | null>(() => readCachedAvatar(user?.id));
+  const [avatarUploading, setAvatarUploading] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+
+  // avatar_url stores the storage path; the private bucket needs a signed URL.
+  const refreshAvatarUrl = async (path: string | null, userId: string) => {
+    if (!path) {
+      setAvatarSrc(null);
+      try { localStorage.removeItem(avatarCacheKey(userId)); } catch { /* noop */ }
+      return;
+    }
+    const { data, error } = await supabase.storage.from('avatars').createSignedUrl(path, 60 * 60 * 24 * 7);
+    if (error || !data?.signedUrl) return;
+    setAvatarSrc(data.signedUrl);
+    try { localStorage.setItem(avatarCacheKey(userId), data.signedUrl); } catch { /* noop */ }
+  };
+
+  const handleAvatarPick = async (file: File | null) => {
+    if (!file || !user) return;
+    if (!file.type.startsWith('image/')) { toast.error('Please pick an image'); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5 MB'); return; }
+    setAvatarUploading(true);
+    try {
+      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
+      const path = `${user.id}/avatar.${ext}`;
+      const { error: upError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
+      if (upError) throw upError;
+      const { error: dbError } = await supabase.from('profiles').update({ avatar_url: path }).eq('user_id', user.id);
+      if (dbError) throw dbError;
+      setProfileData((prev) => ({ ...prev, avatar_url: path }));
+      // Show the picked image immediately, then swap in the signed URL.
+      const localUrl = URL.createObjectURL(file);
+      setAvatarSrc(localUrl);
+      try { localStorage.setItem(avatarCacheKey(user.id), localUrl); } catch { /* noop */ }
+      void refreshAvatarUrl(path, user.id);
+      toast.success('Profile photo updated');
+    } catch (error: any) {
+      toast.error(error?.message || 'Failed to upload photo');
+    } finally { setAvatarUploading(false); }
+  };
 
   useEffect(() => {
     if (user) { setProfileReady(false); setStatsReady(false); fetchStats(); fetchProfile(); }
     else { setProfileReady(true); setStatsReady(true); }
   }, [user]);
+
+  // Auth resolves after first paint, so the initial cache read often runs with
+  // no user id. Hydrate the cached avatar the moment the user id is known.
+  useEffect(() => {
+    if (!user?.id) return;
+    setAvatarSrc((prev) => prev ?? readCachedAvatar(user.id));
+  }, [user?.id]);
 
   // Liking/unliking anywhere in the app must reflect here without a reload.
   useEffect(() => {
@@ -127,14 +184,16 @@ const Profile = () => {
     if (!user) { setProfileReady(true); return; }
     try {
       const { data } = await supabase
-        .from('profiles').select('username, username_changed')
+        .from('profiles').select('username, username_changed, avatar_url')
         .eq('user_id', user.id).single();
       if (data) {
         setProfileData({
           username: data.username,
           username_changed: data.username_changed || false,
+          avatar_url: data.avatar_url || null,
         });
         setNewUsername(data.username || '');
+        void refreshAvatarUrl(data.avatar_url || null, user.id);
       }
     } finally { setProfileReady(true); }
   };
@@ -266,9 +325,30 @@ const Profile = () => {
           </header>
 
           <section className="px-5 pt-5 flex items-center gap-4">
-            <div className="w-[72px] h-[72px] rounded-full bg-muted border border-border flex items-center justify-center shrink-0">
-              <span className="text-[26px] font-semibold text-foreground select-none">{initials}</span>
-            </div>
+            <button
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={avatarUploading}
+              aria-label="Change profile photo"
+              className="relative w-[72px] h-[72px] rounded-full bg-muted border border-border flex items-center justify-center shrink-0 overflow-hidden active:opacity-80"
+            >
+              {avatarSrc ? (
+                <img src={avatarSrc} alt="" className="absolute inset-0 w-full h-full object-cover" draggable={false} />
+              ) : (
+                <span className="text-[26px] font-semibold text-foreground select-none">{initials}</span>
+              )}
+              <span className="absolute bottom-0 right-0 w-6 h-6 rounded-full bg-primary flex items-center justify-center border-2 border-background">
+                {avatarUploading
+                  ? <Loader2 className="w-3 h-3 text-primary-foreground animate-spin" />
+                  : <Camera className="w-3 h-3 text-primary-foreground" />}
+              </span>
+            </button>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => { void handleAvatarPick(e.target.files?.[0] || null); e.target.value = ''; }}
+            />
             <div className="flex-1 min-w-0">
               {!profileSettled ? (
                 <div className="h-6 w-32 rounded-md bg-muted animate-pulse" />
