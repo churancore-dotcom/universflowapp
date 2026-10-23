@@ -61,40 +61,33 @@ const Profile = () => {
   const [avatarUploading, setAvatarUploading] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
 
-  // avatar_url stores the storage path; the private bucket needs a signed URL.
-  const refreshAvatarUrl = async (path: string | null, userId: string) => {
-    if (!path) {
-      setAvatarSrc(null);
-      try { localStorage.removeItem(avatarCacheKey(userId)); } catch { /* noop */ }
-      return;
-    }
-    const { data, error } = await supabase.storage.from('avatars').createSignedUrl(path, 60 * 60 * 24 * 7);
-    if (error || !data?.signedUrl) return;
-    setAvatarSrc(data.signedUrl);
-    try { localStorage.setItem(avatarCacheKey(userId), data.signedUrl); } catch { /* noop */ }
-  };
+  // Profile photos never leave the phone: shrink to a small JPEG and keep it
+  // in this device's local storage only. Nothing is uploaded.
+  const refreshAvatarUrl = async (_path: string | null, _userId: string) => {};
 
   const handleAvatarPick = async (file: File | null) => {
     if (!file || !user) return;
     if (!file.type.startsWith('image/')) { toast.error('Please pick an image'); return; }
-    if (file.size > 5 * 1024 * 1024) { toast.error('Image must be under 5 MB'); return; }
     setAvatarUploading(true);
     try {
-      const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '') || 'jpg';
-      const path = `${user.id}/avatar.${ext}`;
-      const { error: upError } = await supabase.storage.from('avatars').upload(path, file, { upsert: true, contentType: file.type });
-      if (upError) throw upError;
-      const { error: dbError } = await supabase.from('profiles').update({ avatar_url: path }).eq('user_id', user.id);
-      if (dbError) throw dbError;
-      setProfileData((prev) => ({ ...prev, avatar_url: path }));
-      // Show the picked image immediately, then swap in the signed URL.
-      const localUrl = URL.createObjectURL(file);
-      setAvatarSrc(localUrl);
-      try { localStorage.setItem(avatarCacheKey(user.id), localUrl); } catch { /* noop */ }
-      void refreshAvatarUrl(path, user.id);
+      const bitmapUrl = URL.createObjectURL(file);
+      const img = new Image();
+      await new Promise<void>((res, rej) => { img.onload = () => res(); img.onerror = () => rej(new Error('Could not read image')); img.src = bitmapUrl; });
+      const size = 256;
+      const canvas = document.createElement('canvas');
+      canvas.width = size; canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) throw new Error('Could not process image');
+      const s = Math.min(img.width, img.height);
+      ctx.drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, size, size);
+      URL.revokeObjectURL(bitmapUrl);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.82);
+      localStorage.setItem(avatarCacheKey(user.id), dataUrl);
+      window.dispatchEvent(new Event('uf-avatar-changed'));
+      setAvatarSrc(dataUrl);
       toast.success('Profile photo updated');
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to upload photo');
+      toast.error(error?.message || 'Failed to set photo');
     } finally { setAvatarUploading(false); }
   };
 
