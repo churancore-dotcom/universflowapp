@@ -103,6 +103,13 @@ const Profile = () => {
     else { setProfileReady(true); setStatsReady(true); }
   }, [user]);
 
+  // Auth resolves after first paint, so the initial cache read often runs with
+  // no user id. Hydrate the cached avatar the moment the user id is known.
+  useEffect(() => {
+    if (!user?.id) return;
+    setAvatarSrc((prev) => prev ?? readCachedAvatar(user.id));
+  }, [user?.id]);
+
   // Liking/unliking anywhere in the app must reflect here without a reload.
   useEffect(() => {
     if (!user) return;
