@@ -99,6 +99,13 @@
       "when": 1792243023288,
       "tag": "0013_atomic_play_purchase_claims",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "7",
+      "when": 1792754052852,
+      "tag": "0014_avatars_bucket_owner_policies",
+      "breakpoints": true
     }
   ]
 }
