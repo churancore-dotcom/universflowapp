@@ -746,7 +746,27 @@ function buildProcessedChain(ctx: AudioContext, source: MediaElementAudioSourceN
   surroundLpRL.connect(surroundXfeedRL);
   surroundXfeedRL.connect(surroundMerger, 0, 0);
 
-  surroundMerger.connect(limiter);
+  // --- 9D stage: slow orbit around the head ---
+  // A dedicated LFO (separate from 8D) sweeps the sound left/right while a
+  // second, quarter-cycle-offset LFO closes a head-shadow lowpass when the
+  // source passes "behind" the listener. Depth stays 0 until 9D is enabled.
+  const ninePanner = ctx.createStereoPanner();
+  const nineShadow = ctx.createBiquadFilter();
+  nineShadow.type = 'lowpass'; nineShadow.frequency.value = 20000; nineShadow.Q.value = 0.5;
+  const nineLfo = ctx.createOscillator(); nineLfo.frequency.value = NINE_D_RATE_HZ;
+  const nineShadowLfo = ctx.createOscillator(); nineShadowLfo.frequency.value = NINE_D_RATE_HZ;
+  const ninePanDepth = ctx.createGain(); ninePanDepth.gain.value = 0;
+  const nineShadowDepth = ctx.createGain(); nineShadowDepth.gain.value = 0;
+  nineLfo.connect(ninePanDepth); ninePanDepth.connect(ninePanner.pan);
+  nineShadowLfo.connect(nineShadowDepth); nineShadowDepth.connect(nineShadow.frequency);
+  const t0 = ctx.currentTime + 0.05;
+  nineLfo.start(t0);
+  nineShadowLfo.start(t0 + 1 / (4 * NINE_D_RATE_HZ));
+  nineD = { panner: ninePanner, shadow: nineShadow, lfos: [nineLfo, nineShadowLfo], panDepth: ninePanDepth, shadowDepth: nineShadowDepth };
+
+  surroundMerger.connect(ninePanner);
+  ninePanner.connect(nineShadow);
+  nineShadow.connect(limiter);
   limiter.connect(ctx.destination);
 
   engine.source = source;
@@ -892,6 +912,21 @@ export function getStemLevels(): { vocals: number; backing: number } {
   return { vocals: engine.stemVocal, backing: engine.stemBacking };
 }
 
+const NINE_D_RATE_HZ = 0.07;
+let nineD: {
+  panner: StereoPannerNode; shadow: BiquadFilterNode; lfos: OscillatorNode[];
+  panDepth: GainNode; shadowDepth: GainNode;
+} | null = null;
+
+function teardownNineD() {
+  if (!nineD) return;
+  for (const o of nineD.lfos) { try { o.stop(); } catch { /* ignore */ } }
+  for (const n of [...nineD.lfos, nineD.panDepth, nineD.shadowDepth, nineD.panner, nineD.shadow]) {
+    try { n.disconnect(); } catch { /* ignore */ }
+  }
+  nineD = null;
+}
+
 function applySurround() {
   if (!engine.ctx || !engine.surroundXfeedLR || !engine.surroundXfeedRL
       || !engine.surroundDirectL || !engine.surroundDirectR) return;
@@ -899,14 +934,25 @@ function applySurround() {
   if (engine.surroundEnabled) {
     // Crossfeed at -10 dB (gain 0.316) is the classic Linkwitz / Meier headphone
     // amp setting. Pulls vocals to center-front, opens stereo width.
-    engine.surroundXfeedLR.gain.setTargetAtTime(0.32, now, SMOOTH);
-    engine.surroundXfeedRL.gain.setTargetAtTime(0.32, now, SMOOTH);
+    engine.surroundXfeedLR.gain.setTargetAtTime(0.4, now, SMOOTH);
+    engine.surroundXfeedRL.gain.setTargetAtTime(0.4, now, SMOOTH);
+    if (nineD) {
+      // Orbit: ±0.75 pan; behind the head the shadow filter drops to ~5.5 kHz.
+      nineD.panDepth.gain.setTargetAtTime(0.75, now, SMOOTH);
+      nineD.shadow.frequency.setTargetAtTime(12750, now, SMOOTH);
+      nineD.shadowDepth.gain.setTargetAtTime(7250, now, SMOOTH);
+    }
     // Slight direct attenuation keeps the sum from clipping the limiter.
     engine.surroundDirectL.gain.setTargetAtTime(0.85, now, SMOOTH);
     engine.surroundDirectR.gain.setTargetAtTime(0.85, now, SMOOTH);
   } else {
     engine.surroundXfeedLR.gain.setTargetAtTime(0, now, SMOOTH);
     engine.surroundXfeedRL.gain.setTargetAtTime(0, now, SMOOTH);
+    if (nineD) {
+      nineD.panDepth.gain.setTargetAtTime(0, now, SMOOTH);
+      nineD.shadowDepth.gain.setTargetAtTime(0, now, SMOOTH);
+      nineD.shadow.frequency.setTargetAtTime(20000, now, SMOOTH);
+    }
     engine.surroundDirectL.gain.setTargetAtTime(1, now, SMOOTH);
     engine.surroundDirectR.gain.setTargetAtTime(1, now, SMOOTH);
   }
@@ -992,6 +1038,7 @@ function buildDirectChain(source: MediaElementAudioSourceNode, ctx: AudioContext
   engine.wetHp = null;
   engine.wetTone = null;
   engine.wetLp = null;
+  teardownNineD();
   engine.stereoPanner = null;
   engine.surroundSplitter = null;
   engine.surroundMerger = null;
