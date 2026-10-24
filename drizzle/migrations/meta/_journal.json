@@ -113,6 +113,13 @@
       "when": 1792755627873,
       "tag": "0015_clear_avatar_paths",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1792833212509,
+      "tag": "0016_require_verified_email_for_artist_invite",
+      "breakpoints": true
     }
   ]
 }
