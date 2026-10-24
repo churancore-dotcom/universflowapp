@@ -100,7 +100,6 @@ export const APP_SCHEMA = JSON.stringify({
       installUrl: APK_URL,
       downloadUrl: APK_URL,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-      aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", ratingCount: "1280" },
     },
     {
       "@type": "SoftwareApplication",
@@ -110,7 +109,6 @@ export const APP_SCHEMA = JSON.stringify({
       downloadUrl: APK_URL,
       installUrl: APK_URL,
       offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
-      aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", ratingCount: "1280" },
     },
   ],
 });
