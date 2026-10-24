@@ -3,8 +3,6 @@
 // only to the requested address's own inbox. Responses are uniform so the
 // endpoint never reveals whether an account exists; requests are throttled.
 
-import { createClient } from "npm:@supabase/supabase-js@2";
-
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -27,8 +25,9 @@ async function idToUuid(id: string): Promise<string> {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }
 function clientIp(req: Request): string {
-  const xf = req.headers.get('x-forwarded-for') ?? '';
-  return (xf.split(',')[0] || req.headers.get('cf-connecting-ip') || 'unknown').trim();
+  // Rightmost forwarded entry is appended by the platform proxy; leftmost is spoofable.
+  const xf = (req.headers.get('x-forwarded-for') ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  return xf[xf.length - 1] || req.headers.get('cf-connecting-ip') || 'unknown';
 }
 
 Deno.serve(async (req) => {
