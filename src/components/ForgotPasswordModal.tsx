@@ -50,10 +50,11 @@ const ForgotPasswordModal = ({ isOpen, onClose, defaultEmail = '' }: Props) => {
     try {
       // Primary: branded email via Resend. Fallback: built-in auth recovery email.
       const redirectTo = `${window.location.origin}/reset-password`;
-      let { error } = await supabase.functions.invoke('send-reset-email', {
+      const { error: resendError } = await supabase.functions.invoke('send-reset-email', {
         body: { email: trimmed, redirectTo },
       });
-      if (error) {
+      let error: unknown = null;
+      if (resendError) {
         ({ error } = await supabase.auth.resetPasswordForEmail(trimmed, { redirectTo }));
       }
       if (error) {
