@@ -1663,3 +1663,53 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .uf-loading-bars span { animation: none; transform: none; opacity: 1; }
 }
+
+/* ========== iOS Style (optional, html.ios-style) ========== */
+html.ios-style body,
+html.ios-style button,
+html.ios-style input,
+html.ios-style h1, html.ios-style h2, html.ios-style h3 {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif !important;
+  letter-spacing: -0.01em;
+}
+html.ios-style h1 { letter-spacing: -0.025em; }
+html.ios-style { -webkit-tap-highlight-color: transparent; }
+html.ios-style button:active { transform: scale(0.97); transition: transform 0.12s ease; }
+
+/* Translucent full-width iOS tab bar */
+html.ios-style nav[aria-label="Primary"] {
+  bottom: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+html.ios-style nav[aria-label="Primary"] > [role="tablist"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 0 !important;
+  justify-content: space-around;
+  padding: 6px 8px calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+  background: hsl(var(--background) / 0.72) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid hsl(var(--foreground) / 0.15);
+  box-shadow: none !important;
+}
+
+/* Grouped inset settings lists */
+html.ios-style .uf-settings-group {
+  border-radius: 12px !important;
+  border: none !important;
+  background: hsl(var(--card)) !important;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+html.ios-style .uf-settings-label {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground)) !important;
+  padding-left: 12px;
+}
+html.ios-style .uf-settings-group > * { border-bottom-width: 0.5px; }
+html.ios-style .uf-settings-group p { font-size: 15px; }
+html.ios-style .uf-settings-group p + p { font-size: 12px; }

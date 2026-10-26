@@ -1,3 +1,4 @@
+import './iosStyle';
 // Applies the saved theme tokens to :root BEFORE React mounts.
 // This guarantees the theme persists across reloads and is consistent
 // across every page (not just Settings).
