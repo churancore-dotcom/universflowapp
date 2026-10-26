@@ -45,13 +45,14 @@ export const NavDirectionProvider = ({ children }: { children: ReactNode }) => {
 
 const PageTransition = ({ children, className = '' }: PageTransitionProps) => {
   const reducedMotion = useReducedMotion();
+  const ios = typeof document !== 'undefined' && document.documentElement.classList.contains('ios-style');
   return (
     <motion.div
       className={className}
-      initial={reducedMotion ? false : { opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={reducedMotion ? undefined : { opacity: 0, y: -4 }}
-      transition={reducedMotion ? { duration: 0 } : { duration: 0.16, ease: 'easeOut' }}
+      initial={reducedMotion ? false : ios ? { opacity: 0.6, x: 36 } : { opacity: 0, y: 8 }}
+      animate={{ opacity: 1, x: 0, y: 0 }}
+      exit={reducedMotion ? undefined : ios ? { opacity: 0, x: -24 } : { opacity: 0, y: -4 }}
+      transition={reducedMotion ? { duration: 0 } : ios ? { type: 'spring', stiffness: 420, damping: 38, mass: 0.6 } : { duration: 0.16, ease: 'easeOut' }}
     >
       {children}
     </motion.div>

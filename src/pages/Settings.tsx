@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmailVerified } from '@/hooks/useEmailVerified';
 import PremiumBadge from '@/components/PremiumBadge';
+import { getIosStyle, setIosStyle } from '@/lib/iosStyle';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/useHaptics';
@@ -83,11 +84,11 @@ const monthsBetween = (iso?: string | null): string => {
 
 // --- reusable row primitives -------------------------------------------------
 const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <section>
+  <section className="uf-settings-section">
     <div className="flex items-center gap-2 mb-2.5 px-1">
-      <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">{label}</h2>
+      <h2 className="uf-settings-label text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">{label}</h2>
     </div>
-    <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+    <div className="uf-settings-group rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
       {children}
     </div>
   </section>
@@ -156,6 +157,7 @@ const Settings = () => {
   const [notifications, setNotifications] = useState(() => localStorage.getItem('uf_notifications') !== 'false');
   const [moodPushes, setMoodPushes] = useState(true);
   const [haptics, setHaptics] = useState(() => getHapticsEnabled());
+  const [iosStyle, setIosStyleState] = useState(() => getIosStyle());
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
   const [showEq, setShowEq] = useState(false);
@@ -656,6 +658,16 @@ const Settings = () => {
           </Section>
 
           {/* ============ 6. NOTIFICATIONS ============ */}
+          <Section label="Appearance">
+            <Row
+              icon={<Smartphone className="w-4 h-4" />}
+              label="iOS Style"
+              sub="iPhone fonts, tab bar, lists and slide animations"
+              right={<Switch checked={iosStyle} onCheckedChange={(v) => { setIosStyleState(v); setIosStyle(v); }} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle iOS style" />}
+              last
+            />
+          </Section>
+
           <Section label="Notifications">
             <Row
               icon={<Bell className="w-4 h-4" />}
