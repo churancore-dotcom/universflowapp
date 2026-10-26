@@ -660,13 +660,68 @@ const Settings = () => {
 
           {/* ============ 6. NOTIFICATIONS ============ */}
           <Section label="Appearance">
-            <Row
-              icon={<Smartphone className="w-4 h-4" />}
-              label="iOS Style"
-              sub="iPhone fonts, tab bar, lists and slide animations"
-              right={<Switch checked={iosStyle} onCheckedChange={(v) => { setIosStyleState(v); setIosStyle(v); }} className="data-[state=checked]:bg-primary scale-90" aria-label="Toggle iOS style" />}
-              last
-            />
+            <div className="px-4 py-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Smartphone className="w-4 h-4 text-primary shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm">Theme</p>
+                  <p className="text-[11px] text-white/40">Pick how the app looks and moves</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
+                {([
+                  { id: 'off' as IosStyleMode, label: 'Default', sub: 'Univers Flow dark' },
+                  { id: 'classic' as IosStyleMode, label: 'iOS Classic', sub: 'Fonts & lists' },
+                  { id: 'glass' as IosStyleMode, label: 'iOS Glass', sub: 'Latest liquid look' },
+                ]).map((opt) => {
+                  const active = iosMode === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => { setIosModeState(opt.id); setIosStyleMode(opt.id); triggerHaptic('selection'); }}
+                      className={`rounded-2xl border px-2 py-3 text-center transition-all active:scale-95 ${
+                        active
+                          ? 'border-primary/70 bg-primary/15 shadow-[0_0_20px_-6px_hsl(var(--primary)/0.5)]'
+                          : 'border-white/10 bg-white/[0.04]'
+                      }`}
+                    >
+                      <span className={`block h-8 w-8 mx-auto mb-1.5 rounded-full border ${
+                        opt.id === 'off'
+                          ? 'bg-black border-white/20'
+                          : opt.id === 'classic'
+                            ? 'bg-gradient-to-b from-zinc-700 to-zinc-900 border-white/25'
+                            : 'bg-gradient-to-br from-rose-400/70 via-violet-400/50 to-cyan-300/50 border-white/40'
+                      }`} />
+                      <p className={`text-xs font-semibold ${active ? 'text-primary' : ''}`}>{opt.label}</p>
+                      <p className="text-[10px] text-white/40 leading-tight mt-0.5">{opt.sub}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {iosMode === 'glass' && (
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-white/60">Glass tint</p>
+                    <p className="text-[11px] text-white/40">{glassTint < 34 ? 'Clear' : glassTint > 66 ? 'Tinted' : 'Balanced'}</p>
+                  </div>
+                  <Slider
+                    value={[glassTint]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={([v]) => { setGlassTint(v); setIosGlassTint(v); }}
+                    aria-label="Glass tint"
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-white/35">Clear</span>
+                    <span className="text-[10px] text-white/35">Tinted</span>
+                  </div>
+                </div>
+              )}
+            </div>
           </Section>
 
           <Section label="Notifications">
