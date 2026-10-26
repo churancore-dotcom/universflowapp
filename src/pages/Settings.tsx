@@ -27,7 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmailVerified } from '@/hooks/useEmailVerified';
 import PremiumBadge from '@/components/PremiumBadge';
-import { getIosStyle, setIosStyle } from '@/lib/iosStyle';
+import { getIosStyleMode, setIosStyleMode, getIosGlassTint, setIosGlassTint, type IosStyleMode } from '@/lib/iosStyle';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/useHaptics';
@@ -157,7 +157,8 @@ const Settings = () => {
   const [notifications, setNotifications] = useState(() => localStorage.getItem('uf_notifications') !== 'false');
   const [moodPushes, setMoodPushes] = useState(true);
   const [haptics, setHaptics] = useState(() => getHapticsEnabled());
-  const [iosStyle, setIosStyleState] = useState(() => getIosStyle());
+  const [iosMode, setIosModeState] = useState<IosStyleMode>(() => getIosStyleMode());
+  const [glassTint, setGlassTint] = useState(() => getIosGlassTint());
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
   const [showEq, setShowEq] = useState(false);
