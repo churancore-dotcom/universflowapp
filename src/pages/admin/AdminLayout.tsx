@@ -39,6 +39,7 @@ const navItems = [
   { icon: Headphones, label: 'Listener Insights', path: '/admin/listener-insights' },
   { icon: Upload, label: 'Upload Music', path: '/admin/upload' },
   { icon: Music, label: 'Manage Songs', path: '/admin/songs' },
+  { icon: Star, label: 'Content Control', path: '/admin/content-control' },
   { icon: ShieldCheck, label: 'Artist Verification', path: '/admin/artist-applications' },
   { icon: Users, label: 'Manage Artists', path: '/admin/artists' },
   { icon: Music, label: 'Artist Signups', path: '/admin/artist-signups' },
