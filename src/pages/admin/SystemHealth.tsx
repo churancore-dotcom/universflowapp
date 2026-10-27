@@ -50,11 +50,28 @@ const SystemHealth = () => {
   });
   const [lastChecked, setLastChecked] = useState<Date | null>(null);
   const [isChecking, setIsChecking] = useState(false);
+  const [errorFeed, setErrorFeed] = useState<PerfEvent[]>([]);
 
   useEffect(() => {
     runHealthChecks();
     fetchStats();
+    fetchErrorFeed();
+    const channel = supabase
+      .channel('admin-health-errors')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'perf_events' }, fetchErrorFeed)
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
   }, []);
+
+  const fetchErrorFeed = async () => {
+    const { data } = await supabase
+      .from('perf_events')
+      .select('id, event_type, severity, message, route, created_at')
+      .in('severity', ['error', 'warning'])
+      .order('created_at', { ascending: false })
+      .limit(20);
+    setErrorFeed((data as PerfEvent[] | null) || []);
+  };
 
   const fetchStats = async () => {
     const startTime = performance.now();

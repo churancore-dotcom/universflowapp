@@ -311,6 +311,15 @@ const ManageUsers = () => {
           </AnimatePresence>
         )}
       </div>
+
+      <UserDetailDrawer
+        user={selectedUser}
+        onClose={() => setSelectedUser(null)}
+        onStatusChange={(u, status) => {
+          updateUserStatus(u, status);
+          setSelectedUser(null);
+        }}
+      />
     </div>
   );
 };
