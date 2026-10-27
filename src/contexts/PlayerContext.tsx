@@ -24,6 +24,7 @@ import { getRemixForSong, loadMix } from '@/lib/stemLab';
 import { detectCountrySilently } from '@/lib/geoCountry';
 
 import { transitionGains, canExtendQueue } from '@/lib/playbackTransitions';
+import { getOfflineUrl } from '@/lib/offlineUrlRegistry';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
@@ -1831,7 +1832,12 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Pick up any URL that the early-resolution step upgraded.
-    const resolvedSong = songQueue[index] ?? song;
+    const queuedSong = songQueue[index] ?? song;
+    // Offline first: if this song is downloaded, play the local copy (blob on
+    // web, file:// on Android) instead of re-resolving over the network. This
+    // is what keeps auto-advance working in airplane mode.
+    const localOfflineUrl = getOfflineUrl(queuedSong.id);
+    const resolvedSong = localOfflineUrl ? { ...queuedSong, audio_url: localOfflineUrl } : queuedSong;
 
     const useNativePlayback = isNativePlayerAvailable();
 
@@ -2831,6 +2837,15 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     markPlayStage('ui');
 
     let playbackSource = offlineUrl || song.audio_url;
+    // Offline first: use the downloaded local copy when no explicit offline
+    // URL was passed (queue restore, auto-advance, resume after restart).
+    if (!offlineUrl) {
+      const localUrl = getOfflineUrl(song.id);
+      if (localUrl) {
+        offlineUrl = localUrl;
+        playbackSource = localUrl;
+      }
+    }
 
     // `yt-video:` can play through the YouTube iframe, but iframe audio cannot
     // be connected to WebAudio. Resolve it to a real stream before playback so
