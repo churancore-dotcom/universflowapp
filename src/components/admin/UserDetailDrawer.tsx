@@ -11,6 +11,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { toast } from 'sonner';
 
 export interface DrawerUser {
+  id: string;
   user_id: string;
   email: string | null;
   username: string | null;
