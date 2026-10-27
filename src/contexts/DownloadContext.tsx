@@ -9,6 +9,7 @@ import { isNativePlayerAvailable, resolveNativeMetadataStream } from '@/lib/nati
 import { retry } from '@/utils/retry';
 import { deleteOfflineAudioFile, offlineAudioFileExists, saveOfflineAudioFile } from '@/lib/offlineFiles';
 import { DownloadObjectUrls } from '@/lib/downloadObjectUrls';
+import { registerOfflineUrl, unregisterOfflineUrl, clearOfflineUrlRegistry } from '@/lib/offlineUrlRegistry';
 
 
 // Build a proxy URL for cross-origin streams that fail direct fetch.
@@ -398,6 +399,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             const playableUrl = nativeUrl || objectUrls.current.create(audioBlob);
             const coverBlobUrl = coverBlob ? objectUrls.current.create(coverBlob) : null;
             urls[song.id] = playableUrl;
+            registerOfflineUrl(song.id, playableUrl);
             songs.push({ ...song, blobUrl: playableUrl, nativeUrl, cover_url: coverBlobUrl || song.cover_url });
           } catch (e) {
             console.warn('Failed to create blob URL for song:', song.id);
@@ -566,6 +568,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Update state
       setDownloads(prev => [...prev, downloadedSong]);
       setBlobUrls(prev => ({ ...prev, [song.id]: playableUrl }));
+      registerOfflineUrl(song.id, playableUrl);
 
       setDownloadProgress(prev => ({
         ...prev,
@@ -634,6 +637,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       // Revoke blob URL
       objectUrls.current.release(blobUrls[songId]);
       objectUrls.current.release(existing?.cover_url);
+      unregisterOfflineUrl(songId);
       
       setDownloads(prev => prev.filter(d => d.id !== songId));
       setBlobUrls(prev => {
@@ -666,6 +670,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       await Promise.all(downloads.map(d => deleteOfflineAudioFile(d.nativeUrl ?? null)));
       await clearDB();
       objectUrls.current.clear();
+      clearOfflineUrlRegistry();
       setDownloads([]);
       setBlobUrls({});
     } catch (error: any) {

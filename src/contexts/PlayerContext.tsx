@@ -24,6 +24,7 @@ import { getRemixForSong, loadMix } from '@/lib/stemLab';
 import { detectCountrySilently } from '@/lib/geoCountry';
 
 import { transitionGains, canExtendQueue } from '@/lib/playbackTransitions';
+import { getOfflineUrl } from '@/lib/offlineUrlRegistry';
 import { toast } from 'sonner';
 
 interface YouTubePlayer {
