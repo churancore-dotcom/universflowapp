@@ -373,6 +373,45 @@ const SystemHealth = () => {
           ))}
         </div>
       </motion.div>
+
+      {/* Live Error Feed */}
+      <motion.div
+        className="glass rounded-2xl overflow-hidden mt-8"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.4 }}
+      >
+        <div className="p-4 border-b border-white/5 flex items-center justify-between">
+          <h2 className="font-bold flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400" /> Live Error Feed
+          </h2>
+          <span className="text-xs text-muted-foreground">Latest {errorFeed.length} warnings & errors</span>
+        </div>
+        {errorFeed.length === 0 ? (
+          <div className="p-8 text-center text-muted-foreground text-sm">
+            <CheckCircle2 className="w-8 h-8 mx-auto mb-2 text-green-500 opacity-60" />
+            No errors or warnings recorded — everything looks clean.
+          </div>
+        ) : (
+          <div className="divide-y divide-white/5 max-h-96 overflow-y-auto">
+            {errorFeed.map((e) => (
+              <div key={e.id} className="flex items-start gap-3 p-3">
+                <span className={`mt-1 w-2 h-2 rounded-full shrink-0 ${e.severity === 'error' ? 'bg-red-500' : 'bg-yellow-500'}`} />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium truncate">{e.event_type}</p>
+                  {e.message && <p className="text-xs text-muted-foreground truncate">{e.message}</p>}
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {e.route ? `${e.route} · ` : ''}{new Date(e.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <span className={`text-[10px] uppercase font-bold ${e.severity === 'error' ? 'text-red-400' : 'text-yellow-400'}`}>
+                  {e.severity}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
+      </motion.div>
     </div>
   );
 };
