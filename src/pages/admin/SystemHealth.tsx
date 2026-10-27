@@ -26,6 +26,15 @@ interface HealthCheck {
   responseTime?: number;
 }
 
+interface PerfEvent {
+  id: string;
+  event_type: string;
+  severity: string;
+  message: string | null;
+  route: string | null;
+  created_at: string;
+}
+
 interface SystemStats {
   totalSongs: number;
   totalUsers: number;
