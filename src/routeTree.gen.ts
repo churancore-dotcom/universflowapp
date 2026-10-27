@@ -51,6 +51,7 @@ import { Route as AdminArtistSignupsRouteImport } from './routes/admin/artist-si
 import { Route as AdminArtistVerificationRouteImport } from './routes/admin/artist-verification'
 import { Route as AdminArtistsRouteImport } from './routes/admin/artists'
 import { Route as AdminArtistsApplicationsRouteImport } from './routes/admin/artists-applications'
+import { Route as AdminContentControlRouteImport } from './routes/admin/content-control'
 import { Route as AdminDevicesRouteImport } from './routes/admin/devices'
 import { Route as AdminEngagementRouteImport } from './routes/admin/engagement'
 import { Route as AdminHealthRouteImport } from './routes/admin/health'
@@ -327,6 +328,11 @@ const AdminArtistsApplicationsRoute =
     path: '/artists-applications',
     getParentRoute: () => AdminRouteRoute,
   } as any)
+const AdminContentControlRoute = AdminContentControlRouteImport.update({
+  id: '/content-control',
+  path: '/content-control',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
 const AdminDevicesRoute = AdminDevicesRouteImport.update({
   id: '/devices',
   path: '/devices',
@@ -690,6 +696,7 @@ export interface FileRoutesByFullPath {
   '/admin/artist-verification': typeof AdminArtistVerificationRoute
   '/admin/artists': typeof AdminArtistsRoute
   '/admin/artists-applications': typeof AdminArtistsApplicationsRoute
+  '/admin/content-control': typeof AdminContentControlRoute
   '/admin/devices': typeof AdminDevicesRoute
   '/admin/engagement': typeof AdminEngagementRoute
   '/admin/health': typeof AdminHealthRoute
@@ -794,6 +801,7 @@ export interface FileRoutesByTo {
   '/admin/artist-verification': typeof AdminArtistVerificationRoute
   '/admin/artists': typeof AdminArtistsRoute
   '/admin/artists-applications': typeof AdminArtistsApplicationsRoute
+  '/admin/content-control': typeof AdminContentControlRoute
   '/admin/devices': typeof AdminDevicesRoute
   '/admin/engagement': typeof AdminEngagementRoute
   '/admin/health': typeof AdminHealthRoute
@@ -901,6 +909,7 @@ export interface FileRoutesById {
   '/admin/artist-verification': typeof AdminArtistVerificationRoute
   '/admin/artists': typeof AdminArtistsRoute
   '/admin/artists-applications': typeof AdminArtistsApplicationsRoute
+  '/admin/content-control': typeof AdminContentControlRoute
   '/admin/devices': typeof AdminDevicesRoute
   '/admin/engagement': typeof AdminEngagementRoute
   '/admin/health': typeof AdminHealthRoute
@@ -1009,6 +1018,7 @@ export interface FileRouteTypes {
     | '/admin/artist-verification'
     | '/admin/artists'
     | '/admin/artists-applications'
+    | '/admin/content-control'
     | '/admin/devices'
     | '/admin/engagement'
     | '/admin/health'
@@ -1113,6 +1123,7 @@ export interface FileRouteTypes {
     | '/admin/artist-verification'
     | '/admin/artists'
     | '/admin/artists-applications'
+    | '/admin/content-control'
     | '/admin/devices'
     | '/admin/engagement'
     | '/admin/health'
@@ -1219,6 +1230,7 @@ export interface FileRouteTypes {
     | '/admin/artist-verification'
     | '/admin/artists'
     | '/admin/artists-applications'
+    | '/admin/content-control'
     | '/admin/devices'
     | '/admin/engagement'
     | '/admin/health'
@@ -1637,6 +1649,13 @@ declare module '@tanstack/react-router' {
       path: '/artists-applications'
       fullPath: '/admin/artists-applications'
       preLoaderRoute: typeof AdminArtistsApplicationsRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/content-control': {
+      id: '/admin/content-control'
+      path: '/content-control'
+      fullPath: '/admin/content-control'
+      preLoaderRoute: typeof AdminContentControlRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/devices': {
@@ -2087,6 +2106,7 @@ interface AdminRouteRouteChildren {
   AdminArtistVerificationRoute: typeof AdminArtistVerificationRoute
   AdminArtistsRoute: typeof AdminArtistsRoute
   AdminArtistsApplicationsRoute: typeof AdminArtistsApplicationsRoute
+  AdminContentControlRoute: typeof AdminContentControlRoute
   AdminDevicesRoute: typeof AdminDevicesRoute
   AdminEngagementRoute: typeof AdminEngagementRoute
   AdminHealthRoute: typeof AdminHealthRoute
@@ -2125,6 +2145,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminArtistVerificationRoute: AdminArtistVerificationRoute,
   AdminArtistsRoute: AdminArtistsRoute,
   AdminArtistsApplicationsRoute: AdminArtistsApplicationsRoute,
+  AdminContentControlRoute: AdminContentControlRoute,
   AdminDevicesRoute: AdminDevicesRoute,
   AdminEngagementRoute: AdminEngagementRoute,
   AdminHealthRoute: AdminHealthRoute,

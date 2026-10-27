@@ -12,6 +12,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, DropdownMenuSeparator } from '@/components/ui/dropdown-menu';
 import { Badge } from '@/components/ui/badge';
 import { toast } from 'sonner';
+import UserDetailDrawer from '@/components/admin/UserDetailDrawer';
 
 interface UserProfile {
   id: string;
@@ -35,6 +36,7 @@ const ManageUsers = () => {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'active' | 'banned' | 'suspended'>('all');
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
 
   useEffect(() => {
     fetchUsers();
@@ -220,10 +222,11 @@ const ManageUsers = () => {
             {filteredUsers.map((u, i) => (
               <motion.div
                 key={u.id}
-                className={`glass rounded-2xl p-4 hover:ring-1 hover:ring-primary/30 transition-all ${u.status === 'banned' ? 'opacity-60 border-red-500/20' : u.status === 'suspended' ? 'opacity-75 border-yellow-500/20' : ''}`}
+                className={`glass rounded-2xl p-4 hover:ring-1 hover:ring-primary/30 transition-all cursor-pointer ${u.status === 'banned' ? 'opacity-60 border-red-500/20' : u.status === 'suspended' ? 'opacity-75 border-yellow-500/20' : ''}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.02 }}
+                onClick={() => setSelectedUser(u)}
               >
                 <div className="flex items-start gap-4">
                   <Avatar className="w-12 h-12">
@@ -308,6 +311,15 @@ const ManageUsers = () => {
           </AnimatePresence>
         )}
       </div>
+
+      <UserDetailDrawer
+        user={selectedUser}
+        onClose={() => setSelectedUser(null)}
+        onStatusChange={(u, status) => {
+          updateUserStatus(u, status);
+          setSelectedUser(null);
+        }}
+      />
     </div>
   );
 };

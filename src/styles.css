@@ -1663,3 +1663,141 @@ body {
 @media (prefers-reduced-motion: reduce) {
   .uf-loading-bars span { animation: none; transform: none; opacity: 1; }
 }
+
+/* ========== iOS Style (optional, html.ios-style) ========== */
+html.ios-style body,
+html.ios-style button,
+html.ios-style input,
+html.ios-style h1, html.ios-style h2, html.ios-style h3 {
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'SF Pro Display', 'Helvetica Neue', system-ui, sans-serif !important;
+  letter-spacing: -0.01em;
+}
+html.ios-style h1 { letter-spacing: -0.025em; }
+html.ios-style { -webkit-tap-highlight-color: transparent; }
+html.ios-style button:active { transform: scale(0.97); transition: transform 0.12s ease; }
+
+/* Translucent full-width iOS tab bar */
+html.ios-style nav[aria-label="Primary"] {
+  bottom: 0 !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+}
+html.ios-style nav[aria-label="Primary"] > [role="tablist"] {
+  width: 100% !important;
+  max-width: 100% !important;
+  border-radius: 0 !important;
+  justify-content: space-around;
+  padding: 6px 8px calc(env(safe-area-inset-bottom, 0px) + 6px) !important;
+  background: hsl(var(--background) / 0.72) !important;
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-top: 0.5px solid hsl(var(--foreground) / 0.15);
+  box-shadow: none !important;
+}
+
+/* Grouped inset settings lists */
+html.ios-style .uf-settings-group {
+  border-radius: 12px !important;
+  border: none !important;
+  background: hsl(var(--card)) !important;
+  -webkit-backdrop-filter: none; backdrop-filter: none;
+}
+html.ios-style .uf-settings-label {
+  font-size: 13px !important;
+  font-weight: 400 !important;
+  letter-spacing: 0 !important;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground)) !important;
+  padding-left: 12px;
+}
+html.ios-style .uf-settings-group > * { border-bottom-width: 0.5px; }
+html.ios-style .uf-settings-group p { font-size: 15px; }
+html.ios-style .uf-settings-group p + p { font-size: 12px; }
+
+/* ========== iOS Liquid Glass mode (html.ios-glass) ========== */
+/* The latest iOS look: floating glass pill tab bar, deeper refraction,
+   a vivid moving colour field behind everything, springier presses. */
+
+/* Bring back the floating pill tab bar (classic mode flattens it). */
+html.ios-glass nav[aria-label="Primary"] {
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 12px) !important;
+  padding-left: calc(env(safe-area-inset-left, 0px) + 12px) !important;
+  padding-right: calc(env(safe-area-inset-right, 0px) + 12px) !important;
+}
+html.ios-glass nav[aria-label="Primary"] > [role="tablist"] {
+  width: auto !important;
+  border-radius: 9999px !important;
+  border-top: 0.5px solid var(--lg-rim) !important;
+  background: var(--lg-base) !important;
+  box-shadow: var(--lg-shadow), var(--lg-inner) !important;
+}
+
+/* Vivid ambient colour field — brighter and faster than the default drift,
+   so the clear glass has something colourful to refract. */
+html.ios-glass body::before {
+  background:
+    radial-gradient(58% 52% at 80% 4%, hsl(var(--glow-iridescent-rose) / 0.62), transparent 70%),
+    radial-gradient(54% 50% at 10% 90%, hsl(var(--glow-iridescent-violet) / 0.48), transparent 72%),
+    radial-gradient(42% 38% at 6% 40%, hsl(var(--glow-iridescent-peach) / 0.26), transparent 68%),
+    radial-gradient(52% 42% at 90% 24%, hsl(var(--glow-purple) / 0.36), transparent 74%),
+    radial-gradient(66% 50% at 58% 94%, hsl(var(--glow-accent) / 0.30), transparent 76%),
+    radial-gradient(44% 38% at 10% 76%, hsl(var(--glow-cyan) / 0.22), transparent 74%);
+  filter: blur(38px) saturate(175%);
+  opacity: 1;
+  animation-duration: 18s;
+}
+
+/* Bigger, softer corner radii — the iOS 26 silhouette. */
+html.ios-glass .bg-card,
+html.ios-glass .bg-popover,
+html.ios-glass .uf-bento-card,
+html.ios-glass .ios-card,
+html.ios-glass .uf-settings-group {
+  border-radius: 1.75rem !important;
+}
+
+/* Grouped settings read as one continuous glass slab. */
+html.ios-glass .uf-settings-group {
+  background: var(--lg-base) !important;
+  background-image: var(--lg-fill);
+  backdrop-filter: blur(var(--lg-blur)) saturate(var(--lg-sat));
+  border: 0.5px solid var(--lg-rim) !important;
+  box-shadow: var(--lg-shadow), var(--lg-inner);
+}
+
+/* Springier physical press on anything tappable. */
+html.ios-glass button:active {
+  transform: scale(0.94);
+  transition: transform 0.18s cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+/* Low-end / reduced-motion fallback: keep the look, drop the heavy parts. */
+html.ios-glass-lite body::before {
+  animation: none;
+  filter: blur(60px) saturate(140%);
+  opacity: 0.8;
+}
+html.ios-glass-lite .liquid-glass::after,
+html.ios-glass-lite .glass-strong::after,
+html.ios-glass-lite .glass-ultra::after,
+html.ios-glass-lite .ios-card::after,
+html.ios-glass-lite .uf-bento-card::after,
+html.ios-glass-lite .player-bar::after,
+html.ios-glass-lite .ios-tab-bar::after,
+html.ios-glass-lite .bg-card::after,
+html.ios-glass-lite .bg-popover::after {
+  backdrop-filter: none !important;
+}
+html.ios-glass-lite .liquid-glass,
+html.ios-glass-lite .glass,
+html.ios-glass-lite .glass-strong,
+html.ios-glass-lite .glass-ultra,
+html.ios-glass-lite .ios-card,
+html.ios-glass-lite .uf-bento-card,
+html.ios-glass-lite .player-bar,
+html.ios-glass-lite .ios-tab-bar,
+html.ios-glass-lite .bg-card,
+html.ios-glass-lite .bg-popover,
+html.ios-glass-lite .bg-secondary {
+  backdrop-filter: blur(16px) saturate(140%);
+}

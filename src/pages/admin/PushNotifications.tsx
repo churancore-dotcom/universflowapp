@@ -92,7 +92,8 @@ const PushNotifications = () => {
 
   useEffect(() => {
     if (draft.target_audience !== 'specific') return;
-    const q = userQuery.trim();
+    // Strip PostgREST filter metacharacters so input can't inject extra filters.
+    const q = userQuery.trim().replace(/[,()*%\\:"'.]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 64);
     if (q.length < 2) { setUserHits([]); return; }
     let cancelled = false;
     setSearching(true);

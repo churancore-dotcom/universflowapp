@@ -1,9 +1,7 @@
-// Sends a password reset link via Resend (bypassing Supabase's default email).
-// Generates a recovery link server-side using the admin API, then emails it.
-// Legacy authenticated fallback. Public reset requests use the auth provider's
-// purpose-built recovery flow and never expose this privileged mail handler.
-
-import { createClient } from "npm:@supabase/supabase-js@2";
+// Sends a password reset link via Resend for signed-out users.
+// Generates a recovery link server-side using the admin API, then emails it
+// only to the requested address's own inbox. Responses are uniform so the
+// endpoint never reveals whether an account exists; requests are throttled.
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -27,8 +25,9 @@ async function idToUuid(id: string): Promise<string> {
   return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20, 32)}`;
 }
 function clientIp(req: Request): string {
-  const xf = req.headers.get('x-forwarded-for') ?? '';
-  return (xf.split(',')[0] || req.headers.get('cf-connecting-ip') || 'unknown').trim();
+  // Rightmost forwarded entry is appended by the platform proxy; leftmost is spoofable.
+  const xf = (req.headers.get('x-forwarded-for') ?? '').split(',').map(s => s.trim()).filter(Boolean);
+  return xf[xf.length - 1] || req.headers.get('cf-connecting-ip') || 'unknown';
 }
 
 Deno.serve(async (req) => {
@@ -48,21 +47,6 @@ Deno.serve(async (req) => {
   try {
     const body = await req.json().catch(() => ({}));
     const email = String(body?.email ?? '').trim().toLowerCase();
-    const authHeader = req.headers.get('Authorization') ?? '';
-    if (!authHeader.startsWith('Bearer ')) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
-    const authClient = createClient(SUPABASE_URL, Deno.env.get('SUPABASE_ANON_KEY')!, {
-      global: { headers: { Authorization: authHeader } },
-    });
-    const { data: caller, error: callerError } = await authClient.auth.getUser();
-    if (callerError || !caller.user || caller.user.email?.trim().toLowerCase() !== email) {
-      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
-        status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
     // Never trust a caller-supplied redirect: a recovery token lands on that
     // URL, so an open redirect here leaks account takeover. Allowlist only.
     const DEFAULT_REDIRECT = 'https://universflow.in/reset-password';
@@ -95,9 +79,8 @@ Deno.serve(async (req) => {
       });
     }
 
-    // Per-IP throttle: 5/min. Silently swallow excess.
-    try {
-      const ipUuid = await idToUuid(clientIp(req));
+    // Throttle: 5/min per IP and 1/min per email address. Silently swallow excess.
+    const limited = async (id: string, endpoint: string, max: number) => {
       const rl = await fetch(`${SUPABASE_URL}/rest/v1/rpc/check_and_increment_rate_limit`, {
         method: 'POST',
         headers: {
@@ -105,10 +88,13 @@ Deno.serve(async (req) => {
           Authorization: `Bearer ${SERVICE_ROLE}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ _user_id: ipUuid, _endpoint: 'send_reset_email', _max_per_minute: 5 }),
+        body: JSON.stringify({ _user_id: await idToUuid(id), _endpoint: endpoint, _max_per_minute: max }),
       });
-      const allowed = await rl.json().catch(() => true);
-      if (allowed === false) return UNIFORM_OK;
+      return (await rl.json().catch(() => true)) === false;
+    };
+    try {
+      if (await limited(clientIp(req), 'send_reset_email', 5)) return UNIFORM_OK;
+      if (await limited(`email:${email}`, 'send_reset_email_addr', 1)) return UNIFORM_OK;
     } catch (_) { /* fail-open */ }
 
     // Generate a real recovery link via admin API.

@@ -27,6 +27,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useEmailVerified } from '@/hooks/useEmailVerified';
 import PremiumBadge from '@/components/PremiumBadge';
+import { getIosStyleMode, setIosStyleMode, getIosGlassTint, setIosGlassTint, type IosStyleMode } from '@/lib/iosStyle';
 
 import { setEQSettings } from '@/lib/eqSettings';
 import { setHapticsEnabled, getHapticsEnabled, triggerHaptic } from '@/hooks/useHaptics';
@@ -83,11 +84,11 @@ const monthsBetween = (iso?: string | null): string => {
 
 // --- reusable row primitives -------------------------------------------------
 const Section = ({ label, children }: { label: string; children: React.ReactNode }) => (
-  <section>
+  <section className="uf-settings-section">
     <div className="flex items-center gap-2 mb-2.5 px-1">
-      <h2 className="text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">{label}</h2>
+      <h2 className="uf-settings-label text-[10px] font-extrabold text-white/40 uppercase tracking-[0.2em]">{label}</h2>
     </div>
-    <div className="rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
+    <div className="uf-settings-group rounded-3xl overflow-hidden bg-card/50 border border-white/5 backdrop-blur-sm">
       {children}
     </div>
   </section>
@@ -156,6 +157,8 @@ const Settings = () => {
   const [notifications, setNotifications] = useState(() => localStorage.getItem('uf_notifications') !== 'false');
   const [moodPushes, setMoodPushes] = useState(true);
   const [haptics, setHaptics] = useState(() => getHapticsEnabled());
+  const [iosMode, setIosModeState] = useState<IosStyleMode>(() => getIosStyleMode());
+  const [glassTint, setGlassTint] = useState(() => getIosGlassTint());
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
   const [showEq, setShowEq] = useState(false);
@@ -656,6 +659,71 @@ const Settings = () => {
           </Section>
 
           {/* ============ 6. NOTIFICATIONS ============ */}
+          <Section label="Appearance">
+            <div className="px-4 py-4 space-y-3">
+              <div className="flex items-center gap-3">
+                <Smartphone className="w-4 h-4 text-primary shrink-0" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm">Theme</p>
+                  <p className="text-[11px] text-white/40">Pick how the app looks and moves</p>
+                </div>
+              </div>
+              <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Theme">
+                {([
+                  { id: 'off' as IosStyleMode, label: 'Default', sub: 'Univers Flow dark' },
+                  { id: 'classic' as IosStyleMode, label: 'iOS Classic', sub: 'Fonts & lists' },
+                  { id: 'glass' as IosStyleMode, label: 'iOS Glass', sub: 'Latest liquid look' },
+                ]).map((opt) => {
+                  const active = iosMode === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      role="radio"
+                      aria-checked={active}
+                      onClick={() => { setIosModeState(opt.id); setIosStyleMode(opt.id); triggerHaptic('selection'); }}
+                      className={`rounded-2xl border px-2 py-3 text-center transition-all active:scale-95 ${
+                        active
+                          ? 'border-primary/70 bg-primary/15 shadow-[0_0_20px_-6px_hsl(var(--primary)/0.5)]'
+                          : 'border-white/10 bg-white/[0.04]'
+                      }`}
+                    >
+                      <span className={`block h-8 w-8 mx-auto mb-1.5 rounded-full border ${
+                        opt.id === 'off'
+                          ? 'bg-black border-white/20'
+                          : opt.id === 'classic'
+                            ? 'bg-gradient-to-b from-zinc-700 to-zinc-900 border-white/25'
+                            : 'bg-gradient-to-br from-rose-400/70 via-violet-400/50 to-cyan-300/50 border-white/40'
+                      }`} />
+                      <p className={`text-xs font-semibold ${active ? 'text-primary' : ''}`}>{opt.label}</p>
+                      <p className="text-[10px] text-white/40 leading-tight mt-0.5">{opt.sub}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              {iosMode === 'glass' && (
+                <div className="pt-1">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs text-white/60">Glass tint</p>
+                    <p className="text-[11px] text-white/40">{glassTint < 34 ? 'Clear' : glassTint > 66 ? 'Tinted' : 'Balanced'}</p>
+                  </div>
+                  <Slider
+                    value={[glassTint]}
+                    min={0}
+                    max={100}
+                    step={1}
+                    onValueChange={([v]) => { setGlassTint(v); setIosGlassTint(v); }}
+                    aria-label="Glass tint"
+                  />
+                  <div className="flex justify-between mt-1">
+                    <span className="text-[10px] text-white/35">Clear</span>
+                    <span className="text-[10px] text-white/35">Tinted</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </Section>
+
           <Section label="Notifications">
             <Row
               icon={<Bell className="w-4 h-4" />}
