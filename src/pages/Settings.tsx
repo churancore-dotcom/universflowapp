@@ -17,6 +17,7 @@ import { usePremium } from '@/hooks/usePremium';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
 import SupportChatModal from '@/components/SupportChatModal';
+import ReportProblemModal from '@/components/ReportProblemModal';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
 import EqualizerModal from '@/components/EqualizerModal';
 import PremiumLockOverlay from '@/components/PremiumLockOverlay';
@@ -161,6 +162,7 @@ const Settings = () => {
   const [glassTint, setGlassTint] = useState(() => getIosGlassTint());
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showEq, setShowEq] = useState(false);
   const [showEqPremium, setShowEqPremium] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
