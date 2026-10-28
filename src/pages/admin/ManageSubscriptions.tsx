@@ -303,8 +303,8 @@ const ManageSubscriptions = () => {
   const statCards = [
     { label: 'Total Subscriptions', value: stats.total, icon: User, color: 'text-foreground' },
     { label: 'Active', value: stats.active, icon: CheckCircle, color: 'text-green-400' },
-    { label: 'Premium Monthly', value: stats.premiumMonthly, icon: Crown, color: 'text-primary' },
-    { label: 'Premium Yearly', value: stats.premiumYearly, icon: Crown, color: 'text-accent' },
+    { label: 'Premium (30–60 days)', value: stats.premiumMonthly, icon: Crown, color: 'text-primary' },
+    { label: 'Premium (90 days)', value: stats.premiumYearly, icon: Crown, color: 'text-accent' },
   ];
 
   return (
@@ -381,8 +381,8 @@ const ManageSubscriptions = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="premium_monthly">Premium (standard)</SelectItem>
-            <SelectItem value="premium_yearly">Premium (long)</SelectItem>
+            <SelectItem value="premium_monthly">30–60 days</SelectItem>
+            <SelectItem value="premium_yearly">90 days</SelectItem>
           </SelectContent>
         </Select>
       </motion.div>
