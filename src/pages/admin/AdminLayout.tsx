@@ -35,6 +35,7 @@ import {
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Dashboard', path: '/admin' },
+  { icon: Zap, label: 'AI Command Center', path: '/admin/command-center' },
   { icon: IndianRupee, label: 'Revenue Insights', path: '/admin/revenue' },
   { icon: Headphones, label: 'Listener Insights', path: '/admin/listener-insights' },
   { icon: Upload, label: 'Upload Music', path: '/admin/upload' },
