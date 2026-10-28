@@ -5,4 +5,4 @@
 - [x] Merge GitHub PR #2 (Lovable sync) — sitemap conflict resolved, PR merged into main
 - [x] Re-link GitHub API + Google Search Console connectors (new workspace)
 
-- [ ] Reconnect GitHub API and Search Console in new workspace
+- [x] Reconnect GitHub API and Search Console in new workspace
