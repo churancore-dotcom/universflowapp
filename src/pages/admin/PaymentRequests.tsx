@@ -174,6 +174,7 @@ export default function PaymentRequests() {
                     <StatusBadge status={r.status} />
                   </div>
                   <div className="text-[12px] space-y-0.5">
+                    <p><span className="text-muted-foreground">Plan:</span> <span className="font-semibold">{({ monthly: '30 days', bimonthly: '60 days', quarterly: '90 days' } as Record<string, string>)[r.plan] ?? r.plan}</span> — approving grants exactly this</p>
                     <p><span className="text-muted-foreground">UTR:</span> <span className="font-mono">{r.utr_number}</span></p>
                     <p><span className="text-muted-foreground">User:</span> {r.user_email || r.user_id.slice(0, 12) + '…'}</p>
                     <p className="text-muted-foreground">
