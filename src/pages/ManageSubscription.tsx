@@ -50,8 +50,8 @@ const formatDate = (iso: string | null) => {
 
 const planLabel = (type?: string) => {
   switch (type) {
-    case 'premium_yearly': return 'Premium Yearly';
-    case 'premium_monthly': return 'Premium Monthly';
+    case 'premium_yearly': return 'Premium';
+    case 'premium_monthly': return 'Premium';
     case 'free': return 'Free';
     default: return 'Premium';
   }
