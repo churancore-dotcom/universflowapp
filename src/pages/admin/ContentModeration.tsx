@@ -299,10 +299,13 @@ const ContentModeration = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
+            <SelectItem value="bug">Bugs</SelectItem>
             <SelectItem value="song">Songs</SelectItem>
+            <SelectItem value="user">Users</SelectItem>
+            <SelectItem value="suggestion">Suggestions</SelectItem>
             <SelectItem value="comment">Comments</SelectItem>
             <SelectItem value="playlist">Playlists</SelectItem>
-            <SelectItem value="user">Users</SelectItem>
+            <SelectItem value="other">Other</SelectItem>
           </SelectContent>
         </Select>
       </motion.div>
