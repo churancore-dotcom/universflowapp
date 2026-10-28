@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders,
   KeyRound, Trash2, Smartphone, Mail, CheckCircle2, Wifi, Download,
   Radio, Bell, Music2, Vibrate, HardDrive, FileText, Info, ShieldCheck,
-  Waves, Zap, Repeat, PlayCircle, HelpCircle,
+  Waves, Zap, Repeat, PlayCircle, HelpCircle, Flag,
   AudioLines, Bookmark,
 } from 'lucide-react';
 
