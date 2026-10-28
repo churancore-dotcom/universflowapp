@@ -92,7 +92,7 @@ const UserDetailDrawer = ({ user, onClose, onStatusChange }: Props) => {
       (!s.expires_at || new Date(s.expires_at) > new Date()),
   );
 
-  const grantPremium = async (days: 30 | 365) => {
+  const grantPremium = async (days: 30 | 60 | 90) => {
     if (!user) return;
     setActing('grant');
     try {
@@ -100,7 +100,7 @@ const UserDetailDrawer = ({ user, onClose, onStatusChange }: Props) => {
       expires.setUTCDate(expires.getUTCDate() + days);
       const { error } = await supabase.from('user_subscriptions').insert({
         user_id: user.user_id,
-        subscription_type: days === 30 ? 'premium_monthly' : 'premium_yearly',
+        subscription_type: 'premium_monthly',
         platform: 'web',
         status: 'active',
         expires_at: expires.toISOString(),
@@ -223,10 +223,13 @@ const UserDetailDrawer = ({ user, onClose, onStatusChange }: Props) => {
                   ) : (
                     <div className="flex gap-2">
                       <Button size="sm" className="flex-1" onClick={() => grantPremium(30)} disabled={acting !== null}>
-                        {acting === 'grant' ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Grant 30 days'}
+                        {acting === 'grant' ? <Loader2 className="w-4 h-4 animate-spin" /> : '30 days'}
                       </Button>
-                      <Button size="sm" variant="outline" className="flex-1" onClick={() => grantPremium(365)} disabled={acting !== null}>
-                        Grant 1 year
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => grantPremium(60)} disabled={acting !== null}>
+                        60 days
+                      </Button>
+                      <Button size="sm" variant="outline" className="flex-1" onClick={() => grantPremium(90)} disabled={acting !== null}>
+                        90 days
                       </Button>
                     </div>
                   )}

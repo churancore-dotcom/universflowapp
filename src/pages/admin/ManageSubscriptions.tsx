@@ -90,6 +90,7 @@ const ManageSubscriptions = () => {
       const { data: subs, error: subsError } = await supabase
         .from('user_subscriptions')
         .select('*')
+        .neq('subscription_type', 'free')
         .order('created_at', { ascending: false });
 
       if (subsError) throw subsError;
@@ -150,28 +151,22 @@ const ManageSubscriptions = () => {
     }
   };
 
-  const grantPremium = async (userId: string, type: 'premium_monthly' | 'premium_yearly') => {
+  const grantPremium = async (userId: string, days: 30 | 60 | 90) => {
     try {
       const expiresAt = new Date();
-      if (type === 'premium_monthly') {
-        expiresAt.setMonth(expiresAt.getMonth() + 1);
-      } else {
-        expiresAt.setFullYear(expiresAt.getFullYear() + 1);
-      }
-
+      expiresAt.setUTCDate(expiresAt.getUTCDate() + days);
       const { error } = await supabase
         .from('user_subscriptions')
         .upsert({
           user_id: userId,
-          subscription_type: type,
+          subscription_type: 'premium_monthly',
           platform: 'web',
           status: 'active',
           expires_at: expiresAt.toISOString(),
           updated_at: new Date().toISOString(),
         }, { onConflict: 'user_id' });
-
       if (error) throw error;
-      toast.success('Premium granted successfully');
+      toast.success(`Premium granted for ${days} days`);
       fetchSubscriptions();
     } catch (error: any) {
       console.error('Error granting premium:', error);
@@ -277,9 +272,9 @@ const ManageSubscriptions = () => {
   const getTypeBadge = (type: string) => {
     switch (type) {
       case 'premium_monthly':
-        return <Badge className="bg-primary/20 text-primary border-primary/30"><Crown className="w-3 h-3 mr-1" />Monthly</Badge>;
+        return <Badge className="bg-primary/20 text-primary border-primary/30"><Crown className="w-3 h-3 mr-1" />Premium</Badge>;
       case 'premium_yearly':
-        return <Badge className="bg-accent/20 text-accent border-accent/30"><Crown className="w-3 h-3 mr-1" />Yearly</Badge>;
+        return <Badge className="bg-accent/20 text-accent border-accent/30"><Crown className="w-3 h-3 mr-1" />Premium</Badge>;
       default:
         return <Badge variant="outline">Free</Badge>;
     }
@@ -386,9 +381,8 @@ const ManageSubscriptions = () => {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Types</SelectItem>
-            <SelectItem value="free">Free</SelectItem>
-            <SelectItem value="premium_monthly">Monthly</SelectItem>
-            <SelectItem value="premium_yearly">Yearly</SelectItem>
+            <SelectItem value="premium_monthly">Premium (standard)</SelectItem>
+            <SelectItem value="premium_yearly">Premium (long)</SelectItem>
           </SelectContent>
         </Select>
       </motion.div>
@@ -449,13 +443,17 @@ const ManageSubscriptions = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem onClick={() => grantPremium(sub.user_id, 'premium_monthly')}>
+                        <DropdownMenuItem onClick={() => grantPremium(sub.user_id, 30)}>
                           <Gift className="w-4 h-4 mr-2" />
-                          Grant Monthly
+                          Grant 30 days
                         </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => grantPremium(sub.user_id, 'premium_yearly')}>
+                        <DropdownMenuItem onClick={() => grantPremium(sub.user_id, 60)}>
                           <Gift className="w-4 h-4 mr-2" />
-                          Grant Yearly
+                          Grant 60 days
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => grantPremium(sub.user_id, 90)}>
+                          <Gift className="w-4 h-4 mr-2" />
+                          Grant 90 days
                         </DropdownMenuItem>
                         <DropdownMenuItem onClick={() => setCustomExpiry(sub)}>
                           <Timer className="w-4 h-4 mr-2" />
