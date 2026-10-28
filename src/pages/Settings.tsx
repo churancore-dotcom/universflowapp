@@ -3,7 +3,7 @@ import {
   ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders,
   KeyRound, Trash2, Smartphone, Mail, CheckCircle2, Wifi, Download,
   Radio, Bell, Music2, Vibrate, HardDrive, FileText, Info, ShieldCheck,
-  Waves, Zap, Repeat, PlayCircle, HelpCircle,
+  Waves, Zap, Repeat, PlayCircle, HelpCircle, Flag,
   AudioLines, Bookmark,
 } from 'lucide-react';
 
@@ -17,6 +17,7 @@ import { usePremium } from '@/hooks/usePremium';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { toast } from 'sonner';
 import SupportChatModal from '@/components/SupportChatModal';
+import ReportProblemModal from '@/components/ReportProblemModal';
 import EmailVerificationCard from '@/components/EmailVerificationCard';
 import EqualizerModal from '@/components/EqualizerModal';
 import PremiumLockOverlay from '@/components/PremiumLockOverlay';
@@ -161,6 +162,7 @@ const Settings = () => {
   const [glassTint, setGlassTint] = useState(() => getIosGlassTint());
   const [cacheSize, setCacheSize] = useState('0 MB');
   const [showSupport, setShowSupport] = useState(false);
+  const [showReport, setShowReport] = useState(false);
   const [showEq, setShowEq] = useState(false);
   const [showEqPremium, setShowEqPremium] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -770,6 +772,7 @@ const Settings = () => {
               onClick={() => navigate(isPremium ? '/subscription' : '/premium')}
             />
             <Row icon={<MessageSquare className="w-4 h-4" />} label="Contact Support" chevron onClick={() => setShowSupport(true)} />
+            <Row icon={<Flag className="w-4 h-4" />} label="Report a Problem" sub="Bugs, content issues, suggestions" chevron onClick={() => setShowReport(true)} />
             <Row icon={<HelpCircle className="w-4 h-4" />} label="Help & FAQs" sub="Answers to common questions" chevron last onClick={() => navigate('/support')} />
 
           </Section>
@@ -803,6 +806,7 @@ const Settings = () => {
 
         <BottomNav />
         <SupportChatModal isOpen={showSupport} onClose={() => setShowSupport(false)} />
+        <ReportProblemModal isOpen={showReport} onClose={() => setShowReport(false)} />
         {showEq && <EqualizerModal isOpen={showEq} onClose={() => setShowEq(false)} />}
         {showEqPremium && (
           <PremiumLockOverlay
