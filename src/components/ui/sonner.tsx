@@ -13,6 +13,14 @@ const Toaster = ({ ...props }: ToasterProps) => {
       offset={16}
       duration={3500}
       visibleToasts={3}
+      style={{ zIndex: 2147483000 }}
+      icons={{
+        success: (
+          <span className="uf-toast-tick" aria-hidden>
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" /><path d="M7 12.5l3.2 3.2L17 9" /></svg>
+          </span>
+        ),
+      }}
       toastOptions={{
         unstyled: false,
         classNames: {

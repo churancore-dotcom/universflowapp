@@ -260,6 +260,9 @@ const AppContent = () => {
 
   return (
     <SplashActiveContext.Provider value={showSplash}>
+    <Suspense fallback={null}>
+      <Toaster />
+    </Suspense>
     <MobileShell>
       <a
         href="#main-content"
@@ -267,9 +270,6 @@ const AppContent = () => {
       >
         Skip to content
       </a>
-      <Suspense fallback={null}>
-        <Toaster />
-      </Suspense>
       <NavDirectionProvider>
         <NavigationPending />
         <Suspense fallback={null}>

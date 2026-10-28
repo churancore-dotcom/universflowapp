@@ -1801,3 +1801,13 @@ html.ios-glass-lite .bg-popover,
 html.ios-glass-lite .bg-secondary {
   backdrop-filter: blur(16px) saturate(140%);
 }
+
+/* Animated success tick for on-screen notifications */
+.uf-toast-tick{display:inline-flex;width:20px;height:20px}
+.uf-toast-tick svg{width:20px;height:20px;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.uf-toast-tick circle{stroke:rgb(52 211 153);stroke-width:2;stroke-dasharray:63;stroke-dashoffset:63;animation:uf-tick-draw .45s cubic-bezier(.65,0,.35,1) forwards;transform-origin:center}
+.uf-toast-tick path{stroke:rgb(52 211 153);stroke-width:2.4;stroke-dasharray:16;stroke-dashoffset:16;animation:uf-tick-draw .3s .35s cubic-bezier(.65,0,.35,1) forwards}
+.uf-toast-tick{animation:uf-tick-pop .5s .55s cubic-bezier(.34,1.56,.64,1)}
+@keyframes uf-tick-draw{to{stroke-dashoffset:0}}
+@keyframes uf-tick-pop{0%{transform:scale(1)}50%{transform:scale(1.25)}100%{transform:scale(1)}}
+@media (prefers-reduced-motion:reduce){.uf-toast-tick,.uf-toast-tick *{animation:none!important;stroke-dashoffset:0!important}}
