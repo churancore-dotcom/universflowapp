@@ -1849,3 +1849,12 @@ html.ios-glass-lite .bg-secondary {
 @keyframes uf-hud-in{from{opacity:0;transform:translate(-50%,0) scale(.85)}to{opacity:1;transform:translate(-50%,0) scale(1)}}
 @keyframes uf-hud-out{to{opacity:0;transform:translate(-50%,0) scale(.92)}}
 @media (prefers-reduced-motion:reduce){.uf-island{animation:none}}
+
+/* Compact centered card override */
+[data-sonner-toaster]{width:min(300px,calc(100vw - 48px))!important;--width:min(300px,calc(100vw - 48px))!important}
+[data-sonner-toaster] [data-sonner-toast].uf-island{width:auto!important;max-width:min(300px,calc(100vw - 48px))!important;min-width:0!important}
+.uf-island{flex-direction:row!important;text-align:left!important;gap:10px!important;min-height:0!important;padding:11px 16px 11px 12px!important;border-radius:16px!important;background:oklch(0.17 0 0 / 0.92)!important;box-shadow:0 10px 30px -10px oklch(0 0 0 / 0.6),inset 0 0 0 0.5px oklch(1 0 0 / 0.1)!important}
+.uf-island-content{align-items:flex-start!important;width:auto!important}
+.uf-island-title{font-size:13.5px!important;font-weight:600}
+.uf-island-icon,.uf-island-icon svg,.uf-hud-big,.uf-hud-big svg{width:22px!important;height:22px!important}
+.uf-hud-big circle{stroke-width:2!important}.uf-hud-big path{stroke-width:2.4!important}
