@@ -6,3 +6,6 @@
 - [x] Re-link GitHub API + Google Search Console connectors (new workspace)
 
 - [x] Reconnect GitHub API and Search Console in new workspace
+- [x] AI Command Center in admin
+- [ ] Connect GitHub API
+- [ ] Connect Google Search Console
