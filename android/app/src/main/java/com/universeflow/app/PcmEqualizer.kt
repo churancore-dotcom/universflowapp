@@ -27,7 +27,7 @@ class PcmEqualizer {
         const val BAND_COUNT = 10
         const val MIN_LEVEL_MB = -1500
         const val MAX_LEVEL_MB = 1500
-        private const val Q = 1.1f
+        private const val Q = 1.0
         /** Max dB moved per smoothing block; keeps sweeps click-free. */
         private const val MAX_DB_STEP = 0.08f
         private const val CHANNELS = 2
@@ -37,16 +37,18 @@ class PcmEqualizer {
     private val targetDb = FloatArray(BAND_COUNT)
     private val currentDb = FloatArray(BAND_COUNT)
 
-    private val b0 = FloatArray(BAND_COUNT) { 1f }
-    private val b1 = FloatArray(BAND_COUNT)
-    private val b2 = FloatArray(BAND_COUNT)
-    private val a1 = FloatArray(BAND_COUNT)
-    private val a2 = FloatArray(BAND_COUNT)
+    // Double precision: float biquads at 31-125 Hz accumulate rounding noise
+    // and audible grit (low w0 makes the poles sit right next to the unit circle).
+    private val b0 = DoubleArray(BAND_COUNT) { 1.0 }
+    private val b1 = DoubleArray(BAND_COUNT)
+    private val b2 = DoubleArray(BAND_COUNT)
+    private val a1 = DoubleArray(BAND_COUNT)
+    private val a2 = DoubleArray(BAND_COUNT)
 
-    private val x1 = Array(CHANNELS) { FloatArray(BAND_COUNT) }
-    private val x2 = Array(CHANNELS) { FloatArray(BAND_COUNT) }
-    private val y1 = Array(CHANNELS) { FloatArray(BAND_COUNT) }
-    private val y2 = Array(CHANNELS) { FloatArray(BAND_COUNT) }
+    private val x1 = Array(CHANNELS) { DoubleArray(BAND_COUNT) }
+    private val x2 = Array(CHANNELS) { DoubleArray(BAND_COUNT) }
+    private val y1 = Array(CHANNELS) { DoubleArray(BAND_COUNT) }
+    private val y2 = Array(CHANNELS) { DoubleArray(BAND_COUNT) }
 
     private var sampleRate = 44100
     /** True while any band is non-flat or still ramping back to flat. */
@@ -79,10 +81,10 @@ class PcmEqualizer {
 
     fun reset() {
         for (c in 0 until CHANNELS) {
-            java.util.Arrays.fill(x1[c], 0f)
-            java.util.Arrays.fill(x2[c], 0f)
-            java.util.Arrays.fill(y1[c], 0f)
-            java.util.Arrays.fill(y2[c], 0f)
+            java.util.Arrays.fill(x1[c], 0.0)
+            java.util.Arrays.fill(x2[c], 0.0)
+            java.util.Arrays.fill(y1[c], 0.0)
+            java.util.Arrays.fill(y2[c], 0.0)
         }
     }
 
@@ -110,7 +112,7 @@ class PcmEqualizer {
 
     fun process(channel: Int, input: Float): Float {
         if (!active || channel >= CHANNELS) return input
-        var sample = input
+        var sample = input.toDouble()
         for (i in 0 until BAND_COUNT) {
             if (kotlin.math.abs(currentDb[i]) < 0.005f) continue
             val x0 = sample
@@ -122,34 +124,38 @@ class PcmEqualizer {
             y1[channel][i] = out
             sample = out
         }
-        return sample
+        return sample.toFloat()
     }
 
     /** RBJ peaking-EQ coefficients for one band at its current gain. */
     private fun recompute(index: Int) {
-        val freq = CENTER_FREQS_HZ[index].toFloat()
-        if (freq >= sampleRate / 2f) {
-            b0[index] = 1f; b1[index] = 0f; b2[index] = 0f; a1[index] = 0f; a2[index] = 0f
+        val freq = CENTER_FREQS_HZ[index].toDouble()
+        if (freq >= sampleRate * 0.45) {
+            b0[index] = 1.0; b1[index] = 0.0; b2[index] = 0.0; a1[index] = 0.0; a2[index] = 0.0
             return
         }
-        val a = 10f.pow(currentDb[index] / 40f)
-        val w0 = (2.0 * Math.PI * freq / sampleRate).toFloat()
-        val cosW0 = cos(w0.toDouble()).toFloat()
-        val alpha = (sin(w0.toDouble()).toFloat()) / (2f * Q)
-        val a0 = 1f + alpha / a
-        b0[index] = (1f + alpha * a) / a0
-        b1[index] = (-2f * cosW0) / a0
-        b2[index] = (1f - alpha * a) / a0
-        a1[index] = (-2f * cosW0) / a0
-        a2[index] = (1f - alpha / a) / a0
+        val a = 10.0.pow(currentDb[index] / 40.0)
+        val w0 = 2.0 * Math.PI * freq / sampleRate
+        val cosW0 = cos(w0)
+        val alpha = sin(w0) / (2.0 * Q)
+        val a0 = 1.0 + alpha / a
+        b0[index] = (1.0 + alpha * a) / a0
+        b1[index] = (-2.0 * cosW0) / a0
+        b2[index] = (1.0 - alpha * a) / a0
+        a1[index] = (-2.0 * cosW0) / a0
+        a2[index] = (1.0 - alpha / a) / a0
     }
 
-    /** Small headroom trim so heavy boosts do not clip the 16-bit output. */
+    /**
+     * Pre-gain equal to the largest boost, so a boosted band lands at the
+     * original level instead of slamming the limiter (the old half-dB-for-dB
+     * trim made every boost distort on loud masters).
+     */
     fun headroomGain(): Float {
         if (!active) return 1f
         var maxDb = 0f
         for (i in 0 until BAND_COUNT) if (currentDb[i] > maxDb) maxDb = currentDb[i]
         if (maxDb <= 0f) return 1f
-        return 1f / sqrt(10f.pow(maxDb / 20f))
+        return 1f / 10f.pow(maxDb / 20f)
     }
 }
