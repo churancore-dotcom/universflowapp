@@ -7,5 +7,5 @@
 
 - [x] Reconnect GitHub API and Search Console in new workspace
 - [x] AI Command Center in admin
-- [ ] Connect GitHub API
-- [ ] Connect Google Search Console
+- [x] Connect GitHub API
+- [x] Connect Google Search Console
