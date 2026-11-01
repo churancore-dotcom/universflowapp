@@ -122,6 +122,8 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val rcShadow = 1f / (2f * Math.PI.toFloat() * 5500f)
         nineShadowCoeff = dt / (rcShadow + dt)
         reverb.configure(inputAudioFormat.sampleRate)
+        limiterRelease = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.12f)).toDouble()).toFloat()
+        limiterGain = 1f
         lowState = 0f
         highState = 0f
         equalizer.configure(inputAudioFormat.sampleRate)
@@ -194,7 +196,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
             if (spatialPhase >= 2.0 * Math.PI) spatialPhase -= 2.0 * Math.PI
             val leftPan = sqrt(((1f - pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
             val rightPan = sqrt(((1f + pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
-            val lateMakeup = 1f + currentLateNight * 0.65f
+            val lateMakeup = 1f + currentLateNight * 0.4f
             var rawLeft = (centre + widenedSide) * makeup * leftPan * lateMakeup
             var rawRight = (centre - widenedSide) * makeup * rightPan * lateMakeup
             if (eqActive) {
@@ -240,8 +242,15 @@ class StemAudioProcessor : BaseAudioProcessor() {
                 nineShadowRight = rawRight
             }
 
-            output.putShort(clip16(softLimit(rawLeft, currentLateNight)))
-            output.putShort(clip16(softLimit(rawRight, currentLateNight)))
+            // Stereo-linked gain limiter: turns the whole frame down when it
+            // would exceed full scale, then releases smoothly. Unlike the old
+            // per-sample waveshaper it never bends the waveform, so loud
+            // masters stay clean even with every effect off.
+            val peak = max(kotlin.math.abs(rawLeft), kotlin.math.abs(rawRight))
+            val needed = if (peak > LIMIT_CEILING) LIMIT_CEILING / peak else 1f
+            limiterGain = if (needed < limiterGain) needed else limiterGain + limiterRelease * (1f - limiterGain)
+            output.putShort(clip16(rawLeft * limiterGain))
+            output.putShort(clip16(rawRight * limiterGain))
 
             cursor += bytesPerFrame
         }
@@ -254,6 +263,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
         return value.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
     }
 
+    private var limiterGain = 1f
+    private var limiterRelease = 0.0003f
+    private val LIMIT_CEILING = 32300f
+
+    @Suppress("unused")
     private fun softLimit(value: Float, amount: Float): Float {
         // Always-on smooth ceiling: neutral audio below ~-3.5 dBFS is untouched,
         // overshoot from EQ/stems/width bends toward full scale instead of hard-clipping.
