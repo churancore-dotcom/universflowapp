@@ -93,18 +93,18 @@ export function useGlobalAudioEngine(
     }> = {
       off:       { virt: 0,    bass: 0,   loud: 0,   reverb: 0,  eqMb: [0, 0, 0, 0, 0],            geo: null },
       // Tight, dark, almost no tail — a lacquer cut, not a room.
-      vinyl:     { virt: 400,  bass: 250, loud: 150, reverb: 8,  eqMb: [300, 150, 0, -300, -600],  geo: { room: 18, damping: 85, wet: 16, width: 45, predelayMs: 2,   size: 60 } },
+      vinyl:     { virt: 0,  bass: 83, loud: 0, reverb: 8,  eqMb: [150, 75, 0, -150, -300],  geo: { room: 18, damping: 85, wet: 9, width: 45, predelayMs: 2,   size: 60 } },
       // Dry control room: short, bright, controlled.
-      studio:    { virt: 250,  bass: 0,   loud: 100, reverb: 6,  eqMb: [0, 0, 150, 200, 100],      geo: { room: 30, damping: 40, wet: 18, width: 70, predelayMs: 6,   size: 75 } },
-      bedroom:   { virt: 550,  bass: 150, loud: 250, reverb: 14, eqMb: [200, 50, 0, -100, -250],   geo: { room: 42, damping: 70, wet: 26, width: 65, predelayMs: 11,  size: 85 } },
-      hall:      { virt: 900,  bass: 250, loud: 400, reverb: 28, eqMb: [350, 150, 0, 200, 400],    geo: { room: 78, damping: 32, wet: 46, width: 95, predelayMs: 32,  size: 150 } },
-      cathedral: { virt: 1000, bass: 350, loud: 550, reverb: 42, eqMb: [500, 250, -100, 250, 550], geo: { room: 94, damping: 16, wet: 58, width: 100, predelayMs: 55, size: 210 } },
-      stadium:   { virt: 1000, bass: 450, loud: 650, reverb: 34, eqMb: [600, 350, 0, 200, 350],    geo: { room: 86, damping: 45, wet: 52, width: 100, predelayMs: 105, size: 190 } },
-      club:      { virt: 700,  bass: 550, loud: 450, reverb: 20, eqMb: [650, 300, -50, 100, 150],  geo: { room: 52, damping: 55, wet: 34, width: 80, predelayMs: 18,  size: 100 } },
-      arena:     { virt: 1000, bass: 400, loud: 600, reverb: 32, eqMb: [500, 300, 0, 200, 300],    geo: { room: 82, damping: 38, wet: 50, width: 100, predelayMs: 72, size: 175 } },
-      chapel:    { virt: 800,  bass: 200, loud: 350, reverb: 26, eqMb: [250, 100, 0, 250, 450],    geo: { room: 66, damping: 22, wet: 42, width: 88, predelayMs: 26,  size: 130 } },
-      opera:     { virt: 950,  bass: 300, loud: 450, reverb: 30, eqMb: [400, 200, 50, 250, 400],   geo: { room: 84, damping: 20, wet: 52, width: 100, predelayMs: 42, size: 180 } },
-      canyon:    { virt: 1000, bass: 250, loud: 500, reverb: 40, eqMb: [300, 150, -50, 200, 250],  geo: { room: 96, damping: 30, wet: 60, width: 100, predelayMs: 180, size: 220 } },
+      studio:    { virt: 0,  bass: 0,   loud: 0, reverb: 6,  eqMb: [0, 0, 75, 100, 50],      geo: { room: 30, damping: 40, wet: 10, width: 70, predelayMs: 6,   size: 75 } },
+      bedroom:   { virt: 0,  bass: 50, loud: 0, reverb: 14, eqMb: [100, 25, 0, -50, -125],   geo: { room: 42, damping: 70, wet: 14, width: 65, predelayMs: 11,  size: 85 } },
+      hall:      { virt: 0,  bass: 83, loud: 0, reverb: 28, eqMb: [175, 75, 0, 100, 200],    geo: { room: 78, damping: 32, wet: 25, width: 95, predelayMs: 32,  size: 150 } },
+      cathedral: { virt: 0, bass: 116, loud: 0, reverb: 42, eqMb: [250, 125, -50, 125, 275], geo: { room: 94, damping: 16, wet: 32, width: 100, predelayMs: 55, size: 210 } },
+      stadium:   { virt: 0, bass: 150, loud: 0, reverb: 34, eqMb: [300, 175, 0, 100, 175],    geo: { room: 86, damping: 45, wet: 29, width: 100, predelayMs: 105, size: 190 } },
+      club:      { virt: 0,  bass: 183, loud: 0, reverb: 20, eqMb: [325, 150, -25, 50, 75],  geo: { room: 52, damping: 55, wet: 19, width: 80, predelayMs: 18,  size: 100 } },
+      arena:     { virt: 0, bass: 133, loud: 0, reverb: 32, eqMb: [250, 150, 0, 100, 150],    geo: { room: 82, damping: 38, wet: 28, width: 100, predelayMs: 72, size: 175 } },
+      chapel:    { virt: 0,  bass: 66, loud: 0, reverb: 26, eqMb: [125, 50, 0, 125, 225],    geo: { room: 66, damping: 22, wet: 23, width: 88, predelayMs: 26,  size: 130 } },
+      opera:     { virt: 0,  bass: 100, loud: 0, reverb: 30, eqMb: [200, 100, 25, 125, 200],   geo: { room: 84, damping: 20, wet: 29, width: 100, predelayMs: 42, size: 180 } },
+      canyon:    { virt: 0, bass: 83, loud: 0, reverb: 40, eqMb: [150, 75, -25, 100, 125],  geo: { room: 96, damping: 30, wet: 33, width: 100, predelayMs: 180, size: 220 } },
     };
 
 
@@ -145,7 +145,7 @@ export function useGlobalAudioEngine(
       const userBass = Math.round((s.bassBoost / 100) * 1000);
       // Late Night: real +14 dB loudness compression makeup, not the old +6 dB
       // that was inaudible on phone speakers. Combine with space loudness.
-      const lateNightMb = s.lateNight ? 1400 : 0;
+      const lateNightMb = s.lateNight ? 500 : 0;
       const stemMakeupMb = Math.round(exciter * 450);
 
       // One native bridge call applies one coherent snapshot. The previous
