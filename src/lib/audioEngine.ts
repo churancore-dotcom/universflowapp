@@ -265,18 +265,18 @@ interface SpaceProfile {
 // dry to 0.70–0.88, which is why every space sounded like the song was being
 // faded down instead of placed in a room.
 const SPACE_PROFILES: Record<Exclude<StudioSpaceId, 'off'>, SpaceProfile> = {
-  vinyl:     { duration: 0.5,  decay: 3.6, predelay: 0.002, density: 0.95, damping: 0.75, wet: 0.30, dry: 0.98 },
-  studio:    { duration: 0.9,  decay: 2.8, predelay: 0.006, density: 0.9,  damping: 0.35, wet: 0.34, dry: 0.98 },
-  bedroom:   { duration: 1.3,  decay: 2.4, predelay: 0.011, density: 0.75, damping: 0.60, wet: 0.42, dry: 0.97 },
-  hall:      { duration: 3.2,  decay: 1.5, predelay: 0.032, density: 0.55, damping: 0.28, wet: 0.62, dry: 0.95, legacy: true },
-  cathedral: { duration: 5.6,  decay: 1.0, predelay: 0.055, density: 0.40, damping: 0.14, wet: 0.72, dry: 0.94 },
-  stadium:   { duration: 4.2,  decay: 1.3, predelay: 0.105, density: 0.32, damping: 0.40, wet: 0.68, dry: 0.94 },
+  vinyl:     { duration: 0.5,  decay: 3.6, predelay: 0.002, density: 0.95, damping: 0.75, wet: 0.18, dry: 1.0 },
+  studio:    { duration: 0.9,  decay: 2.8, predelay: 0.006, density: 0.9,  damping: 0.35, wet: 0.20, dry: 1.0 },
+  bedroom:   { duration: 1.3,  decay: 2.4, predelay: 0.011, density: 0.75, damping: 0.60, wet: 0.25, dry: 1.0 },
+  hall:      { duration: 3.2,  decay: 1.5, predelay: 0.032, density: 0.55, damping: 0.28, wet: 0.37, dry: 1.0, legacy: true },
+  cathedral: { duration: 5.6,  decay: 1.0, predelay: 0.055, density: 0.40, damping: 0.14, wet: 0.43, dry: 1.0 },
+  stadium:   { duration: 4.2,  decay: 1.3, predelay: 0.105, density: 0.32, damping: 0.40, wet: 0.41, dry: 1.0 },
   // Real, distinct venues — each one is a different geometry, not a wetness step.
-  club:      { duration: 1.7,  decay: 2.0, predelay: 0.018, density: 0.68, damping: 0.55, wet: 0.48, dry: 0.96 },
-  arena:     { duration: 3.6,  decay: 1.4, predelay: 0.072, density: 0.36, damping: 0.38, wet: 0.64, dry: 0.95 },
-  chapel:    { duration: 2.6,  decay: 1.7, predelay: 0.026, density: 0.50, damping: 0.22, wet: 0.56, dry: 0.95 },
-  opera:     { duration: 4.4,  decay: 1.2, predelay: 0.042, density: 0.46, damping: 0.20, wet: 0.66, dry: 0.95 },
-  canyon:    { duration: 6.5,  decay: 0.9, predelay: 0.180, density: 0.22, damping: 0.30, wet: 0.70, dry: 0.94 },
+  club:      { duration: 1.7,  decay: 2.0, predelay: 0.018, density: 0.68, damping: 0.55, wet: 0.29, dry: 1.0 },
+  arena:     { duration: 3.6,  decay: 1.4, predelay: 0.072, density: 0.36, damping: 0.38, wet: 0.38, dry: 1.0 },
+  chapel:    { duration: 2.6,  decay: 1.7, predelay: 0.026, density: 0.50, damping: 0.22, wet: 0.34, dry: 1.0 },
+  opera:     { duration: 4.4,  decay: 1.2, predelay: 0.042, density: 0.46, damping: 0.20, wet: 0.40, dry: 1.0 },
+  canyon:    { duration: 6.5,  decay: 0.9, predelay: 0.180, density: 0.22, damping: 0.30, wet: 0.42, dry: 1.0 },
 };
 
 
