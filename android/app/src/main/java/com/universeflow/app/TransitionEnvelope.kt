@@ -10,9 +10,11 @@ object TransitionEnvelope {
             // DJ: constant loudness, no mid-fade dip.
             "equal-power" -> Pair(cos(p * Math.PI / 2).toFloat(), sin(p * Math.PI / 2).toFloat())
             // Smooth: quintic smootherstep — very gradual, long gentle blend.
-            "smooth" -> { val s = p * p * p * (p * (6 * p - 15) + 10); Pair((1 - s).toFloat(), s.toFloat()) }
+            // Constant-power too, so the blend never dips in loudness mid-way.
+            "smooth" -> { val s = p * p * p * (p * (6 * p - 15) + 10); Pair(cos(s * Math.PI / 2).toFloat(), sin(s * Math.PI / 2).toFloat()) }
             // Punch: outgoing holds loud then drops, incoming swells late and slams in.
-            "exponential" -> { val q = 1 - p; Pair((q * q * q).toFloat(), (p * p * p).toFloat()) }
+            // (The old cubic pair dropped BOTH songs to ~-18 dB mid-fade: a hole.)
+            "exponential" -> { val s = p * p * (3 - 2 * p); val t = s * s; Pair(cos(t * Math.PI / 2).toFloat(), sin(t * Math.PI / 2).toFloat()) }
             // Linear: classic even swap with an audible mid-fade dip.
             else -> Pair((1 - p).toFloat(), p.toFloat())
         }
