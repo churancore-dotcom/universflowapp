@@ -92,19 +92,22 @@ export function useGlobalAudioEngine(
       geo: NativeSpaceGeometry | null;
     }> = {
       off:       { virt: 0,    bass: 0,   loud: 0,   reverb: 0,  eqMb: [0, 0, 0, 0, 0],            geo: null },
+      // Rooms never recolour the song itself: no bass or EQ boosts on the dry
+      // track (those were what made every space sound boomy and lo-fi). The
+      // character of each place lives only in the room geometry below.
       // Tight, dark, almost no tail — a lacquer cut, not a room.
-      vinyl:     { virt: 0,  bass: 83, loud: 0, reverb: 8,  eqMb: [150, 75, 0, -150, -300],  geo: { room: 18, damping: 85, wet: 9, width: 45, predelayMs: 2,   size: 60 } },
+      vinyl:     { virt: 0, bass: 0, loud: 0, reverb: 8,  eqMb: [0, 0, 0, 0, 0], geo: { room: 18, damping: 85, wet: 12, width: 45,  predelayMs: 2,   size: 60 } },
       // Dry control room: short, bright, controlled.
-      studio:    { virt: 0,  bass: 0,   loud: 0, reverb: 6,  eqMb: [0, 0, 75, 100, 50],      geo: { room: 30, damping: 40, wet: 10, width: 70, predelayMs: 6,   size: 75 } },
-      bedroom:   { virt: 0,  bass: 50, loud: 0, reverb: 14, eqMb: [100, 25, 0, -50, -125],   geo: { room: 42, damping: 70, wet: 14, width: 65, predelayMs: 11,  size: 85 } },
-      hall:      { virt: 0,  bass: 83, loud: 0, reverb: 28, eqMb: [175, 75, 0, 100, 200],    geo: { room: 78, damping: 32, wet: 25, width: 95, predelayMs: 32,  size: 150 } },
-      cathedral: { virt: 0, bass: 116, loud: 0, reverb: 42, eqMb: [250, 125, -50, 125, 275], geo: { room: 94, damping: 16, wet: 32, width: 100, predelayMs: 55, size: 210 } },
-      stadium:   { virt: 0, bass: 150, loud: 0, reverb: 34, eqMb: [300, 175, 0, 100, 175],    geo: { room: 86, damping: 45, wet: 29, width: 100, predelayMs: 105, size: 190 } },
-      club:      { virt: 0,  bass: 183, loud: 0, reverb: 20, eqMb: [325, 150, -25, 50, 75],  geo: { room: 52, damping: 55, wet: 19, width: 80, predelayMs: 18,  size: 100 } },
-      arena:     { virt: 0, bass: 133, loud: 0, reverb: 32, eqMb: [250, 150, 0, 100, 150],    geo: { room: 82, damping: 38, wet: 28, width: 100, predelayMs: 72, size: 175 } },
-      chapel:    { virt: 0,  bass: 66, loud: 0, reverb: 26, eqMb: [125, 50, 0, 125, 225],    geo: { room: 66, damping: 22, wet: 23, width: 88, predelayMs: 26,  size: 130 } },
-      opera:     { virt: 0,  bass: 100, loud: 0, reverb: 30, eqMb: [200, 100, 25, 125, 200],   geo: { room: 84, damping: 20, wet: 29, width: 100, predelayMs: 42, size: 180 } },
-      canyon:    { virt: 0, bass: 83, loud: 0, reverb: 40, eqMb: [150, 75, -25, 100, 125],  geo: { room: 96, damping: 30, wet: 33, width: 100, predelayMs: 180, size: 220 } },
+      studio:    { virt: 0, bass: 0, loud: 0, reverb: 6,  eqMb: [0, 0, 0, 0, 0], geo: { room: 30, damping: 40, wet: 14, width: 70,  predelayMs: 6,   size: 75 } },
+      bedroom:   { virt: 0, bass: 0, loud: 0, reverb: 14, eqMb: [0, 0, 0, 0, 0], geo: { room: 42, damping: 70, wet: 19, width: 65,  predelayMs: 11,  size: 85 } },
+      hall:      { virt: 0, bass: 0, loud: 0, reverb: 28, eqMb: [0, 0, 0, 0, 0], geo: { room: 78, damping: 32, wet: 33, width: 95,  predelayMs: 32,  size: 150 } },
+      cathedral: { virt: 0, bass: 0, loud: 0, reverb: 42, eqMb: [0, 0, 0, 0, 0], geo: { room: 94, damping: 24, wet: 40, width: 100, predelayMs: 55,  size: 210 } },
+      stadium:   { virt: 0, bass: 0, loud: 0, reverb: 34, eqMb: [0, 0, 0, 0, 0], geo: { room: 86, damping: 50, wet: 37, width: 100, predelayMs: 105, size: 190 } },
+      club:      { virt: 0, bass: 0, loud: 0, reverb: 20, eqMb: [0, 0, 0, 0, 0], geo: { room: 52, damping: 58, wet: 25, width: 80,  predelayMs: 18,  size: 100 } },
+      arena:     { virt: 0, bass: 0, loud: 0, reverb: 32, eqMb: [0, 0, 0, 0, 0], geo: { room: 82, damping: 42, wet: 36, width: 100, predelayMs: 72,  size: 175 } },
+      chapel:    { virt: 0, bass: 0, loud: 0, reverb: 26, eqMb: [0, 0, 0, 0, 0], geo: { room: 66, damping: 28, wet: 31, width: 88,  predelayMs: 26,  size: 130 } },
+      opera:     { virt: 0, bass: 0, loud: 0, reverb: 30, eqMb: [0, 0, 0, 0, 0], geo: { room: 84, damping: 26, wet: 37, width: 100, predelayMs: 42,  size: 180 } },
+      canyon:    { virt: 0, bass: 0, loud: 0, reverb: 40, eqMb: [0, 0, 0, 0, 0], geo: { room: 96, damping: 34, wet: 40, width: 100, predelayMs: 180, size: 220 } },
     };
 
 
