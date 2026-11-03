@@ -15,6 +15,15 @@ import kotlin.math.max
  *
  * The previous 4-comb/2-allpass network with a fat wet gain sounded like a
  * metallic, washy echo laid over the track, which is why no space felt real.
+ *
+ * Clean-but-audible rules (rooms used to sound noisy and smear the song):
+ *  - The send is band-limited (220 Hz .. 6.5 kHz) so no bass mud, hiss or
+ *    sibilant spray ever enters the tail.
+ *  - The tail is DUCKED by the dry signal's envelope: while the song is loud
+ *    the room steps back so vocals stay clear; in gaps and phrase endings the
+ *    room blooms. This is how mix engineers make reverb obvious yet clean.
+ *  - Comb feedback is capped below the metallic-ringing zone.
+ *  - Dry is trimmed slightly as wet rises so the sum never clips the limiter.
  */
 class RoomReverb {
 
@@ -83,6 +92,13 @@ class RoomReverb {
     private var hpCoeff = 0.98f
     private var lpL = 0f; private var lpR = 0f
     private var lpCoeff = 0.6f
+    // Second low-pass on the send (12 dB/oct total) keeps hiss out of the tail.
+    private var sendLpL = 0f; private var sendLpR = 0f
+    private var sendLpCoeff = 0.6f
+    // Ducking envelope follower (fast attack, slow release).
+    private var env = 0f
+    private var envAttack = 0.01f
+    private var envRelease = 0.0005f
 
     private var sampleRate = 44100
     private var srScale = 1f
@@ -116,10 +132,14 @@ class RoomReverb {
         predelayCursor = 0
         erCursor = 0
         val dt = 1f / sampleRate
-        val rcHp = 1f / (2f * Math.PI.toFloat() * 160f)
+        val rcHp = 1f / (2f * Math.PI.toFloat() * 220f)
         hpCoeff = rcHp / (rcHp + dt)
-        val rcLp = 1f / (2f * Math.PI.toFloat() * 7000f)
+        val rcLp = 1f / (2f * Math.PI.toFloat() * 6500f)
         lpCoeff = dt / (rcLp + dt)
+        val rcSend = 1f / (2f * Math.PI.toFloat() * 7500f)
+        sendLpCoeff = dt / (rcSend + dt)
+        envAttack = 1f - kotlin.math.exp((-1f / (sampleRate * 0.012f)).toDouble()).toFloat()
+        envRelease = 1f - kotlin.math.exp((-1f / (sampleRate * 0.28f)).toDouble()).toFloat()
         smoothing = 1f - kotlin.math.exp((-1f / (sampleRate * 0.035f)).toDouble()).toFloat()
         dirty = true
         retune()
@@ -134,7 +154,7 @@ class RoomReverb {
      * @param sizePercent   50..240 physical room scaling
      */
     fun setSpace(roomPercent: Int, dampPercent: Int, wetPercent: Int, widthPercent: Int, preDelayMs: Int, sizePercent: Int) {
-        roomFeedback = 0.7f + roomPercent.coerceIn(0, 100) / 100f * 0.26f
+        roomFeedback = 0.72f + roomPercent.coerceIn(0, 100) / 100f * 0.21f
         roomDamp = 0.1f + dampPercent.coerceIn(0, 100) / 100f * 0.6f
         targetWet = wetPercent.coerceIn(0, 100) / 100f
         targetWidth = widthPercent.coerceIn(0, 100) / 100f
@@ -155,6 +175,8 @@ class RoomReverb {
         erCursor = 0
         hpStateL = 0f; hpPrevL = 0f; hpStateR = 0f; hpPrevR = 0f
         lpL = 0f; lpR = 0f
+        sendLpL = 0f; sendLpR = 0f
+        env = 0f
         currentWet = 0f
         currentWidth = targetWidth
     }
@@ -196,9 +218,18 @@ class RoomReverb {
             out[1] = inR
             return
         }
-        // High-pass the send so the room never turns bass into boom.
+        // Band-limit the send: no bass boom, no hiss/sibilance in the tail.
         hpStateL = hpCoeff * (hpStateL + inL - hpPrevL); hpPrevL = inL
         hpStateR = hpCoeff * (hpStateR + inR - hpPrevR); hpPrevR = inR
+        sendLpL += sendLpCoeff * (hpStateL - sendLpL)
+        sendLpR += sendLpCoeff * (hpStateR - sendLpR)
+        hpStateL = sendLpL; hpStateR = sendLpR
+        if (kotlin.math.abs(hpStateL) < 1e-12f) hpStateL = 0f
+        if (kotlin.math.abs(hpStateR) < 1e-12f) hpStateR = 0f
+
+        // Dry envelope for ducking.
+        val level = max(kotlin.math.abs(inL), kotlin.math.abs(inR))
+        env += (if (level > env) envAttack else envRelease) * (level - env)
 
         // Pre-delay (stereo-summed send for the late tail).
         val mono = (hpStateL + hpStateR) * 0.5f
@@ -234,9 +265,12 @@ class RoomReverb {
 
         val w1 = currentWidth * 0.5f + 0.5f
         val w2 = (1f - currentWidth) * 0.5f
-        val tailGain = currentWet * 1.6f
-        val erGain = currentWet * 0.35f
-        out[0] = inL + erL * erGain + (lpL * w1 + lpR * w2) * tailGain
-        out[1] = inR + erR * erGain + (lpR * w1 + lpL * w2) * tailGain
+        // Duck up to ~55% while the song is loud; full room in quiet moments.
+        val duck = 1f - 0.55f * (env * 2.2f).coerceIn(0f, 1f)
+        val tailGain = currentWet * 2.1f * duck
+        val erGain = currentWet * 0.55f * (0.5f + 0.5f * duck)
+        val dryTrim = 1f - currentWet * 0.18f
+        out[0] = inL * dryTrim + erL * erGain + (lpL * w1 + lpR * w2) * tailGain
+        out[1] = inR * dryTrim + erR * erGain + (lpR * w1 + lpL * w2) * tailGain
     }
 }

@@ -265,18 +265,18 @@ interface SpaceProfile {
 // dry to 0.70–0.88, which is why every space sounded like the song was being
 // faded down instead of placed in a room.
 const SPACE_PROFILES: Record<Exclude<StudioSpaceId, 'off'>, SpaceProfile> = {
-  vinyl:     { duration: 0.5,  decay: 3.6, predelay: 0.002, density: 0.95, damping: 0.75, wet: 0.18, dry: 1.0 },
-  studio:    { duration: 0.9,  decay: 2.8, predelay: 0.006, density: 0.9,  damping: 0.35, wet: 0.20, dry: 1.0 },
-  bedroom:   { duration: 1.3,  decay: 2.4, predelay: 0.011, density: 0.75, damping: 0.60, wet: 0.25, dry: 1.0 },
+  vinyl:     { duration: 0.5,  decay: 3.6, predelay: 0.002, density: 0.95, damping: 0.75, wet: 0.22, dry: 0.96 },
+  studio:    { duration: 0.9,  decay: 2.8, predelay: 0.006, density: 0.9,  damping: 0.35, wet: 0.26, dry: 0.95 },
+  bedroom:   { duration: 1.3,  decay: 2.4, predelay: 0.011, density: 0.75, damping: 0.60, wet: 0.32, dry: 0.94 },
   hall:      { duration: 3.2,  decay: 1.5, predelay: 0.032, density: 0.55, damping: 0.28, wet: 0.37, dry: 1.0, legacy: true },
-  cathedral: { duration: 5.6,  decay: 1.0, predelay: 0.055, density: 0.40, damping: 0.14, wet: 0.43, dry: 1.0 },
-  stadium:   { duration: 4.2,  decay: 1.3, predelay: 0.105, density: 0.32, damping: 0.40, wet: 0.41, dry: 1.0 },
+  cathedral: { duration: 5.6,  decay: 1.0, predelay: 0.055, density: 0.40, damping: 0.14, wet: 0.52, dry: 0.9 },
+  stadium:   { duration: 4.2,  decay: 1.3, predelay: 0.105, density: 0.32, damping: 0.40, wet: 0.48, dry: 0.9 },
   // Real, distinct venues — each one is a different geometry, not a wetness step.
-  club:      { duration: 1.7,  decay: 2.0, predelay: 0.018, density: 0.68, damping: 0.55, wet: 0.29, dry: 1.0 },
-  arena:     { duration: 3.6,  decay: 1.4, predelay: 0.072, density: 0.36, damping: 0.38, wet: 0.38, dry: 1.0 },
-  chapel:    { duration: 2.6,  decay: 1.7, predelay: 0.026, density: 0.50, damping: 0.22, wet: 0.34, dry: 1.0 },
-  opera:     { duration: 4.4,  decay: 1.2, predelay: 0.042, density: 0.46, damping: 0.20, wet: 0.40, dry: 1.0 },
-  canyon:    { duration: 6.5,  decay: 0.9, predelay: 0.180, density: 0.22, damping: 0.30, wet: 0.42, dry: 1.0 },
+  club:      { duration: 1.7,  decay: 2.0, predelay: 0.018, density: 0.68, damping: 0.55, wet: 0.36, dry: 0.93 },
+  arena:     { duration: 3.6,  decay: 1.4, predelay: 0.072, density: 0.36, damping: 0.38, wet: 0.48, dry: 0.9 },
+  chapel:    { duration: 2.6,  decay: 1.7, predelay: 0.026, density: 0.50, damping: 0.22, wet: 0.44, dry: 0.91 },
+  opera:     { duration: 4.4,  decay: 1.2, predelay: 0.042, density: 0.46, damping: 0.20, wet: 0.5, dry: 0.9 },
+  canyon:    { duration: 6.5,  decay: 0.9, predelay: 0.180, density: 0.22, damping: 0.30, wet: 0.5, dry: 0.9 },
 };
 
 
@@ -292,17 +292,17 @@ const SPACE_PROFILES: Record<Exclude<StudioSpaceId, 'off'>, SpaceProfile> = {
  * `hall` (Concert Hall) is intentionally neutral — its voicing is left alone.
  */
 const SPACE_TONE: Record<Exclude<StudioSpaceId, 'off'>, { hp: number; lp: number; toneHz: number; toneDb: number }> = {
-  vinyl:     { hp: 140, lp: 4500,  toneHz: 900,  toneDb: -2.5 },
-  studio:    { hp: 90,  lp: 12000, toneHz: 3000, toneDb: 1.5 },
-  bedroom:   { hp: 120, lp: 7000,  toneHz: 400,  toneDb: 2.0 },
+  vinyl:     { hp: 200, lp: 4500,  toneHz: 900,  toneDb: -2.0 },
+  studio:    { hp: 180, lp: 9000,  toneHz: 3000, toneDb: 1.0 },
+  bedroom:   { hp: 200, lp: 6500,  toneHz: 500,  toneDb: 1.0 },
   hall:      { hp: 20,  lp: 20000, toneHz: 250,  toneDb: 0 },
-  cathedral: { hp: 180, lp: 11000, toneHz: 2200, toneDb: 3.0 },
-  stadium:   { hp: 60,  lp: 3500,  toneHz: 160,  toneDb: 5.0 },
-  club:      { hp: 70,  lp: 6000,  toneHz: 220,  toneDb: 4.5 },
-  arena:     { hp: 70,  lp: 5000,  toneHz: 180,  toneDb: 3.5 },
-  chapel:    { hp: 200, lp: 13000, toneHz: 2600, toneDb: 2.5 },
-  opera:     { hp: 130, lp: 14000, toneHz: 1800, toneDb: 2.0 },
-  canyon:    { hp: 220, lp: 4200,  toneHz: 800,  toneDb: -3.0 },
+  cathedral: { hp: 240, lp: 8500,  toneHz: 2200, toneDb: 1.5 },
+  stadium:   { hp: 200, lp: 4500,  toneHz: 350,  toneDb: 1.5 },
+  club:      { hp: 190, lp: 6000,  toneHz: 400,  toneDb: 1.5 },
+  arena:     { hp: 200, lp: 5000,  toneHz: 400,  toneDb: 1.0 },
+  chapel:    { hp: 240, lp: 9000,  toneHz: 2600, toneDb: 1.5 },
+  opera:     { hp: 200, lp: 9500,  toneHz: 1800, toneDb: 1.0 },
+  canyon:    { hp: 260, lp: 4200,  toneHz: 800,  toneDb: -2.0 },
 };
 
 function applySpaceTone(spaceId: StudioSpaceId) {
@@ -454,7 +454,9 @@ function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
     const tailLen = Math.max(1, length - predelaySamples);
     for (let i = predelaySamples; i < length; i++) {
       const t = (i - predelaySamples) / tailLen;
-      const noise = rand() < p.density ? rand() * 2 - 1 : 0;
+      // Always-dense noise: sparse impulses (the old `density` gate) made the
+      // tail crackle like vinyl grit. Density now only shapes early reflections.
+      const noise = rand() * 2 - 1;
       // Cutoff closes over time: bright at the onset, dark in the tail.
       const coef = Math.max(0.02, (1 - p.damping * 0.6) * (1 - t * hfLoss));
       hfState += coef * (noise - hfState);
@@ -462,7 +464,7 @@ function buildSpaceIR(ctx: AudioContext, p: SpaceProfile): AudioBuffer {
       lfState += 0.06 * (noise - lfState);
       const hiDecay = Math.pow(1 - t, p.decay * 1.35);
       const loDecay = Math.pow(1 - t, p.decay * 0.75);
-      data[i] = hfState * hiDecay * 0.45 + lfState * loDecay * 0.55 * (0.4 + p.damping * 0.8);
+      data[i] = hfState * hiDecay * 0.7 + lfState * loDecay * 0.3 * (0.3 + p.damping * 0.5);
     }
 
     // --- discrete early reflections (the room's shape) ---
