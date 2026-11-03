@@ -269,6 +269,8 @@ const ManageUsers = () => {
                     </p>
                   </div>
 
+                  {/* Keep actions-menu clicks from bubbling to the card's onClick (which opens the drawer) */}
+                  <div className="shrink-0" onClick={(e) => e.stopPropagation()}>
                   <DropdownMenu>
                     <DropdownMenuTrigger asChild>
                       <Button variant="ghost" size="icon" aria-label="User actions" className="h-8 w-8">
@@ -305,6 +307,7 @@ const ManageUsers = () => {
                       )}
                     </DropdownMenuContent>
                   </DropdownMenu>
+                  </div>
                 </div>
               </motion.div>
             ))}
