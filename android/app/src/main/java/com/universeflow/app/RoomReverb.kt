@@ -138,8 +138,10 @@ class RoomReverb {
         lpCoeff = dt / (rcLp + dt)
         val rcSend = 1f / (2f * Math.PI.toFloat() * 7500f)
         sendLpCoeff = dt / (rcSend + dt)
-        envAttack = 1f - kotlin.math.exp((-1f / (sampleRate * 0.012f)).toDouble()).toFloat()
-        envRelease = 1f - kotlin.math.exp((-1f / (sampleRate * 0.28f)).toDouble()).toFloat()
+        // Slow-ish duck so the tail level glides instead of fluttering
+        // (fast ducking modulated the tail and made it sound grainy).
+        envAttack = 1f - kotlin.math.exp((-1f / (sampleRate * 0.03f)).toDouble()).toFloat()
+        envRelease = 1f - kotlin.math.exp((-1f / (sampleRate * 0.35f)).toDouble()).toFloat()
         smoothing = 1f - kotlin.math.exp((-1f / (sampleRate * 0.035f)).toDouble()).toFloat()
         dirty = true
         retune()
