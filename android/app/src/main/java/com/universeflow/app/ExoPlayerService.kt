@@ -59,6 +59,10 @@ class ExoPlayerService : MediaSessionService() {
         // Smoothed effect-ramp shape (see applySavedEffectsToBoundSession).
         private const val TICK_MS = 30L
         private const val OVERLAP_PREPARE_LEAD_MS = 6000L
+        // Start the silent outgoing copy this long before the fade so it is
+        // buffered and position-locked when the blend begins.
+        private const val OVERLAP_PRIME_LEAD_MS = 2000L
+        private const val OVERLAP_SYNC_TOLERANCE_MS = 120L
         private const val EQ_STEP_MB = 120          // ~1.2 dB per tick
         private const val STRENGTH_STEP = 90        // of 0..1000
         private const val LOUDNESS_STEP_MB = 150
@@ -81,6 +85,7 @@ class ExoPlayerService : MediaSessionService() {
     private var incomingItem: String? = null
     private var overlapStartedAt = 0L
     private var tailReady = false
+    private var tailPrimed = false
     private var overlapDurationMs = 0L
     private var boundaryResumeGeneration = 0L
     private val transitionHandler = android.os.Handler(android.os.Looper.getMainLooper())
@@ -116,8 +121,32 @@ class ExoPlayerService : MediaSessionService() {
             } else if (tail != null && overlapStartedAt == 0L && tailReady) {
                 val window = TransitionEnvelope.window(transitionEnabled, transitionDuration, gaplessProEnabled, p.repeatMode == Player.REPEAT_MODE_ONE)
                 val left = p.duration - p.currentPosition
-                if (window <= 0) cancelOverlap()
-                else if (p.duration > 0 && left <= window * 1000) beginOverlap(p, tail)
+                if (window <= 0 || p.duration <= 0) {
+                    if (window <= 0) cancelOverlap()
+                } else if (left <= window * 1000 + OVERLAP_PRIME_LEAD_MS) {
+                    // A real crossfade needs the outgoing song ALREADY playing
+                    // in sync before the swap. The old code seeked the copy at
+                    // the very moment of the fade, so the outgoing song cut out
+                    // while it re-buffered and the new one faded in alone — a
+                    // dropout instead of a blend. Prime it silently first.
+                    val drift = tail.currentPosition - p.currentPosition
+                    if (!tailPrimed) {
+                        tailPrimed = true
+                        tail.volume = 0f
+                        tail.seekTo(p.currentPosition + 40L)
+                        tail.play()
+                    } else if (tail.isPlaying && kotlin.math.abs(drift) > OVERLAP_SYNC_TOLERANCE_MS && left > window * 1000) {
+                        // Still silent: re-align quietly before the swap.
+                        tail.seekTo(p.currentPosition + 40L)
+                    }
+                    val synced = tail.isPlaying && kotlin.math.abs(drift) <= OVERLAP_SYNC_TOLERANCE_MS
+                    if (left <= window * 1000) {
+                        if (synced) beginOverlap(p, tail)
+                        // Copy not ready in time: fall back to a clean gapless
+                        // change rather than a broken half-fade.
+                        else if (left < 350L) cancelOverlap()
+                    }
+                }
             }
             transitionHandler.postDelayed(this, 25L)
         }
@@ -149,22 +178,23 @@ class ExoPlayerService : MediaSessionService() {
         incomingItem = null
         overlapStartedAt = 0L
         tailReady = false
+        tailPrimed = false
         player?.volume = masterVolume
     }
 
     private fun beginOverlap(p: ExoPlayer, tail: ExoPlayer) {
         val outgoingId = transitionItem ?: run { cancelOverlap(); return }
         if (!p.isPlaying || p.currentMediaItem?.mediaId != outgoingId || !p.hasNextMediaItem()) { cancelOverlap(); return }
-        val available = p.duration - p.currentPosition
+        val available = tail.duration.takeIf { it > 0 }?.let { it - tail.currentPosition } ?: (p.duration - p.currentPosition)
         if (available < 80L) { cancelOverlap(); return }
         val nextId = p.getMediaItemAt(p.nextMediaItemIndex).mediaId
-        tail.seekTo(p.currentPosition)
-        tail.volume = masterVolume
-        tail.playWhenReady = true
         incomingItem = nextId
         overlapDurationMs = available.coerceAtLeast(80L)
         overlapStartedAt = android.os.SystemClock.elapsedRealtime()
+        // Swap with no doubling: mute the main player first, then hand the
+        // outgoing song to the already-running, in-sync copy (no seek here).
         p.volume = 0f
+        tail.volume = masterVolume
         p.seekToNextMediaItem()
         p.play()
     }
