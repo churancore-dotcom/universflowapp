@@ -124,6 +124,15 @@ class StemAudioProcessor : BaseAudioProcessor() {
         reverb.configure(inputAudioFormat.sampleRate)
         limiterRelease = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.12f)).toDouble()).toFloat()
         limiterGain = 1f
+        limiterHeld = 1f
+        limiterHoldLeft = 0
+        // ~1.5 ms look-ahead; attack reaches ~98% of the needed reduction
+        // within that window so peaks are caught before they are output.
+        lookaheadLen = max(16, (inputAudioFormat.sampleRate * 0.0015f).toInt())
+        lookaheadL = FloatArray(lookaheadLen)
+        lookaheadR = FloatArray(lookaheadLen)
+        lookaheadCursor = 0
+        limiterAttack = 1f - kotlin.math.exp((-4.0 / lookaheadLen)).toFloat()
         lowState = 0f
         highState = 0f
         equalizer.configure(inputAudioFormat.sampleRate)
@@ -145,6 +154,12 @@ class StemAudioProcessor : BaseAudioProcessor() {
         crossfeedLowRight = 0f
         nineShadowLeft = 0f
         nineShadowRight = 0f
+        lookaheadL.fill(0f)
+        lookaheadR.fill(0f)
+        lookaheadCursor = 0
+        limiterGain = 1f
+        limiterHeld = 1f
+        limiterHoldLeft = 0
     }
 
 
@@ -242,15 +257,30 @@ class StemAudioProcessor : BaseAudioProcessor() {
                 nineShadowRight = rawRight
             }
 
-            // Stereo-linked gain limiter: turns the whole frame down when it
-            // would exceed full scale, then releases smoothly. Unlike the old
-            // per-sample waveshaper it never bends the waveform, so loud
-            // masters stay clean even with every effect off.
+            // Look-ahead stereo-linked limiter. The previous limiter slammed
+            // the gain down on the exact sample that peaked, which is an
+            // audible click/crunch on every loud hit once a room adds level.
+            // Here the gain glides down over ~1.5 ms BEFORE the peak reaches
+            // the output (the signal is delayed by the same amount), so loud
+            // drums and room swells stay clean instead of distorting.
             val peak = max(kotlin.math.abs(rawLeft), kotlin.math.abs(rawRight))
             val needed = if (peak > LIMIT_CEILING) LIMIT_CEILING / peak else 1f
-            limiterGain = if (needed < limiterGain) needed else limiterGain + limiterRelease * (1f - limiterGain)
-            output.putShort(clip16(rawLeft * limiterGain))
-            output.putShort(clip16(rawRight * limiterGain))
+            if (needed <= limiterHeld) {
+                limiterHeld = needed
+                limiterHoldLeft = lookaheadLen
+            } else if (limiterHoldLeft > 0) {
+                limiterHoldLeft--
+            } else {
+                limiterHeld += limiterRelease * (1f - limiterHeld)
+            }
+            limiterGain += (if (limiterHeld < limiterGain) limiterAttack else limiterRelease) * (limiterHeld - limiterGain)
+            val outL = lookaheadL[lookaheadCursor]
+            val outR = lookaheadR[lookaheadCursor]
+            lookaheadL[lookaheadCursor] = rawLeft
+            lookaheadR[lookaheadCursor] = rawRight
+            if (++lookaheadCursor >= lookaheadLen) lookaheadCursor = 0
+            output.putShort(toPcm16(outL * limiterGain))
+            output.putShort(toPcm16(outR * limiterGain))
 
             cursor += bytesPerFrame
         }
@@ -259,13 +289,34 @@ class StemAudioProcessor : BaseAudioProcessor() {
         output.flip()
     }
 
-    private fun clip16(value: Float): Short {
-        return value.toInt().coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
+    /**
+     * Float -> 16-bit with rounding and light TPDF dither. Plain truncation
+     * toward zero turned quiet room tails and fade-outs into a gritty,
+     * noisy buzz; dither keeps them smooth all the way down to silence.
+     */
+    private fun toPcm16(value: Float): Short {
+        ditherSeed = ditherSeed xor (ditherSeed shl 13)
+        ditherSeed = ditherSeed xor (ditherSeed ushr 17)
+        ditherSeed = ditherSeed xor (ditherSeed shl 5)
+        val r1 = (ditherSeed and 0xFFFF) / 65536f
+        val r2 = ((ditherSeed ushr 16) and 0xFFFF) / 65536f
+        val dithered = value + (r1 - r2)
+        return kotlin.math.round(dithered).toInt()
+            .coerceIn(Short.MIN_VALUE.toInt(), Short.MAX_VALUE.toInt()).toShort()
     }
 
+    private var ditherSeed = 0x2545F491
     private var limiterGain = 1f
+    private var limiterHeld = 1f
+    private var limiterHoldLeft = 0
+    private var limiterAttack = 0.05f
     private var limiterRelease = 0.0003f
-    private val LIMIT_CEILING = 32300f
+    private var lookaheadLen = 64
+    private var lookaheadL = FloatArray(64)
+    private var lookaheadR = FloatArray(64)
+    private var lookaheadCursor = 0
+    // Small safety margin: the look-ahead glide can land a hair late.
+    private val LIMIT_CEILING = 31500f
 
     @Suppress("unused")
     private fun softLimit(value: Float, amount: Float): Float {

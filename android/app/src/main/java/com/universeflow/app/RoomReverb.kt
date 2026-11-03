@@ -138,8 +138,10 @@ class RoomReverb {
         lpCoeff = dt / (rcLp + dt)
         val rcSend = 1f / (2f * Math.PI.toFloat() * 7500f)
         sendLpCoeff = dt / (rcSend + dt)
-        envAttack = 1f - kotlin.math.exp((-1f / (sampleRate * 0.012f)).toDouble()).toFloat()
-        envRelease = 1f - kotlin.math.exp((-1f / (sampleRate * 0.28f)).toDouble()).toFloat()
+        // Slow-ish duck so the tail level glides instead of fluttering
+        // (fast ducking modulated the tail and made it sound grainy).
+        envAttack = 1f - kotlin.math.exp((-1f / (sampleRate * 0.03f)).toDouble()).toFloat()
+        envRelease = 1f - kotlin.math.exp((-1f / (sampleRate * 0.35f)).toDouble()).toFloat()
         smoothing = 1f - kotlin.math.exp((-1f / (sampleRate * 0.035f)).toDouble()).toFloat()
         dirty = true
         retune()
@@ -227,8 +229,11 @@ class RoomReverb {
         if (kotlin.math.abs(hpStateL) < 1e-12f) hpStateL = 0f
         if (kotlin.math.abs(hpStateR) < 1e-12f) hpStateR = 0f
 
-        // Dry envelope for ducking.
-        val level = max(kotlin.math.abs(inL), kotlin.math.abs(inR))
+        // Dry envelope for ducking. Samples arrive in 16-bit scale
+        // (+-32768), so normalise to 0..1 first. The old code compared the
+        // raw sample value against 1.0, which pinned the duck permanently on:
+        // the room never bloomed in gaps and just sat as a flat wash.
+        val level = max(kotlin.math.abs(inL), kotlin.math.abs(inR)) * INV_FULL_SCALE
         env += (if (level > env) envAttack else envRelease) * (level - env)
 
         // Pre-delay (stereo-summed send for the late tail).
@@ -237,15 +242,18 @@ class RoomReverb {
         predelayBuf[predelayCursor] = mono
         if (++predelayCursor >= predelayLen) predelayCursor = 0
 
-        // Early reflections keep stereo image (each ear hears its own walls).
+        // Early reflections keep stereo image (each ear hears its own walls),
+        // with a little of the opposite wall bleeding in like a real room.
         erBufL[erCursor] = hpStateL
         erBufR[erCursor] = hpStateR
         val n = erBufL.size
         var erL = 0f
         var erR = 0f
         for (i in 0 until 6) {
-            erL += erBufL[(erCursor - erOffL[i] + n) % n] * erGains[i]
-            erR += erBufR[(erCursor - erOffR[i] + n) % n] * erGains[i]
+            val gl = erBufL[(erCursor - erOffL[i] + n) % n]
+            val gr = erBufR[(erCursor - erOffR[i] + n) % n]
+            erL += (gl * 0.8f + gr * 0.2f) * erGains[i]
+            erR += (gr * 0.8f + gl * 0.2f) * erGains[i]
         }
         if (++erCursor >= n) erCursor = 0
 
@@ -265,12 +273,21 @@ class RoomReverb {
 
         val w1 = currentWidth * 0.5f + 0.5f
         val w2 = (1f - currentWidth) * 0.5f
-        // Duck up to ~55% while the song is loud; full room in quiet moments.
-        val duck = 1f - 0.55f * (env * 2.2f).coerceIn(0f, 1f)
-        val tailGain = currentWet * 2.1f * duck
-        val erGain = currentWet * 0.55f * (0.5f + 0.5f * duck)
-        val dryTrim = 1f - currentWet * 0.18f
+        // Smooth duck: up to -6 dB while the song is loud (around -10 dBFS
+        // and above), full room in breaks and phrase endings. That is what
+        // makes the space clearly audible without fogging the vocal.
+        val x = (env * 3f).coerceIn(0f, 1f)
+        val duck = 1f - 0.5f * (x * x * (3f - 2f * x))
+        val tailGain = currentWet * 2.5f * duck
+        val erGain = currentWet * 0.85f * (0.6f + 0.4f * duck)
+        // Trim the dry a touch as the room grows so dry + room keeps the same
+        // loudness and never pushes the limiter (no pumping, no distortion).
+        val dryTrim = 1f - currentWet * 0.3f
         out[0] = inL * dryTrim + erL * erGain + (lpL * w1 + lpR * w2) * tailGain
         out[1] = inR * dryTrim + erR * erGain + (lpR * w1 + lpL * w2) * tailGain
+    }
+
+    private companion object {
+        const val INV_FULL_SCALE = 1f / 32768f
     }
 }

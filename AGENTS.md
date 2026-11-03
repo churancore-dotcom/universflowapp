@@ -32,4 +32,4 @@
 - Account deletion is recoverable for exactly seven days, then a privileged scheduled worker removes the authentication identity and cascading app data.
 - The Play AAB distribution flag selects Play-only checkout independent of bridge availability; require Play prices and server verification readiness before purchase, while website APKs retain UPI.
 - Claim verified Play tokens atomically in a permanent server-only ledger before granting fixed-term access; retries must reattempt consumption without regranting access.
-- Studio Spaces never add bass/EQ to the dry track; room character lives only in a band-limited, dry-ducked wet send so rooms stay audible without muddying or clipping the song.
+- Studio Spaces never add bass/EQ to the dry track; room character lives only in a band-limited, dry-ducked wet send (envelope normalised to full scale), and the Android output uses a look-ahead limiter plus dithered 16-bit rounding so rooms stay audible without muddying, crunching or hissing.
