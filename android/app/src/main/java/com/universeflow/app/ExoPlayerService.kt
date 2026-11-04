@@ -396,6 +396,7 @@ class ExoPlayerService : MediaSessionService() {
                 }
                 NativeMediaEvents.ACTION_SHUFFLE -> {
                     shuffleOn = !shuffleOn
+                    try { player?.shuffleModeEnabled = shuffleOn } catch (_: Throwable) {}
                     NativeMediaEvents.emit(NativeMediaEvents.ACTION_SHUFFLE)
                 }
                 NativeMediaEvents.ACTION_REPEAT -> {
@@ -435,7 +436,11 @@ class ExoPlayerService : MediaSessionService() {
     /** Pushed from the web layer so the notification mirrors in-app state. */
     fun setMiniPlayerState(liked: Boolean?, shuffle: Boolean?, repeat: String?) {
         liked?.let { this.liked = it }
-        shuffle?.let { this.shuffleOn = it }
+        shuffle?.let {
+            this.shuffleOn = it
+            // Shuffle must change what plays next on the phone, not just the icon.
+            try { player?.shuffleModeEnabled = it } catch (_: Throwable) {}
+        }
         repeat?.let { if (it == "off" || it == "all" || it == "one") this.repeatMode = it }
         publishCustomLayout()
     }
