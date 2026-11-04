@@ -185,7 +185,14 @@ class RoomReverb {
 
     private fun retune() {
         if (combsL.isEmpty()) return
-        val scale = srScale * sizeScale
+        // Big rooms get their size from a longer decay and a longer pre-delay,
+        // NOT from stretching the delay lines. Stretching combs/diffusers 2x
+        // spaced the repeats ~80 ms apart, which the ear hears as a fluttery
+        // "cheap echo" rather than a smooth hall. Keep the network dense.
+        val combScale = sizeScale.coerceIn(0.6f, 1.35f)
+        val diffuserScale = sizeScale.coerceIn(0.7f, 1.1f)
+        val erScale = sizeScale.coerceIn(0.6f, 1.6f)
+        val scale = srScale * combScale
         for (i in combTunings.indices) {
             combsL[i].size = (combTunings[i] * scale).toInt()
             combsL[i].feedback = roomFeedback
@@ -195,13 +202,13 @@ class RoomReverb {
             combsR[i].damp = roomDamp
         }
         for (i in allpassTunings.indices) {
-            allpassL[i].size = (allpassTunings[i] * scale).toInt()
-            allpassR[i].size = ((allpassTunings[i] + stereoSpread) * scale).toInt()
+            allpassL[i].size = (allpassTunings[i] * srScale * diffuserScale).toInt()
+            allpassR[i].size = ((allpassTunings[i] + stereoSpread) * srScale * diffuserScale).toInt()
         }
         val erMax = erBufL.size - 1
         for (i in 0 until 6) {
-            erOffL[i] = (erTapsL[i] * sizeScale * sampleRate / 1000f).toInt().coerceIn(1, erMax)
-            erOffR[i] = (erTapsR[i] * sizeScale * sampleRate / 1000f).toInt().coerceIn(1, erMax)
+            erOffL[i] = (erTapsL[i] * erScale * sampleRate / 1000f).toInt().coerceIn(1, erMax)
+            erOffR[i] = (erTapsR[i] * erScale * sampleRate / 1000f).toInt().coerceIn(1, erMax)
         }
         predelayLen = ((predelayMs / 1000f) * sampleRate).toInt().coerceIn(1, predelayBuf.size - 1)
         dirty = false
@@ -221,13 +228,17 @@ class RoomReverb {
             return
         }
         // Band-limit the send: no bass boom, no hiss/sibilance in the tail.
+        // The high-pass keeps its OWN state. The old code overwrote it with the
+        // low-passed send every sample, which broke the filter so the bass cut
+        // never really happened and the room filled with low-end mud.
         hpStateL = hpCoeff * (hpStateL + inL - hpPrevL); hpPrevL = inL
         hpStateR = hpCoeff * (hpStateR + inR - hpPrevR); hpPrevR = inR
-        sendLpL += sendLpCoeff * (hpStateL - sendLpL)
-        sendLpR += sendLpCoeff * (hpStateR - sendLpR)
-        hpStateL = sendLpL; hpStateR = sendLpR
         if (kotlin.math.abs(hpStateL) < 1e-12f) hpStateL = 0f
         if (kotlin.math.abs(hpStateR) < 1e-12f) hpStateR = 0f
+        sendLpL += sendLpCoeff * (hpStateL - sendLpL)
+        sendLpR += sendLpCoeff * (hpStateR - sendLpR)
+        val sendL = sendLpL
+        val sendR = sendLpR
 
         // Dry envelope for ducking. Samples arrive in 16-bit scale
         // (+-32768), so normalise to 0..1 first. The old code compared the
@@ -237,15 +248,17 @@ class RoomReverb {
         env += (if (level > env) envAttack else envRelease) * (level - env)
 
         // Pre-delay (stereo-summed send for the late tail).
-        val mono = (hpStateL + hpStateR) * 0.5f
+        val mono = (sendL + sendR) * 0.5f
         val delayed = predelayBuf[predelayCursor]
         predelayBuf[predelayCursor] = mono
         if (++predelayCursor >= predelayLen) predelayCursor = 0
 
         // Early reflections keep stereo image (each ear hears its own walls),
         // with a little of the opposite wall bleeding in like a real room.
-        erBufL[erCursor] = hpStateL
-        erBufR[erCursor] = hpStateR
+        // They follow the pre-delay too: in a real hall the first wall bounce
+        // arrives after the gap, it doesn't double the voice instantly.
+        erBufL[erCursor] = sendL
+        erBufR[erCursor] = sendR
         val n = erBufL.size
         var erL = 0f
         var erR = 0f
@@ -257,7 +270,10 @@ class RoomReverb {
         }
         if (++erCursor >= n) erCursor = 0
 
-        val fed = delayed * 0.015f
+        // Walls feed the tail (as in a real room the late sound is built from
+        // the reflections), which makes the decay dense and smooth instead of
+        // a separate echo laid behind the song.
+        val fed = (delayed + (erL + erR) * 0.12f) * 0.015f
         var wetL = 0f
         var wetR = 0f
         for (i in combsL.indices) {
