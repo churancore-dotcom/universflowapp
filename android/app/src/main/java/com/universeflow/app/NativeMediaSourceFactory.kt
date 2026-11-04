@@ -102,7 +102,12 @@ object NativeMediaSourceFactory {
             .setCacheKeyFactory { spec: DataSpec ->
                 val u = spec.uri
                 if (u.scheme == SCHEME) "yt:${u.host ?: u.schemeSpecificPart?.removePrefix("//")?.substringBefore('?')}"
-                else if (u.scheme == METADATA_SCHEME) "metadata:${u.getQueryParameter("title")}:${u.getQueryParameter("artist")}"
+                else if (u.scheme == METADATA_SCHEME) {
+                    // Length-prefixed so "A:B"+"C" and "A"+"B:C" never share audio.
+                    val t = u.getQueryParameter("title").orEmpty()
+                    val a = u.getQueryParameter("artist").orEmpty()
+                    "metadata:${t.length}:$t:${a.length}:$a"
+                }
                 else spec.key ?: u.toString()
             }
 

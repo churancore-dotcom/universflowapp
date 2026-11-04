@@ -868,6 +868,13 @@ class ExoPlayerService : MediaSessionService() {
         tailProcessor?.setSpace(room, damping, wet, width, preDelayMs, size)
     }
 
+    /** Speed applies to both players so a crossfade never mixes two speeds. */
+    fun applyPlaybackSpeed(speed: Float) {
+        val params = androidx.media3.common.PlaybackParameters(speed)
+        try { player?.playbackParameters = params } catch (_: Throwable) {}
+        try { tailPlayer?.playbackParameters = params } catch (_: Throwable) {}
+    }
+
     /** Studio Space set to Off: the plain reverb slider takes over again. */
     fun clearSpace() {
         savedSpace = null
