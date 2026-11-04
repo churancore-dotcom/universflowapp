@@ -95,9 +95,16 @@ Deno.serve(async (req) => {
       .or("last_mood_push_at.is.null,last_mood_push_at.lt." + new Date(Date.now() - 18 * 3600 * 1000).toISOString())
       .limit(500);
 
-    const results: Array<{ user: string; mood: string; ok: boolean }> = [];
+    // Only users with a registered phone can receive a push. Picking 500
+    // profiles first and then requiring recent plays meant the chosen users
+    // almost never had a device, so every run "sent" to 0 phones.
+    const { data: tokenRows } = await admin.from("device_tokens").select("user_id");
+    const withDevice = new Set((tokenRows ?? []).map((r) => r.user_id).filter(Boolean));
+    const reachable = (candidates ?? []).filter((p) => withDevice.has(p.user_id));
 
-    for (const p of candidates ?? []) {
+    const results: Array<{ ok: boolean }> = [];
+
+    for (const p of reachable) {
       // Recent plays
       const { data: plays } = await admin
         .from("song_play_events")
@@ -107,13 +114,12 @@ Deno.serve(async (req) => {
         .order("created_at", { ascending: false })
         .limit(10);
 
-      if (!plays || plays.length < 3) continue; // need signal
-
-      const songs = plays.map((x) => `${x.title} - ${x.artist}`);
+      // No recent listening is fine: the mood falls back to the time of day.
+      const songs = (plays ?? []).map((x) => `${x.title} - ${x.artist}`);
       const hour = new Date().getUTCHours(); // approximate; could be refined per-country
       const mood = await inferMood(songs, hour, GEMINI_KEY);
       // Only a strict 2-letter country code may reach the PostgREST filter string.
-      const rawCountry = String(p.country_code || plays[0]?.country_code || "").trim().toUpperCase();
+      const rawCountry = String(p.country_code || plays?.[0]?.country_code || "").trim().toUpperCase();
       const country = /^[A-Z]{2}$/.test(rawCountry) ? rawCountry : null;
 
       // Pick a real viral track matching mood region; fallback to global
