@@ -7,6 +7,7 @@ import androidx.media3.common.C
 import androidx.media3.database.StandaloneDatabaseProvider
 import androidx.media3.datasource.DataSource
 import androidx.media3.datasource.DataSpec
+import androidx.media3.datasource.DefaultDataSource
 import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSink
@@ -56,8 +57,13 @@ object NativeMediaSourceFactory {
             .setConnectTimeoutMs(12000)
             .setReadTimeoutMs(20000)
 
+        // DefaultDataSource opens file:// / content:// itself and hands http(s)
+        // to the HTTP factory. The upstream used to be HTTP-only, so downloaded
+        // songs (saved as real files) could never play offline in the APK.
+        val upstreamFactory = DefaultDataSource.Factory(ctx.applicationContext, httpFactory)
+
         // Resolves yt://<id> -> direct googlevideo URL (or refreshes a stale one).
-        val resolvingFactory = ResolvingDataSource.Factory(httpFactory, ResolvingDataSource.Resolver { dataSpec ->
+        val resolvingFactory = ResolvingDataSource.Factory(upstreamFactory, ResolvingDataSource.Resolver { dataSpec ->
             val uri = dataSpec.uri
             if (uri.scheme != SCHEME && uri.scheme != METADATA_SCHEME) return@Resolver dataSpec
             val videoId = if (uri.scheme == SCHEME) {
