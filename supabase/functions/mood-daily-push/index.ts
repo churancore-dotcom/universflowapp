@@ -18,8 +18,19 @@ const MOOD_TEMPLATES: Record<string, { title: string; body: (s: string, a: strin
   happy:     { title: "Good vibes only",   body: (s, a) => `“${s}” by ${a} is making everyone smile today` },
 };
 
+// The cron runs at 03:30 and 13:30 UTC (morning / evening in India), so pick
+// a mood that fits the local part of the day rather than one fixed word.
+function timeOfDayMood(hour: number): string {
+  const ist = (hour + 5) % 24; // approximate IST; most listeners are in India
+  if (ist < 6) return "chill";
+  if (ist < 11) return Math.random() < 0.5 ? "happy" : "focus";
+  if (ist < 17) return Math.random() < 0.5 ? "focus" : "hype";
+  if (ist < 21) return Math.random() < 0.5 ? "hype" : "power";
+  return Math.random() < 0.5 ? "romantic" : "chill";
+}
+
 async function inferMood(songs: string[], hour: number, apiKey: string): Promise<string> {
-  if (songs.length === 0) return hour >= 22 || hour < 6 ? "chill" : "hype";
+  if (songs.length === 0 || !apiKey) return timeOfDayMood(hour);
   const prompt = `Given recent songs played by a user and the local hour, output ONE mood word from: sad, chill, hype, focus, romantic, power, happy. JSON only.\n\nHour: ${hour}\nSongs: ${songs.slice(0, 10).join(" | ")}\n\nRespond: {"mood":"<word>"}`;
   try {
     const res = await fetch(
@@ -71,12 +82,9 @@ Deno.serve(async (req) => {
   try {
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
     const SERVICE_ROLE = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-    const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY");
-    if (!GEMINI_KEY) {
-      return new Response(JSON.stringify({ error: "Server misconfigured" }), {
-        status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
+    // Mood guessing is optional: without the key we fall back to time of day
+    // instead of cancelling every user's message.
+    const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 
     const admin = createClient(SUPABASE_URL, SERVICE_ROLE);
 
@@ -126,7 +134,8 @@ Deno.serve(async (req) => {
       const { data: picks } = await admin
         .from("chart_tracks")
         .select("title, artist, country_code")
-        .or(country ? `country_code.eq.${country},country_code.is.null` : "country_code.is.null")
+        // Charts store worldwide rows as 'GLOBAL', never NULL.
+        .or(country ? `country_code.eq.${country},country_code.eq.GLOBAL` : "country_code.eq.GLOBAL")
         .order("rank", { ascending: true })
         .limit(20);
 
@@ -154,7 +163,13 @@ Deno.serve(async (req) => {
         }),
       });
 
-      const ok = pushRes.ok;
+      // HTTP 200 is returned even when no phone accepted the message, so only
+      // count it (and start the 18h pause) when at least one phone got it.
+      let ok = false;
+      if (pushRes.ok) {
+        const info = await pushRes.json().catch(() => ({}));
+        ok = Number(info?.success_count ?? 0) > 0;
+      }
       if (ok) {
         await admin.from("profiles")
           .update({ last_mood_push_at: new Date().toISOString() })

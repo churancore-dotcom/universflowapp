@@ -455,13 +455,11 @@ export async function applyNativeAudioEffects(opts: {
  * 5-band layout. The plugin caches them in `savedEqBands` and re-applies
  * the instant effects bind — so tweaking EQ before hitting play works.
  */
-const FALLBACK_NATIVE_BANDS: NativeEQBandInfo[] = [
-  { index: 0, centerFrequencyHz: 60,    minFrequencyHz: 30,    maxFrequencyHz: 120 },
-  { index: 1, centerFrequencyHz: 230,   minFrequencyHz: 120,   maxFrequencyHz: 460 },
-  { index: 2, centerFrequencyHz: 910,   minFrequencyHz: 460,   maxFrequencyHz: 1800 },
-  { index: 3, centerFrequencyHz: 3600,  minFrequencyHz: 1800,  maxFrequencyHz: 7000 },
-  { index: 4, centerFrequencyHz: 14000, minFrequencyHz: 7000,  maxFrequencyHz: 20000 },
-];
+// Matches the APK's own 10-band equalizer (31 Hz .. 16 kHz). The old 5-band
+// guess put e.g. the 14 kHz value onto native band 4 (500 Hz) on cold start.
+const FALLBACK_NATIVE_BANDS: NativeEQBandInfo[] = [31, 62, 125, 250, 500, 1000, 2000, 4000, 8000, 16000].map(
+  (hz, index) => ({ index, centerFrequencyHz: hz, minFrequencyHz: Math.round(hz / 1.414), maxFrequencyHz: Math.round(hz * 1.414) }),
+);
 
 export async function pushNativeEQFromWebBands(
   webBands: number[],

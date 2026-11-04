@@ -120,6 +120,13 @@
       "when": 1792833212509,
       "tag": "0016_require_verified_email_for_artist_invite",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1793798795337,
+      "tag": "0017_daily_mix_cron_secret",
+      "breakpoints": true
     }
   ]
 }

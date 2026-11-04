@@ -406,7 +406,8 @@ const toNativeQueueTrack = (song: Song, index: number): NativeQueueTrack => ({
   title: song.title || '',
   artist: song.artist || '',
   artworkUrl: song.cover_url,
-  url: song.audio_url,
+  // Downloaded songs later in the queue must auto-play from the phone too.
+  url: (() => { const local = getOfflineUrl(song.id); return local && /^(file|content):/.test(local) ? local : song.audio_url; })(),
   videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
 });
 
@@ -470,6 +471,83 @@ const loadYouTubeIframeApi = (): Promise<typeof window.YT> => {
 
   return youtubeIframeApiPromise;
 };
+
+/**
+ * Record one listen (device history + server play event) after 30 seconds of
+ * the same song. Shared by every playback path: the Android player starts and
+ * auto-advances songs on its own, and those plays used to skip this entirely,
+ * so APK listening never reached history, trending or artist play counts.
+ */
+function schedulePlayRecord(song: Song, timerRef: React.MutableRefObject<number | null>) {
+  // Track recently played — DEBOUNCED: only log if user actually listens
+  // for 30s. Cancels previous pending log if user skips quickly.
+  // Also: only catalog UUIDs are valid for recently_played.song_id (uuid column).
+  if (timerRef.current) {
+    clearTimeout(timerRef.current);
+    timerRef.current = null;
+  }
+  const isCatalogUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(song.id);
+  const trackIdForEvent = (song.id || `${song.artist}-${song.title}`).slice(0, 220);
+  const sourceForEvent = isCatalogUuid ? 'catalog' : (song.id?.startsWith('yt-') ? 'youtube' : (song.id?.startsWith('audius-') ? 'audius' : 'external'));
+  timerRef.current = window.setTimeout(() => {
+    timerRef.current = null;
+    // Device history is written for everyone (signed in or not) so the local
+    // taste profile works from the very first session.
+    if (song.id) {
+      import('@/lib/localRecentlyPlayed').then((m) =>
+        m.pushLocalRecent(null, song.id, {
+          id: song.id,
+          title: song.title,
+          artist: song.artist,
+          album: song.album,
+          cover_url: song.cover_url,
+          audio_url: song.audio_url,
+          duration: song.duration,
+        }),
+      );
+    }
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!user) return;
+      // Jump Back In is per-device only — write to localStorage, NOT the cloud.
+      // Store snapshot for non-catalog ids (yt-…/ytm-…) so Home can rehydrate.
+      if (song.id) {
+        import('@/lib/localRecentlyPlayed').then((m) =>
+          m.pushLocalRecent(user.id, song.id, {
+            id: song.id,
+            title: song.title,
+            artist: song.artist,
+            album: song.album,
+            cover_url: song.cover_url,
+            audio_url: song.audio_url,
+            duration: song.duration,
+          }),
+        );
+      }
+
+      // Anonymized aggregate analytics only (no per-user history reveal).
+      void detectCountrySilently().then((countryCode) => supabase.from('song_play_events').insert({
+        user_id: user.id,
+        track_id: trackIdForEvent,
+        song_id: isCatalogUuid ? song.id : null,
+        title: (song.title || 'Unknown').slice(0, 220),
+        artist: (song.artist || 'Unknown').slice(0, 220),
+        cover_url: song.cover_url || null,
+        source: sourceForEvent,
+        action: 'stream',
+        score_weight: 3,
+        country_code: countryCode || null,
+      })).then(({ error }) => { if (error) console.warn('[player] play event not saved', error.message); });
+      // Bump artist_songs.play_count so the artist dashboard sees plays
+      // arriving in real time. The RPC no-ops if the id doesn't match a
+      // live artist_songs row, so it's safe for catalog/YT ids too.
+      if (isCatalogUuid) {
+        supabase.rpc('increment_artist_song_play', { _song_id: song.id })
+          .then(() => {}, () => {});
+      }
+
+    }).catch(() => {});
+  }, 30000);
+}
 
 export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentSong, setCurrentSong] = useState<Song | null>(null);
@@ -2561,6 +2639,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           setProgress(0);
           if (nextSong.duration) setDuration(nextSong.duration);
           void publishNativeMusicControls(nextSong, true, nextSong.duration);
+          schedulePlayRecord(nextSong, recentlyPlayedTimerRef);
           // ExoPlayer may allocate a new audio session id when transitioning
           // media items; re-push the user's EQ so it survives the swap.
           reapplyNativeEqSoon();
@@ -2911,6 +2990,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (canStartNativeQueue) {
           await ExoPlayerPlugin.playQueue({ tracks: buildNativeQueuePayload(nativeQueue, nativeIndex), startIndex: nativeIndex });
           if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          schedulePlayRecord(song, recentlyPlayedTimerRef);
           queueRef.current = nativeQueue;
           setQueueState(nativeQueue);
           setCurrentIndex(nativeIndex);
@@ -2937,6 +3017,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           artworkUrl: refreshedSong.cover_url || undefined,
         });
         clearNativeStartupTimer();
+        schedulePlayRecord(song, recentlyPlayedTimerRef);
         nativeStartupTimerRef.current = window.setTimeout(() => {
           if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
           console.warn('[player/native] startup timeout; retrying fallback for', song.title);
@@ -3054,74 +3135,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
     }
 
-    // Track recently played — DEBOUNCED: only log if user actually listens
-    // for 30s. Cancels previous pending log if user skips quickly.
-    // Also: only catalog UUIDs are valid for recently_played.song_id (uuid column).
-    if (recentlyPlayedTimerRef.current) {
-      clearTimeout(recentlyPlayedTimerRef.current);
-      recentlyPlayedTimerRef.current = null;
-    }
-    const isCatalogUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(song.id);
-    const trackIdForEvent = (song.id || `${song.artist}-${song.title}`).slice(0, 220);
-    const sourceForEvent = isCatalogUuid ? 'catalog' : (song.id?.startsWith('yt-') ? 'youtube' : (song.id?.startsWith('audius-') ? 'audius' : 'external'));
-    recentlyPlayedTimerRef.current = window.setTimeout(() => {
-      recentlyPlayedTimerRef.current = null;
-      // Device history is written for everyone (signed in or not) so the local
-      // taste profile works from the very first session.
-      if (song.id) {
-        import('@/lib/localRecentlyPlayed').then((m) =>
-          m.pushLocalRecent(null, song.id, {
-            id: song.id,
-            title: song.title,
-            artist: song.artist,
-            album: song.album,
-            cover_url: song.cover_url,
-            audio_url: song.audio_url,
-            duration: song.duration,
-          }),
-        );
-      }
-      supabase.auth.getUser().then(({ data: { user } }) => {
-        if (!user) return;
-        // Jump Back In is per-device only — write to localStorage, NOT the cloud.
-        // Store snapshot for non-catalog ids (yt-…/ytm-…) so Home can rehydrate.
-        if (song.id) {
-          import('@/lib/localRecentlyPlayed').then((m) =>
-            m.pushLocalRecent(user.id, song.id, {
-              id: song.id,
-              title: song.title,
-              artist: song.artist,
-              album: song.album,
-              cover_url: song.cover_url,
-              audio_url: song.audio_url,
-              duration: song.duration,
-            }),
-          );
-        }
-
-        // Anonymized aggregate analytics only (no per-user history reveal).
-        void detectCountrySilently().then((countryCode) => supabase.from('song_play_events').insert({
-          user_id: user.id,
-          track_id: trackIdForEvent,
-          song_id: isCatalogUuid ? song.id : null,
-          title: (song.title || 'Unknown').slice(0, 220),
-          artist: (song.artist || 'Unknown').slice(0, 220),
-          cover_url: song.cover_url || null,
-          source: sourceForEvent,
-          action: 'stream',
-          score_weight: 3,
-          country_code: countryCode || null,
-        })).then(() => {});
-        // Bump artist_songs.play_count so the artist dashboard sees plays
-        // arriving in real time. The RPC no-ops if the id doesn't match a
-        // live artist_songs row, so it's safe for catalog/YT ids too.
-        if (isCatalogUuid) {
-          supabase.rpc('increment_artist_song_play', { _song_id: song.id })
-            .then(() => {}, () => {});
-        }
-
-      }).catch(() => {});
-    }, 30000);
+    schedulePlayRecord(song, recentlyPlayedTimerRef);
   }, [isPlayableUrl, resolveAudioUrl, resolveNativePlaybackUrl, teardownYouTubePlayback, publishNativeMusicControls, playSongAtIndex, playYouTubeFallback, getNextIndex, clearNativeStartupTimer, markNativePlayIntent]);
 
   const playSong = useCallback((song: Song, offlineUrl?: string | null, songsQueue?: Song[], options?: { curated?: boolean }) => {
@@ -3350,7 +3364,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // me". Without this the feed only ever learned from plays, so it drifted
     // toward whatever was played once and never corrected itself.
     const skipped = currentSong;
-    const heardFor = audioRef.current?.currentTime ?? 0;
+    // On Android the web <audio> element never plays, so read the shared
+    // progress clock (fed by the native player) instead of audio.currentTime.
+    const heardFor = isNativePlayerAvailable()
+      ? playerProgressStore.getEstimatedProgress()
+      : (audioRef.current?.currentTime ?? 0);
     if (skipped && heardFor > 0.5 && heardFor < 15) {
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;

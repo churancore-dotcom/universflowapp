@@ -73,6 +73,10 @@ class ExoPlayerPlugin : Plugin() {
      *   already has.
      */
     private fun playbackUriFor(track: NativeTrack): String? {
+        // A downloaded song must play from the phone first. Checking the
+        // YouTube id first sent downloads through the online resolver, which
+        // stalls in airplane mode and streams instead of using the file.
+        track.url?.takeIf { it.startsWith("file:") || it.startsWith("content:") }?.let { return it }
         val vid = track.videoId?.takeIf { it.length == 11 }
         if (vid != null) {
             val builder = Uri.Builder()
@@ -169,17 +173,21 @@ class ExoPlayerPlugin : Plugin() {
         }
     }
 
+    private var mediaActionCallback: ((String) -> Unit)? = null
+
     override fun load() {
         super.load()
         ensureServiceAvailable()
         // Lock-screen / Control-Center mini player buttons (like, shuffle,
         // repeat) are handled by the MediaSession; forward each press to the
         // web layer so in-app state stays in sync.
-        NativeMediaEvents.onAction = { action ->
+        val callback: (String) -> Unit = { action ->
             try {
                 notifyListeners("mediaButton", JSObject().put("action", action))
             } catch (_: Throwable) {}
         }
+        mediaActionCallback = callback
+        NativeMediaEvents.onAction = callback
     }
 
     /** Mirror in-app like / shuffle / repeat state onto the notification. */
@@ -911,7 +919,7 @@ class ExoPlayerPlugin : Plugin() {
     fun setPlaybackSpeed(call: PluginCall) {
         val speed = (call.getDouble("speed") ?: 1.0).coerceIn(0.5, 2.0).toFloat()
         runWhenReady(5_000L, { call.reject("Audio service unavailable") }) {
-            try { service()?.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}
+            service()?.applyPlaybackSpeed(speed)
             call.resolve()
         }
     }
@@ -968,7 +976,7 @@ class ExoPlayerPlugin : Plugin() {
             // Stem Lab owns the native stem processor independently. Reapplying
             // EQ must never overwrite the active per-song remix.
             svc.ensureEffectsBound(forceReapply = true)
-            try { svc.player?.setPlaybackParameters(PlaybackParameters(speed)) } catch (_: Throwable) {}
+            svc.applyPlaybackSpeed(speed)
             svc.applyReverb(reverb)
             svc.persistEffectState()
 
@@ -977,6 +985,10 @@ class ExoPlayerPlugin : Plugin() {
     }
 
     override fun handleOnDestroy() {
+        // Stop sending notification button presses to this destroyed screen,
+        // but never clear a newer screen's callback.
+        if (NativeMediaEvents.onAction === mediaActionCallback) NativeMediaEvents.onAction = null
+        mediaActionCallback = null
         playGeneration.incrementAndGet()
         stopProgress()
         playerListener?.let { listenerPlayer?.removeListener(it) }
