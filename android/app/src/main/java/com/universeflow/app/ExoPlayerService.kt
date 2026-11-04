@@ -441,7 +441,19 @@ class ExoPlayerService : MediaSessionService() {
             // Shuffle must change what plays next on the phone, not just the icon.
             try { player?.shuffleModeEnabled = it } catch (_: Throwable) {}
         }
-        repeat?.let { if (it == "off" || it == "all" || it == "one") this.repeatMode = it }
+        repeat?.let {
+            if (it == "off" || it == "all" || it == "one") {
+                this.repeatMode = it
+                // One repeat state for in-app and notification controls.
+                try {
+                    player?.repeatMode = when (it) {
+                        "one" -> Player.REPEAT_MODE_ONE
+                        "all" -> Player.REPEAT_MODE_ALL
+                        else -> Player.REPEAT_MODE_OFF
+                    }
+                } catch (_: Throwable) {}
+            }
+        }
         publishCustomLayout()
     }
 

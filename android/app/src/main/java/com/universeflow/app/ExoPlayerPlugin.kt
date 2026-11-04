@@ -484,6 +484,35 @@ class ExoPlayerPlugin : Plugin() {
         )
     }
 
+    /**
+     * Mirror in-app queue edits (remove/reorder/add) into ExoPlayer without
+     * touching the song that is playing, so background autoplay follows the
+     * queue the user actually sees.
+     */
+    @PluginMethod
+    fun syncQueue(call: PluginCall) {
+        val arr = call.getArray("tracks")
+        val currentIndex = call.getInt("currentIndex") ?: -1
+        if (arr == null || currentIndex < 0 || currentIndex >= arr.length()) { call.resolve(); return }
+        val tracks = (0 until arr.length()).mapNotNull { parseTrack(arr.optJSONObject(it), it) }
+        if (tracks.size != arr.length()) { call.resolve(); return }
+        runOnMain {
+            val p = service()?.player
+            val count = p?.mediaItemCount ?: 0
+            if (p == null || count == 0 || isStartingUp) { call.resolve(); return@runOnMain }
+            val curTitle = p.currentMediaItem?.mediaMetadata?.title?.toString() ?: ""
+            if (curTitle != tracks[currentIndex].title) { call.resolve(); return@runOnMain }
+            val cur = p.currentMediaItemIndex
+            val before = tracks.take(currentIndex).mapNotNull { t -> playbackUriFor(t)?.let { mediaItemFor(t, it) } }
+            val after = tracks.drop(currentIndex + 1).mapNotNull { t -> playbackUriFor(t)?.let { mediaItemFor(t, it) } }
+            if (cur + 1 < count) p.removeMediaItems(cur + 1, count)
+            if (cur > 0) p.removeMediaItems(0, cur)
+            if (before.isNotEmpty()) p.addMediaItems(0, before)
+            if (after.isNotEmpty()) p.addMediaItems(after)
+            call.resolve()
+        }
+    }
+
     @PluginMethod
     fun preloadQueue(call: PluginCall) {
         val arr = call.getArray("tracks")
