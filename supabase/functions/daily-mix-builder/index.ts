@@ -101,6 +101,18 @@ Deno.serve(async (req) => {
   const cronSecret = Deno.env.get("CRON_SECRET") ?? "";
   let authorized = !!cronSecret && cronHeader === cronSecret;
 
+  // Same stored cron secret the chart and mood jobs use. The nightly schedule
+  // used to send no secret at all, so Daily Mixes were never rebuilt.
+  if (!authorized && cronHeader) {
+    try {
+      const svc = createClient(SUPABASE_URL, SERVICE_KEY);
+      const { data } = await svc.from("internal_secrets").select("value")
+        .eq("key", "chart_aggregator_cron_secret").maybeSingle();
+      const stored = typeof data?.value === "string" ? data.value.trim() : "";
+      authorized = stored.length > 0 && stored === cronHeader.trim();
+    } catch (_) { /* fall through to admin check */ }
+  }
+
   if (!authorized) {
     const authHeader = req.headers.get("Authorization") ?? "";
     if (authHeader.startsWith("Bearer ")) {
