@@ -594,7 +594,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       } catch (e) {
         await deleteOfflineAudioFile(nativeUrl);
         if (cancelledIdsRef.current.has(song.id)) { try { await deleteFromDB(song.id); } catch {} }
-        if (!nativeUrl) objectUrls.current.revoke?.(playableUrl);
+        if (!nativeUrl) objectUrls.current.release(playableUrl);
         throw e;
       }
 
