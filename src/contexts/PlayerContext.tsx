@@ -2989,6 +2989,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (canStartNativeQueue) {
           await ExoPlayerPlugin.playQueue({ tracks: buildNativeQueuePayload(nativeQueue, nativeIndex), startIndex: nativeIndex });
           if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
+          schedulePlayRecord(song, recentlyPlayedTimerRef);
           queueRef.current = nativeQueue;
           setQueueState(nativeQueue);
           setCurrentIndex(nativeIndex);
@@ -3015,6 +3016,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           artworkUrl: refreshedSong.cover_url || undefined,
         });
         clearNativeStartupTimer();
+        schedulePlayRecord(song, recentlyPlayedTimerRef);
         nativeStartupTimerRef.current = window.setTimeout(() => {
           if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
           console.warn('[player/native] startup timeout; retrying fallback for', song.title);
