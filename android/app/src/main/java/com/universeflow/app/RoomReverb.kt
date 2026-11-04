@@ -250,7 +250,6 @@ class RoomReverb {
         val level = max(kotlin.math.abs(inL), kotlin.math.abs(inR)) * INV_FULL_SCALE
         env += (if (level > env) envAttack else envRelease) * (level - env)
 
-        // Pre-delay (stereo-summed send for the late tail).
         // Stereo pre-delay: the gap before the room answers is the main cue
         // for room size, so walls and tail both start after it.
         val delayedL = predelayBuf[predelayCursor]
