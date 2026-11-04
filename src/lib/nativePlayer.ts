@@ -78,6 +78,7 @@ export interface NativeQueueTrack {
 interface ExoPlayerPluginShape {
   play: (opts: { url: string; title: string; artist: string; artworkUrl?: string }) => Promise<void>;
   playQueue: (opts: { tracks: NativeQueueTrack[]; startIndex: number }) => Promise<void>;
+  syncQueue: (opts: { tracks: NativeQueueTrack[]; currentIndex: number }) => Promise<void>;
   preloadQueue: (opts: { tracks: NativeQueueTrack[]; limit?: number }) => Promise<void>;
   configureTransitions: (opts: { crossfade: boolean; duration: number; curve: string; gaplessPro: boolean; gapless: boolean }) => Promise<void>;
   pause: () => Promise<void>;
