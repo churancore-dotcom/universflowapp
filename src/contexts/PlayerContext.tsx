@@ -406,7 +406,8 @@ const toNativeQueueTrack = (song: Song, index: number): NativeQueueTrack => ({
   title: song.title || '',
   artist: song.artist || '',
   artworkUrl: song.cover_url,
-  url: song.audio_url,
+  // Downloaded songs later in the queue must auto-play from the phone too.
+  url: (() => { const local = getOfflineUrl(song.id); return local && /^(file|content):/.test(local) ? local : song.audio_url; })(),
   videoId: getNativePlaybackVideoId(song as Song & { videoId?: string }) || undefined,
 });
 
