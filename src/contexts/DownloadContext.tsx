@@ -257,8 +257,12 @@ const saveToDB = async (song: DownloadedSong, audioBlob: Blob, coverBlob?: Blob 
       };
       
       const request = store.put(songData);
+      // Resolve only once the transaction commits; a request can succeed and
+      // the transaction still abort (quota), losing the download on restart.
       request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = () => reject(transaction.error || new Error('Download save aborted'));
+      transaction.onerror = () => reject(transaction.error || request.error);
     });
   } catch (error: any) {
     console.warn('Failed to save to IndexedDB:', error);
@@ -298,8 +302,12 @@ const deleteFromDB = async (id: string): Promise<void> => {
       const store = transaction.objectStore(STORE_NAME);
       const request = store.delete(id);
       
+      // Resolve only once the transaction commits; a request can succeed and
+      // the transaction still abort (quota), losing the download on restart.
       request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = () => reject(transaction.error || new Error('Download save aborted'));
+      transaction.onerror = () => reject(transaction.error || request.error);
     });
   } catch (error: any) {
     console.warn('Failed to delete from IndexedDB:', error);
@@ -337,8 +345,12 @@ const clearDB = async (): Promise<void> => {
       const store = transaction.objectStore(STORE_NAME);
       const request = store.clear();
       
+      // Resolve only once the transaction commits; a request can succeed and
+      // the transaction still abort (quota), losing the download on restart.
       request.onerror = () => reject(request.error);
-      request.onsuccess = () => resolve();
+      transaction.oncomplete = () => resolve();
+      transaction.onabort = () => reject(transaction.error || new Error('Download save aborted'));
+      transaction.onerror = () => reject(transaction.error || request.error);
     });
   } catch (error: any) {
     console.warn('Failed to clear IndexedDB:', error);
@@ -549,8 +561,21 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         }
       }
 
+      const throwIfCancelled = () => {
+        if (controller.signal.aborted || cancelledIdsRef.current.has(song.id)) {
+          const e = new Error('Download cancelled'); e.name = 'AbortError'; throw e;
+        }
+      };
+      throwIfCancelled();
+
       // Android needs a real file for ExoPlayer; the web keeps the blob URL.
       const nativeUrl = await saveOfflineAudioFile(song.id, blob);
+      if (isNativePlayerAvailable() && !nativeUrl) {
+        // ExoPlayer cannot play blob: URLs — never report a download the
+        // phone can't actually play (usually storage full).
+        throw new Error('Could not save the song on this phone. Free up some storage and try again.');
+      }
+      try { throwIfCancelled(); } catch (e) { await deleteOfflineAudioFile(nativeUrl); throw e; }
       const playableUrl = nativeUrl || objectUrls.current.create(blob);
 
       const downloadedSong: DownloadedSong = {
@@ -563,7 +588,15 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       };
 
       // Save to IndexedDB
-      await saveToDB({ ...downloadedSong, cover_url: downloadableSong.cover_url }, blob, coverBlob);
+      try {
+        await saveToDB({ ...downloadedSong, cover_url: downloadableSong.cover_url }, blob, coverBlob);
+        throwIfCancelled();
+      } catch (e) {
+        await deleteOfflineAudioFile(nativeUrl);
+        if (cancelledIdsRef.current.has(song.id)) { try { await deleteFromDB(song.id); } catch {} }
+        if (!nativeUrl) objectUrls.current.revoke?.(playableUrl);
+        throw e;
+      }
 
       // Update state
       setDownloads(prev => [...prev, downloadedSong]);
@@ -598,7 +631,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         toast.info('Download cancelled');
       } else {
         console.error('Download failed:', error);
-        toast.error(getDownloadUnavailableMessage(song));
+        toast.error(/storage/i.test(String(error?.message)) ? error.message : getDownloadUnavailableMessage(song));
       }
       setDownloadProgress(prev => ({
         ...prev,
