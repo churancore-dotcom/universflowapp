@@ -3363,7 +3363,11 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // me". Without this the feed only ever learned from plays, so it drifted
     // toward whatever was played once and never corrected itself.
     const skipped = currentSong;
-    const heardFor = audioRef.current?.currentTime ?? 0;
+    // On Android the web <audio> element never plays, so read the shared
+    // progress clock (fed by the native player) instead of audio.currentTime.
+    const heardFor = isNativePlayerAvailable()
+      ? playerProgressStore.getEstimatedProgress()
+      : (audioRef.current?.currentTime ?? 0);
     if (skipped && heardFor > 0.5 && heardFor < 15) {
       supabase.auth.getUser().then(({ data: { user } }) => {
         if (!user) return;
