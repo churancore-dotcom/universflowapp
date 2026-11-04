@@ -71,7 +71,7 @@ class RoomReverb {
     // Early reflection taps (ms at size 100%) and gains, L and R differ.
     private val erTapsL = floatArrayOf(4.3f, 9.7f, 15.1f, 21.9f, 29.3f, 37.1f)
     private val erTapsR = floatArrayOf(5.1f, 11.3f, 17.6f, 24.2f, 31.8f, 40.6f)
-    private val erGains = floatArrayOf(0.62f, 0.48f, 0.38f, 0.30f, 0.22f, 0.16f)
+    private val erGains = floatArrayOf(0.70f, 0.56f, 0.46f, 0.38f, 0.30f, 0.24f)
 
     private var combsL = emptyArray<Comb>()
     private var combsR = emptyArray<Comb>()
@@ -132,11 +132,11 @@ class RoomReverb {
         predelayCursor = 0
         erCursor = 0
         val dt = 1f / sampleRate
-        val rcHp = 1f / (2f * Math.PI.toFloat() * 220f)
+        val rcHp = 1f / (2f * Math.PI.toFloat() * 130f)
         hpCoeff = rcHp / (rcHp + dt)
-        val rcLp = 1f / (2f * Math.PI.toFloat() * 6500f)
+        val rcLp = 1f / (2f * Math.PI.toFloat() * 8500f)
         lpCoeff = dt / (rcLp + dt)
-        val rcSend = 1f / (2f * Math.PI.toFloat() * 7500f)
+        val rcSend = 1f / (2f * Math.PI.toFloat() * 10000f)
         sendLpCoeff = dt / (rcSend + dt)
         // Slow-ish duck so the tail level glides instead of fluttering
         // (fast ducking modulated the tail and made it sound grainy).
@@ -156,8 +156,8 @@ class RoomReverb {
      * @param sizePercent   50..240 physical room scaling
      */
     fun setSpace(roomPercent: Int, dampPercent: Int, wetPercent: Int, widthPercent: Int, preDelayMs: Int, sizePercent: Int) {
-        roomFeedback = 0.72f + roomPercent.coerceIn(0, 100) / 100f * 0.21f
-        roomDamp = 0.1f + dampPercent.coerceIn(0, 100) / 100f * 0.6f
+        roomFeedback = 0.74f + roomPercent.coerceIn(0, 100) / 100f * 0.23f
+        roomDamp = 0.08f + dampPercent.coerceIn(0, 100) / 100f * 0.5f
         targetWet = wetPercent.coerceIn(0, 100) / 100f
         targetWidth = widthPercent.coerceIn(0, 100) / 100f
         predelayMs = preDelayMs.coerceIn(0, 240).toFloat()
@@ -277,12 +277,12 @@ class RoomReverb {
         // and above), full room in breaks and phrase endings. That is what
         // makes the space clearly audible without fogging the vocal.
         val x = (env * 3f).coerceIn(0f, 1f)
-        val duck = 1f - 0.5f * (x * x * (3f - 2f * x))
-        val tailGain = currentWet * 2.5f * duck
-        val erGain = currentWet * 0.85f * (0.6f + 0.4f * duck)
+        val duck = 1f - 0.3f * (x * x * (3f - 2f * x))
+        val tailGain = currentWet * 4.2f * duck
+        val erGain = currentWet * 1.3f * (0.7f + 0.3f * duck)
         // Trim the dry a touch as the room grows so dry + room keeps the same
         // loudness and never pushes the limiter (no pumping, no distortion).
-        val dryTrim = 1f - currentWet * 0.3f
+        val dryTrim = 1f - currentWet * 0.4f
         out[0] = inL * dryTrim + erL * erGain + (lpL * w1 + lpR * w2) * tailGain
         out[1] = inR * dryTrim + erR * erGain + (lpR * w1 + lpL * w2) * tailGain
     }
