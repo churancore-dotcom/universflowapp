@@ -79,6 +79,7 @@ class RoomReverb {
     private var allpassR = emptyArray<Allpass>()
 
     private var predelayBuf = FloatArray(1)
+    private var predelayBufR = FloatArray(1)
     private var predelayCursor = 0
     private var predelayLen = 1
     private var erBufL = FloatArray(1)
@@ -127,6 +128,7 @@ class RoomReverb {
         allpassL = Array(allpassTunings.size) { Allpass((allpassTunings[it] * head).toInt() + 8) }
         allpassR = Array(allpassTunings.size) { Allpass(((allpassTunings[it] + stereoSpread) * head).toInt() + 8) }
         predelayBuf = FloatArray((sampleRate * 0.25f).toInt().coerceAtLeast(64))
+        predelayBufR = FloatArray(predelayBuf.size)
         erBufL = FloatArray((sampleRate * 0.1f).toInt().coerceAtLeast(64))
         erBufR = FloatArray(erBufL.size)
         predelayCursor = 0
@@ -171,6 +173,7 @@ class RoomReverb {
         allpassL.forEach { it.clear() }
         allpassR.forEach { it.clear() }
         java.util.Arrays.fill(predelayBuf, 0f)
+        java.util.Arrays.fill(predelayBufR, 0f)
         java.util.Arrays.fill(erBufL, 0f)
         java.util.Arrays.fill(erBufR, 0f)
         predelayCursor = 0
@@ -248,17 +251,21 @@ class RoomReverb {
         env += (if (level > env) envAttack else envRelease) * (level - env)
 
         // Pre-delay (stereo-summed send for the late tail).
-        val mono = (sendL + sendR) * 0.5f
-        val delayed = predelayBuf[predelayCursor]
-        predelayBuf[predelayCursor] = mono
+        // Stereo pre-delay: the gap before the room answers is the main cue
+        // for room size, so walls and tail both start after it.
+        val delayedL = predelayBuf[predelayCursor]
+        val delayedR = predelayBufR[predelayCursor]
+        predelayBuf[predelayCursor] = sendL
+        predelayBufR[predelayCursor] = sendR
         if (++predelayCursor >= predelayLen) predelayCursor = 0
+        val delayed = (delayedL + delayedR) * 0.5f
 
         // Early reflections keep stereo image (each ear hears its own walls),
         // with a little of the opposite wall bleeding in like a real room.
         // They follow the pre-delay too: in a real hall the first wall bounce
         // arrives after the gap, it doesn't double the voice instantly.
-        erBufL[erCursor] = sendL
-        erBufR[erCursor] = sendR
+        erBufL[erCursor] = delayedL
+        erBufR[erCursor] = delayedR
         val n = erBufL.size
         var erL = 0f
         var erR = 0f
