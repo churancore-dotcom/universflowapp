@@ -448,15 +448,15 @@ class ExoPlayerPlugin : Plugin() {
                     // Start the first track immediately. Resolution happens
                     // inside the native ResolvingDataSource.
                     player.playWhenReady = true
-                    player.setMediaItem(mediaItemFor(firstTrack, firstUri))
-                    player.prepare()
-
-                    // Append the rest of the queue as yt://<id> items so that
-                    // background autoplay keeps working even if WebView JS is
-                    // frozen by Android Doze.
-                    val rest = tracks.drop(startIndex + 1)
+                    // Load the WHOLE queue so lock-screen Previous/shuffle can
+                    // reach earlier songs and background autoplay keeps working
+                    // even if WebView JS is frozen by Android Doze.
+                    val before = tracks.take(startIndex)
                         .mapNotNull { t -> playbackUriFor(t)?.let { mediaItemFor(t, it) } }
-                    if (rest.isNotEmpty()) player.addMediaItems(rest)
+                    val after = tracks.drop(startIndex + 1)
+                        .mapNotNull { t -> playbackUriFor(t)?.let { mediaItemFor(t, it) } }
+                    player.setMediaItems(before + mediaItemFor(firstTrack, firstUri) + after, before.size, 0L)
+                    player.prepare()
 
                     call.resolve()
 
@@ -644,10 +644,10 @@ class ExoPlayerPlugin : Plugin() {
         runOnMain {
             service()?.cancelOverlap()
             val p = service()?.player
-            val advanced = p?.hasPreviousMediaItem() == true
-            // Past 3 s Previous restarts the song; near the start of the first
-            // native item the app steps back through its own full queue.
-            val restarted = !advanced && (p?.currentPosition ?: 0L) > 3000L
+            // Past 3 s Previous restarts the song; otherwise step back a track
+            // (or let the app step back through its own full queue).
+            val restarted = (p?.currentPosition ?: 0L) > 3000L
+            val advanced = !restarted && p?.hasPreviousMediaItem() == true
             if (advanced) p?.seekToPreviousMediaItem() else if (restarted) p?.seekTo(0L)
             if (advanced || restarted) {
                 p?.playWhenReady = true
