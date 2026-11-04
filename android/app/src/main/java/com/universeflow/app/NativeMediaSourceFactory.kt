@@ -111,7 +111,36 @@ object NativeMediaSourceFactory {
                 else spec.key ?: u.toString()
             }
 
-        return DefaultMediaSourceFactory(cacheFactory)
+        // Title/artist lookups can resolve to a different source or version on
+        // each play, so caching them under one key could splice two different
+        // files together. Stream those uncached; video-ID songs keep the cache.
+        val splitFactory = DataSource.Factory {
+            SchemeSplitDataSource(cacheFactory.createDataSource(), resolvingFactory.createDataSource())
+        }
+        return DefaultMediaSourceFactory(splitFactory)
+    }
+
+    private class SchemeSplitDataSource(
+        private val cached: DataSource,
+        private val direct: DataSource,
+    ) : DataSource {
+        private var active: DataSource? = null
+        override fun addTransferListener(transferListener: androidx.media3.datasource.TransferListener) {
+            cached.addTransferListener(transferListener)
+            direct.addTransferListener(transferListener)
+        }
+        override fun open(dataSpec: DataSpec): Long {
+            val src = if (dataSpec.uri.scheme == METADATA_SCHEME) direct else cached
+            active = src
+            return src.open(dataSpec)
+        }
+        override fun read(buffer: ByteArray, offset: Int, length: Int): Int =
+            active?.read(buffer, offset, length) ?: C.RESULT_END_OF_INPUT
+        override fun getUri(): Uri? = active?.uri
+        override fun getResponseHeaders(): Map<String, List<String>> = active?.responseHeaders ?: emptyMap()
+        override fun close() {
+            try { active?.close() } finally { active = null }
+        }
     }
 
     fun release() {

@@ -645,10 +645,15 @@ class ExoPlayerPlugin : Plugin() {
             service()?.cancelOverlap()
             val p = service()?.player
             val advanced = p?.hasPreviousMediaItem() == true
-            if (advanced) p?.seekToPreviousMediaItem() else p?.seekTo(0L)
-            p?.playWhenReady = true
-            p?.play()
-            call.resolve(JSObject().put("advanced", advanced))
+            // Past 3 s Previous restarts the song; near the start of the first
+            // native item the app steps back through its own full queue.
+            val restarted = !advanced && (p?.currentPosition ?: 0L) > 3000L
+            if (advanced) p?.seekToPreviousMediaItem() else if (restarted) p?.seekTo(0L)
+            if (advanced || restarted) {
+                p?.playWhenReady = true
+                p?.play()
+            }
+            call.resolve(JSObject().put("advanced", advanced).put("restarted", restarted))
         }
     }
 

@@ -12,6 +12,7 @@ object NativeMediaEvents {
     const val ACTION_LIKE = "uf.like"
     const val ACTION_SHUFFLE = "uf.shuffle"
     const val ACTION_REPEAT = "uf.repeat"
+    const val ACTION_PREVIOUS = "uf.previous"
 
     @Volatile
     var onAction: ((String) -> Unit)? = null

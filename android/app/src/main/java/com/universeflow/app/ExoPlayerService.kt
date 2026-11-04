@@ -561,7 +561,28 @@ class ExoPlayerService : MediaSessionService() {
             )
         }
 
-        val sessionBuilder = MediaSession.Builder(this, exo)
+        // Notification/headset Previous: the native list only holds songs from
+        // where playback started, so near the start of its first item hand
+        // Previous to the app, which owns the full queue.
+        val sessionPlayer = object : androidx.media3.common.ForwardingPlayer(exo) {
+            private fun handOff(): Boolean {
+                if (exo.hasPreviousMediaItem() || exo.currentPosition > 3000L) return false
+                NativeMediaEvents.emit(NativeMediaEvents.ACTION_PREVIOUS)
+                return true
+            }
+            override fun seekToPrevious() { if (!handOff()) super.seekToPrevious() }
+            override fun seekToPreviousMediaItem() { if (!handOff()) super.seekToPreviousMediaItem() }
+            override fun isCommandAvailable(command: Int): Boolean =
+                command == Player.COMMAND_SEEK_TO_PREVIOUS ||
+                    command == Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM ||
+                    super.isCommandAvailable(command)
+            override fun getAvailableCommands(): Player.Commands =
+                super.getAvailableCommands().buildUpon()
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS)
+                    .add(Player.COMMAND_SEEK_TO_PREVIOUS_MEDIA_ITEM)
+                    .build()
+        }
+        val sessionBuilder = MediaSession.Builder(this, sessionPlayer)
             .setId("universflow")
             .setCallback(sessionCallback)
             .setCustomLayout(buildCustomLayout())
