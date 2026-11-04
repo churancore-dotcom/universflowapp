@@ -318,16 +318,27 @@ Deno.serve(async (req) => {
       continue;
     }
 
-    // Wipe + replace per country (atomic-ish)
-    await supabase.from("chart_tracks").delete().eq("country_code", cc);
-
-    // Insert in batches of 500
-    for (let i = 0; i < rows.length; i += 500) {
-      const batch = rows.slice(i, i + 500);
+    // Insert the fresh chart first, then retire old rows only if every batch
+    // landed, so a failed refresh keeps the previous chart instead of an empty one.
+    const stamp = new Date().toISOString();
+    const stamped = rows.map((r) => ({ ...r, fetched_at: stamp }));
+    let failed = false;
+    let inserted = 0;
+    for (let i = 0; i < stamped.length; i += 500) {
+      const batch = stamped.slice(i, i + 500);
       const { error } = await supabase.from("chart_tracks").insert(batch);
-      if (error) console.error(`[${cc}] insert error:`, error.message);
-      else totalInserted += batch.length;
+      if (error) { console.error(`[${cc}] insert error:`, error.message); failed = true; break; }
+      inserted += batch.length;
     }
+    if (failed) {
+      await supabase.from("chart_tracks").delete().eq("country_code", cc).eq("fetched_at", stamp);
+      summary[cc] = 0;
+      continue;
+    }
+    const { error: retireErr } = await supabase
+      .from("chart_tracks").delete().eq("country_code", cc).lt("fetched_at", stamp);
+    if (retireErr) console.error(`[${cc}] retire error:`, retireErr.message);
+    totalInserted += inserted;
     summary[cc] = rows.length;
   }
 

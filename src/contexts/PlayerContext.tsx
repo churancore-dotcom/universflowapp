@@ -3435,7 +3435,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     if (isNativePlayerAvailable()) {
       try {
-        await ExoPlayerPlugin.skipToPrevious();
+        const r = await ExoPlayerPlugin.skipToPrevious();
+        if (r?.advanced || r?.restarted || currentIndex <= 0) return;
+        // The native list starts where playback began; step back via the app queue.
+        playSongAtIndex(currentIndex - 1, queue);
         return;
       } catch { /* use the web queue fallback below */ }
     }
@@ -3450,6 +3453,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       playSongAtIndex(prevIdx, queue);
     }
   }, [queue, currentIndex, showPrerollAd, playSongAtIndex]);
+
+  const prevSongRef = useRef<(() => Promise<void>) | null>(null);
+  prevSongRef.current = prevSong;
 
   const seek = useCallback((time: number) => {
     if (isNativePlayerAvailable()) {
@@ -3782,6 +3788,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     void onNativeMediaButton((action) => {
       if (action === 'uf.shuffle') toggleShuffle();
       else if (action === 'uf.repeat') toggleRepeat();
+      else if (action === 'uf.previous') void prevSongRef.current?.();
       else if (action === 'uf.like') {
         window.dispatchEvent(new CustomEvent('uf:native-like-toggle'));
       }

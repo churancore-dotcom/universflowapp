@@ -83,7 +83,7 @@ interface ExoPlayerPluginShape {
   pause: () => Promise<void>;
   resume: () => Promise<void>;
   skipToNext: () => Promise<{ advanced: boolean }>;
-  skipToPrevious: () => Promise<{ advanced: boolean }>;
+  skipToPrevious: () => Promise<{ advanced: boolean; restarted?: boolean }>;
   setRepeatMode: (opts: { mode: 'off' | 'all' | 'one' }) => Promise<void>;
   stop: () => Promise<void>;
   seekTo: (opts: { positionMs: number }) => Promise<void>;
@@ -500,7 +500,7 @@ export async function setNativeMiniPlayerState(state: {
 
 /** Subscribe to mini player button presses coming from the notification. */
 export async function onNativeMediaButton(
-  cb: (action: 'uf.like' | 'uf.shuffle' | 'uf.repeat') => void,
+  cb: (action: 'uf.like' | 'uf.shuffle' | 'uf.repeat' | 'uf.previous') => void,
 ): Promise<(() => void) | null> {
   if (!isNativePlayerAvailable()) return null;
   try {
