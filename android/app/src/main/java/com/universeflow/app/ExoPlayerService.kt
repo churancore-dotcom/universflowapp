@@ -284,7 +284,9 @@ class ExoPlayerService : MediaSessionService() {
         }
         processor.setStemMix(savedVocalMix, savedInstrumentalMix, savedStemShine, savedStemWidth)
         processor.setEnhancements(savedSpatialStrength, savedSurroundStrength, savedLoudnessGainMb, savedReverbAmount)
-        savedSpace?.let { processor.setSpace(it[0], it[1], it[2], it[3], it[4], it[5]) }
+        val space = savedSpace
+        if (space != null) processor.setSpace(space[0], space[1], space[2], space[3], space[4], space[5])
+        else processor.clearSpace()
     }
 
     /**
@@ -866,6 +868,13 @@ class ExoPlayerService : MediaSessionService() {
         tailProcessor?.setSpace(room, damping, wet, width, preDelayMs, size)
     }
 
+    /** Studio Space set to Off: the plain reverb slider takes over again. */
+    fun clearSpace() {
+        savedSpace = null
+        stemAudioProcessor.clearSpace()
+        tailProcessor?.clearSpace()
+    }
+
 
     fun applyStemMix(vocalMix: Int, instrumentalMix: Int, shine: Int = 0, width: Int = 50, persist: Boolean = true) {
         savedVocalMix = vocalMix.coerceIn(0, 140)
@@ -880,7 +889,6 @@ class ExoPlayerService : MediaSessionService() {
     fun applyPcmEnhancements(spatialStrength: Int, surroundStrength: Int, lateNightGainMb: Int, reverbAmount: Int = savedReverbAmount) {
         savedSpatialStrength = spatialStrength.coerceIn(0, 1000)
         savedSurroundStrength = surroundStrength.coerceIn(0, 1000)
-        savedSpace = null
         stemAudioProcessor.setEnhancements(spatialStrength, surroundStrength, lateNightGainMb, reverbAmount)
         tailProcessor?.setEnhancements(spatialStrength, surroundStrength, lateNightGainMb, reverbAmount)
     }

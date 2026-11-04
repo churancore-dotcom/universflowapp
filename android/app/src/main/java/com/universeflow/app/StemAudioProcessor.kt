@@ -82,21 +82,39 @@ class StemAudioProcessor : BaseAudioProcessor() {
         targetSpatialDepth = spatialStrength.coerceIn(0, 1000) / 1000f
         targetSurround = surroundStrength.coerceIn(0, 1000) / 1000f
         targetLateNight = lateNightGainMb.coerceIn(0, 2000) / 2000f
+        plainReverbAmount = reverbAmount.coerceIn(0, 100)
+        // A held Studio Space owns the room. Overwriting it here used to swap
+        // Cathedral for a small plain room on every effects update, resizing
+        // the delay lines mid-song (clicks) and often leaving the weak voicing.
+        if (!spaceHeld) applyPlainReverb()
+    }
+
+    /** Studio Space voicing pushed down from the app (Hall, Cathedral, ...). */
+    fun setSpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int) {
+        spaceHeld = true
+        reverb.setSpace(room, damping, wet, width, preDelayMs, size)
+    }
+
+    /** Studio Space turned off: fall back to the plain reverb slider. */
+    fun clearSpace() {
+        spaceHeld = false
+        applyPlainReverb()
+    }
+
+    private fun applyPlainReverb() {
         // Plain reverb slider with no Studio Space: a modest small-room voicing.
         reverb.setSpace(
-            roomPercent = 45 + reverbAmount / 3,
+            roomPercent = 45 + plainReverbAmount / 3,
             dampPercent = 45,
-            wetPercent = reverbAmount,
+            wetPercent = plainReverbAmount,
             widthPercent = 80,
             preDelayMs = 14,
             sizePercent = 100,
         )
     }
 
-    /** Studio Space voicing pushed down from the app (Hall, Cathedral, ...). */
-    fun setSpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int) {
-        reverb.setSpace(room, damping, wet, width, preDelayMs, size)
-    }
+    @Volatile private var spaceHeld = false
+    @Volatile private var plainReverbAmount = 0
 
     override fun onConfigure(inputAudioFormat: AudioFormat): AudioFormat {
         // Keep the processor active for stereo PCM even when neutral. That lets
