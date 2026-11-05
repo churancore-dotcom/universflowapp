@@ -12,13 +12,13 @@ describe('actual new release sourcing', () => {
       { id: 'real', title: 'New Single', artist: 'Real Artist' },
       { id: 'fake', title: 'Made with AI', artist: 'Uploader' },
     ] }, error: null });
-    expect((await getYouTubeMusicNewReleases('GB', 24)).map(t => t.id)).toEqual(['real']);
-    expect(invoke).toHaveBeenCalledWith('yt-music-search', { body: { mode: 'new-releases', country: 'GB', limit: 24 } });
+    expect((await getYouTubeMusicNewReleases('IN', 24)).map(t => t.id)).toEqual(['real']);
+    expect(invoke).toHaveBeenCalledWith('yt-music-search', { body: { mode: 'new-releases', country: 'IN', limit: 24 } });
   });
   it('does not replace an unavailable release shelf with chart or keyword hits', async () => {
     invoke.mockClear();
     invoke.mockResolvedValueOnce({ data: null, error: new Error('unavailable') });
-    expect(await getYouTubeMusicNewReleases('FR', 24)).toEqual([]);
+    expect(await getYouTubeMusicNewReleases('IN', 12)).toEqual([]);
     expect(invoke).toHaveBeenCalledTimes(1);
   });
 });
