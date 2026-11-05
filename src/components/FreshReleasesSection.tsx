@@ -18,7 +18,7 @@ interface Props { songs?: Song[]; enabled?: boolean }
 const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   const { playSong } = usePlayer();
   const country = useUserCountry();
-  const { data: pool = [], isLoading } = useYtmNewReleases(country, 24, enabled);
+  const { data: pool = [], isLoading } = useYtmNewReleases(country, 40, enabled);
   // Re-run the memo when another rail (Trending) changes what it claims.
   const claimVersion = useRailClaimVersion();
 
@@ -39,7 +39,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
     // New Releases must stay chronological (that's what "new" means). We only
     // bubble taste matches to the front, preserving recency inside each group,
     // instead of re-ranking or filtering real fresh drops out of the rail.
-    return clean.slice(0, 12);
+    return clean.slice(0, 40);
   }, [pool, claimVersion]);
 
 
@@ -55,26 +55,28 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
     <section className="relative">
       <RailHeader title="New Releases" subtitle="Out now, straight off the feed" />
 
-      {/* Uniform two-column grid, square artwork */}
-      <div className="grid grid-cols-2 gap-3.5">
-        {fresh.slice(0, 6).map((song, idx) => (
-          <motion.button
-            key={song.id}
-            onClick={() => play(song)}
-            {...prewarmIntentProps(song)}
-            whileTap={pressShear}
-            initial={sliceUp.initial}
-            animate={sliceUp.animate}
-            transition={sliceTransition(0.04 + idx * 0.05)}
-            className="min-w-0 text-left"
-          >
-            <div className="overflow-hidden mb-2 relative rounded-lg aspect-square border border-white/5 group">
-              {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 2} />}
-            </div>
-            <p className="text-[13px] font-bold leading-tight text-foreground truncate">{song.title}</p>
-            <p className="text-[11px] text-muted-foreground/70 truncate font-medium mt-0.5">{song.artist}</p>
-          </motion.button>
-        ))}
+      {/* Swipeable shelf: two rows of square covers, slide left for more */}
+      <div className="-mx-6 px-6 overflow-x-auto hide-scrollbar snap-x snap-mandatory" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="grid grid-rows-2 grid-flow-col auto-cols-[42%] gap-x-3.5 gap-y-4 pr-6">
+          {fresh.map((song, idx) => (
+            <motion.button
+              key={song.id}
+              onClick={() => play(song)}
+              {...prewarmIntentProps(song)}
+              whileTap={pressShear}
+              initial={sliceUp.initial}
+              animate={sliceUp.animate}
+              transition={sliceTransition(0.04 + Math.min(idx, 8) * 0.04)}
+              className="min-w-0 text-left snap-start"
+            >
+              <div className="overflow-hidden mb-2 relative rounded-lg aspect-square border border-border/40 bg-card">
+                {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 4} />}
+              </div>
+              <p className="text-[13px] font-bold leading-tight text-foreground truncate">{song.title}</p>
+              <p className="text-[11px] text-muted-foreground/70 truncate font-medium mt-0.5">{song.artist}</p>
+            </motion.button>
+          ))}
+        </div>
       </div>
     </section>
   );
