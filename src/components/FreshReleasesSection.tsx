@@ -55,26 +55,35 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
     <section className="relative">
       <RailHeader title="New Releases" subtitle="Out now, straight off the feed" />
 
-      {/* Swipeable shelf: two rows of square covers, slide left for more */}
+      {/* Swipeable pages: each card holds 6 songs, slide left for the next card */}
       <div className="-mx-6 px-6 overflow-x-auto hide-scrollbar snap-x snap-mandatory" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="grid grid-rows-2 grid-flow-col auto-cols-[42%] gap-x-3.5 gap-y-4 pr-6">
-          {fresh.map((song, idx) => (
-            <motion.button
-              key={song.id}
-              onClick={() => play(song)}
-              {...prewarmIntentProps(song)}
-              whileTap={pressShear}
-              initial={sliceUp.initial}
-              animate={sliceUp.animate}
-              transition={sliceTransition(0.04 + Math.min(idx, 8) * 0.04)}
-              className="min-w-0 text-left snap-start"
-            >
-              <div className="overflow-hidden mb-2 relative rounded-lg aspect-square border border-border/40 bg-card">
-                {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 4} />}
+        <div className="flex gap-3 pr-6">
+          {Array.from({ length: Math.ceil(fresh.length / 6) }, (_, page) => fresh.slice(page * 6, page * 6 + 6)).map((group, page) => (
+            <div key={page} className="snap-start shrink-0 w-[88%] rounded-2xl bg-card border border-border/50 p-3">
+              <div className="grid grid-cols-3 gap-x-2.5 gap-y-3">
+                {group.map((song, i) => {
+                  const idx = page * 6 + i;
+                  return (
+                    <motion.button
+                      key={song.id}
+                      onClick={() => play(song)}
+                      {...prewarmIntentProps(song)}
+                      whileTap={pressShear}
+                      initial={sliceUp.initial}
+                      animate={sliceUp.animate}
+                      transition={sliceTransition(0.04 + Math.min(idx, 8) * 0.04)}
+                      className="min-w-0 text-left"
+                    >
+                      <div className="overflow-hidden mb-1.5 rounded-lg aspect-square bg-muted">
+                        {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" eager={idx < 6} />}
+                      </div>
+                      <p className="text-[12px] font-bold leading-tight text-foreground truncate">{song.title}</p>
+                      <p className="text-[10.5px] text-muted-foreground/70 truncate font-medium mt-0.5">{song.artist}</p>
+                    </motion.button>
+                  );
+                })}
               </div>
-              <p className="text-[13px] font-bold leading-tight text-foreground truncate">{song.title}</p>
-              <p className="text-[11px] text-muted-foreground/70 truncate font-medium mt-0.5">{song.artist}</p>
-            </motion.button>
+            </div>
           ))}
         </div>
       </div>
