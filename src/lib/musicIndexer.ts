@@ -659,9 +659,11 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
     newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
     return out;
   };
+  // Unknown market: no country-correct release shelf, so show none.
+  if (cc === 'ZZ') return [];
   try {
     const { data, error } = await supabase.functions.invoke<YoutubeNewReleasesResponse>('yt-music-search', {
-      body: { mode: 'new-releases', country: cc === 'ZZ' ? 'US' : cc, limit: Math.min(40, limit) },
+      body: { mode: 'new-releases', country: cc, limit: Math.min(40, limit) },
     });
     if (error || !data?.success || !Array.isArray(data.results)) return [];
     const { isJunkRailTrack } = await import('./railQuality');

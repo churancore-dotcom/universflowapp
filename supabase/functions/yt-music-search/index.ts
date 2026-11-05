@@ -517,6 +517,11 @@ async function getIndiaNewReleases(limit: number): Promise<SearchResult[]> {
 
 async function getLocalizedNewReleases(gl: string, limit: number): Promise<SearchResult[]> {
   if (gl === 'IN') return await getIndiaNewReleases(limit);
+  // YouTube Music's anonymous release shelf is locked to the server's IP
+  // (verified: JP, BR, DE and IN all returned the same US-market list), so it
+  // is never a listener's country. Until a per-country release source exists
+  // for this market, return nothing rather than another country's songs.
+  return [];
   const [releasesJson, videosJson] = await Promise.all([
     ytMusicBrowse('FEmusic_new_releases', gl),
     ytMusicBrowse('FEmusic_new_releases_videos', gl),
