@@ -240,12 +240,16 @@ function extractChartPlaylistCards(json: any): { title: string; playlistId: stri
 // Chart rows are raw uploads: "#Video | लखनऊवा में #Akshara Singh",
 // "Magale Video Song", "Parvati Song (8K Video)". Return the real song name
 // segment without upload decoration, or '' when the title has none.
-const GENERIC_SEGMENT = /^(?:new\s+)?(?:(?:bhojpuri|hindi|punjabi|haryanvi|tamil|telugu|kannada|malayalam|marathi|bengali|gujarati)\s+)?(?:(?:full|official|latest|hd|4k|8k)\s+)*(?:video|song|songs|audio|music\s+video|video\s+song|lyrical|lyrics?|trailer|teaser|status)(?:\s+\d{4})?$/i;
+const GENERIC_SEGMENT = /^(?:bhojpuri|hindi|punjabi|haryanvi|tamil|telugu|kannada|malayalam|marathi|bengali|gujarati|new)$|^(?:new\s+)?(?:(?:bhojpuri|hindi|punjabi|haryanvi|tamil|telugu|kannada|malayalam|marathi|bengali|gujarati)\s+)?(?:(?:full|official|latest|hd|4k|8k)\s+)*(?:video|song|songs|audio|music\s+video|video\s+song|lyrical|lyrics?|trailer|teaser|status)(?:\s+\d{4})?$/i;
 function cleanChartTitle(raw: string): string {
-  const segments = decodeEntities(raw)
+  // Keep " - " inside (From "Film - Subtitle") brackets from splitting the name.
+  const protectedRaw = decodeEntities(raw).replace(/[([][^)\]]*[)\]]/g, (m) => m.replace(/\s[-–—]\s/g, ' \u0000 '));
+  const segments = protectedRaw
     .split(/\s+[|｜•]\s+|\s+[-–—]\s+|\s*[-–—]\s*$/)
     .map((seg) => seg
-      .replace(/#[^\s#|]+/g, '')
+      .replace(/\u0000/g, '-')
+      // "#Akshara Singh" / "#Raushan Rohi" are tagged names, not song words.
+      .replace(/#[^\s#|]+(?:\s+[A-Z][a-z]+)?/g, '')
       .replace(/[([][^)\]]*\b(?:official|music|video|audio|lyric(?:al)?s?|visuali[sz]er|4k|8k|hd|full\s+song)\b[^)\]]*[)\]]/gi, '')
       .replace(/\s+(?:full\s+)?(?:video|lyrical|audio)\s+song\b.*$/i, '')
       .replace(/\s+lyrical\b.*$/i, '')
