@@ -237,6 +237,26 @@ function extractChartPlaylistCards(json: any): { title: string; playlistId: stri
   return out;
 }
 
+// Chart rows are raw uploads: "#Video | लखनऊवा में #Akshara Singh",
+// "Magale Video Song", "Parvati Song (8K Video)". Return the real song name
+// segment without upload decoration, or '' when the title has none.
+const GENERIC_SEGMENT = /^(?:new\s+)?(?:(?:bhojpuri|hindi|punjabi|haryanvi|tamil|telugu|kannada|malayalam|marathi|bengali|gujarati)\s+)?(?:(?:full|official|latest|hd|4k|8k)\s+)*(?:video|song|songs|audio|music\s+video|video\s+song|lyrical|lyrics?|trailer|teaser|status)(?:\s+\d{4})?$/i;
+function cleanChartTitle(raw: string): string {
+  const segments = decodeEntities(raw)
+    .split(/\s+[|｜•]\s+|\s+[-–—]\s+|\s*[-–—]\s*$/)
+    .map((seg) => seg
+      .replace(/#[^\s#|]+/g, '')
+      .replace(/[([][^)\]]*\b(?:official|music|video|audio|lyric(?:al)?s?|visuali[sz]er|4k|8k|hd|full\s+song)\b[^)\]]*[)\]]/gi, '')
+      .replace(/\s+(?:full\s+)?(?:video|lyrical|audio)\s+song\b.*$/i, '')
+      .replace(/\s+lyrical\b.*$/i, '')
+      .replace(/\s+(?:song|video)$/i, '')
+      .replace(/[\s\-–—:,]+$/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .trim())
+    .filter((seg) => seg.length >= 2 && !GENERIC_SEGMENT.test(seg) && /[\p{L}\p{N}]/u.test(seg));
+  return segments[0] || '';
+}
+
 async function fetchChartPlaylistTracks(playlistId: string, gl: string, limit: number): Promise<SearchResult[]> {
   const browseId = playlistId.startsWith('VL') ? playlistId : `VL${playlistId}`;
   const json = await ytMusicBrowse(browseId, gl);
@@ -248,17 +268,15 @@ async function fetchChartPlaylistTracks(playlistId: string, gl: string, limit: n
     if (!parsed?.videoId || !parsed.title) continue;
     if (seen.has(parsed.videoId)) continue;
     if (looksHardSpam(parsed.title, parsed.artist, parsed.title)) continue;
+    // Upload titles like "#Video | #Singer" carry no song name; skipping that
+    // row is better than showing "#Video" as a song. Chart order is kept.
+    const chartTitle = cleanChartTitle(parsed.title);
+    if (!chartTitle) continue;
     seen.add(parsed.videoId);
     out.push({
       id: `ytm-${parsed.videoId}`,
       videoId: parsed.videoId,
-      // Chart rows are video uploads; show the song name, not the upload title.
-      title: parsed.title
-        .split(/\s+\|\s+/)[0]
-        .replace(/[([](?:official\s*)?(?:music\s*)?(?:video|audio|lyric(?:al)?s?(?:\s*video)?|visuali[sz]er)[)\]]/gi, '')
-        .replace(/\s+lyrical\b.*$/i, '')
-        .replace(/\s{2,}/g, ' ')
-        .trim() || parsed.title,
+      title: chartTitle,
       artist: parsed.artist,
       audio_url: `yt-video:${parsed.videoId}`,
       cover_url: parsed.cover,
@@ -425,7 +443,76 @@ async function fetchTracksFromRelease(release: { browseId: string; artist: strin
   return out;
 }
 
+// ─── India: JioSaavn's explicit New Releases shelf ───
+// YouTube Music's release shelf ignores `gl` for anonymous requests and follows
+// the server's IP, so India got Mexican/US/Romanian uploads. JioSaavn's
+// content.getAlbums is India's editorial new-release shelf with a real
+// release_date. Its order is kept; YouTube Music search only finds each listed
+// song's playable upload and never chooses or ranks songs.
+const SAAVN_NEW_RELEASES_URL = 'https://www.jiosaavn.com/api.php?__call=content.getAlbums&api_version=4&_format=json&_marker=0&n=60&p=1&ctx=web6dot0';
+const normName = (v = '') => decodeEntities(v).toLowerCase()
+  .replace(/\(from[^)]*\)|\[from[^\]]*\]|\(feat[^)]*\)/g, '')
+  .replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+
+async function resolvePlayable(title: string, artists: string[], cover?: string): Promise<SearchResult | null> {
+  const wanted = normName(title);
+  if (!wanted) return null;
+  const results = await ytMusicSearch(`${title} ${artists.slice(0, 2).join(' ')}`, PARAMS_SONGS, 10, 0).catch(() => [] as SearchResult[]);
+  const artistTokens = artists.map(normName).filter(Boolean);
+  for (const r of results.slice(0, 6)) {
+    const t = normName(r.title);
+    const titleOk = t === wanted || t.startsWith(wanted) || wanted.startsWith(t);
+    const ra = normName(r.artist);
+    const artistOk = !artistTokens.length || artistTokens.some((a) => ra.includes(a) || a.includes(ra));
+    if (titleOk && artistOk) return { ...r, cover_url: cover || r.cover_url };
+  }
+  return null;
+}
+
+async function getIndiaNewReleases(limit: number): Promise<SearchResult[]> {
+  const resp = await fetch(SAAVN_NEW_RELEASES_URL, {
+    headers: { 'User-Agent': 'Mozilla/5.0', Cookie: 'L=hindi%2Cpunjabi%2Cenglish%2Ctamil%2Ctelugu%2Cbhojpuri; gdpr_acceptance=true' },
+  }).catch(() => null);
+  if (!resp?.ok) return [];
+  const json = await resp.json().catch(() => null);
+  const now = Date.now();
+  const cutoff = now - NEW_RELEASE_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+  const entries: { title: string; artists: string[]; cover?: string; released: number }[] = [];
+  for (const item of (json?.data || []) as any[]) {
+    if (item?.type !== 'song') continue; // album tiles have no single song to play
+    const released = Date.parse(item?.more_info?.release_date || '');
+    if (!Number.isFinite(released) || released < cutoff || released > now + 86400000) continue;
+    const primary = ((item?.more_info?.artistMap?.primary_artists || []) as any[])
+      .map((a) => decodeEntities(a?.name || '')).filter(Boolean);
+    const fallback = decodeEntities(String(item?.subtitle || '').split(' - ')[0] || '');
+    const artists = primary.length ? primary : (fallback ? [fallback] : []);
+    const title = decodeEntities(item?.title || '').trim();
+    if (!title || isDevotional({ title, artist: artists.join(' ') })) continue;
+    const cover = typeof item?.image === 'string' ? item.image.replace(/\d+x\d+/, '500x500') : undefined;
+    entries.push({ title, artists, cover, released });
+  }
+  const resolved = await Promise.all(entries.slice(0, Math.min(40, limit + 12)).map(async (e) => {
+    const r = await resolvePlayable(e.title, e.artists, e.cover);
+    if (r) {
+      r.title = e.title;
+      r.artist = e.artists.join(', ') || r.artist;
+      r.published = Math.floor(e.released / 1000);
+    }
+    return r;
+  }));
+  const seen = new Set<string>();
+  const out: SearchResult[] = [];
+  for (const r of resolved) {
+    if (!r || seen.has(r.videoId)) continue;
+    seen.add(r.videoId);
+    out.push(r);
+    if (out.length >= limit) break;
+  }
+  return out;
+}
+
 async function getLocalizedNewReleases(gl: string, limit: number): Promise<SearchResult[]> {
+  if (gl === 'IN') return await getIndiaNewReleases(limit);
   const [releasesJson, videosJson] = await Promise.all([
     ytMusicBrowse('FEmusic_new_releases', gl),
     ytMusicBrowse('FEmusic_new_releases_videos', gl),
@@ -505,7 +592,9 @@ async function filterVerifiedNewReleases(tracks: SearchResult[], gl: string): Pr
   }
   // Verified-fresh tracks first, in the shelf's own order. Unverifiable ones
   // follow only to keep the shelf from going empty; stale uploads are dropped.
-  return [...fresh, ...unknown];
+  // Verified freshness only: an empty shelf beats mislabeled old songs.
+  if (unknown.length) console.log(`[new-releases] dropped ${unknown.length} undated tracks`);
+  return fresh;
 }
 
 function extractFromItem(item: any): { videoId?: string; title: string; artist: string; duration: number; cover?: string; musicVideoType?: string } | null {
