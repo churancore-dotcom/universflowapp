@@ -56,7 +56,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
       <RailHeader title="New Releases" subtitle="Out now, straight off the feed" />
 
       {/* Swipeable shelf: two rows of square covers, slide left for more */}
-      <div className="-mx-6 px-6 overflow-x-auto no-scrollbar snap-x snap-mandatory" style={{ WebkitOverflowScrolling: 'touch' }}>
+      <div className="-mx-6 px-6 overflow-x-auto hide-scrollbar snap-x snap-mandatory" style={{ WebkitOverflowScrolling: 'touch' }}>
         <div className="grid grid-rows-2 grid-flow-col auto-cols-[42%] gap-x-3.5 gap-y-4 pr-6">
           {fresh.map((song, idx) => (
             <motion.button
