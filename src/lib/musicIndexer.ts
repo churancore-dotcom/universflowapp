@@ -661,6 +661,18 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
   };
   // Unknown market: no country-correct release shelf, so show none.
   if (cc === 'ZZ') return [];
+  // Outside India the phone asks YouTube Music itself, so the shelf follows
+  // the listener's own network (the server's shelf is locked to its IP).
+  if (cc !== 'IN') {
+    try {
+      const { getDeviceNewReleases } = await import('./deviceNewReleases');
+      const device = await getDeviceNewReleases(cc, Math.min(40, limit));
+      const { isJunkRailTrack } = await import('./railQuality');
+      return save(device.filter((t) => !isJunkRailTrack(t)).slice(0, limit));
+    } catch {
+      return [];
+    }
+  }
   try {
     const { data, error } = await supabase.functions.invoke<YoutubeNewReleasesResponse>('yt-music-search', {
       body: { mode: 'new-releases', country: cc, limit: Math.min(40, limit) },
