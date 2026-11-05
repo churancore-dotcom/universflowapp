@@ -137,7 +137,7 @@ export async function getDeviceNewReleases(country: string, limit: number): Prom
   // Singles first (one song each), keeping YouTube's order inside each group.
   const cards = parseReleaseCards(shelf)
     .sort((a, b) => (a.type === 'single' ? 0 : 1) - (b.type === 'single' ? 0 : 1))
-    .slice(0, Math.min(20, limit + 8));
+    .slice(0, Math.min(40, limit + 10));
   const tracks = (await Promise.all(cards.map(async (card) => {
     const page = await post(BROWSE_URL, { context: context(gl), browseId: card.browseId });
     return page ? parseReleaseTracks(page, card) : [];
