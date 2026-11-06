@@ -15,7 +15,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
-import appLogo from '@/assets/app-logo.webp';
 import { getPlayProducts, isPlayStoreBuild, restorePlayPurchases, startPlayPurchase, PLAY_PRODUCTS, type PlayPlan, type PlayProduct } from '@/lib/playBilling';
 import { checkPlayBillingReady, verifyPlayPurchase } from '@/lib/playPurchase.functions';
 import { useServerFn } from '@tanstack/react-start';
@@ -23,20 +22,6 @@ import { canBuyPlayProduct, planDisplayPrice } from '@/lib/playPaymentPolicy';
 import { Button } from '@/components/ui/button';
 
 
-const LogoBadge = ({ size = 56 }: { size?: number }) => (
-  <div
-    className="mx-auto rounded-full flex items-center justify-center overflow-hidden"
-    style={{
-      width: size,
-      height: size,
-      background: 'linear-gradient(135deg, hsl(var(--primary) / 0.22), hsl(var(--accent) / 0.16))',
-      border: '0.5px solid hsl(var(--primary) / 0.4)',
-      boxShadow: '0 10px 30px -10px hsl(var(--primary) / 0.5)',
-    }}
-  >
-    <img src={appLogo} alt="Universflow app logo" className="w-[68%] h-[68%] object-contain" />
-  </div>
-);
 
 type PlanId = 'monthly' | 'bimonthly' | 'quarterly';
 
@@ -366,8 +351,14 @@ const PremiumPage = memo(function PremiumPage() {
 
         <main className="relative px-5">
           {/* ─── HERO — editorial, calm ─── */}
-          <section className="pt-10 pb-8">
-            <div className="mb-5"><LogoBadge size={64} /></div>
+          <section
+            className="relative mt-4 mb-8 rounded-[28px] px-6 pt-8 pb-7 overflow-hidden"
+            style={{
+              background: 'radial-gradient(120% 90% at 0% 0%, hsl(var(--primary) / 0.32), transparent 60%), radial-gradient(90% 80% at 100% 100%, hsl(var(--accent) / 0.22), transparent 65%), hsl(var(--card) / 0.7)',
+              border: '0.5px solid hsl(var(--primary) / 0.35)',
+              boxShadow: '0 24px 60px -30px hsl(var(--primary) / 0.6)',
+            }}
+          >
             <p className="text-[10.5px] font-bold tracking-[0.32em] uppercase text-primary mb-3">
               Fixed-term access
             </p>
@@ -377,6 +368,13 @@ const PremiumPage = memo(function PremiumPage() {
             <p className="text-[15px] leading-snug text-muted-foreground max-w-[340px]">
               Spatial audio, studio EQ, and zero ads — music the way it's meant to sound.
             </p>
+            <div className="flex flex-wrap gap-2 mt-5">
+              {['No ads', 'Studio EQ', 'Spatial audio', 'No auto-renew'].map((t) => (
+                <span key={t} className="text-[11.5px] font-semibold px-3 py-1.5 rounded-full bg-background/40 border border-border/50 text-foreground/90">
+                  {t}
+                </span>
+              ))}
+            </div>
           </section>
 
           {/* Active premium banner */}
@@ -390,7 +388,6 @@ const PremiumPage = memo(function PremiumPage() {
                 border: '0.5px solid hsl(var(--primary) / 0.4)',
               }}
             >
-              <div className="mb-3"><LogoBadge size={56} /></div>
               <p className="text-[22px] font-bold mb-1">You're Premium</p>
               {expiryText && (
                 <p className="text-[12px] tracking-[0.12em] uppercase text-muted-foreground">
@@ -774,7 +771,6 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
         {step === 'pay' && (
           <>
             <div className="text-center mb-5">
-              <div className="mb-3"><LogoBadge size={56} /></div>
               <p className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">{planLabel} · Premium</p>
               <h3 className="text-[22px] font-bold">Pay ₹{amountFinal}</h3>
               <p className="text-[12px] text-muted-foreground mt-1">
