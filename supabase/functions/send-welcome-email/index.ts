@@ -3,6 +3,35 @@
 
 import { createClient } from "npm:@supabase/supabase-js@2";
 
+// ── Universflow brand email layout: black page, left-aligned editorial type,
+// one solid rose button and a small waveform mark. No gradients or pills.
+const EM_FONT = "-apple-system,BlinkMacSystemFont,'Helvetica Neue',Helvetica,Arial,sans-serif";
+const EM_ROSE = '#FF2D55';
+function renderBrandEmail(e: { eyebrow: string; headline: string; body: string[]; cta?: { label: string; url: string }; note?: string; showLink?: boolean; footnote?: string; sentTo?: string }): string {
+  const bars = [6, 14, 9, 18, 11, 4, 15, 8, 12, 5];
+  const waveform = `<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>${bars.map((h) => `<td valign="bottom" style="padding-right:3px"><div style="width:3px;height:${h}px;background:${EM_ROSE};border-radius:2px"></div></td>`).join('')}</tr></table>`;
+  const paragraphs = e.body.map((p) => `<p style="margin:0 0 16px;font:400 16px/1.6 ${EM_FONT};color:#b4b4ba">${p}</p>`).join('');
+  const button = e.cta ? `<table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin:30px 0 0"><tr><td style="background:${EM_ROSE};border-radius:10px"><a href="${e.cta.url}" style="display:inline-block;padding:15px 28px;font:600 15px/1 ${EM_FONT};color:#ffffff;text-decoration:none">${e.cta.label}&nbsp;&nbsp;&rarr;</a></td></tr></table>` : '';
+  const note = e.note ? `<p style="margin:14px 0 0;font:400 12px/1.5 ${EM_FONT};color:#6e6e73">${e.note}</p>` : '';
+  const link = e.cta && e.showLink ? `<p style="margin:28px 0 0;font:400 12px/1.6 ${EM_FONT};color:#6e6e73">Button not working? Paste this into your browser:<br><a href="${e.cta.url}" style="color:#8e8e93;word-break:break-all;text-decoration:underline">${e.cta.url}</a></p>` : '';
+  const footnote = e.footnote ? `<p style="margin:0;font:400 12px/1.6 ${EM_FONT};color:#6e6e73">${e.footnote}</p>` : '';
+  return `<!doctype html><html><head><meta name="color-scheme" content="dark"><meta name="supported-color-schemes" content="dark"></head>
+<body style="margin:0;padding:0;background:#000000;color:#ffffff">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#000000"><tr><td align="center" style="padding:40px 20px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:520px">
+<tr><td style="padding-bottom:44px"><table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+<td valign="middle"><img src="https://universflow.in/pwa-512x512.png" width="32" height="32" alt="" style="display:block;border-radius:50%"></td>
+<td valign="middle" style="padding-left:12px;font:700 13px/1 ${EM_FONT};letter-spacing:.32em;color:#ffffff">UNIVERSFLOW</td>
+</tr></table></td></tr>
+<tr><td>${waveform}
+<p style="margin:18px 0 10px;font:600 12px/1 ${EM_FONT};letter-spacing:.2em;text-transform:uppercase;color:${EM_ROSE}">${e.eyebrow}</p>
+<h1 style="margin:0 0 22px;font:700 34px/1.12 ${EM_FONT};letter-spacing:-0.8px;color:#ffffff">${e.headline}</h1>
+${paragraphs}${button}${note}${link}</td></tr>
+<tr><td style="padding-top:44px"><div style="height:1px;background:#1c1c1f;margin-bottom:22px"></div>${footnote}
+<p style="margin:12px 0 0;font:400 11px/1.7 ${EM_FONT};color:#48484a">${e.sentTo ? `Sent to ${e.sentTo} · ` : ''}<a href="https://universflow.in" style="color:#6e6e73;text-decoration:none">universflow.in</a></p>
+</td></tr></table></td></tr></table></body></html>`;
+}
+
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -124,7 +153,14 @@ Deno.serve(async (req) => {
         <div style="font:400 13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#a1a1a6;margin-top:2px">${d}</div>
       </td></tr>`).join('');
 
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
+    const html = renderBrandEmail({
+      eyebrow: "You're in",
+      headline: `Welcome, ${safeName}.`,
+      body: ['Your account is ready. Your likes, playlists and downloads now follow you on every device you sign in to.'],
+      cta: { label: 'Start listening', url: 'https://universflow.in/home' },
+    });
+    // Previous design, kept only as reference; not sent.
+    const _legacyHtml = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
   <div style="max-width:600px;margin:0 auto;padding:40px 18px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px"><tr><td align="center">
       <img src="https://universflow.in/pwa-512x512.png" width="56" height="56" alt="Universflow" style="display:block;border-radius:14px;box-shadow:0 10px 28px rgba(255,45,85,0.28)">
