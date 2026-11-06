@@ -56,10 +56,10 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
       <RailHeader title="New Releases" subtitle="Out now, straight off the feed" />
 
       {/* Swipeable pages: each card holds 6 songs, slide left for the next card */}
-      <div className="-mx-6 px-6 overflow-x-auto hide-scrollbar snap-x snap-mandatory" style={{ WebkitOverflowScrolling: 'touch' }}>
-        <div className="flex gap-3 pr-6">
+      <div className="overflow-x-auto hide-scrollbar snap-x snap-mandatory" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex gap-3">
           {Array.from({ length: Math.ceil(fresh.length / 6) }, (_, page) => fresh.slice(page * 6, page * 6 + 6)).map((group, page) => (
-            <div key={page} className="snap-start shrink-0 w-[88%] rounded-2xl bg-card border border-border/50 p-3">
+            <div key={page} className="snap-center shrink-0 w-full rounded-2xl bg-card border border-border/50 p-3">
               <div className="grid grid-cols-3 gap-x-2.5 gap-y-3">
                 {group.map((song, i) => {
                   const idx = page * 6 + i;
