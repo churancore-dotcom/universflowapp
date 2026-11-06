@@ -29,6 +29,16 @@ import { useHomeInsights } from '@/hooks/useHomeInsights';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import HomeBento from '@/components/HomeBento';
 import FlowCoreSection from '@/components/FlowCoreSection';
+import HomeStage from '@/components/HomeStage';
+
+/** Editorial chapter divider: index number, title and a hairline rule. */
+const ChapterLabel = ({ index, title }: { index: string; title: string }) => (
+  <div className="px-6 mt-12 mb-5 flex items-center gap-3">
+    <span className="text-[11px] font-semibold tabular-nums text-primary">{index}</span>
+    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{title}</span>
+    <span className="h-px flex-1 bg-border/70" />
+  </div>
+);
 
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
@@ -319,22 +329,31 @@ const Home = () => {
           ) : (
             <>
               {/* ── Continue Listening + Jump Back In, both from real history ── */}
-              <HomeBento songs={clean.length ? clean : allSongs} />
+              {stage?.song && <HomeStage song={stage.song} label={stage.label} />}
 
-              {/* ── Recap progress — leads to the real recap screen ── */}
-              <section className="px-6 mt-5">
-                <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => navigate('/recap')} />
-              </section>
+              <div className="mt-6"><HomeBento songs={clean.length ? clean : allSongs} /></div>
 
-              {/* ── The full feed: charts, fresh music, personal rails ── */}
-              <div className="uf-feed-sections px-6 mt-9 space-y-11 pb-24">
+              {/* ── Chapter 1: what the world plays right now ── */}
+              <ChapterLabel index="01" title="Out there now" />
+              <div className="uf-feed-sections px-6 space-y-11">
                 <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
                 <FreshReleasesSection enabled={homeReady} />
                 <MoodMixesSection />
+              </div>
+
+              {/* ── Chapter 2: built from your own listening ── */}
+              <ChapterLabel index="02" title="Yours" />
+              <div className="uf-feed-sections px-6 space-y-11">
+                <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => navigate('/recap')} />
                 <OnRepeatSection />
                 <MadeForYouSection />
                 <FlowCoreSection pool={clean.length ? clean : allSongs} />
                 <HistoryPlaylistsSection />
+              </div>
+
+              {/* ── Chapter 3: the people behind the music ── */}
+              <ChapterLabel index="03" title="Artists" />
+              <div className="uf-feed-sections px-6 space-y-11 pb-24">
                 <YourArtistsSection />
                 <FeaturedArtistsSection songs={clean.length ? clean : allSongs} circle />
               </div>
