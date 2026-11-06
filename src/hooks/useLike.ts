@@ -3,7 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
 import { isCatalogSongId } from '@/lib/songSupport';
-import { persistStreamSong, getTrackSource } from '@/lib/streamSongs';
+import { persistStreamSong, flushStreamSongsNow, getTrackSource } from '@/lib/streamSongs';
 import { invalidateTasteProfile } from '@/lib/feedPersonalizer';
 import type { Song } from '@/contexts/PlayerContext';
 
@@ -166,6 +166,8 @@ export const useLike = (songId: string, song?: Song | null) => {
       if (newLiked) {
         if (!isCatalog && song) {
           await persistStreamSong(song);
+          // Liked Songs reads this metadata row; make sure it exists first.
+          await flushStreamSongsNow();
         }
         const { error } = await supabase
           .from('user_library')

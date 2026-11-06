@@ -220,7 +220,6 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
   return (
     <div className="px-5 space-y-3">
       {/* HERO — Continue Listening */}
-      <ContinueListeningCard currentSong={currentSong} snapshot={snapshot} history={history} songs={songs} isPlaying={isPlaying} playSong={playSong} togglePlay={togglePlay} seek={seek} />
 
       {/* ROW 1 — ARTIST OF THE WEEK (portrait) + JUMP BACK IN (3-row list) */}
       {(artistOfWeek || jumpGroups.length > 0) && (
