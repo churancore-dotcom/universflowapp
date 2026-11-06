@@ -114,6 +114,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
+      // Google artwork CDNs reject image requests that carry a foreign Referer.
+      { name: "referrer", content: "no-referrer" },
       { name: "viewport", content: "width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" },
       { name: "google-site-verification", content: "9i6sSAmlmRyKCJS2U4vNTHoKzSLvG4qx7bViokCa7Ik" },
       { name: "keywords", content: "free music app, music streaming app, offline music app, Universflow" },

@@ -105,6 +105,12 @@ const flushStreamSongUpserts = async () => {
   }
 };
 
+/** Write any queued song metadata now (used before a like is committed). */
+export const flushStreamSongsNow = async () => {
+  if (_flushTimer) { clearTimeout(_flushTimer); _flushTimer = null; }
+  await flushStreamSongUpserts();
+};
+
 export const persistStreamSong = async (song: Song) => {
   if (!song?.id || isCatalogSongId(song.id)) return;
   const now = Date.now();

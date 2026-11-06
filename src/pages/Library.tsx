@@ -105,6 +105,8 @@ const Library = () => {
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
     initialData: initialCached,
+    // Cached rows paint instantly but are always refreshed on open.
+    initialDataUpdatedAt: 0,
   });
 
   // Persist library result for instant offline boot
@@ -192,7 +194,7 @@ const Library = () => {
             }}
           >
             {song.cover_url ? (
-              <img src={song.cover_url} alt={`${song.title} cover art`} className="w-full h-full object-cover" />
+              <img src={song.cover_url} alt={`${song.title} cover art`} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
             ) : (
               <Music className="w-4 h-4 text-muted-foreground" />
             )}
@@ -451,7 +453,7 @@ const Library = () => {
                             <div className="relative w-11 h-11 rounded-[14px] flex items-center justify-center overflow-hidden"
                               style={{ background: 'hsl(var(--foreground) / 0.05)', border: '1px solid hsl(var(--foreground) / 0.05)' }}
                             >
-                              {song.cover_url ? <img src={song.cover_url} alt={`${song.title} cover art`} className="w-full h-full object-cover" /> : <Music className="w-4 h-4 text-muted-foreground" />}
+                              {song.cover_url ? <img src={song.cover_url} alt={`${song.title} cover art`} className="w-full h-full object-cover" referrerPolicy="no-referrer" /> : <Music className="w-4 h-4 text-muted-foreground" />}
                               <div className="absolute bottom-0.5 right-0.5 w-3.5 h-3.5 rounded-full bg-primary flex items-center justify-center">
                                 <CloudOff className="w-2 h-2 text-primary-foreground" />
                               </div>
