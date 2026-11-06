@@ -22,6 +22,7 @@ const OptimizedImage = memo(({
   const [isLoaded, setIsLoaded] = useState(false);
   const [shouldLoad, setShouldLoad] = useState(eager);
   const [hasError, setHasError] = useState(false);
+  const [isSlow, setIsSlow] = useState(false);
   const imgRef = useRef<HTMLImageElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -29,7 +30,7 @@ const OptimizedImage = memo(({
   // onError walks down the list instead of showing the error tile.
   const candidates = useMemo(() => artworkCandidates(src), [src]);
   const [candidateIndex, setCandidateIndex] = useState(0);
-  useEffect(() => { setCandidateIndex(0); setIsLoaded(false); setHasError(false); }, [candidates.join('|')]);
+  useEffect(() => { setCandidateIndex(0); setIsLoaded(false); setHasError(false); setIsSlow(false); }, [candidates.join('|')]);
 
   // Use Intersection Observer for lazy loading
   useEffect(() => {
@@ -58,6 +59,7 @@ const OptimizedImage = memo(({
 
   const handleLoad = () => {
     setIsLoaded(true);
+    setIsSlow(false);
     onLoad?.();
   };
 
@@ -74,7 +76,8 @@ const OptimizedImage = memo(({
   // pure-black hole in the card. After 6s we show the real fallback tile.
   useEffect(() => {
     if (!shouldLoad || isLoaded || hasError) return;
-    const t = window.setTimeout(() => { setHasError(true); setIsLoaded(true); }, 6000);
+    // Slow covers keep loading behind a temporary tile instead of being abandoned.
+    const t = window.setTimeout(() => setIsSlow(true), 6000);
     return () => window.clearTimeout(t);
   }, [shouldLoad, isLoaded, hasError, candidateIndex]);
 
@@ -136,7 +139,7 @@ const OptimizedImage = memo(({
       })()}
 
       {/* Error fallback */}
-      {hasError && fallbackTile}
+      {(hasError || (isSlow && !isLoaded)) && fallbackTile}
     </div>
   );
 });

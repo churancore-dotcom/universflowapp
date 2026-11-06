@@ -18,7 +18,6 @@ import FreshReleasesSection from '@/components/FreshReleasesSection';
 import MadeForYouSection from '@/components/MadeForYouSection';
 import OnRepeatSection from '@/components/OnRepeatSection';
 import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
-import MoodMixesSection from '@/components/MoodMixesSection';
 
 import BottomNav from '@/components/BottomNav';
 import QueueDrawer from '@/components/QueueDrawer';
@@ -338,7 +337,6 @@ const Home = () => {
               <div className="uf-feed-sections px-6 space-y-11">
                 <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
                 <FreshReleasesSection enabled={homeReady} />
-                <MoodMixesSection />
               </div>
 
               {/* ── Chapter 2: built from your own listening ── */}
