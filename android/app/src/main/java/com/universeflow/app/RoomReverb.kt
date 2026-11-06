@@ -111,6 +111,11 @@ class RoomReverb {
     @Volatile private var sizeScale = 1f
     @Volatile private var predelayMs = 12f
     @Volatile private var dirty = true
+    @Volatile private var rt60 = 1.2f
+    @Volatile private var dampPct = 0.4f
+    @Volatile private var roomPct = 0.5f
+    private var erMix = 1f
+    private var tailMix = 1f
 
     private var currentWet = 0f
     private var currentWidth = 1f
@@ -129,7 +134,7 @@ class RoomReverb {
         allpassR = Array(allpassTunings.size) { Allpass(((allpassTunings[it] + stereoSpread) * head).toInt() + 8) }
         predelayBuf = FloatArray((sampleRate * 0.25f).toInt().coerceAtLeast(64))
         predelayBufR = FloatArray(predelayBuf.size)
-        erBufL = FloatArray((sampleRate * 0.1f).toInt().coerceAtLeast(64))
+        erBufL = FloatArray((sampleRate * 0.2f).toInt().coerceAtLeast(64))
         erBufR = FloatArray(erBufL.size)
         predelayCursor = 0
         erCursor = 0
@@ -158,8 +163,15 @@ class RoomReverb {
      * @param sizePercent   50..240 physical room scaling
      */
     fun setSpace(roomPercent: Int, dampPercent: Int, wetPercent: Int, widthPercent: Int, preDelayMs: Int, sizePercent: Int) {
-        roomFeedback = 0.74f + roomPercent.coerceIn(0, 100) / 100f * 0.23f
-        roomDamp = 0.08f + dampPercent.coerceIn(0, 100) / 100f * 0.5f
+        // Room % maps to a real decay time (RT60) from 0.18 s (booth) to
+        // ~6 s (cathedral/canyon). Each comb then gets the exact feedback for
+        // that decay, so rooms differ in length instead of all ringing alike.
+        val r = roomPercent.coerceIn(0, 100) / 100f
+        rt60 = 0.18f * Math.pow(33.0, r.toDouble()).toFloat()
+        roomFeedback = 0.74f + r * 0.23f
+        roomDamp = 0.05f + dampPercent.coerceIn(0, 100) / 100f * 0.6f
+        dampPct = dampPercent.coerceIn(0, 100) / 100f
+        roomPct = r
         targetWet = wetPercent.coerceIn(0, 100) / 100f
         targetWidth = widthPercent.coerceIn(0, 100) / 100f
         predelayMs = preDelayMs.coerceIn(0, 240).toFloat()
@@ -194,14 +206,16 @@ class RoomReverb {
         // "cheap echo" rather than a smooth hall. Keep the network dense.
         val combScale = sizeScale.coerceIn(0.6f, 1.35f)
         val diffuserScale = sizeScale.coerceIn(0.7f, 1.1f)
-        val erScale = sizeScale.coerceIn(0.6f, 1.6f)
+        val erScale = (sizeScale * sizeScale).coerceIn(0.3f, 4.5f)
         val scale = srScale * combScale
         for (i in combTunings.indices) {
             combsL[i].size = (combTunings[i] * scale).toInt()
-            combsL[i].feedback = roomFeedback
+            val delaySec = combsL[i].size / sampleRate.toFloat()
+            val fb = Math.pow(10.0, (-3.0 * delaySec / rt60)).toFloat().coerceIn(0.2f, 0.975f)
+            combsL[i].feedback = fb
             combsL[i].damp = roomDamp
             combsR[i].size = ((combTunings[i] + stereoSpread) * scale).toInt()
-            combsR[i].feedback = roomFeedback
+            combsR[i].feedback = fb
             combsR[i].damp = roomDamp
         }
         for (i in allpassTunings.indices) {
@@ -213,6 +227,16 @@ class RoomReverb {
             erOffL[i] = (erTapsL[i] * erScale * sampleRate / 1000f).toInt().coerceIn(1, erMax)
             erOffR[i] = (erTapsR[i] * erScale * sampleRate / 1000f).toInt().coerceIn(1, erMax)
         }
+        // Tail tone: soft rooms (curtains, crowds) are dark, stone is bright.
+        val dt = 1f / sampleRate
+        val lpHz = 13000f - dampPct * 10000f
+        val rcLp = 1f / (2f * Math.PI.toFloat() * lpHz)
+        lpCoeff = dt / (rcLp + dt)
+        // Small rooms are mostly walls (early reflections), big rooms are
+        // mostly tail. This balance is the biggest "what room am I in" cue.
+        val small = ((1.6f - sizeScale) / 1.1f).coerceIn(0f, 1f)
+        erMix = 0.5f + small * 1.6f
+        tailMix = 0.35f + roomPct * 0.9f
         predelayLen = ((predelayMs / 1000f) * sampleRate).toInt().coerceIn(1, predelayBuf.size - 1)
         dirty = false
     }
@@ -300,8 +324,8 @@ class RoomReverb {
         // makes the space clearly audible without fogging the vocal.
         val x = (env * 3f).coerceIn(0f, 1f)
         val duck = 1f - 0.3f * (x * x * (3f - 2f * x))
-        val tailGain = currentWet * 4.2f * duck
-        val erGain = currentWet * 1.3f * (0.7f + 0.3f * duck)
+        val tailGain = currentWet * 4.2f * tailMix * duck
+        val erGain = currentWet * 1.3f * erMix * (0.7f + 0.3f * duck)
         // Trim the dry a touch as the room grows so dry + room keeps the same
         // loudness and never pushes the limiter (no pumping, no distortion).
         val dryTrim = 1f - currentWet * 0.4f

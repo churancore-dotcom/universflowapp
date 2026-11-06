@@ -59,6 +59,17 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var nineShadowLeft = 0f
     private var nineShadowRight = 0f
     private var nineShadowCoeff = 0.5f
+    // 9D binaural cues: interaural time delay lines (far ear hears the sound
+    // up to ~0.65 ms later), far-ear head shadow and a rear "behind" filter.
+    private var itdL = FloatArray(64)
+    private var itdR = FloatArray(64)
+    private var itdCursor = 0
+    private var itdMaxSamples = 28f
+    private var farShadowL = 0f
+    private var farShadowR = 0f
+    private var farShadowCoeff = 0.3f
+    private var rearL = 0f
+    private var rearR = 0f
 
     /** Real room reverb (pre-delay + comb/allpass network) — see RoomReverb. */
     val reverb = RoomReverb()
@@ -139,6 +150,12 @@ class StemAudioProcessor : BaseAudioProcessor() {
         ninePhaseStep = 2.0 * Math.PI * 0.07 / inputAudioFormat.sampleRate.toDouble()
         val rcShadow = 1f / (2f * Math.PI.toFloat() * 5500f)
         nineShadowCoeff = dt / (rcShadow + dt)
+        itdMaxSamples = inputAudioFormat.sampleRate * 0.00065f
+        itdL = FloatArray(itdMaxSamples.toInt() + 4)
+        itdR = FloatArray(itdL.size)
+        itdCursor = 0
+        val rcFar = 1f / (2f * Math.PI.toFloat() * 2200f)
+        farShadowCoeff = dt / (rcFar + dt)
         reverb.configure(inputAudioFormat.sampleRate)
         limiterRelease = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.12f)).toDouble()).toFloat()
         limiterGain = 1f
@@ -172,6 +189,8 @@ class StemAudioProcessor : BaseAudioProcessor() {
         crossfeedLowRight = 0f
         nineShadowLeft = 0f
         nineShadowRight = 0f
+        itdL.fill(0f); itdR.fill(0f); itdCursor = 0
+        farShadowL = 0f; farShadowR = 0f; rearL = 0f; rearR = 0f
         lookaheadL.fill(0f)
         lookaheadR.fill(0f)
         lookaheadCursor = 0
@@ -255,25 +274,56 @@ class StemAudioProcessor : BaseAudioProcessor() {
             rawLeft = (rawLeft + delayedRight * crossfeed) / (1f + crossfeed)
             rawRight = (rawRight + delayedLeft * crossfeed) / (1f + crossfeed)
 
-            // 9D orbit: equal-power pan around the head; when "behind"
-            // (cos < 0) blend in the head-shadow lowpass for a rear cue.
+            // 9D: a real binaural orbit, not a louder 8D pan. The source
+            // circles the head (front -> right -> behind -> left). The far ear
+            // gets the sound LATER (interaural time delay), DARKER (head
+            // shadow) and only slightly quieter; behind the head both ears
+            // lose treble. Those timing/tone cues are what the brain uses to
+            // place sound outside the head; 8D only changes volume.
+            itdL[itdCursor] = rawLeft
+            itdR[itdCursor] = rawRight
             if (currentSurround > 0.001f) {
-                val orbitPan = sin(ninePhase).toFloat() * currentSurround * 0.75f
-                val behind = ((1f - kotlin.math.cos(ninePhase).toFloat()) * 0.5f) * currentSurround * 0.7f
+                val depth = currentSurround
+                val az = sin(ninePhase).toFloat()            // -1 left .. +1 right
+                val front = kotlin.math.cos(ninePhase).toFloat() // +1 front .. -1 behind
                 ninePhase += ninePhaseStep
                 if (ninePhase >= 2.0 * Math.PI) ninePhase -= 2.0 * Math.PI
-                val gl = sqrt(((1f - orbitPan) * 0.5f).toDouble()).toFloat() * 1.4142135f
-                val gr = sqrt(((1f + orbitPan) * 0.5f).toDouble()).toFloat() * 1.4142135f
-                rawLeft *= gl
-                rawRight *= gr
-                nineShadowLeft += nineShadowCoeff * (rawLeft - nineShadowLeft)
-                nineShadowRight += nineShadowCoeff * (rawRight - nineShadowRight)
-                rawLeft += (nineShadowLeft - rawLeft) * behind
-                rawRight += (nineShadowRight - rawRight) * behind
+                // Mono-ish source for the orbit so it truly moves as one object.
+                val src = (rawLeft + rawRight) * 0.5f
+                val keep = 1f - depth * 0.8f
+                val delayL = if (az > 0f) az * itdMaxSamples * depth else 0f
+                val delayR = if (az < 0f) -az * itdMaxSamples * depth else 0f
+                val n = itdL.size
+                fun tap(buf: FloatArray, d: Float): Float {
+                    val i = d.toInt(); val f = d - i
+                    val a = buf[(itdCursor - i + n * 2) % n]
+                    val b = buf[(itdCursor - i - 1 + n * 2) % n]
+                    return a + (b - a) * f
+                }
+                val srcL = (tap(itdL, delayL) + tap(itdR, delayL)) * 0.5f
+                val srcR = (tap(itdL, delayR) + tap(itdR, delayR)) * 0.5f
+                farShadowL += farShadowCoeff * (srcL - farShadowL)
+                farShadowR += farShadowCoeff * (srcR - farShadowR)
+                val shadeL = if (az > 0f) az else 0f
+                val shadeR = if (az < 0f) -az else 0f
+                var earL = srcL + (farShadowL - srcL) * shadeL * 0.85f
+                var earR = srcR + (farShadowR - srcR) * shadeR * 0.85f
+                earL *= 1f - shadeL * 0.35f
+                earR *= 1f - shadeR * 0.35f
+                val behind = ((1f - front) * 0.5f)
+                rearL += nineShadowCoeff * (earL - rearL)
+                rearR += nineShadowCoeff * (earR - rearR)
+                earL += (rearL - earL) * behind * 0.6f
+                earR += (rearR - earR) * behind * 0.6f
+                val wet = 1f - keep
+                rawLeft = rawLeft * keep + earL * wet * 1.25f
+                rawRight = rawRight * keep + earR * wet * 1.25f
+                nineShadowLeft = rawLeft; nineShadowRight = rawRight
             } else {
                 nineShadowLeft = rawLeft
                 nineShadowRight = rawRight
             }
+            if (++itdCursor >= itdL.size) itdCursor = 0
 
             // Look-ahead stereo-linked limiter. The previous limiter slammed
             // the gain down on the exact sample that peaked, which is an
