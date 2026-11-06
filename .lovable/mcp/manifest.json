@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "sdk_version": "0.26.1",
+  "sdk_version": "3.4.0",
   "path": "/mcp",
   "auth": {
     "type": "oauth",
@@ -26,6 +26,7 @@
           "openWorldHint": false
         },
         "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
             "query": {
@@ -34,17 +35,16 @@
               "description": "Search text (song title or artist name)."
             },
             "limit": {
+              "description": "Max results, default 10.",
               "type": "integer",
               "minimum": 1,
-              "maximum": 50,
-              "description": "Max results, default 10."
+              "maximum": 50
             }
           },
           "required": [
             "query"
           ],
-          "additionalProperties": false,
-          "$schema": "http://json-schema.org/draft-07/schema#"
+          "additionalProperties": false
         },
         "outputSchema": null
       },
@@ -58,30 +58,30 @@
           "openWorldHint": false
         },
         "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
             "limit": {
+              "description": "Max tracks, default 20.",
               "type": "integer",
               "minimum": 1,
-              "maximum": 50,
-              "description": "Max tracks, default 20."
+              "maximum": 50
             },
             "chart": {
+              "description": "Chart type, default 'trending'.",
               "type": "string",
               "enum": [
                 "trending",
                 "viral"
-              ],
-              "description": "Chart type, default 'trending'."
+              ]
             },
             "country": {
+              "description": "ISO-3166 country code or GLOBAL (default).",
               "type": "string",
-              "pattern": "^[A-Za-z]{2}$|^GLOBAL$",
-              "description": "ISO-3166 country code or GLOBAL (default)."
+              "pattern": "^[A-Za-z]{2}$|^GLOBAL$"
             }
           },
-          "additionalProperties": false,
-          "$schema": "http://json-schema.org/draft-07/schema#"
+          "additionalProperties": false
         },
         "outputSchema": null
       },
@@ -95,6 +95,7 @@
           "openWorldHint": false
         },
         "inputSchema": {
+          "$schema": "https://json-schema.org/draft/2020-12/schema",
           "type": "object",
           "properties": {
             "name": {
@@ -106,8 +107,7 @@
           "required": [
             "name"
           ],
-          "additionalProperties": false,
-          "$schema": "http://json-schema.org/draft-07/schema#"
+          "additionalProperties": false
         },
         "outputSchema": null
       }
