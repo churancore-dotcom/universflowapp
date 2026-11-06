@@ -37,7 +37,6 @@ import { Route as SubscriptionRouteImport } from './routes/subscription'
 import { Route as SupportRouteImport } from './routes/support'
 import { Route as VerifyRouteImport } from './routes/verify'
 import { Route as WelcomeRouteImport } from './routes/welcome'
-import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as ASlugRouteImport } from './routes/a.$slug'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
@@ -96,7 +95,6 @@ import { Route as LegalTermsRouteImport } from './routes/legal.terms'
 import { Route as PlaylistIdRouteImport } from './routes/playlist.$id'
 import { Route as SongSongIdRouteImport } from './routes/song.$songId'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
-import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as AdminArtistApplicationsStatusRouteImport } from './routes/admin/artist-applications_.$status'
 import { Route as ApiPublicApkRouteImport } from './routes/api/public/apk'
 import { Route as ApiPublicApkUploadRouteImport } from './routes/api/public/apk-upload'
@@ -256,12 +254,6 @@ const WelcomeRoute = WelcomeRouteImport.update({
   path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const Char91DotwellKnownChar93OauthProtectedResourceRoute =
   Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
     id: '/.well-known/oauth-protected-resource',
@@ -558,12 +550,6 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
   path: '/.lovable/oauth/consent',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char91DotmcpChar93InvokeToolToolRoute =
-  Char91DotmcpChar93InvokeToolToolRouteImport.update({
-    id: '/.mcp/invoke-tool/$tool',
-    path: '/.mcp/invoke-tool/$tool',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const AdminArtistApplicationsStatusRoute =
   AdminArtistApplicationsStatusRouteImport.update({
     id: '/artist-applications_/$status',
@@ -689,7 +675,6 @@ export interface FileRoutesByFullPath {
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
   '/artist/studio': typeof ArtistStudioRouteRouteWithChildren
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/a/$slug': typeof ASlugRoute
   '/admin/ads': typeof AdminAdsRoute
@@ -747,7 +732,6 @@ export interface FileRoutesByFullPath {
   '/song/$songId': typeof SongSongIdRoute
   '/admin/': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
   '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
@@ -795,7 +779,6 @@ export interface FileRoutesByTo {
   '/support': typeof SupportRoute
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/a/$slug': typeof ASlugRoute
   '/admin/ads': typeof AdminAdsRoute
@@ -853,7 +836,6 @@ export interface FileRoutesByTo {
   '/song/$songId': typeof SongSongIdRoute
   '/admin': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
   '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
@@ -904,7 +886,6 @@ export interface FileRoutesById {
   '/verify': typeof VerifyRoute
   '/welcome': typeof WelcomeRoute
   '/artist/studio': typeof ArtistStudioRouteRouteWithChildren
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/a/$slug': typeof ASlugRoute
   '/admin/ads': typeof AdminAdsRoute
@@ -962,7 +943,6 @@ export interface FileRoutesById {
   '/song/$songId': typeof SongSongIdRoute
   '/admin/': typeof AdminIndexRoute
   '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/admin/artist-applications_/$status': typeof AdminArtistApplicationsStatusRoute
   '/api/public/apk': typeof ApiPublicApkRoute
   '/api/public/apk-upload': typeof ApiPublicApkUploadRoute
@@ -1014,7 +994,6 @@ export interface FileRouteTypes {
     | '/verify'
     | '/welcome'
     | '/artist/studio'
-    | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/a/$slug'
     | '/admin/ads'
@@ -1072,7 +1051,6 @@ export interface FileRouteTypes {
     | '/song/$songId'
     | '/admin/'
     | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications/$status'
     | '/api/public/apk'
     | '/api/public/apk-upload'
@@ -1120,7 +1098,6 @@ export interface FileRouteTypes {
     | '/support'
     | '/verify'
     | '/welcome'
-    | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/a/$slug'
     | '/admin/ads'
@@ -1178,7 +1155,6 @@ export interface FileRouteTypes {
     | '/song/$songId'
     | '/admin'
     | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications/$status'
     | '/api/public/apk'
     | '/api/public/apk-upload'
@@ -1228,7 +1204,6 @@ export interface FileRouteTypes {
     | '/verify'
     | '/welcome'
     | '/artist/studio'
-    | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/a/$slug'
     | '/admin/ads'
@@ -1286,7 +1261,6 @@ export interface FileRouteTypes {
     | '/song/$songId'
     | '/admin/'
     | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
     | '/admin/artist-applications_/$status'
     | '/api/public/apk'
     | '/api/public/apk-upload'
@@ -1337,7 +1311,6 @@ export interface RootRouteChildren {
   VerifyRoute: typeof VerifyRoute
   WelcomeRoute: typeof WelcomeRoute
   ArtistStudioRouteRoute: typeof ArtistStudioRouteRouteWithChildren
-  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   ASlugRoute: typeof ASlugRoute
   ArtistArtistIdRoute: typeof ArtistArtistIdRoute
@@ -1359,7 +1332,6 @@ export interface RootRouteChildren {
   PlaylistIdRoute: typeof PlaylistIdRoute
   SongSongIdRoute: typeof SongSongIdRoute
   DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
-  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicApkRoute: typeof ApiPublicApkRoute
   ApiPublicApkUploadRoute: typeof ApiPublicApkUploadRoute
   ApiPublicProcessAccountDeletionsRoute: typeof ApiPublicProcessAccountDeletionsRoute
@@ -1563,13 +1535,6 @@ declare module '@tanstack/react-router' {
       path: '/welcome'
       fullPath: '/welcome'
       preLoaderRoute: typeof WelcomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.mcp/list-tools': {
-      id: '/.mcp/list-tools'
-      path: '/.mcp/list-tools'
-      fullPath: '/.mcp/list-tools'
-      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/.well-known/oauth-protected-resource': {
@@ -1978,13 +1943,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DotlovableOauthConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/admin/artist-applications_/$status': {
       id: '/admin/artist-applications_/$status'
       path: '/artist-applications/$status'
@@ -2261,7 +2219,6 @@ const rootRouteChildren: RootRouteChildren = {
   VerifyRoute: VerifyRoute,
   WelcomeRoute: WelcomeRoute,
   ArtistStudioRouteRoute: ArtistStudioRouteRouteWithChildren,
-  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
   ASlugRoute: ASlugRoute,
@@ -2284,7 +2241,6 @@ const rootRouteChildren: RootRouteChildren = {
   PlaylistIdRoute: PlaylistIdRoute,
   SongSongIdRoute: SongSongIdRoute,
   DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
-  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicApkRoute: ApiPublicApkRoute,
   ApiPublicApkUploadRoute: ApiPublicApkUploadRoute,
   ApiPublicProcessAccountDeletionsRoute: ApiPublicProcessAccountDeletionsRoute,
