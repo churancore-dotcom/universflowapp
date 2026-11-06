@@ -191,7 +191,20 @@ Deno.serve(async (req) => {
         </td>
       </tr>`).join('');
 
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
+    const html = renderBrandEmail({
+      eyebrow: isArtist ? 'Artist application' : 'Confirm your email',
+      headline: isArtist ? `One step left, ${safeName}.` : `You're almost in, ${safeName}.`,
+      body: [isArtist
+        ? 'Confirm this email to pick up your artist verification right where you left off.'
+        : 'Confirm this email to finish setting up your Universflow account.'],
+      cta: { label: isArtist ? 'Confirm and continue' : 'Confirm email', url: verifyUrl },
+      note: 'Works once · expires in 24 hours',
+      showLink: true,
+      footnote: isArtist ? "Didn't start an artist application? Ignore this email." : "Didn't sign up? Ignore this email.",
+      sentTo: escape(email),
+    });
+    // Previous design, kept only as reference; not sent.
+    const _legacyHtml = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
   <div style="max-width:600px;margin:0 auto;padding:40px 18px">
 
     <!-- Brand header -->

@@ -124,7 +124,14 @@ Deno.serve(async (req) => {
         <div style="font:400 13px/1.5 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#a1a1a6;margin-top:2px">${d}</div>
       </td></tr>`).join('');
 
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
+    const html = renderBrandEmail({
+      eyebrow: "You're in",
+      headline: `Welcome, ${safeName}.`,
+      body: ['Your account is ready. Your likes, playlists and downloads now follow you on every device you sign in to.'],
+      cta: { label: 'Start listening', url: 'https://universflow.in/home' },
+    });
+    // Previous design, kept only as reference; not sent.
+    const _legacyHtml = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
   <div style="max-width:600px;margin:0 auto;padding:40px 18px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px"><tr><td align="center">
       <img src="https://universflow.in/pwa-512x512.png" width="56" height="56" alt="Universflow" style="display:block;border-radius:14px;box-shadow:0 10px 28px rgba(255,45,85,0.28)">

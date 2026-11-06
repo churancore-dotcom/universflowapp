@@ -121,7 +121,17 @@ Deno.serve(async (req) => {
       linkData?.action_link ?? linkData?.properties?.action_link;
     if (!actionLink) return UNIFORM_OK;
 
-    const html = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
+    const html = renderBrandEmail({
+      eyebrow: 'Password reset',
+      headline: 'Set a new password.',
+      body: ['Someone asked to reset the password for your Universflow account. If it was you, use the button below.'],
+      cta: { label: 'Choose new password', url: actionLink },
+      note: 'Works once · expires in 1 hour',
+      showLink: true,
+      footnote: "Didn't ask for this? Ignore this email and your password stays the same.",
+    });
+    // Previous design, kept only as reference; not sent.
+    const _legacyHtml = `<!doctype html><html><body style="margin:0;padding:0;background:#050506;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#fff">
   <div style="max-width:600px;margin:0 auto;padding:40px 18px">
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-bottom:22px"><tr><td align="center">
       <img src="https://universflow.in/pwa-512x512.png" width="56" height="56" alt="Universflow" style="display:block;border-radius:14px;box-shadow:0 10px 28px rgba(255,45,85,0.28)">
