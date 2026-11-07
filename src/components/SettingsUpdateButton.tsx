@@ -64,7 +64,7 @@ export function SettingsUpdateButton() {
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-sm rounded-3xl border-white/10 bg-zinc-950/95 backdrop-blur-2xl">
+        <DialogContent className="max-w-sm rounded-3xl border-border bg-background">
           <DialogHeader>
             <div className="mx-auto mb-2 size-14 rounded-2xl bg-gradient-to-br from-[#FF2D55] to-[#FF6B9D] grid place-items-center shadow-lg shadow-[#FF2D55]/40">
               <Download className="size-7 text-white" />

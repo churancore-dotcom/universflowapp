@@ -191,7 +191,7 @@ export default function ArtistLayout() {
       {open && (
         <div className="md:hidden fixed inset-0 z-40">
           <div className="absolute inset-0 bg-black/60" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-72 bg-[#0b0b0e] border-r border-white/10">
+          <div className="absolute inset-y-0 left-0 w-72 bg-background border-r border-white/10">
             <SidebarBody
               pathname={location.pathname}
               onClose={() => setOpen(false)}

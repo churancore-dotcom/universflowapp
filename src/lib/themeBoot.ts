@@ -73,11 +73,11 @@ export const THEMES: Record<ThemeMode, ThemeTokens> = {
   // ====== Onyx — 100% pure black (OLED) ======
   black: {
     background: '0 0% 0%', foreground: '0 0% 98%',
-    card: '0 0% 4%', cardForeground: '0 0% 98%',
+    card: '0 0% 0%', cardForeground: '0 0% 98%',
     muted: '0 0% 9%', mutedForeground: '0 0% 62%',
-    popover: '0 0% 4%', popoverForeground: '0 0% 98%',
-    secondary: '0 0% 7%', secondaryForeground: '0 0% 98%',
-    border: '0 0% 13%', input: '0 0% 8%',
+    popover: '0 0% 0%', popoverForeground: '0 0% 98%',
+    secondary: '0 0% 8%', secondaryForeground: '0 0% 98%',
+    border: '0 0% 14%', input: '0 0% 7%',
     primary: '350 100% 62%', primaryForeground: '0 0% 100%',
     accent: '330 100% 66%', accentForeground: '0 0% 100%',
     ring: '350 100% 62%',

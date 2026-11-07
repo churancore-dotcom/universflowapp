@@ -340,12 +340,12 @@ export default function ArtistPublic() {
 
       <div
         ref={scrollRef}
-        className="min-h-[100dvh] max-h-[100dvh] overflow-y-auto bg-[#060608] text-foreground pb-36 relative"
+        className="min-h-[100dvh] max-h-[100dvh] overflow-y-auto bg-background text-foreground pb-36 relative"
       >
         {/* === STICKY MINI HEADER === */}
         <motion.header
           style={{ opacity: titleOpacity }}
-          className="fixed top-0 inset-x-0 z-30 bg-[#060608]/85 backdrop-blur-xl border-b border-white/5"
+          className="fixed top-0 inset-x-0 z-30 bg-background/85 backdrop-blur-xl border-b border-white/5"
         >
           <div className="max-w-md mx-auto px-3 h-14 flex items-center gap-3">
             <button
@@ -389,7 +389,7 @@ export default function ArtistPublic() {
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                'linear-gradient(180deg, rgba(6,6,8,0.4) 0%, rgba(6,6,8,0.1) 35%, rgba(6,6,8,0.85) 80%, #060608 100%)',
+                'linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.85) 80%, #000 100%)',
             }}
           />
 

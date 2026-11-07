@@ -379,7 +379,7 @@ function Shell({ children, backTo = '/artist/status' }: { children: React.ReactN
   const navigate = useNavigate();
   const isSelf = backTo === '/artist/status';
   return (
-    <div className="min-h-[100dvh] bg-[#060608] text-foreground relative overflow-y-auto overflow-x-hidden">
+    <div className="min-h-[100dvh] bg-background text-foreground relative overflow-y-auto overflow-x-hidden">
       {/* Ambient backdrop */}
       <div
         className="fixed inset-0 pointer-events-none"
@@ -389,7 +389,7 @@ function Shell({ children, backTo = '/artist/status' }: { children: React.ReactN
             'radial-gradient(80% 60% at 100% 100%, hsl(28 100% 60% / 0.10) 0%, transparent 60%)',
         }}
       />
-      <header className="sticky top-0 z-20 bg-[#060608]/85 backdrop-blur-xl border-b border-white/5">
+      <header className="sticky top-0 z-20 bg-background/85 backdrop-blur-xl border-b border-white/5">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center gap-3">
           {!isSelf && (
             <button

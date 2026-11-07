@@ -87,7 +87,7 @@ export default function JoinTeam() {
   return (
     <FadeTransition>
       <SEOHead title="Join an artist's team" description="Accept your Univers Flow team invite." />
-      <div className="min-h-[100dvh] bg-[#0A0A0C] text-white">
+      <div className="min-h-[100dvh] bg-background text-white">
         <div className="max-w-lg mx-auto px-5 pt-6 pb-24">
           <button onClick={() => navigate('/artist/onboarding')}
             className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm mb-8">
