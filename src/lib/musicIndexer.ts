@@ -655,33 +655,73 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
   const key = `fresh-releases-v5:${cc}:${limit}`;
   const hit = newReleasesMemCache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.data;
-  const save = (out: IndexedTrack[]) => {
-    newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
-    return out;
-  };
   // Unknown market: no country-correct release shelf, so show none.
   if (cc === 'ZZ') return [];
+  // The last good shelf is kept on the phone. A cold APK start (network still
+  // waking up, slow first request) used to come back empty and the whole
+  // New Releases rail vanished until the next refresh.
+  const diskKey = `uf:fresh-releases-v5:${cc}`;
+  const disk = readSavedReleases(diskKey);
+  if (disk && Date.now() - disk.savedAt < 15 * 60 * 1000) {
+    newReleasesMemCache.set(key, { data: disk.data.slice(0, limit), expiresAt: disk.savedAt + 15 * 60 * 1000 });
+    return disk.data.slice(0, limit);
+  }
+  const save = (out: IndexedTrack[]) => {
+    if (!out.length) return out;
+    newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
+    try { localStorage.setItem(diskKey, JSON.stringify({ data: out, savedAt: Date.now() })); } catch { /* storage full/unavailable */ }
+    return out;
+  };
+  // Only a recently verified shelf may stand in for a failed fetch; it is the
+  // same provider shelf, never chart or search filler.
+  const fallback = (): IndexedTrack[] =>
+    disk && Date.now() - disk.savedAt < NEW_RELEASES_FALLBACK_MS ? disk.data.slice(0, limit) : [];
+  const { isJunkRailTrack } = await import('./railQuality');
   // Outside India the phone asks YouTube Music itself, so the shelf follows
   // the listener's own network (the server's shelf is locked to its IP).
   if (cc !== 'IN') {
     try {
       const { getDeviceNewReleases } = await import('./deviceNewReleases');
       const device = await getDeviceNewReleases(cc, Math.min(40, limit));
-      const { isJunkRailTrack } = await import('./railQuality');
-      return save(device.filter((t) => !isJunkRailTrack(t)).slice(0, limit));
+      const out = save(device.filter((t) => !isJunkRailTrack(t)).slice(0, limit));
+      return out.length ? out : fallback();
     } catch {
-      return [];
+      return fallback();
     }
   }
+  const fetchShelf = async (): Promise<IndexedTrack[] | null> => {
+    try {
+      const { data, error } = await supabase.functions.invoke<YoutubeNewReleasesResponse>('yt-music-search', {
+        body: { mode: 'new-releases', country: cc, limit: Math.min(40, limit) },
+      });
+      if (error || !data?.success || !Array.isArray(data.results)) return null;
+      return data.results.filter(track => track && !isJunkRailTrack(track)).slice(0, limit);
+    } catch {
+      return null;
+    }
+  };
+  // One quick second attempt covers the first request of a cold start.
+  let shelf = await fetchShelf();
+  if (!shelf?.length) {
+    await new Promise((r) => setTimeout(r, NEW_RELEASES_RETRY_MS));
+    shelf = await fetchShelf();
+  }
+  return shelf?.length ? save(shelf) : fallback();
+}
+
+const NEW_RELEASES_FALLBACK_MS = 24 * 60 * 60 * 1000;
+const NEW_RELEASES_RETRY_MS = 1200;
+
+function readSavedReleases(diskKey: string): { data: IndexedTrack[]; savedAt: number } | null {
   try {
-    const { data, error } = await supabase.functions.invoke<YoutubeNewReleasesResponse>('yt-music-search', {
-      body: { mode: 'new-releases', country: cc, limit: Math.min(40, limit) },
-    });
-    if (error || !data?.success || !Array.isArray(data.results)) return [];
-    const { isJunkRailTrack } = await import('./railQuality');
-    return save(data.results.filter(track => track && !isJunkRailTrack(track)).slice(0, limit));
+    if (typeof localStorage === 'undefined') return null;
+    const raw = localStorage.getItem(diskKey);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { data?: IndexedTrack[]; savedAt?: number };
+    if (!Array.isArray(parsed?.data) || !parsed.data.length || typeof parsed.savedAt !== 'number') return null;
+    return { data: parsed.data, savedAt: parsed.savedAt };
   } catch {
-    return [];
+    return null;
   }
 }
 
