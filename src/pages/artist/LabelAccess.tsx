@@ -60,7 +60,7 @@ export default function LabelAccess() {
   return (
     <FadeTransition>
       <SEOHead title="Request label access" description="Univers Flow for Labels — request roster-wide access." />
-      <div className="min-h-[100dvh] bg-[#0A0A0C] text-white">
+      <div className="min-h-[100dvh] bg-background text-white">
         <div className="max-w-xl mx-auto px-5 pt-6 pb-24">
           <button onClick={() => navigate('/artist/onboarding')}
             className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm mb-8">

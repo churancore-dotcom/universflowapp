@@ -53,7 +53,7 @@ export default function AccessHub() {
         title="Get access to Univers Flow for Artists"
         description="Claim your artist profile, join an artist's team, or request label access on Univers Flow."
       />
-      <div className="min-h-[100dvh] bg-[#0A0A0C] text-white overflow-x-hidden">
+      <div className="min-h-[100dvh] bg-background text-white overflow-x-hidden">
         <div className="max-w-2xl mx-auto px-5 pt-6 pb-24">
           <button onClick={() => navigate(-1)}
             className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm mb-8">

@@ -8,7 +8,7 @@ import { motion } from 'framer-motion';
  */
 export default function ArtistLoading({ label = 'Loading…' }: { label?: string }) {
   return (
-    <div className="min-h-[100dvh] bg-[#060608] text-foreground relative overflow-hidden flex flex-col items-center justify-center px-6">
+    <div className="min-h-[100dvh] bg-background text-foreground relative overflow-hidden flex flex-col items-center justify-center px-6">
       <div
         className="fixed inset-0 pointer-events-none"
         style={{

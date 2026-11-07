@@ -182,7 +182,7 @@ function MemberRow({ m, canManage, isSelf, onRevoke, onRole }: {
             <MoreHorizontal className="w-4 h-4" />
           </button>
           {open && (
-            <div className="absolute right-0 top-9 z-10 w-44 rounded-xl bg-[#111] border border-white/10 py-1 shadow-2xl">
+            <div className="absolute right-0 top-9 z-10 w-44 rounded-xl bg-card border border-white/10 py-1 shadow-2xl">
               {ROLES.map(r => (
                 <button key={r} onClick={() => { setOpen(false); onRole(r); }}
                   className="w-full text-left px-3 py-2 text-[12.5px] hover:bg-white/5 capitalize">
@@ -248,7 +248,7 @@ function InviteModal({ artistProfileId, onClose }: { artistProfileId: string; on
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-5" onClick={onClose}>
       <motion.div initial={{ scale: 0.95, opacity: 0 }} animate={{ scale: 1, opacity: 1 }}
         onClick={e => e.stopPropagation()}
-        className="w-full max-w-md rounded-2xl bg-[#111] border border-white/10 p-5">
+        className="w-full max-w-md rounded-2xl bg-card border border-white/10 p-5">
         <div className="flex items-center justify-between mb-4">
           <h3 className="font-bold text-[18px]">Invite to team</h3>
           <button onClick={onClose}><X className="w-5 h-5 text-white/60" /></button>

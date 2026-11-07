@@ -244,7 +244,7 @@ const ArtistAuth = () => {
 
   return (
     <FadeTransition>
-      <div className="min-h-[100dvh] bg-[#060608] text-foreground relative overflow-y-auto overflow-x-hidden">
+      <div className="min-h-[100dvh] bg-background text-foreground relative overflow-y-auto overflow-x-hidden">
         <SEOHead
           title="Become a Verified Artist on Universflow"
           description="Join Universflow for Artists. Upload your music, earn the rose verified checkmark, and reach new fans across India and beyond."

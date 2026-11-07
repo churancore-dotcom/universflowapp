@@ -79,7 +79,7 @@ export default function ArtistClaimProfile() {
   if (existingClaim) {
     return (
       <FadeTransition>
-        <div className="min-h-[100dvh] bg-[#0A0A0C] text-white grid place-items-center px-6">
+        <div className="min-h-[100dvh] bg-background text-white grid place-items-center px-6">
           <div className="max-w-md text-center">
             <div className="w-14 h-14 rounded-2xl bg-[#FF2D55]/15 grid place-items-center mx-auto mb-4">
               <ShieldCheck className="w-6 h-6 text-[#FF2D55]" />
@@ -99,7 +99,7 @@ export default function ArtistClaimProfile() {
     <FadeTransition>
       <SEOHead title="Claim your artist profile — Univers Flow"
         description="Find and claim your existing artist page on Univers Flow. Verified within 48 hours." />
-      <div className="min-h-[100dvh] bg-[#0A0A0C] text-white">
+      <div className="min-h-[100dvh] bg-background text-white">
         <div className="max-w-2xl mx-auto px-5 pt-6 pb-28">
           <button onClick={() => navigate('/artist/onboarding')}
             className="inline-flex items-center gap-2 text-white/60 hover:text-white text-sm mb-6">
