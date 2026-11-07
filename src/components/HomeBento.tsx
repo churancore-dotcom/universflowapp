@@ -1,10 +1,10 @@
 /**
- * Home surface, simplified: Continue Listening + Jump Back In.
+ * Home surface, simplified: Artist of the Week + Rediscover.
  *
  * Every value comes from data the app already has:
  *  - Continue Listening: the live player, or the persisted player snapshot
  *    (`player_queue_state`), or the newest device play-history entry.
- *  - Jump Back In: device play history (localStorage snapshots).
+ *  - Rediscover: songs from device play history that dropped out of recent plays.
  * Nothing is fabricated — a card self-hides when its signal is missing, and no
  * chart/editorial cards live here any more.
  */
@@ -14,7 +14,7 @@ import { Play, Pause } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
-import { recentSongs, jumpBackInGroups } from '@/lib/personalHome';
+import { recentSongs, rediscoverSongs } from '@/lib/personalHome';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { isSuppressed } from '@/lib/feedPersonalizer';
 import { triggerHaptic } from '@/hooks/useHaptics';
@@ -148,7 +148,7 @@ const MOODS: Array<{ label: string; query: string }> = [
 
 const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null }) => {
   const { currentSong, isPlaying, playSong, togglePlay, seek } = usePlayer();
-  const rawRecents = useLocalRecents(60);
+  const rawRecents = useLocalRecents(100);
   const taste = useTasteProfile();
 
   // A repeatedly skipped or explicitly disliked artist must not come back through
@@ -163,8 +163,8 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
   // ── Continue Listening ─────────────────────────────────────────────────
   const snapshot = useMemo(() => (typeof window === 'undefined' ? null : readSnapshot()), [recents.length]);
 
-  // ── Jump Back In — real album/artist sets the listener was working through
-  const jumpGroups = useMemo(() => jumpBackInGroups(recents, 1).slice(0, 6), [recents]);
+  // ── Rediscover — songs the listener loved earlier but hasn't played lately
+  const rediscover = useMemo(() => rediscoverSongs(recents), [recents]);
 
   // ── Artist of the Week — the artist the listener actually played most ──
   const artistOfWeek = useMemo(() => {
@@ -221,8 +221,8 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
     <div className="px-5 space-y-3">
       {/* HERO — Continue Listening */}
 
-      {/* ROW 1 — ARTIST OF THE WEEK (portrait) + JUMP BACK IN (3-row list) */}
-      {(artistOfWeek || jumpGroups.length > 0) && (
+      {/* ROW 1 — ARTIST OF THE WEEK (portrait) + REDISCOVER (3-row list) */}
+      {(artistOfWeek || rediscover.length > 0) && (
         <div className="grid grid-cols-2 gap-3 items-start">
           {artistOfWeek && (
             <motion.button
@@ -253,40 +253,35 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
             </motion.button>
           )}
 
-          {jumpGroups.length > 0 && (
+          {rediscover.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.08 }}
               className={`rounded-[24px] border border-border/60 bg-card/70 p-4 ${artistOfWeek ? 'self-stretch' : 'col-span-2'}`}
             >
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Jump Back In</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Rediscover</p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Not played lately</p>
               <div className="mt-3 space-y-3">
-                {jumpGroups.slice(0, 3).map((group) => {
-                  const single = group.songs.length === 1;
-                  const lead = group.songs[0];
-                  return (
+                {rediscover.slice(0, 3).map((song, i) => (
                   <button
-                    key={group.id}
+                    key={songFingerprint(song)}
                     onClick={() => {
                       triggerHaptic('selection');
-                      playSong(group.songs[0], null, [...group.songs, ...history.slice(0, 20)]);
+                      playSong(song, null, [...rediscover.slice(i), ...rediscover.slice(0, i)]);
                     }}
                     className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
                   >
                     <div className="w-11 h-11 shrink-0 rounded-[10px] overflow-hidden bg-muted">
-                      <OptimizedImage src={single ? lead.cover_url || group.cover_url : group.cover_url} alt={single ? lead.title : group.title} className="w-full h-full" />
+                      <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[13px] font-bold text-foreground truncate leading-tight">{single ? lead.title : group.title}</p>
-                      <p className="text-[11px] text-muted-foreground truncate">
-                        {single ? lead.artist : `${group.songs.length} tracks`}
-                      </p>
+                      <p className="text-[13px] font-bold text-foreground truncate leading-tight">{song.title}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">{song.artist}</p>
                     </div>
                     <Play className="w-4 h-4 shrink-0 text-primary fill-current" />
                   </button>
-                  );
-                })}
+                ))}
               </div>
             </motion.div>
           )}

@@ -326,7 +326,7 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
           ) : (
             <>
-              {/* ── Continue Listening + Jump Back In, both from real history ── */}
+              {/* ── Featured song + personal bento, both from real history ── */}
               {stage?.song && <HomeStage song={stage.song} label={stage.label} />}
 
               <div className="mt-6"><HomeBento songs={clean.length ? clean : allSongs} /></div>
