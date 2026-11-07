@@ -117,6 +117,7 @@ interface ExoPlayerPluginShape {
     spaceWidth?: number;
     spacePredelayMs?: number;
     spaceSize?: number;
+    spaceKind?: string;
     vocalMix: number;
     instrumentalMix: number;
     playbackSpeed: number;
@@ -357,6 +358,8 @@ export interface NativeSpaceGeometry {
   predelayMs: number;
   /** 50..240 % physical scaling of the comb network */
   size: number;
+  /** Studio Space id; selects the native room fingerprint (reflections, echoes, decay). */
+  kind?: string;
 }
 
 /**
@@ -438,6 +441,7 @@ export async function applyNativeAudioEffects(opts: {
       spaceWidth: Math.round(opts.space?.width ?? 80),
       spacePredelayMs: Math.round(opts.space?.predelayMs ?? 14),
       spaceSize: Math.round(opts.space?.size ?? 100),
+      spaceKind: opts.space?.kind ?? '',
 
       vocalMix: Math.max(0, Math.min(100, Math.round(opts.vocalMix))),
       instrumentalMix: Math.max(0, Math.min(100, Math.round(opts.instrumentalMix))),
