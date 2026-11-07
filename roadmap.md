@@ -9,3 +9,5 @@
 - [x] AI Command Center in admin
 - [x] Connect GitHub API
 - [x] Connect Google Search Console
+- [ ] Studio Spaces: every space must sound distinct and real (stadium/concert/etc.) — native room engine rebuilt
+- [ ] Re-link GitHub API + Google Search Console in this workspace (new move)
