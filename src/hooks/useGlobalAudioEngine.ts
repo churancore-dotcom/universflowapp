@@ -96,10 +96,10 @@ export function useGlobalAudioEngine(
       // track (those were what made every space sound boomy and lo-fi). The
       // character of each place lives only in the room geometry below.
       // Tight, dark, almost no tail — a lacquer cut, not a room.
-      vinyl:     { virt: 0, bass: 0, loud: 0, reverb: 8,  eqMb: [0, 0, 0, 0, 0], geo: { room: 18, damping: 85, wet: 16, width: 45,  predelayMs: 2,   size: 60 } },
+      vinyl:     { virt: 0, bass: 0, loud: 0, reverb: 14, eqMb: [0, 0, 0, 0, 0], geo: { room: 18, damping: 85, wet: 26, width: 45,  predelayMs: 2,   size: 60 } },
       // Dry control room: short, bright, controlled.
-      studio:    { virt: 0, bass: 0, loud: 0, reverb: 6,  eqMb: [0, 0, 0, 0, 0], geo: { room: 30, damping: 40, wet: 22, width: 70,  predelayMs: 6,   size: 75 } },
-      bedroom:   { virt: 0, bass: 0, loud: 0, reverb: 14, eqMb: [0, 0, 0, 0, 0], geo: { room: 42, damping: 70, wet: 30, width: 65,  predelayMs: 11,  size: 85 } },
+      studio:    { virt: 0, bass: 0, loud: 0, reverb: 12, eqMb: [0, 0, 0, 0, 0], geo: { room: 30, damping: 40, wet: 32, width: 70,  predelayMs: 6,   size: 75 } },
+      bedroom:   { virt: 0, bass: 0, loud: 0, reverb: 18, eqMb: [0, 0, 0, 0, 0], geo: { room: 42, damping: 70, wet: 38, width: 65,  predelayMs: 11,  size: 85 } },
       hall:      { virt: 0, bass: 0, loud: 0, reverb: 28, eqMb: [0, 0, 0, 0, 0], geo: { room: 78, damping: 32, wet: 50, width: 95,  predelayMs: 32,  size: 150 } },
       cathedral: { virt: 0, bass: 0, loud: 0, reverb: 42, eqMb: [0, 0, 0, 0, 0], geo: { room: 94, damping: 24, wet: 62, width: 100, predelayMs: 55,  size: 210 } },
       stadium:   { virt: 0, bass: 0, loud: 0, reverb: 34, eqMb: [0, 0, 0, 0, 0], geo: { room: 86, damping: 50, wet: 56, width: 100, predelayMs: 105, size: 190 } },
