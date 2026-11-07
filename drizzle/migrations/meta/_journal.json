@@ -127,6 +127,13 @@
       "when": 1793798795337,
       "tag": "0017_daily_mix_cron_secret",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1794044555989,
+      "tag": "0018_account_feedback_and_premium_notices",
+      "breakpoints": true
     }
   ]
 }

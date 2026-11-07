@@ -31,6 +31,7 @@ import {
   Star,
   Search,
   Pin,
+  Trash2,
 } from 'lucide-react';
 
 const navItems = [
@@ -46,6 +47,7 @@ const navItems = [
   { icon: Music, label: 'Artist Signups', path: '/admin/artist-signups' },
   { icon: ListMusic, label: 'Playlists', path: '/admin/playlists' },
   { icon: Users, label: 'Users', path: '/admin/users' },
+  { icon: Trash2, label: 'Deletion Requests', path: '/admin/deletion-requests' },
   { icon: Crown, label: 'Subscriptions', path: '/admin/subscriptions' },
   { icon: Megaphone, label: 'Ads Manager', path: '/admin/ads' },
   

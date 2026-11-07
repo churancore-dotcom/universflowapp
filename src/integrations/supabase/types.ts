@@ -19,6 +19,8 @@ export type Database = {
           cancelled_at: string | null
           completed_at: string | null
           delete_after: string
+          feedback: string
+          reason: string
           requested_at: string
           user_id: string
         }
@@ -26,6 +28,8 @@ export type Database = {
           cancelled_at?: string | null
           completed_at?: string | null
           delete_after?: string
+          feedback?: string
+          reason?: string
           requested_at?: string
           user_id: string
         }
@@ -33,6 +37,8 @@ export type Database = {
           cancelled_at?: string | null
           completed_at?: string | null
           delete_after?: string
+          feedback?: string
+          reason?: string
           requested_at?: string
           user_id?: string
         }
@@ -41,6 +47,47 @@ export type Database = {
             foreignKeyName: "account_deletion_requests_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["user_id"]
+          },
+        ]
+      }
+      account_notices: {
+        Row: {
+          created_at: string
+          event_key: string
+          id: string
+          kind: string
+          message: string
+          read_at: string | null
+          title: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          event_key: string
+          id?: string
+          kind: string
+          message: string
+          read_at?: string | null
+          title: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          event_key?: string
+          id?: string
+          kind?: string
+          message?: string
+          read_at?: string | null
+          title?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "account_notices_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["user_id"]
           },
@@ -2581,6 +2628,20 @@ export type Database = {
     }
     Functions: {
       accept_artist_invite: { Args: { _code: string }; Returns: Json }
+      admin_account_deletion_requests: {
+        Args: { _offset?: number; _status?: string }
+        Returns: {
+          cancelled_at: string
+          completed_at: string
+          delete_after: string
+          email: string
+          feedback: string
+          reason: string
+          requested_at: string
+          user_id: string
+          username: string
+        }[]
+      }
       admin_get_artist_application_note: {
         Args: { _app_id: string }
         Returns: string
@@ -2786,11 +2847,25 @@ export type Database = {
         Args: { _action: string; _campaign_id: string }
         Returns: undefined
       }
+      record_premium_notice: {
+        Args: {
+          _event_key: string
+          _kind: string
+          _message: string
+          _title: string
+          _user_id: string
+        }
+        Returns: boolean
+      }
       register_device_token: {
         Args: { _device_info?: Json; _platform?: string; _token: string }
         Returns: string
       }
       request_account_deletion: { Args: never; Returns: string }
+      request_account_deletion_with_feedback: {
+        Args: { _details: string; _reason: string }
+        Returns: string
+      }
       request_artist_payout: { Args: { _upi_id: string }; Returns: Json }
       revoke_artist_member: {
         Args: { _artist_profile_id: string; _user_id: string }

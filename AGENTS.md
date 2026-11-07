@@ -30,6 +30,7 @@
 - Website APK releases use one fixed storage object replaced only after a successful CI build; downloads bypass caching and static release sizes/versions are omitted to prevent stale claims.
 - Play-distributed Premium uses consumable fixed-duration products whose prices come from Google Play; server verification grants 30, 60, or 90 days and consumes each token once.
 - Account deletion is recoverable for exactly seven days, then a privileged scheduled worker removes the authentication identity and cascading app data.
+- Account deletion feedback is optional and saved atomically with its deadline; admin review never gates cleanup. Subscription event notices are persisted per recipient with unique event keys, and expiry processing handles rows already expired by other jobs.
 - The Play AAB distribution flag selects Play-only checkout independent of bridge availability; require Play prices and server verification readiness before purchase, while website APKs retain UPI.
 - Claim verified Play tokens atomically in a permanent server-only ledger before granting fixed-term access; retries must reattempt consumption without regranting access.
 - Studio Spaces never add bass/EQ to the dry track; room character lives only in a band-limited, dry-ducked wet send (envelope normalised to full scale), and the Android output uses a look-ahead limiter plus dithered 16-bit rounding so rooms stay audible without muddying, crunching or hissing.

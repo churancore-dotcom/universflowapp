@@ -52,6 +52,7 @@ import { Route as AdminArtistsRouteImport } from './routes/admin/artists'
 import { Route as AdminArtistsApplicationsRouteImport } from './routes/admin/artists-applications'
 import { Route as AdminCommandCenterRouteImport } from './routes/admin/command-center'
 import { Route as AdminContentControlRouteImport } from './routes/admin/content-control'
+import { Route as AdminDeletionRequestsRouteImport } from './routes/admin/deletion-requests'
 import { Route as AdminDevicesRouteImport } from './routes/admin/devices'
 import { Route as AdminEngagementRouteImport } from './routes/admin/engagement'
 import { Route as AdminHealthRouteImport } from './routes/admin/health'
@@ -329,6 +330,11 @@ const AdminCommandCenterRoute = AdminCommandCenterRouteImport.update({
 const AdminContentControlRoute = AdminContentControlRouteImport.update({
   id: '/content-control',
   path: '/content-control',
+  getParentRoute: () => AdminRouteRoute,
+} as any)
+const AdminDeletionRequestsRoute = AdminDeletionRequestsRouteImport.update({
+  id: '/deletion-requests',
+  path: '/deletion-requests',
   getParentRoute: () => AdminRouteRoute,
 } as any)
 const AdminDevicesRoute = AdminDevicesRouteImport.update({
@@ -689,6 +695,7 @@ export interface FileRoutesByFullPath {
   '/admin/artists-applications': typeof AdminArtistsApplicationsRoute
   '/admin/command-center': typeof AdminCommandCenterRoute
   '/admin/content-control': typeof AdminContentControlRoute
+  '/admin/deletion-requests': typeof AdminDeletionRequestsRoute
   '/admin/devices': typeof AdminDevicesRoute
   '/admin/engagement': typeof AdminEngagementRoute
   '/admin/health': typeof AdminHealthRoute
@@ -793,6 +800,7 @@ export interface FileRoutesByTo {
   '/admin/artists-applications': typeof AdminArtistsApplicationsRoute
   '/admin/command-center': typeof AdminCommandCenterRoute
   '/admin/content-control': typeof AdminContentControlRoute
+  '/admin/deletion-requests': typeof AdminDeletionRequestsRoute
   '/admin/devices': typeof AdminDevicesRoute
   '/admin/engagement': typeof AdminEngagementRoute
   '/admin/health': typeof AdminHealthRoute
@@ -900,6 +908,7 @@ export interface FileRoutesById {
   '/admin/artists-applications': typeof AdminArtistsApplicationsRoute
   '/admin/command-center': typeof AdminCommandCenterRoute
   '/admin/content-control': typeof AdminContentControlRoute
+  '/admin/deletion-requests': typeof AdminDeletionRequestsRoute
   '/admin/devices': typeof AdminDevicesRoute
   '/admin/engagement': typeof AdminEngagementRoute
   '/admin/health': typeof AdminHealthRoute
@@ -1008,6 +1017,7 @@ export interface FileRouteTypes {
     | '/admin/artists-applications'
     | '/admin/command-center'
     | '/admin/content-control'
+    | '/admin/deletion-requests'
     | '/admin/devices'
     | '/admin/engagement'
     | '/admin/health'
@@ -1112,6 +1122,7 @@ export interface FileRouteTypes {
     | '/admin/artists-applications'
     | '/admin/command-center'
     | '/admin/content-control'
+    | '/admin/deletion-requests'
     | '/admin/devices'
     | '/admin/engagement'
     | '/admin/health'
@@ -1218,6 +1229,7 @@ export interface FileRouteTypes {
     | '/admin/artists-applications'
     | '/admin/command-center'
     | '/admin/content-control'
+    | '/admin/deletion-requests'
     | '/admin/devices'
     | '/admin/engagement'
     | '/admin/health'
@@ -1640,6 +1652,13 @@ declare module '@tanstack/react-router' {
       path: '/content-control'
       fullPath: '/admin/content-control'
       preLoaderRoute: typeof AdminContentControlRouteImport
+      parentRoute: typeof AdminRouteRoute
+    }
+    '/admin/deletion-requests': {
+      id: '/admin/deletion-requests'
+      path: '/deletion-requests'
+      fullPath: '/admin/deletion-requests'
+      preLoaderRoute: typeof AdminDeletionRequestsRouteImport
       parentRoute: typeof AdminRouteRoute
     }
     '/admin/devices': {
@@ -2085,6 +2104,7 @@ interface AdminRouteRouteChildren {
   AdminArtistsApplicationsRoute: typeof AdminArtistsApplicationsRoute
   AdminCommandCenterRoute: typeof AdminCommandCenterRoute
   AdminContentControlRoute: typeof AdminContentControlRoute
+  AdminDeletionRequestsRoute: typeof AdminDeletionRequestsRoute
   AdminDevicesRoute: typeof AdminDevicesRoute
   AdminEngagementRoute: typeof AdminEngagementRoute
   AdminHealthRoute: typeof AdminHealthRoute
@@ -2125,6 +2145,7 @@ const AdminRouteRouteChildren: AdminRouteRouteChildren = {
   AdminArtistsApplicationsRoute: AdminArtistsApplicationsRoute,
   AdminCommandCenterRoute: AdminCommandCenterRoute,
   AdminContentControlRoute: AdminContentControlRoute,
+  AdminDeletionRequestsRoute: AdminDeletionRequestsRoute,
   AdminDevicesRoute: AdminDevicesRoute,
   AdminEngagementRoute: AdminEngagementRoute,
   AdminHealthRoute: AdminHealthRoute,
