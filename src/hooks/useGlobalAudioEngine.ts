@@ -164,7 +164,7 @@ export function useGlobalAudioEngine(
         ...nativeSpatialSettings(s),
         loudnessGainMb: Math.max(lateNightMb, space.loud, stemMakeupMb),
         reverbAmount: Math.max(s.reverb, space.reverb),
-        space: space.geo,
+        space: space.geo ? { ...space.geo, kind: s.studioSpace } : null,
 
         vocalMix: stem.vocals,
         instrumentalMix: stem.backing,

@@ -261,6 +261,8 @@ class ExoPlayerService : MediaSessionService() {
     @Volatile private var savedSpatialStrength = 0
     @Volatile private var savedSurroundStrength = 0
     private var savedSpace: IntArray? = null
+    /** Studio Space id (hall, stadium, ...) that selects the room fingerprint. */
+    @Volatile private var savedSpaceKind: String? = null
 
     private val stemAudioProcessor = StemAudioProcessor()
 
@@ -285,7 +287,7 @@ class ExoPlayerService : MediaSessionService() {
         processor.setStemMix(savedVocalMix, savedInstrumentalMix, savedStemShine, savedStemWidth)
         processor.setEnhancements(savedSpatialStrength, savedSurroundStrength, savedLoudnessGainMb, savedReverbAmount)
         val space = savedSpace
-        if (space != null) processor.setSpace(space[0], space[1], space[2], space[3], space[4], space[5])
+        if (space != null) processor.setSpace(space[0], space[1], space[2], space[3], space[4], space[5], savedSpaceKind)
         else processor.clearSpace()
     }
 
@@ -900,10 +902,11 @@ class ExoPlayerService : MediaSessionService() {
     }
 
     /** Studio Space voicing (room size, damping, wet, width, pre-delay). */
-    fun applySpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int) {
+    fun applySpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int, kind: String? = null) {
         savedSpace = intArrayOf(room, damping, wet, width, preDelayMs, size)
-        stemAudioProcessor.setSpace(room, damping, wet, width, preDelayMs, size)
-        tailProcessor?.setSpace(room, damping, wet, width, preDelayMs, size)
+        savedSpaceKind = kind?.takeIf { RoomReverb.CHARACTERS.containsKey(it) }
+        stemAudioProcessor.setSpace(room, damping, wet, width, preDelayMs, size, savedSpaceKind)
+        tailProcessor?.setSpace(room, damping, wet, width, preDelayMs, size, savedSpaceKind)
     }
 
     /** Speed applies to both players so a crossfade never mixes two speeds. */
@@ -916,6 +919,7 @@ class ExoPlayerService : MediaSessionService() {
     /** Studio Space set to Off: the plain reverb slider takes over again. */
     fun clearSpace() {
         savedSpace = null
+        savedSpaceKind = null
         stemAudioProcessor.clearSpace()
         tailProcessor?.clearSpace()
     }
@@ -961,6 +965,7 @@ class ExoPlayerService : MediaSessionService() {
                 .putInt("spatial", savedSpatialStrength)
                 .putInt("surround", savedSurroundStrength)
                 .putString("space", savedSpace?.joinToString(","))
+                .putString("spaceKind", savedSpaceKind)
                 .putInt("loudness", savedLoudnessGainMb)
                 .putInt("reverb", savedReverbAmount)
                 .putInt("vocalMix", savedVocalMix)
@@ -980,6 +985,7 @@ class ExoPlayerService : MediaSessionService() {
             savedSpatialStrength = prefs.getInt("spatial", 0).coerceIn(0, 1000)
             savedSurroundStrength = prefs.getInt("surround", 0).coerceIn(0, 1000)
             savedSpace = prefs.getString("space", null)?.split(',')?.mapNotNull { it.toIntOrNull() }?.takeIf { it.size == 6 }?.toIntArray()
+            savedSpaceKind = prefs.getString("spaceKind", null)?.takeIf { RoomReverb.CHARACTERS.containsKey(it) }
             savedLoudnessGainMb = prefs.getInt("loudness", 0).coerceIn(0, 2000)
             savedReverbAmount = prefs.getInt("reverb", 0).coerceIn(0, 100)
             savedVocalMix = prefs.getInt("vocalMix", 100).coerceIn(0, 140)

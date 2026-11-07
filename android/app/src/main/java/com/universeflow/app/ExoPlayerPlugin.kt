@@ -974,6 +974,7 @@ class ExoPlayerPlugin : Plugin() {
         val spaceWidth = (call.getInt("spaceWidth") ?: 80).coerceIn(0, 100)
         val spacePredelay = (call.getInt("spacePredelayMs") ?: 14).coerceIn(0, 240)
         val spaceSize = (call.getInt("spaceSize") ?: 100).coerceIn(50, 240)
+        val spaceKind = call.getString("spaceKind")?.trim()?.lowercase()?.takeIf { it.isNotEmpty() }
         val vocal = (call.getInt("vocalMix") ?: 100).coerceIn(0, 100)
         val instrumental = (call.getInt("instrumentalMix") ?: 100).coerceIn(0, 100)
         val speed = (call.getDouble("playbackSpeed") ?: 1.0).coerceIn(0.5, 2.0).toFloat()
@@ -997,7 +998,7 @@ class ExoPlayerPlugin : Plugin() {
             // Settle the room FIRST so the enhancement/reverb updates below
             // never briefly replace the chosen Studio Space.
             if (spaceWet >= 0) {
-                svc.applySpace(spaceRoom, spaceDamp, spaceWet.coerceIn(0, 100), spaceWidth, spacePredelay, spaceSize)
+                svc.applySpace(spaceRoom, spaceDamp, spaceWet.coerceIn(0, 100), spaceWidth, spacePredelay, spaceSize, spaceKind)
             } else {
                 svc.clearSpace()
             }

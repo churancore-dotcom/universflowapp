@@ -71,7 +71,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var rearL = 0f
     private var rearR = 0f
 
-    /** Real room reverb (pre-delay + comb/allpass network) — see RoomReverb. */
+    /** Studio Space room engine (reflections, echoes, FDN tail) — see RoomReverb. */
     val reverb = RoomReverb()
     private val reverbScratch = FloatArray(2)
 
@@ -101,9 +101,9 @@ class StemAudioProcessor : BaseAudioProcessor() {
     }
 
     /** Studio Space voicing pushed down from the app (Hall, Cathedral, ...). */
-    fun setSpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int) {
+    fun setSpace(room: Int, damping: Int, wet: Int, width: Int, preDelayMs: Int, size: Int, kind: String? = null) {
         spaceHeld = true
-        reverb.setSpace(room, damping, wet, width, preDelayMs, size)
+        reverb.setSpace(room, damping, wet, width, preDelayMs, size, kind)
     }
 
     /** Studio Space turned off: fall back to the plain reverb slider. */
