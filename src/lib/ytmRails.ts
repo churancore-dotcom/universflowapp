@@ -62,7 +62,8 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
     gcTime: 6 * 60 * 60 * 1000,
     // An empty shelf is usually a failed first load, so check again soon
     // instead of leaving the rail hidden for 20 minutes.
-    refetchInterval: (q) => (q.state.data?.length ? 20 * 60 * 1000 : 60 * 1000),
+    // (The phone-side shelf outside India is many requests, so it waits longer.)
+    refetchInterval: (q) => (q.state.data?.length ? 20 * 60 * 1000 : country === 'IN' ? 60 * 1000 : 5 * 60 * 1000),
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     // Keep showing the current shelf while the hourly refresh loads.
