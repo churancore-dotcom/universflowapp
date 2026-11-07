@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useMemo, useState } from 'react';
 import { useOutletContext, Link } from '@/lib/router-compat';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -124,7 +125,7 @@ function SourceBadge({ url }: { url: string }) {
 
 function SongRow({ song, onEdit, onShare }: { song: ArtistSong; onEdit: () => void; onShare: () => void }) {
   const onDelete = async () => {
-    if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return;
+    if (!await confirmAction(`Delete "${song.title}"? This cannot be undone.`)) return;
     const { error } = await supabase.from('artist_songs').delete().eq('id', song.id);
     if (error) toast.error(error.message);
     else toast.success('Deleted');

@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useState, useEffect, useCallback } from 'react';
 import {
   ChevronLeft, ChevronRight, Crown, MessageSquare, Gauge, RotateCcw, Sliders,
@@ -229,7 +230,7 @@ const Settings = () => {
   };
 
   const removeDevice = async (id: string) => {
-    if (!window.confirm('Sign this device out of notifications?')) return;
+    if (!await confirmAction('Sign this device out of notifications?')) return;
     const { error } = await supabase.from('device_tokens').delete().eq('id', id);
     if (error) { toast.error('Failed to remove device'); return; }
     setDevices(prev => prev.filter(d => d.id !== id));
@@ -361,7 +362,7 @@ const Settings = () => {
   };
 
   const handleClearCache = async () => {
-    if (!window.confirm('Clear cached artwork, streams and previews on this device?')) return;
+    if (!await confirmAction('Clear cached artwork, streams and previews on this device?')) return;
     try {
       if ('caches' in window) {
         const keys = await caches.keys();

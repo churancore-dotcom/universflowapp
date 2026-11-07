@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useEffect, useMemo, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -136,7 +137,7 @@ const ManageArtists = () => {
   };
 
   const deleteArtist = async (a: ArtistRow) => {
-    if (!confirm(`Delete artist "${a.stage_name}" and ALL their uploaded songs? This cannot be undone.`)) return;
+    if (!await confirmAction(`Delete artist "${a.stage_name}" and ALL their uploaded songs? This cannot be undone.`)) return;
     try {
       await supabase.from('artist_songs').delete().eq('artist_user_id', a.user_id);
       const { error } = await supabase.from('artist_profiles').delete().eq('id', a.id);

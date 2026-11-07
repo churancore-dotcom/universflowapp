@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Music, Edit2, Trash2, Eye, EyeOff, Search, MoreVertical, Play, Save, HardDrive, Clock, Download, ChevronLeft, ChevronRight, RefreshCw, ShieldAlert } from 'lucide-react';
@@ -134,7 +135,7 @@ const ManageSongs = () => {
   };
 
   const deleteSong = async (song: Song) => {
-    if (!confirm(`Delete "${song.title}"? This cannot be undone.`)) return;
+    if (!await confirmAction(`Delete "${song.title}"? This cannot be undone.`)) return;
 
     const { error } = await supabase.from('songs').delete().eq('id', song.id);
 

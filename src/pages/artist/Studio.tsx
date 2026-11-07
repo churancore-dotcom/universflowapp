@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from '@/lib/router-compat';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -363,7 +364,7 @@ function SongsList({ songs }: { songs: Song[] }) {
       <AnimatePresence initial={false}>
         {sorted.map((s) => (
           <SongRow key={s.id} song={s} onDelete={async () => {
-            const ok = confirm(`Delete "${s.title}"? This cannot be undone.`);
+            const ok = await confirmAction(`Delete "${s.title}"? This cannot be undone.`);
             if (!ok) return;
             const { error } = await supabase.from('artist_songs').delete().eq('id', s.id);
             if (error) toast.error(error.message); else toast.success('Deleted');

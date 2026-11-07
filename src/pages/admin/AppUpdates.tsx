@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
@@ -126,7 +127,7 @@ export default function AppUpdates() {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Delete this version?')) return;
+    if (!await confirmAction('Delete this version?')) return;
     const { error } = await supabase.from('app_versions').delete().eq('id', id);
     if (error) toast.error(error.message);
     else {
