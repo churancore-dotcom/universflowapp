@@ -1279,6 +1279,26 @@ main.bg-black,
   display: none !important;
 }
 
+/* Pure black popups, menus and sheets — same material as cards. */
+.bg-popover,
+[class*="bg-popover/"],
+[data-radix-popper-content-wrapper] > [role="menu"],
+[data-radix-popper-content-wrapper] > [role="listbox"] {
+  background: hsl(0 0% 0%) !important;
+  backdrop-filter: none !important;
+  border: 1px solid hsl(0 0% 100% / 0.1) !important;
+}
+
+/* No silvery top sheen on black surfaces (the optional Liquid Glass look keeps it). */
+html:not(.ios-glass) .bg-card::before,
+html:not(.ios-glass) .bg-popover::before,
+html:not(.ios-glass) .uf-bento-card::before,
+html:not(.ios-glass) .player-bar::before,
+html:not(.ios-glass) .ios-tab-bar::before,
+html:not(.ios-glass) .liquid-glass::before {
+  display: none !important;
+}
+
 /* One faint rose aurora at the top of the page — the only ambient light. */
 body::after { display: none !important; }
 body::before {
