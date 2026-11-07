@@ -32,6 +32,7 @@ import PrerollAd from "@/components/ads/PrerollAd";
 import LiquidGlassFilters from "@/components/LiquidGlassFilters";
 import OfflineGate from "@/components/OfflineGate";
 import ConfirmDialogHost from "@/components/ConfirmDialogHost";
+import AccountNoticeDelivery from "@/components/AccountNoticeDelivery";
 
 
 // Lazy load non-critical components
@@ -267,6 +268,7 @@ const AppContent = () => {
       <Toaster />
     </Suspense>
     <ConfirmDialogHost />
+    <AccountNoticeDelivery />
     <MobileShell>
       <a
         href="#main-content"
