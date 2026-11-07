@@ -12,7 +12,6 @@ import { type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import AllSongsSection from '@/components/AllSongsSection';
 import HistoryPlaylistsSection from '@/components/HistoryPlaylistsSection';
-import YourArtistsSection from '@/components/YourArtistsSection';
 import TrendingNowSection from '@/components/TrendingNowSection';
 import FreshReleasesSection from '@/components/FreshReleasesSection';
 import MadeForYouSection from '@/components/MadeForYouSection';
@@ -352,7 +351,6 @@ const Home = () => {
               {/* ── Chapter 3: the people behind the music ── */}
               <ChapterLabel index="03" title="Artists" />
               <div className="uf-feed-sections px-6 space-y-11 pb-24">
-                <YourArtistsSection />
                 <FeaturedArtistsSection songs={clean.length ? clean : allSongs} circle />
               </div>
 

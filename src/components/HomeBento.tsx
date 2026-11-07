@@ -223,7 +223,7 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
 
       {/* ROW 1 — ARTIST OF THE WEEK (portrait) + JUMP BACK IN (3-row list) */}
       {(artistOfWeek || jumpGroups.length > 0) && (
-        <div className="grid grid-cols-2 gap-3 items-stretch">
+        <div className="grid grid-cols-2 gap-3 items-start">
           {artistOfWeek && (
             <motion.button
               initial={{ opacity: 0, y: 14 }}
@@ -258,11 +258,14 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.08 }}
-              className={`rounded-[28px] border border-border/60 bg-card/70 p-4 min-h-[268px] ${artistOfWeek ? '' : 'col-span-2'}`}
+              className={`rounded-[24px] border border-border/60 bg-card/70 p-4 h-fit ${artistOfWeek ? 'self-stretch h-auto' : 'col-span-2'}`}
             >
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Jump Back In</p>
               <div className="mt-3 space-y-3">
-                {jumpGroups.slice(0, 3).map((group) => (
+                {jumpGroups.slice(0, 3).map((group) => {
+                  const single = group.songs.length === 1;
+                  const lead = group.songs[0];
+                  return (
                   <button
                     key={group.id}
                     onClick={() => {
@@ -272,16 +275,18 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
                     className="flex items-center gap-2.5 w-full text-left active:opacity-60 transition-opacity"
                   >
                     <div className="w-11 h-11 shrink-0 rounded-[10px] overflow-hidden bg-muted">
-                      <OptimizedImage src={group.cover_url} alt={group.title} className="w-full h-full" />
+                      <OptimizedImage src={single ? lead.cover_url || group.cover_url : group.cover_url} alt={single ? lead.title : group.title} className="w-full h-full" />
                     </div>
-                    <div className="min-w-0">
-                      <p className="text-[13px] font-bold text-foreground truncate leading-tight">{group.title}</p>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13px] font-bold text-foreground truncate leading-tight">{single ? lead.title : group.title}</p>
                       <p className="text-[11px] text-muted-foreground truncate">
-                        {group.songs.length > 1 ? `${group.songs.length} tracks` : group.subtitle}
+                        {single ? lead.artist : `${group.songs.length} tracks`}
                       </p>
                     </div>
+                    <Play className="w-4 h-4 shrink-0 text-primary fill-current" />
                   </button>
-                ))}
+                  );
+                })}
               </div>
             </motion.div>
           )}
