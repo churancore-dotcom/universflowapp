@@ -3,6 +3,8 @@
 - [ ] Automatic Premium activation and expiry messages
 - [ ] Account deletion reason/review/confirmation steps and admin request list
 - [ ] Account deletion confirmation email (sender setup required)
+- [ ] Connect GitHub API in the newly moved workspace
+- [ ] Connect Google Search Console in the newly moved workspace
 
 - [x] Advanced admin panel: user detail drawer, Content Control page, System Health live error feed
 - [x] Fix offline player: player now prefers the downloaded local copy before any network resolve (needs fresh APK to verify on phone)
