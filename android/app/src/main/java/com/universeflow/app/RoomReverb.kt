@@ -537,8 +537,8 @@ class RoomReverb {
         private const val MAX_SCALE = 1.4f
         private const val DENORMAL_GUARD = 1e-20f
         // Overall calibration (measured with the RoomReverbProbe harness).
-        private const val ER_LEVEL = 0.55f
-        private const val TAIL_LEVEL = 0.3f
+        private const val ER_LEVEL = 0.65f
+        private const val TAIL_LEVEL = 0.4f
         private const val ECHO_LEVEL = 0.9f
 
         private fun f(vararg v: Float) = v
@@ -602,18 +602,18 @@ class RoomReverb {
             ),
             // Small stone chapel: bright, medium tail, clear side walls.
             Character(
-                id = "chapel", rt60 = 2.0f, bassRatio = 1.05f, trebleRatio = 0.85f, crossoverHz = 400f,
+                id = "chapel", rt60 = 2.1f, bassRatio = 1.0f, trebleRatio = 0.95f, crossoverHz = 400f,
                 predelayMs = 18f,
                 erMs = f(8f, 14f, 21f, 27f, 35f, 44f, 52f),
                 erGain = f(0.55f, 0.5f, 0.44f, 0.38f, 0.32f, 0.27f, 0.22f),
                 erPan = f(-0.7f, 0.7f, -0.4f, 0.5f, -0.8f, 0.8f, 0f),
-                erLpHz = 11000f, sendHpHz = 160f, sendLpHz = 10500f,
+                erLpHz = 12000f, sendHpHz = 180f, sendLpHz = 12000f,
                 diffusion = 0.7f, modDepthMs = 0.25f, modRateHz = 0.4f, fdnScale = 1.05f,
                 width = 0.85f, direct = 0.88f, erLevel = 0.8f, tailLevel = 0.95f,
             ),
             // Concert hall: strong lateral reflections, warm, lush bloom.
             Character(
-                id = "hall", rt60 = 2.2f, bassRatio = 1.3f, trebleRatio = 0.62f, crossoverHz = 350f,
+                id = "hall", rt60 = 2.5f, bassRatio = 1.3f, trebleRatio = 0.62f, crossoverHz = 350f,
                 predelayMs = 22f,
                 erMs = f(11f, 14f, 19f, 24f, 31f, 37f, 45f, 58f, 72f),
                 erGain = f(0.6f, 0.58f, 0.5f, 0.46f, 0.4f, 0.34f, 0.3f, 0.24f, 0.18f),
@@ -624,12 +624,12 @@ class RoomReverb {
             ),
             // Opera house: wood and velvet, warm and very wide, drier than a hall.
             Character(
-                id = "opera", rt60 = 1.5f, bassRatio = 1.35f, trebleRatio = 0.55f, crossoverHz = 350f,
+                id = "opera", rt60 = 1.6f, bassRatio = 1.4f, trebleRatio = 0.5f, crossoverHz = 350f,
                 predelayMs = 16f,
                 erMs = f(9f, 13f, 17f, 23f, 29f, 36f, 44f),
                 erGain = f(0.62f, 0.6f, 0.52f, 0.46f, 0.38f, 0.3f, 0.24f),
                 erPan = f(-0.9f, 0.9f, -0.8f, 0.8f, -0.6f, 0.6f, 0f),
-                erLpHz = 7500f, sendHpHz = 120f, sendLpHz = 8000f,
+                erLpHz = 6500f, sendHpHz = 120f, sendLpHz = 7000f,
                 diffusion = 0.72f, modDepthMs = 0.45f, modRateHz = 0.3f, fdnScale = 1.0f,
                 width = 1f, direct = 0.86f, erLevel = 0.95f, tailLevel = 0.85f,
             ),
