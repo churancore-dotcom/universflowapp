@@ -230,7 +230,7 @@ const Settings = () => {
   };
 
   const removeDevice = async (id: string) => {
-    if (!await confirmAction('Sign this device out of notifications?')) return;
+    if (!await confirmAction('Sign this device out of notifications?', { confirmLabel: 'Sign out' })) return;
     const { error } = await supabase.from('device_tokens').delete().eq('id', id);
     if (error) { toast.error('Failed to remove device'); return; }
     setDevices(prev => prev.filter(d => d.id !== id));
@@ -362,7 +362,7 @@ const Settings = () => {
   };
 
   const handleClearCache = async () => {
-    if (!await confirmAction('Clear cached artwork, streams and previews on this device?')) return;
+    if (!await confirmAction('Clear cached artwork, streams and previews on this device?', { confirmLabel: 'Clear' })) return;
     try {
       if ('caches' in window) {
         const keys = await caches.keys();
