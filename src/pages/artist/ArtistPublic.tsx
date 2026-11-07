@@ -389,7 +389,7 @@ export default function ArtistPublic() {
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                'linear-gradient(180deg, rgba(6,6,8,0.4) 0%, rgba(6,6,8,0.1) 35%, rgba(6,6,8,0.85) 80%, #060608 100%)',
+                'linear-gradient(180deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.1) 35%, rgba(0,0,0,0.85) 80%, #000 100%)',
             }}
           />
 
