@@ -258,7 +258,7 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
               initial={{ opacity: 0, y: 14 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.08 }}
-              className={`rounded-[24px] border border-border/60 bg-card/70 p-4 h-fit ${artistOfWeek ? 'self-stretch h-auto' : 'col-span-2'}`}
+              className={`rounded-[24px] border border-border/60 bg-card/70 p-4 ${artistOfWeek ? 'self-stretch' : 'col-span-2'}`}
             >
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Jump Back In</p>
               <div className="mt-3 space-y-3">
