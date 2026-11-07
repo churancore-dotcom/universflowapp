@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
@@ -229,7 +230,7 @@ const ManageSubscriptions = () => {
 
   const deleteSubscription = async (sub: Subscription) => {
     const label = sub.user_email || sub.username || sub.user_id;
-    if (!window.confirm(`Delete subscription record for ${label}? This removes the plan record only.`)) return;
+    if (!await confirmAction(`Delete subscription record for ${label}? This removes the plan record only.`)) return;
     try {
       const { error } = await supabase
         .from('user_subscriptions')

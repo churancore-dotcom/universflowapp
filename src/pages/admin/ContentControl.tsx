@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useCallback, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
@@ -101,7 +102,7 @@ const ContentControl = () => {
   };
 
   const removePick = async (p: ViralPick) => {
-    if (!confirm(`Remove "${p.title}" from featured?`)) return;
+    if (!await confirmAction(`Remove "${p.title}" from featured?`)) return;
     setBusyId(p.id);
     const { error } = await supabase.from('viral_picks').delete().eq('id', p.id);
     if (error) toast.error(error.message);

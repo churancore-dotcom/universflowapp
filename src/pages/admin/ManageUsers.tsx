@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useLocation } from '@/lib/router-compat';
@@ -93,7 +94,7 @@ const ManageUsers = () => {
   const deleteUser = async (user: UserProfile) => {
     if (user.is_admin) { toast.error('Cannot delete the admin account.'); return; }
     const label = user.email || user.username || user.user_id;
-    if (!confirm(`Permanently delete ${label}? This wipes their profile, library, playlists, plays, subscriptions and all uploads. This cannot be undone.`)) return;
+    if (!await confirmAction(`Permanently delete ${label}? This wipes their profile, library, playlists, plays, subscriptions and all uploads. This cannot be undone.`)) return;
     try {
       const { data, error } = await supabase.functions.invoke('admin-delete-user', {
         body: { user_id: user.user_id },
@@ -110,7 +111,7 @@ const ManageUsers = () => {
 
   const updateUserStatus = async (user: UserProfile, newStatus: 'active' | 'banned' | 'suspended') => {
     const action = newStatus === 'banned' ? 'ban' : newStatus === 'suspended' ? 'suspend' : 'activate';
-    if (!confirm(`${action} ${user.email || user.username}?`)) return;
+    if (!await confirmAction(`${action} ${user.email || user.username}?`)) return;
     try {
       const { error } = await supabase
         .from('profiles')

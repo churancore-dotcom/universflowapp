@@ -31,6 +31,7 @@ import NotFound from "@/pages/NotFound";
 import PrerollAd from "@/components/ads/PrerollAd";
 import LiquidGlassFilters from "@/components/LiquidGlassFilters";
 import OfflineGate from "@/components/OfflineGate";
+import ConfirmDialogHost from "@/components/ConfirmDialogHost";
 
 
 // Lazy load non-critical components
@@ -265,6 +266,7 @@ const AppContent = () => {
     <Suspense fallback={null}>
       <Toaster />
     </Suspense>
+    <ConfirmDialogHost />
     <MobileShell>
       <a
         href="#main-content"

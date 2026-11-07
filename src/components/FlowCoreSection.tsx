@@ -1,5 +1,5 @@
 import { memo, useMemo } from 'react';
-import { Play, Sparkles, Vault, Link2 } from 'lucide-react';
+import { Play, Vault } from 'lucide-react';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { recentSongs } from '@/lib/personalHome';
@@ -42,33 +42,12 @@ function rotationVault(entries: LocalRecentEntry[]): Song[] {
   return recentSongs(picks).slice(0, 10);
 }
 
-/** Two different artists played back-to-back within 30 minutes. */
-function sonicPairings(entries: LocalRecentEntry[]): { a: Song; b: Song }[] {
-  const sorted = [...entries].sort((x, y) => x.played_at - y.played_at);
-  const out: { a: Song; b: Song }[] = [];
-  const seen = new Set<string>();
-  for (let i = 1; i < sorted.length; i++) {
-    const p = sorted[i - 1], c = sorted[i];
-    if (!p.song?.artist || !c.song?.artist) continue;
-    if (c.played_at - p.played_at > 30 * 60 * 1000) continue;
-    if (p.song.artist.toLowerCase() === c.song.artist.toLowerCase()) continue;
-    const key = [p.song.artist, c.song.artist].map((v) => v.toLowerCase()).sort().join('|');
-    if (seen.has(key)) continue;
-    const [a] = recentSongs([p]);
-    const [b] = recentSongs([c]);
-    if (!a || !b) continue;
-    seen.add(key);
-    out.push({ a, b });
-  }
-  return out.reverse().slice(0, 6);
-}
-
 const FlowCoreSection = memo(({ pool }: { pool: Song[] }) => {
   const { playSong } = usePlayer();
   const entries = useLocalRecents(200);
   const vibe = vibeFor(new Date().getHours());
 
-  const { flowQueue, vault, pairs, topArtist } = useMemo(() => {
+  const { flowQueue, vault, topArtist } = useMemo(() => {
     const recents = recentSongs(entries);
     const counts = new Map<string, number>();
     recents.forEach((s) => counts.set(s.artist.toLowerCase(), (counts.get(s.artist.toLowerCase()) || 0) + 1));
@@ -92,7 +71,7 @@ const FlowCoreSection = memo(({ pool }: { pool: Song[] }) => {
     }
     const top = [...counts.entries()].sort((a, b) => b[1] - a[1])[0];
     const topName = top ? recents.find((s) => s.artist.toLowerCase() === top[0])?.artist : undefined;
-    return { flowQueue: q, vault: rotationVault(entries), pairs: sonicPairings(entries), topArtist: topName };
+    return { flowQueue: q, vault: rotationVault(entries), topArtist: topName };
   }, [entries, pool]);
 
   if (!flowQueue.length) return null;
@@ -149,29 +128,6 @@ const FlowCoreSection = memo(({ pool }: { pool: Song[] }) => {
         </div>
       )}
 
-      {pairs.length >= 1 && (
-        <div>
-          <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-foreground">
-            <Link2 className="h-4 w-4 text-primary" /> Sonic Pairings
-          </h3>
-          <p className="-mt-2 mb-3 text-xs text-muted-foreground">Artists you play back to back</p>
-          <div className="-mx-6 flex gap-3 overflow-x-auto px-6 pb-1 scrollbar-hide">
-            {pairs.map(({ a, b }) => (
-              <button key={`${a.id}-${b.id}`} type="button" onClick={() => start([a, b])} className="w-44 shrink-0 rounded-2xl border border-border bg-card p-3 text-left">
-                <div className="flex -space-x-3">
-                  {[a, b].map((s) => (
-                    <div key={s.id} className="h-12 w-12 overflow-hidden rounded-full ring-2 ring-card bg-muted">
-                      {s.cover_url && <OptimizedImage src={s.cover_url} alt="" className="h-full w-full object-cover" />}
-                    </div>
-                  ))}
-                </div>
-                <p className="mt-2 truncate text-sm font-semibold text-foreground">{a.artist} + {b.artist}</p>
-                <p className="truncate text-xs text-muted-foreground">{a.title} → {b.title}</p>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
     </section>
   );
 });

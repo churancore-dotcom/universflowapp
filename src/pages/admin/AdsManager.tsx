@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -124,7 +125,7 @@ export default function AdsManager() {
   };
 
   const remove = async (row: Campaign) => {
-    if (!window.confirm(`Delete "${row.name}"?`)) return;
+    if (!await confirmAction(`Delete "${row.name}"?`)) return;
     const { error } = await supabase.from('ad_campaigns').delete().eq('id', row.id);
     if (error) {
       toast.error(error.message);

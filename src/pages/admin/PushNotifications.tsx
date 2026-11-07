@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell, Send, Users, Clock, Target, BarChart3, Plus, Trash2, RefreshCw, Smartphone, Link as LinkIcon, Search, X, UserCircle2 } from 'lucide-react';
@@ -268,19 +269,19 @@ const PushNotifications = () => {
   };
 
   const remove = async (id: string) => {
-    if (!confirm('Delete this notification?')) return;
+    if (!await confirmAction('Delete this notification?')) return;
     const { error } = await supabase.from('announcements').delete().eq('id', id);
     if (error) toast.error(error.message); else toast.success('Deleted');
   };
 
   const removePushHistory = async (id: string) => {
-    if (!confirm('Delete this push history entry?')) return;
+    if (!await confirmAction('Delete this push history entry?')) return;
     const { error } = await supabase.from('push_history').delete().eq('id', id);
     if (error) toast.error(error.message); else toast.success('Push deleted');
   };
 
   const clearAllPushHistory = async () => {
-    if (!confirm('Delete ALL push history entries? This cannot be undone.')) return;
+    if (!await confirmAction('Delete ALL push history entries? This cannot be undone.')) return;
     const { error } = await supabase.from('push_history').delete().neq('id', '00000000-0000-0000-0000-000000000000');
     if (error) toast.error(error.message); else toast.success('Push history cleared');
   };

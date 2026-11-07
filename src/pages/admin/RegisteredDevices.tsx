@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useEffect, useMemo, useState, useCallback } from 'react';
 import { motion } from 'framer-motion';
 import { Smartphone, RefreshCw, Search, Send, Wifi, WifiOff, Trash2 } from 'lucide-react';
@@ -145,7 +146,7 @@ const RegisteredDevices = () => {
   };
 
   const removeDevice = async (id: string) => {
-    if (!confirm('Remove this device registration?')) return;
+    if (!await confirmAction('Remove this device registration?')) return;
     const { error } = await supabase.from('device_tokens').delete().eq('id', id);
     if (error) toast.error(error.message);
     else toast.success('Removed');

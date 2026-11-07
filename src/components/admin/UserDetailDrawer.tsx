@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useCallback, useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -117,7 +118,7 @@ const UserDetailDrawer = ({ user, onClose, onStatusChange }: Props) => {
 
   const revokePremium = async () => {
     if (!user || !activePremium) return;
-    if (!confirm(`Revoke Premium from ${user.email || user.username}?`)) return;
+    if (!await confirmAction(`Revoke Premium from ${user.email || user.username}?`)) return;
     setActing('revoke');
     try {
       const { error } = await supabase.from('user_subscriptions')

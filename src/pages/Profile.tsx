@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
   Settings, LogOut, Shield, Heart, ListMusic, Crown, ChevronRight,
@@ -258,7 +259,7 @@ const Profile = () => {
     if (newUsername.trim().length < 3) { toast.error('Username must be at least 3 characters'); return; }
     if (newUsername.trim().length > 20) { toast.error('Username must be less than 20 characters'); return; }
     if (profileData.username_changed) { toast.error('You can only change your username once'); return; }
-    const confirmed = window.confirm(`Set your username to "${newUsername.trim()}"?\n\nThis can only be done once and cannot be changed later.`);
+    const confirmed = await confirmAction(`Set your username to "${newUsername.trim()}"?\n\nThis can only be done once and cannot be changed later.`, { confirmLabel: "Set username" });
     if (!confirmed) return;
     setIsSaving(true);
     try {

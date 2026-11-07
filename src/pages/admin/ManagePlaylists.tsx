@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -152,7 +153,7 @@ const ManagePlaylists = () => {
   };
 
   const deletePlaylist = async (playlist: Playlist) => {
-    if (!confirm(`Delete "${playlist.title}"? This will also remove all songs from this playlist.`)) return;
+    if (!await confirmAction(`Delete "${playlist.title}"? This will also remove all songs from this playlist.`)) return;
 
     try {
       // Delete playlist songs first

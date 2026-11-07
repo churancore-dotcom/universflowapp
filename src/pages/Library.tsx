@@ -1,3 +1,4 @@
+import { confirmAction } from '@/lib/confirmDialog';
 import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from '@/lib/router-compat';
@@ -530,7 +531,7 @@ const Library = () => {
                             aria-label={`Delete ${playlist.title}`}
                             onClick={async (e) => {
                               e.stopPropagation();
-                              if (!window.confirm(`Delete "${playlist.title}"? This cannot be undone.`)) return;
+                              if (!await confirmAction(`Delete "${playlist.title}"? This cannot be undone.`)) return;
                               const { error } = await supabase.from('playlists').delete().eq('id', playlist.id).eq('user_id', user.id);
                               if (error) { toast.error('Could not delete playlist'); return; }
                               queryClient.setQueryData<LibraryData>(libraryQueryKey, (prev) =>
