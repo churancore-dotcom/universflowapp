@@ -90,6 +90,31 @@ export interface TopArtistRow {
 }
 
 /**
+ * "Rediscover" — songs from the listener's own history that have dropped out
+ * of their latest plays. Anything heard in the most recent `skipRecent` plays
+ * is excluded; the rest is ranked by how often it was played, then by how
+ * long ago it was last heard (older first). Empty when history is too short.
+ */
+export function rediscoverSongs(entries: LocalRecentEntry[], skipRecent = 15, max = 20): Song[] {
+  const recentFp = new Set(recentSongs(entries.slice(0, skipRecent)).map(songFingerprint));
+  const stats = new Map<string, { song: Song; plays: number; last: number }>();
+  for (const entry of entries.slice(skipRecent)) {
+    const song = recentSongs([entry])[0];
+    if (!song) continue;
+    const fp = songFingerprint(song);
+    if (recentFp.has(fp)) continue;
+    const row = stats.get(fp) || { song, plays: 0, last: entry.played_at };
+    row.plays += 1;
+    row.last = Math.max(row.last, entry.played_at);
+    stats.set(fp, row);
+  }
+  return [...stats.values()]
+    .sort((a, b) => b.plays - a.plays || a.last - b.last)
+    .map((row) => row.song)
+    .slice(0, max);
+}
+
+/**
  * "Your Top Artists" — ranked by real play counts from history, with the taste
  * profile's 30-day affinity as the tie-breaker (it also folds in likes/follows).
  */
