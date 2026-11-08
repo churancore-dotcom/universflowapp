@@ -1,197 +1,128 @@
 package com.universeflow.app
 
+import java.util.Random
+import java.util.concurrent.Executors
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
-import kotlin.math.exp
+import kotlin.math.ln
 import kotlin.math.max
 import kotlin.math.min
+import kotlin.math.pow
 import kotlin.math.sin
 import kotlin.math.sqrt
 
 /**
- * Studio Space room engine for the ExoPlayer PCM path.
+ * Studio Space room engine for the ExoPlayer PCM path: real convolution with
+ * physically modelled room impulse responses.
  *
- * Why the old version made every space sound the same: it was one Freeverb
- * network whose only real difference between rooms was the decay length. A
- * stadium, a hall and a cathedral all had the same reflection pattern, the
- * same tone, no echoes and no movement, so the ear heard "the same reverb,
- * longer or shorter".
+ * Why the previous engines sounded "dead": an algorithmic delay network can
+ * only approximate a room, and calibrated for safety it sat 10-22 dB under
+ * the song (measured on real music), so phones played back a nearly dry
+ * track. Real rooms are not subtle: in a concert hall the reverberant energy
+ * is close to the direct sound, in a cathedral it exceeds it.
  *
- * What makes a real place recognisable (and what each [Character] now owns):
- *  - Early reflections: the exact pattern of the first wall/ceiling bounces.
- *    A booth answers in 1-6 ms, a hall from the side walls at 10-70 ms, a
- *    cathedral with sparse stone hits up to 140 ms.
- *  - Discrete echoes: stadium stands and canyon walls send back distinct
- *    slapbacks (260 ms, 420 ms...). No reverb network can fake this.
- *  - Frequency-dependent decay: wooden halls keep their bass longer (warm),
- *    stone keeps treble (bright), open air and crowds swallow highs (dark).
- *  - Diffusion + slow modulation of the tail so it blooms like air instead
- *    of ringing metallically.
- *  - Distance: in big venues you hear less direct sound and more room.
+ * How each space is built (the same way acoustic simulators build them):
+ *  1. A geometric model of the place: dimensions, where the band stands and
+ *     where you stand, which surfaces exist (an open-air stadium has no roof,
+ *     a canyon only has two rock walls) and what they are made of.
+ *  2. Image-source method: every wall bounce up to the room's order becomes
+ *     an exact reflection with its true arrival time, 1/distance loss,
+ *     per-octave surface absorption and air absorption (ISO 9613 values), so
+ *     a stadium's back stand slaps back after half a second and a canyon's
+ *     walls answer each other left and right.
+ *  3. A diffuse late tail per octave band, decaying with that band's measured
+ *     RT60 (wood halls keep their bass, stone keeps treble, crowds and open
+ *     air swallow highs), with the statistical energy a room of that volume
+ *     really has relative to its reflections.
+ *  4. Two spaced, angled microphones (ORTF-style) at the listening seat give
+ *     natural interaural delays and a wide, decorrelated stereo field.
  *
- * Signal flow:
- *   in -> band-limited send -> pre-delay -> early reflections
- *                                        -> echo line (ping-pong for canyon)
- *                                        -> 4 diffusers -> 8-line FDN tail
- *   out = dry*distance + (ER + echoes + ducked tail)
+ * The resulting stereo impulse response is convolved with the song in real
+ * time using a non-uniform partitioned FFT convolution (64 / 1024 / 8192
+ * blocks), so the dry path has zero added latency and the cost stays a few
+ * percent of one core. Impulse responses are synthesised once per space on a
+ * background thread and cached; rooms only swap while faded out.
  *
- * Clean-but-audible rules stay: the dry track is never EQ'd, the send is
- * band-limited, the tail is ducked by the dry envelope (normalised from the
- * 16-bit sample scale), and the downstream look-ahead limiter catches peaks.
- * Delay networks only change while faded out, so switching spaces never
- * clicks and effect updates never resize a playing room.
+ * Clean-but-audible rules: the dry track is never EQ'd (only a gentle level
+ * trim so total loudness stays constant), the room send is band-limited so
+ * the low end stays tight, the room is ducked a little by the dry envelope
+ * (normalised from 16-bit scale) and the downstream look-ahead limiter
+ * catches peaks.
  */
 class RoomReverb {
 
-    /** The acoustic fingerprint of one Studio Space. */
+    /** Physical description of one Studio Space. */
     class Character(
         val id: String,
-        /** Mid-band decay time in seconds. */
-        val rt60: Float,
-        /** Low-band decay multiplier (> 1 = warm, bass hangs longer). */
-        val bassRatio: Float,
-        /** High-band decay multiplier (< 1 = absorption, dark). */
-        val trebleRatio: Float,
-        val crossoverHz: Float,
-        val predelayMs: Float,
-        /** Early reflection taps after the pre-delay: time, gain, pan -1..1. */
-        val erMs: FloatArray,
-        val erGain: FloatArray,
-        val erPan: FloatArray,
-        val erLpHz: Float,
+        /** Width (x, lateral), depth (y), height (z) in metres. */
+        val dims: FloatArray,
+        /** Sound source (the band / PA) position in metres. */
+        val src: FloatArray,
+        /** Listening seat position in metres. */
+        val lis: FloatArray,
+        /** Reverberation time per octave band 125 Hz .. 8 kHz, seconds. */
+        val rt: FloatArray,
+        /** Highest image-source reflection order. */
+        val maxOrder: Int,
+        /**
+         * Broadband reflectivity multiplier per surface: x0, x1, y0, y1,
+         * floor, ceiling. 0 = no surface there (open air).
+         */
+        val surfaces: FloatArray = floatArrayOf(1f, 1f, 1f, 1f, 1f, 1f),
+        /** Per-octave absorption override (open-air spaces); else Sabine. */
+        val alpha: FloatArray? = null,
+        /** Diffuse tail energy multiplier (scattering for open-air spaces). */
+        val tailFactor: Float = 1f,
+        /** 0..1 stereo decorrelation of the diffuse tail. */
+        val width: Float = 1f,
+        /** Room energy vs dry (dB, white-noise) at the reference wet value. */
+        val roomDb: Float,
+        /** Wet value the app sends for this space (maps to roomDb). */
+        val refWet: Int,
         val sendHpHz: Float,
-        val sendLpHz: Float,
-        /** Input diffuser coefficient 0.5..0.75 (higher = smoother onset). */
-        val diffusion: Float,
-        val modDepthMs: Float,
-        val modRateHz: Float,
-        /** Tail delay-line scaling (density); bounded so halls never flutter. */
-        val fdnScale: Float,
-        val width: Float,
-        /** Direct sound left at full wet (distance cue). */
-        val direct: Float,
-        val erLevel: Float,
-        val tailLevel: Float,
-        val echoMs: Float = 0f,
-        val echoSpreadMs: Float = 0f,
-        val echoGain: Float = 0f,
-        val echoFeedback: Float = 0f,
-        val echoLpHz: Float = 4000f,
-        val echoPingPong: Boolean = false,
+        val maxLenSec: Float,
     )
 
-    // ---------------------------------------------------------------- state
+    // ------------------------------------------------------------ settings
     private var sampleRate = 44100
-
-    private var preL = FloatArray(1)
-    private var preR = FloatArray(1)
-    private var preCursor = 0
-    private var preLen = 1
-
-    private var erBufL = FloatArray(1)
-    private var erBufR = FloatArray(1)
-    private var erCursor = 0
-    private val erOff = IntArray(MAX_ER)
-    private val erGl = FloatArray(MAX_ER)
-    private val erGr = FloatArray(MAX_ER)
-    private var erCount = 0
-    private var erLpCoeff = 0.5f
-    private var erLpL = 0f
-    private var erLpR = 0f
-
-    private var hpCoeff = 0.98f
-    private var hpStateL = 0f; private var hpPrevL = 0f
-    private var hpStateR = 0f; private var hpPrevR = 0f
-    private var sendLpCoeff = 0.6f
-    private var lp1L = 0f; private var lp2L = 0f
-    private var lp1R = 0f; private var lp2R = 0f
-
-    private val diffMs = floatArrayOf(4.7f, 3.6f, 12.7f, 9.3f)
-    private var diffL = Array(4) { FloatArray(4) }
-    private var diffR = Array(4) { FloatArray(4) }
-    private val diffLenL = IntArray(4)
-    private val diffLenR = IntArray(4)
-    private val diffIdxL = IntArray(4)
-    private val diffIdxR = IntArray(4)
-    private var diffG = 0.65f
-
-    private var echoL = FloatArray(1)
-    private var echoR = FloatArray(1)
-    private var echoCursor = 0
-    private var echoLenL = 1
-    private var echoLenR = 1
-    private var echoLpCoeff = 0.4f
-    private var echoFbL = 0f
-    private var echoFbR = 0f
-    private var echoFeedback = 0f
-    private var echoGain = 0f
-    private var echoPing = false
-
-    private val fdnMs = floatArrayOf(29.7f, 37.1f, 41.1f, 43.7f, 53.3f, 59.9f, 67.7f, 73.1f)
-    private val fdnSign = floatArrayOf(1f, 1f, -1f, -1f, 1f, -1f, -1f, 1f)
-    private var fdn = Array(8) { FloatArray(4) }
-    private val fdnLen = IntArray(8)
-    private val fdnCursor = IntArray(8)
-    private val fdnLow = FloatArray(8)
-    private val gLow = FloatArray(8)
-    private val gHigh = FloatArray(8)
-    private val fdnY = FloatArray(8)
-    private var xoverCoeff = 0.05f
-    private val lfoC = FloatArray(4)
-    private val lfoS = FloatArray(4)
-    private val lfoCosW = FloatArray(4)
-    private val lfoSinW = FloatArray(4)
-    private var modDepth = 0f
-    private var tailLpCoeff = 0.6f
-    private var tailLpL = 0f
-    private var tailLpR = 0f
-
-    private var tailNorm = 0.02f
-    private var erNorm = 1f
-    private var widthActive = 1f
-    private var directActive = 0.9f
-
-    private var env = 0f
-    private var envAttack = 0.01f
-    private var envRelease = 0.0005f
-    private var smoothing = 0.0008f
-    private var currentWet = 0f
     @Volatile private var targetWet = 0f
+    @Volatile private var wanted: Character = PLAIN_DEFAULT
+    @Volatile private var requestedKey: String = ""
+    @Volatile private var ready: ConvState? = null
+    @Volatile private var clearOnNextProcess = false
 
-    // Structural swaps (new room) happen only while faded out.
+    // ------------------------------------------------------- audio thread
+    private var state: ConvState? = null
+    private var currentWet = 0f
     private var fade = 1f
     private var fadeTarget = 1f
     private var fadeStep = 0.001f
-    private var active: Character? = null
-    @Volatile private var pending: Character = PLAIN_DEFAULT
+    private var smoothing = 0.0008f
+    private var env = 0f
+    private var envAttack = 0.01f
+    private var envRelease = 0.0005f
+    // Send filter state (2nd-order high-pass + one-pole low-pass).
+    private var hx1 = 0f; private var hx2 = 0f; private var hy1 = 0f; private var hy2 = 0f
+    private var lpState = 0f
+    private val tmp = FloatArray(2)
 
     val isActive: Boolean
         get() = targetWet > 0.0005f || currentWet > 0.0005f
 
     /** Id of the room currently audible (for tests/diagnostics). */
-    val activeId: String? get() = active?.id
+    val activeId: String? get() = state?.kernel?.id
 
     fun configure(rate: Int) {
         sampleRate = if (rate > 0) rate else 44100
         val sr = sampleRate.toFloat()
-        preL = FloatArray((sr * 0.25f).toInt() + 8)
-        preR = FloatArray(preL.size)
-        erBufL = FloatArray((sr * 0.2f).toInt() + 8)
-        erBufR = FloatArray(erBufL.size)
-        echoL = FloatArray((sr * 0.75f).toInt() + 8)
-        echoR = FloatArray(echoL.size)
-        diffL = Array(4) { FloatArray((diffMs[it] * MAX_SCALE * sr / 1000f).toInt() + 8) }
-        diffR = Array(4) { FloatArray((diffMs[it] * MAX_SCALE * 1.07f * sr / 1000f).toInt() + 8) }
-        val maxMod = 1.2f * sr / 1000f
-        fdn = Array(8) { FloatArray((fdnMs[it] * MAX_SCALE * sr / 1000f + maxMod).toInt() + 8) }
-        envAttack = 1f - exp(-1f / (sr * 0.03f))
-        envRelease = 1f - exp(-1f / (sr * 0.35f))
-        smoothing = 1f - exp(-1f / (sr * 0.035f))
-        fadeStep = 1f / (sr * 0.04f)
-        active = null
-        clearBuffers()
-        swapIn(pending)
+        envAttack = 1f - kotlin.math.exp(-1f / (sr * 0.03f))
+        envRelease = 1f - kotlin.math.exp(-1f / (sr * 0.35f))
+        smoothing = 1f - kotlin.math.exp(-1f / (sr * 0.035f))
+        fadeStep = 64f / (sr * 0.04f) // applied once per 64-sample block
+        if (state?.kernel?.sr != sampleRate) state = null
+        resetSend()
+        requestBuild(wanted)
     }
 
     /**
@@ -202,7 +133,7 @@ class RoomReverb {
      * @param dampPercent   0..100 high-frequency absorption
      * @param wetPercent    0..100 room level
      * @param widthPercent  0..100 stereo spread
-     * @param preDelayMs    0..240 initial gap
+     * @param preDelayMs    0..240 initial gap (generic rooms derive it from size)
      * @param sizePercent   50..240 physical room scaling
      */
     fun setSpace(
@@ -214,473 +145,641 @@ class RoomReverb {
         sizePercent: Int,
         kind: String? = null,
     ) {
-        targetWet = wetPercent.coerceIn(0, 100) / 100f
-        val preset = kind?.let { CHARACTERS[it] }
-        val next = preset ?: genericCharacter(roomPercent, dampPercent, widthPercent, preDelayMs, sizePercent)
-        if (!sameCharacter(next, pending)) pending = next
+        val wet = wetPercent.coerceIn(0, 100) / 100f
+        if (targetWet <= 0.0005f && wet > 0.0005f) clearOnNextProcess = true
+        targetWet = wet
+        val next = kind?.let { CHARACTERS[it] } ?: genericCharacter(roomPercent, dampPercent, widthPercent, sizePercent)
+        if (next.id != wanted.id) {
+            wanted = next
+            requestBuild(next)
+        }
     }
 
     fun reset() {
-        clearBuffers()
+        state?.clear()
         currentWet = 0f
         env = 0f
-        val p = pending
-        if (active !== p) swapIn(p)
+        resetSend()
+        val r = ready
+        if (r != null && r !== state && r.key == requestedKey) state = r
         fade = 1f
         fadeTarget = 1f
     }
 
-    /** Called once per audio block on the audio thread. */
+    /** Called once per 64-sample audio block on the audio thread. */
     fun tickBlock() {
-        val p = pending
-        if (active !== p) {
-            if (currentWet <= 0.0005f || fade <= 0.0005f) {
-                clearBuffers()
-                swapIn(p)
+        val r = ready
+        if (r != null && r !== state && r.key == requestedKey) {
+            if (state == null || currentWet <= 0.0005f || fade <= 0.0005f) {
+                state = r
+                resetSend()
                 fade = if (currentWet <= 0.0005f) 1f else 0f
                 fadeTarget = 1f
             } else {
                 fadeTarget = 0f
             }
         }
-        // Keep the LFO phasors on the unit circle.
-        for (i in 0 until 4) {
-            val m = sqrt(lfoC[i] * lfoC[i] + lfoS[i] * lfoS[i])
-            if (m > 0f) { lfoC[i] /= m; lfoS[i] /= m } else { lfoC[i] = 1f; lfoS[i] = 0f }
+        if (fade != fadeTarget) {
+            fade = if (fade < fadeTarget) min(fadeTarget, fade + fadeStep) else max(fadeTarget, fade - fadeStep)
         }
     }
 
     /** Adds the room to a stereo sample pair (16-bit sample scale). */
     fun process(inL: Float, inR: Float, out: FloatArray) {
         currentWet += smoothing * (targetWet - currentWet)
-        if (fade != fadeTarget) {
-            fade = if (fade < fadeTarget) min(fadeTarget, fade + fadeStep) else max(fadeTarget, fade - fadeStep)
-        }
-        if (currentWet <= 0.0005f) {
+        val st = state
+        if (currentWet <= 0.0005f || st == null) {
             out[0] = inL
             out[1] = inR
             return
         }
+        if (clearOnNextProcess) {
+            clearOnNextProcess = false
+            st.clear()
+            resetSend()
+        }
+        val k = st.kernel
+        // Mono, band-limited send: tight low end, no sibilant splash.
+        val x = (inL + inR) * 0.5f
+        val hp = k.hb0 * x + k.hb1 * hx1 + k.hb2 * hx2 - k.ha1 * hy1 - k.ha2 * hy2
+        hx2 = hx1; hx1 = x; hy2 = hy1; hy1 = hp + DENORMAL_GUARD
+        lpState += k.lpCoeff * (hp - lpState)
+        st.process(lpState, tmp)
 
-        // Band-limited send: no bass boom, no hiss/sibilance in the room.
-        hpStateL = hpCoeff * (hpStateL + inL - hpPrevL); hpPrevL = inL
-        hpStateR = hpCoeff * (hpStateR + inR - hpPrevR); hpPrevR = inR
-        lp1L += sendLpCoeff * (hpStateL - lp1L); lp2L += sendLpCoeff * (lp1L - lp2L)
-        lp1R += sendLpCoeff * (hpStateR - lp1R); lp2R += sendLpCoeff * (lp1R - lp2R)
-        val sendL = lp2L
-        val sendR = lp2R
-
-        // Dry envelope, normalised from 16-bit scale, drives the duck.
         val level = max(abs(inL), abs(inR)) * INV_FULL_SCALE
         env += (if (level > env) envAttack else envRelease) * (level - env)
+        val dx = (env * 3f).coerceIn(0f, 1f)
+        val duck = 1f - 0.22f * (dx * dx * (3f - 2f * dx))
 
-        // Pre-delay.
-        val dL = preL[preCursor]
-        val dR = preR[preCursor]
-        preL[preCursor] = sendL
-        preR[preCursor] = sendR
-        if (++preCursor >= preLen) preCursor = 0
+        val amp = (currentWet * 100f / k.refWet).coerceIn(0f, 2f) * fade
+        val g = amp * k.gain * duck
+        // Keep total loudness constant: the louder the room, the more the
+        // direct sound steps back (pure gain, never EQ).
+        val roomPower = amp * amp * k.roomPower
+        val dry = 1f / sqrt(1f + roomPower)
+        out[0] = inL * dry + tmp[0] * g
+        out[1] = inR * dry + tmp[1] * g
+    }
 
-        // Early reflections: this room's own wall pattern.
-        erBufL[erCursor] = dL
-        erBufR[erCursor] = dR
-        val n = erBufL.size
-        var eL = 0f
-        var eR = 0f
-        for (i in 0 until erCount) {
-            var idx = erCursor - erOff[i]
-            if (idx < 0) idx += n
-            val tl = erBufL[idx]
-            val tr = erBufR[idx]
-            eL += (tl * 0.75f + tr * 0.25f) * erGl[i]
-            eR += (tr * 0.75f + tl * 0.25f) * erGr[i]
-        }
-        if (++erCursor >= n) erCursor = 0
-        erLpL += erLpCoeff * (eL - erLpL)
-        erLpR += erLpCoeff * (eR - erLpR)
-        eL = erLpL
-        eR = erLpR
+    private fun resetSend() {
+        hx1 = 0f; hx2 = 0f; hy1 = 0f; hy2 = 0f; lpState = 0f
+    }
 
-        // Discrete echoes (stadium stands, canyon walls).
-        var xL = 0f
-        var xR = 0f
-        if (echoGain > 0f) {
-            val en = echoL.size
-            var il = echoCursor - echoLenL; if (il < 0) il += en
-            var ir = echoCursor - echoLenR; if (ir < 0) ir += en
-            echoFbL += echoLpCoeff * (echoL[il] - echoFbL)
-            echoFbR += echoLpCoeff * (echoR[ir] - echoFbR)
-            if (echoPing) {
-                echoL[echoCursor] = (dL + dR) * 0.5f + echoFbR * echoFeedback
-                echoR[echoCursor] = echoFbL * echoFeedback
-            } else {
-                echoL[echoCursor] = dL + echoFbL * echoFeedback
-                echoR[echoCursor] = dR + echoFbR * echoFeedback
+    private fun requestBuild(c: Character) {
+        val sr = sampleRate
+        val key = "${c.id}@$sr"
+        requestedKey = key
+        val cachedState = ready
+        if (cachedState != null && cachedState.key == key) return
+        if (state?.key == key) { ready = state; return }
+        BUILDER.execute {
+            if (requestedKey != key) return@execute
+            try {
+                val kernel = kernelFor(c, sr)
+                val st = ConvState(kernel, key)
+                if (requestedKey == key) ready = st
+            } catch (_: Throwable) {
+                // Out of memory or similar: stay dry rather than crash playback.
             }
-            if (++echoCursor >= en) echoCursor = 0
-            xL = echoFbL
-            xR = echoFbR
         }
+    }
 
-        // Diffuse what feeds the tail (walls + echoes build the late field).
-        var fL = dL * 0.6f + eL * 0.5f + xL * 0.5f
-        var fR = dR * 0.6f + eR * 0.5f + xR * 0.5f
-        for (k in 0 until 4) {
-            fL = allpass(diffL[k], diffIdxL, k, diffLenL[k], fL)
-            fR = allpass(diffR[k], diffIdxR, k, diffLenR[k], fR)
-        }
-        fL = fL * tailNorm + DENORMAL_GUARD
-        fR = fR * tailNorm + DENORMAL_GUARD
+    // ================================================================ FFT
+    internal class Fft(val n: Int) {
+        private val cosT = FloatArray(n / 2)
+        private val sinT = FloatArray(n / 2)
+        private val rev = IntArray(n)
 
-        // 8-line feedback delay network with two-band decay and slow
-        // modulation on four lines (lush, non-metallic tail).
-        var sum = 0f
-        for (i in 0 until 8) {
-            val buf = fdn[i]
-            val size = buf.size
-            val o: Float
-            if (i < 4) {
-                val c = lfoC[i]; val s = lfoS[i]
-                lfoC[i] = c * lfoCosW[i] - s * lfoSinW[i]
-                lfoS[i] = s * lfoCosW[i] + c * lfoSinW[i]
-                var rp = fdnCursor[i] - (fdnLen[i] + modDepth * (1f + s) * 0.5f)
-                if (rp < 0f) rp += size
-                val i0 = rp.toInt()
-                val frac = rp - i0
-                val a = buf[if (i0 >= size) i0 - size else i0]
-                val b = buf[if (i0 + 1 >= size) i0 + 1 - size else i0 + 1]
-                o = a + (b - a) * frac
-            } else {
-                var ri = fdnCursor[i] - fdnLen[i]
-                if (ri < 0) ri += size
-                o = buf[ri]
+        init {
+            var bits = 0
+            while ((1 shl bits) < n) bits++
+            for (i in 0 until n) {
+                var r = 0
+                var v = i
+                for (b in 0 until bits) { r = (r shl 1) or (v and 1); v = v shr 1 }
+                rev[i] = r
             }
-            fdnLow[i] += xoverCoeff * (o - fdnLow[i])
-            val y = fdnLow[i] * gLow[i] + (o - fdnLow[i]) * gHigh[i]
-            fdnY[i] = y
-            sum += y
+            for (k in 0 until n / 2) {
+                cosT[k] = cos(2.0 * PI * k / n).toFloat()
+                sinT[k] = (-sin(2.0 * PI * k / n)).toFloat()
+            }
         }
-        val hh = sum * 0.25f
-        for (i in 0 until 8) {
-            val buf = fdn[i]
-            val inject = if ((i and 1) == 0) fL else fR
-            buf[fdnCursor[i]] = fdnY[i] - hh + inject * fdnSign[i]
-            if (++fdnCursor[i] >= buf.size) fdnCursor[i] = 0
+
+        /** In-place complex FFT on interleaved re/im data. */
+        fun transform(a: FloatArray, inverse: Boolean) {
+            for (i in 0 until n) {
+                val j = rev[i]
+                if (j > i) {
+                    val ri = 2 * i; val rj = 2 * j
+                    var t = a[ri]; a[ri] = a[rj]; a[rj] = t
+                    t = a[ri + 1]; a[ri + 1] = a[rj + 1]; a[rj + 1] = t
+                }
+            }
+            var size = 2
+            while (size <= n) {
+                val half = size shr 1
+                val step = n / size
+                var start = 0
+                while (start < n) {
+                    var k = 0
+                    for (j in 0 until half) {
+                        val wr = cosT[k]
+                        val wi = if (inverse) -sinT[k] else sinT[k]
+                        val i1 = 2 * (start + j)
+                        val i2 = 2 * (start + j + half)
+                        val xr = a[i2]; val xi = a[i2 + 1]
+                        val tr = xr * wr - xi * wi
+                        val ti = xr * wi + xi * wr
+                        a[i2] = a[i1] - tr; a[i2 + 1] = a[i1 + 1] - ti
+                        a[i1] += tr; a[i1 + 1] += ti
+                        k += step
+                    }
+                    start += size
+                }
+                size = size shl 1
+            }
+            if (inverse) {
+                val s = 1f / n
+                for (i in 0 until 2 * n) a[i] *= s
+            }
         }
-        var tL = fdnY[0] - fdnY[2] + fdnY[4] - fdnY[6]
-        var tR = fdnY[1] - fdnY[3] + fdnY[5] - fdnY[7]
-        tailLpL += tailLpCoeff * (tL - tailLpL)
-        tailLpR += tailLpCoeff * (tR - tailLpR)
-        val mid = (tailLpL + tailLpR) * 0.5f
-        val side = (tailLpL - tailLpR) * 0.5f * widthActive
-        tL = mid + side
-        tR = mid - side
-
-        // Duck the tail while the song is loud; let the room bloom in gaps.
-        val x = (env * 3f).coerceIn(0f, 1f)
-        val duck = 1f - 0.3f * (x * x * (3f - 2f * x))
-        val w = currentWet * fade
-        val tailGain = w * duck
-        val erGain = w * erNorm * (0.75f + 0.25f * duck)
-        val echoOut = w * echoGain * (0.85f + 0.15f * duck)
-        // Distance: big venues leave less direct sound. Pure gain, no EQ.
-        val dry = (1f - currentWet * (1f - directActive) * 1.5f).coerceIn(0.55f, 1f)
-        out[0] = inL * dry + eL * erGain + xL * echoOut + tL * tailGain
-        out[1] = inR * dry + eR * erGain + xR * echoOut + tR * tailGain
     }
 
-    // ------------------------------------------------------------ internals
-    private fun allpass(buf: FloatArray, idx: IntArray, k: Int, len: Int, x: Float): Float {
-        var i = idx[k]
-        var r = i - len
-        if (r < 0) r += buf.size
-        val delayed = buf[r]
-        val v = x + diffG * delayed
-        buf[i] = v
-        if (++i >= buf.size) i = 0
-        idx[k] = i
-        return delayed - diffG * v
-    }
+    // ============================================================ kernels
+    /** Immutable, shareable convolution kernel for one space at one rate. */
+    internal class Kernel(
+        val id: String,
+        val sr: Int,
+        val directIdx: IntArray,
+        val directL: FloatArray,
+        val directR: FloatArray,
+        val blocks: IntArray,
+        /** Per tier: partitions of G = FFT(hL + i*hR), interleaved complex. */
+        val parts: Array<Array<FloatArray>>,
+        val ffts: Array<Fft>,
+        val gain: Float,
+        val roomPower: Float,
+        val refWet: Int,
+        val hb0: Float, val hb1: Float, val hb2: Float, val ha1: Float, val ha2: Float,
+        val lpCoeff: Float,
+    )
 
-    private fun clearBuffers() {
-        java.util.Arrays.fill(preL, 0f); java.util.Arrays.fill(preR, 0f)
-        java.util.Arrays.fill(erBufL, 0f); java.util.Arrays.fill(erBufR, 0f)
-        java.util.Arrays.fill(echoL, 0f); java.util.Arrays.fill(echoR, 0f)
-        diffL.forEach { java.util.Arrays.fill(it, 0f) }
-        diffR.forEach { java.util.Arrays.fill(it, 0f) }
-        fdn.forEach { java.util.Arrays.fill(it, 0f) }
-        java.util.Arrays.fill(fdnLow, 0f)
-        java.util.Arrays.fill(diffIdxL, 0); java.util.Arrays.fill(diffIdxR, 0)
-        java.util.Arrays.fill(fdnCursor, 0)
-        preCursor = 0; erCursor = 0; echoCursor = 0
-        hpStateL = 0f; hpPrevL = 0f; hpStateR = 0f; hpPrevR = 0f
-        lp1L = 0f; lp2L = 0f; lp1R = 0f; lp2R = 0f
-        erLpL = 0f; erLpR = 0f; echoFbL = 0f; echoFbR = 0f
-        tailLpL = 0f; tailLpR = 0f
-    }
+    /** Per-instance convolution state (frequency-domain delay lines). */
+    internal class ConvState(val kernel: Kernel, val key: String) {
+        private val tiers = Array(kernel.blocks.size) { Tier(kernel.blocks[it], kernel.parts[it], kernel.ffts[it]) }
+        private val hist = FloatArray(DIRECT_LEN)
+        private var histPos = 0
 
-    private fun onePole(hz: Float): Float {
-        val dt = 1f / sampleRate
-        val rc = 1f / (2f * PI.toFloat() * hz.coerceIn(20f, sampleRate * 0.45f))
-        return dt / (rc + dt)
-    }
-
-    private fun swapIn(c: Character) {
-        val sr = sampleRate.toFloat()
-        // Send band.
-        val rcHp = 1f / (2f * PI.toFloat() * c.sendHpHz)
-        hpCoeff = rcHp / (rcHp + 1f / sr)
-        sendLpCoeff = onePole(c.sendLpHz)
-
-        preLen = (c.predelayMs * sr / 1000f).toInt().coerceIn(1, preL.size - 1)
-
-        // Early reflections with equal-power panning.
-        erCount = min(MAX_ER, c.erMs.size)
-        var erEnergy = 0f
-        for (i in 0 until erCount) {
-            erOff[i] = (c.erMs[i] * sr / 1000f).toInt().coerceIn(1, erBufL.size - 1)
-            val p = c.erPan[i].coerceIn(-1f, 1f)
-            erGl[i] = c.erGain[i] * sqrt((1f - p) * 0.5f) * 1.414f
-            erGr[i] = c.erGain[i] * sqrt((1f + p) * 0.5f) * 1.414f
-            erEnergy += c.erGain[i] * c.erGain[i]
+        fun clear() {
+            tiers.forEach { it.clear() }
+            hist.fill(0f)
+            histPos = 0
         }
-        erNorm = if (erEnergy > 0f) c.erLevel * ER_LEVEL / sqrt(erEnergy) else 0f
-        erLpCoeff = onePole(c.erLpHz)
 
-        // Diffusers scale with the room (small rooms = tighter grain).
-        val ds = c.fdnScale.coerceIn(MIN_SCALE, MAX_SCALE)
-        for (k in 0 until 4) {
-            diffLenL[k] = (diffMs[k] * ds * sr / 1000f).toInt().coerceIn(2, diffL[k].size - 1)
-            diffLenR[k] = (diffMs[k] * ds * 1.07f * sr / 1000f).toInt().coerceIn(2, diffR[k].size - 1)
+        fun process(x: Float, out: FloatArray) {
+            var l = 0f
+            var r = 0f
+            // Sparse direct taps for the first reflections (< 64 samples).
+            hist[histPos] = x
+            val idx = kernel.directIdx
+            for (i in idx.indices) {
+                var p = histPos - idx[i]
+                if (p < 0) p += DIRECT_LEN
+                val v = hist[p]
+                l += v * kernel.directL[i]
+                r += v * kernel.directR[i]
+            }
+            if (++histPos >= DIRECT_LEN) histPos = 0
+            for (t in tiers) {
+                l += t.outL[t.pos]
+                r += t.outR[t.pos]
+                t.push(x)
+            }
+            out[0] = l
+            out[1] = r
         }
-        diffG = c.diffusion.coerceIn(0.4f, 0.75f)
-
-        // Echo line.
-        echoGain = c.echoGain * ECHO_LEVEL
-        echoFeedback = c.echoFeedback.coerceIn(0f, 0.6f)
-        echoPing = c.echoPingPong
-        echoLenL = (c.echoMs * sr / 1000f).toInt().coerceIn(1, echoL.size - 1)
-        echoLenR = ((c.echoMs + c.echoSpreadMs) * sr / 1000f).toInt().coerceIn(1, echoL.size - 1)
-        echoLpCoeff = onePole(c.echoLpHz)
-
-        // Tail network: per-line two-band decay from the room's RT60.
-        val fs = c.fdnScale.coerceIn(MIN_SCALE, MAX_SCALE)
-        var avgDelay = 0f
-        val rtLow = c.rt60 * c.bassRatio
-        val rtHigh = c.rt60 * c.trebleRatio
-        for (i in 0 until 8) {
-            fdnLen[i] = (fdnMs[i] * fs * sr / 1000f).toInt().coerceIn(8, fdn[i].size - 40)
-            val sec = fdnLen[i] / sr
-            avgDelay += sec
-            gLow[i] = decayGain(sec, rtLow)
-            gHigh[i] = decayGain(sec, rtHigh)
-        }
-        avgDelay /= 8f
-        xoverCoeff = onePole(c.crossoverHz)
-        modDepth = (c.modDepthMs * sr / 1000f).coerceIn(0f, 1.2f * sr / 1000f)
-        for (i in 0 until 4) {
-            val hz = c.modRateHz * (0.73f + 0.19f * i)
-            val wv = 2f * PI.toFloat() * hz / sr
-            lfoCosW[i] = cos(wv); lfoSinW[i] = sin(wv)
-            lfoC[i] = cos(i * 1.3f); lfoS[i] = sin(i * 1.3f)
-        }
-        tailLpCoeff = onePole(c.sendLpHz * 0.9f)
-        // Energy of an exponential tail grows with RT60 and line density.
-        // Normalise it, then let longer rooms keep a little more body.
-        val energy = 4f * c.rt60 / (13.8f * avgDelay)
-        val perceived = sqrt(c.rt60.coerceIn(0.15f, 8f))
-        tailNorm = c.tailLevel * TAIL_LEVEL * sqrt(perceived / max(0.2f, energy))
-        widthActive = c.width.coerceIn(0f, 1f)
-        directActive = c.direct.coerceIn(0.6f, 1f)
-        active = c
     }
 
-    private fun decayGain(delaySec: Float, rt: Float): Float {
-        val g = Math.pow(10.0, -3.0 * delaySec / max(0.08f, rt)).toFloat()
-        return g.coerceIn(0f, 0.9995f)
-    }
+    /**
+     * One uniformly partitioned overlap-save convolver. Its partitions start
+     * at IR offset == block size, so its one-block latency lines up exactly.
+     * Older partitions are multiply-accumulated gradually between block
+     * boundaries so large blocks never cause a CPU spike.
+     */
+    internal class Tier(private val b: Int, private val g: Array<FloatArray>, private val fft: Fft) {
+        private val n = 2 * b
+        private val p = g.size
+        private val inBuf = FloatArray(n)
+        private val fdl = Array(p) { FloatArray(2 * n) }
+        private var head = 0
+        private val acc = FloatArray(2 * n)
+        private val work = FloatArray(2 * n)
+        val outL = FloatArray(b)
+        val outR = FloatArray(b)
+        var pos = 0
+        private var nextPart = 1
 
-    private fun sameCharacter(a: Character, b: Character): Boolean {
-        if (a === b) return true
-        if (a.id != b.id) return false
-        if (!a.id.startsWith("generic")) return true
-        return a.rt60 == b.rt60 && a.trebleRatio == b.trebleRatio && a.predelayMs == b.predelayMs &&
-            a.fdnScale == b.fdnScale && a.width == b.width
-    }
+        fun clear() {
+            inBuf.fill(0f); fdl.forEach { it.fill(0f) }; acc.fill(0f)
+            outL.fill(0f); outR.fill(0f); pos = 0; nextPart = 1; head = 0
+        }
 
-    private fun genericCharacter(room: Int, damp: Int, width: Int, predelay: Int, size: Int): Character {
-        val r = room.coerceIn(0, 100) / 100f
-        val d = damp.coerceIn(0, 100) / 100f
-        val s = size.coerceIn(50, 240) / 100f
-        val er = floatArrayOf(4.3f, 9.7f, 15.1f, 21.9f, 29.3f, 37.1f).map { it * s.coerceIn(0.4f, 2f) }.toFloatArray()
-        return Character(
-            id = "generic",
-            rt60 = 0.18f * Math.pow(33.0, r.toDouble()).toFloat(),
-            bassRatio = 1.1f, trebleRatio = 1f - d * 0.6f, crossoverHz = 400f,
-            predelayMs = predelay.coerceIn(0, 240).toFloat(),
-            erMs = er,
-            erGain = floatArrayOf(0.7f, 0.56f, 0.46f, 0.38f, 0.3f, 0.24f),
-            erPan = floatArrayOf(-0.6f, 0.6f, -0.3f, 0.4f, -0.7f, 0.7f),
-            erLpHz = 11000f - d * 6000f,
-            sendHpHz = 150f, sendLpHz = 12000f - d * 6000f,
-            diffusion = 0.68f, modDepthMs = 0.3f, modRateHz = 0.4f,
-            fdnScale = s.coerceIn(MIN_SCALE, MAX_SCALE),
-            width = width.coerceIn(0, 100) / 100f,
-            direct = 0.92f, erLevel = 0.8f, tailLevel = 0.9f,
-        )
+        fun push(x: Float) {
+            inBuf[b + pos] = x
+            pos++
+            if (pos == b) {
+                boundary()
+            } else if (p > 1 && (pos and 63) == 0 && nextPart < p) {
+                val left = max(1, (b - pos) shr 6)
+                val share = (p - nextPart + left - 1) / left
+                macRange(share)
+            }
+        }
+
+        private fun macRange(count: Int) {
+            var c = count
+            while (c > 0 && nextPart < p) {
+                var slot = head + 1 - nextPart
+                while (slot < 0) slot += p
+                mac(fdl[slot % p], g[nextPart])
+                nextPart++
+                c--
+            }
+        }
+
+        private fun mac(x: FloatArray, h: FloatArray) {
+            var i = 0
+            val len = 2 * n
+            while (i < len) {
+                val xr = x[i]; val xi = x[i + 1]
+                val hr = h[i]; val hi = h[i + 1]
+                acc[i] += xr * hr - xi * hi
+                acc[i + 1] += xr * hi + xi * hr
+                i += 2
+            }
+        }
+
+        private fun boundary() {
+            macRange(p)
+            for (i in 0 until n) { work[2 * i] = inBuf[i]; work[2 * i + 1] = 0f }
+            fft.transform(work, false)
+            head = (head + 1) % p
+            System.arraycopy(work, 0, fdl[head], 0, 2 * n)
+            mac(fdl[head], g[0])
+            System.arraycopy(acc, 0, work, 0, 2 * n)
+            fft.transform(work, true)
+            for (i in 0 until b) {
+                outL[i] = work[2 * (b + i)]
+                outR[i] = work[2 * (b + i) + 1]
+            }
+            acc.fill(0f)
+            nextPart = 1
+            System.arraycopy(inBuf, b, inBuf, 0, b)
+            pos = 0
+        }
     }
 
     companion object {
         private const val INV_FULL_SCALE = 1f / 32768f
-        private const val MAX_ER = 12
-        private const val MIN_SCALE = 0.55f
-        private const val MAX_SCALE = 1.4f
         private const val DENORMAL_GUARD = 1e-20f
-        // Overall calibration (measured with the RoomReverbProbe harness).
-        private const val ER_LEVEL = 0.65f
-        private const val TAIL_LEVEL = 0.4f
-        private const val ECHO_LEVEL = 0.9f
+        internal const val DIRECT_LEN = 64
+        private val TIER_BLOCKS = intArrayOf(64, 1024, 8192)
+        private const val SPEED_OF_SOUND = 343f
+        private val BAND_HZ = floatArrayOf(125f, 250f, 500f, 1000f, 2000f, 4000f, 8000f)
+        /** ISO 9613-1 air absorption, dB per metre (20 C, ~50% RH). */
+        private val AIR_DB_PER_M = floatArrayOf(0.0004f, 0.0011f, 0.0024f, 0.0045f, 0.0093f, 0.028f, 0.095f)
+
+        private val BUILDER = Executors.newSingleThreadExecutor { r ->
+            Thread(r, "RoomReverbBuild").apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 }
+        }
+        private val CACHE = object : LinkedHashMap<String, Kernel>(8, 0.75f, true) {
+            override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Kernel>?): Boolean = size > 3
+        }
+
+        internal fun kernelFor(c: Character, sr: Int): Kernel {
+            val key = "${c.id}@$sr"
+            synchronized(CACHE) { CACHE[key]?.let { return it } }
+            val (hl, hr) = synthesize(c, sr)
+            val k = buildKernel(c, sr, hl, hr)
+            synchronized(CACHE) { CACHE[key] = k }
+            return k
+        }
+
+        /** Stereo impulse response of a space (direct sound excluded). */
+        fun synthesize(c: Character, sr: Int): Pair<FloatArray, FloatArray> {
+            val len = (c.maxLenSec * sr).toInt().coerceAtLeast(2 * DIRECT_LEN)
+            val hl = FloatArray(len)
+            val hr = FloatArray(len)
+            val lx = c.dims[0]; val ly = c.dims[1]; val lz = c.dims[2]
+            val volume = lx * ly * lz
+            val area = 2f * (lx * ly + lx * lz + ly * lz)
+            val sx = c.src[0]; val sy = c.src[1]; val sz = c.src[2]
+            val dxs = c.src[0] - c.lis[0]; val dys = c.src[1] - c.lis[1]; val dzs = c.src[2] - c.lis[2]
+            val r = sqrt(dxs * dxs + dys * dys + dzs * dzs).coerceAtLeast(0.5f)
+
+            // Two ORTF-style microphones at the seat, facing the source.
+            val fh = sqrt(dxs * dxs + dys * dys).coerceAtLeast(1e-3f)
+            val fx = dxs / fh; val fy = dys / fh
+            val leftX = -fy; val leftY = fx
+            val micPos = arrayOf(
+                floatArrayOf(c.lis[0] + leftX * 0.085f, c.lis[1] + leftY * 0.085f, c.lis[2]),
+                floatArrayOf(c.lis[0] - leftX * 0.085f, c.lis[1] - leftY * 0.085f, c.lis[2]),
+            )
+            val ang = 55.0 * PI / 180.0
+            val ca = cos(ang).toFloat(); val sa = sin(ang).toFloat()
+            val micAxis = arrayOf(
+                floatArrayOf(fx * ca - fy * sa, fx * sa + fy * ca),
+                floatArrayOf(fx * ca + fy * sa, -fx * sa + fy * ca),
+            )
+
+            // Image sources: (position, surface bounce counts) -> per mic delay/gain.
+            class Img(val d: FloatArray, val t: FloatArray, val dir: FloatArray, val surf: Float, val order: Int)
+            val images = ArrayList<Img>()
+            val m = c.maxOrder
+            var firstT = Float.MAX_VALUE
+            for (ux in 0..1) for (mx in -m..m) {
+                val nx0 = abs(mx - ux); val nx1 = abs(mx)
+                if (nx0 + nx1 > m) continue
+                val sxx = if (nx0 + nx1 == 0) 1f else c.surfaces[0].pow(nx0) * c.surfaces[1].pow(nx1)
+                if (sxx <= 0f) continue
+                val ix = (1 - 2 * ux) * sx + 2 * mx * lx
+                for (uy in 0..1) for (my in -m..m) {
+                    val ny0 = abs(my - uy); val ny1 = abs(my)
+                    if (nx0 + nx1 + ny0 + ny1 > m) continue
+                    val syy = if (ny0 + ny1 == 0) 1f else c.surfaces[2].pow(ny0) * c.surfaces[3].pow(ny1)
+                    if (syy <= 0f) continue
+                    val iy = (1 - 2 * uy) * sy + 2 * my * ly
+                    for (uz in 0..1) for (mz in -m..m) {
+                        val nz0 = abs(mz - uz); val nz1 = abs(mz)
+                        val order = nx0 + nx1 + ny0 + ny1 + nz0 + nz1
+                        if (order > m || order == 0) continue
+                        val szz = if (nz0 + nz1 == 0) 1f else c.surfaces[4].pow(nz0) * c.surfaces[5].pow(nz1)
+                        if (szz <= 0f) continue
+                        val iz = (1 - 2 * uz) * sz + 2 * mz * lz
+                        val d = FloatArray(2); val t = FloatArray(2); val dir = FloatArray(2)
+                        var ok = false
+                        for (mic in 0..1) {
+                            val ex = ix - micPos[mic][0]; val ey = iy - micPos[mic][1]; val ez = iz - micPos[mic][2]
+                            val dist = sqrt(ex * ex + ey * ey + ez * ez)
+                            val tt = (dist - r) / SPEED_OF_SOUND
+                            d[mic] = dist; t[mic] = max(0f, tt)
+                            // Sub-cardioid pickup: rear sound is quieter, never gone.
+                            val cosA = (ex * micAxis[mic][0] + ey * micAxis[mic][1]) / dist.coerceAtLeast(1e-3f)
+                            dir[mic] = 0.62f + 0.38f * cosA
+                            if (t[mic] * sr < len - 2) ok = true
+                        }
+                        if (!ok) continue
+                        firstT = min(firstT, min(t[0], t[1]))
+                        images.add(Img(d, t, dir, sxx * syy * szz, order))
+                    }
+                }
+            }
+            if (firstT == Float.MAX_VALUE) firstT = 0.005f
+
+            val mixT = (sqrt(volume) / 1000f).coerceIn(0.006f, 0.12f)
+            val tailStart = max(firstT, (DIRECT_LEN + 4f) / sr)
+            val tailVar = r * r * 4f * PI.toFloat() * SPEED_OF_SOUND / (volume * sr) * c.tailFactor
+            val sigma = sqrt(tailVar)
+            val corr = (1f - c.width).coerceIn(0f, 1f)
+            val corrB = sqrt(1f - corr * corr)
+            val fade0 = (len * 0.85f).toInt()
+
+            val bl = FloatArray(len)
+            val br = FloatArray(len)
+            for (b in BAND_HZ.indices) {
+                bl.fill(0f); br.fill(0f)
+                val rtB = c.rt[b].coerceIn(0.05f, 12f)
+                val alphaB = c.alpha?.get(b) ?: (0.161f * volume / (area * rtB)).coerceIn(0.02f, 0.95f)
+                val refl = sqrt(1f - alphaB)
+                for (img in images) {
+                    val bandRefl = refl.pow(img.order) * img.surf
+                    for (mic in 0..1) {
+                        val pos = img.t[mic] * sr
+                        val i0 = pos.toInt()
+                        if (i0 >= len - 1) continue
+                        val air = 10f.pow(-AIR_DB_PER_M[b] * img.d[mic] / 20f)
+                        val gain = (r / img.d[mic]) * bandRefl * air * img.dir[mic]
+                        val frac = pos - i0
+                        val buf = if (mic == 0) bl else br
+                        buf[i0] += gain * (1f - frac)
+                        buf[i0 + 1] += gain * frac
+                    }
+                }
+                // Diffuse tail: Gaussian noise under this band's decay.
+                val rnd = Random((c.id.hashCode() * 31 + b).toLong())
+                val decayPerSample = 10.0.pow(-3.0 / (rtB * sr)).toFloat()
+                val startIdx = (tailStart * sr).toInt()
+                var envA = sigma * 10.0.pow(-3.0 * tailStart / rtB).toFloat()
+                for (i in startIdx until len) {
+                    val tt = i.toFloat() / sr
+                    val on = ((tt - tailStart) / mixT).coerceIn(0f, 1f)
+                    val onset = on * sqrt(on)
+                    val a = envA * onset
+                    val n1 = rnd.nextGaussian().toFloat()
+                    val n2 = rnd.nextGaussian().toFloat()
+                    bl[i] += a * n1
+                    br[i] += a * (corr * n1 + corrB * n2)
+                    envA *= decayPerSample
+                }
+                bandFilter(bl, b, sr)
+                bandFilter(br, b, sr)
+                for (i in 0 until len) { hl[i] += bl[i]; hr[i] += br[i] }
+            }
+            // Smooth end so truncation never clicks.
+            for (i in fade0 until len) {
+                val w = 0.5f + 0.5f * cos(PI * (i - fade0) / (len - fade0)).toFloat()
+                hl[i] *= w; hr[i] *= w
+            }
+            // Normalise to this space's room level (energy vs dry).
+            var e = 0.0
+            for (i in 0 until len) e += (hl[i] * hl[i] + hr[i] * hr[i]) * 0.5
+            val target = 10.0.pow(c.roomDb / 10.0)
+            val s = if (e > 0.0) sqrt(target / e).toFloat() else 0f
+            for (i in 0 until len) { hl[i] *= s; hr[i] *= s }
+            return hl to hr
+        }
+
+        /** Octave band filter: low-pass / band-pass / high-pass (RBJ). */
+        private fun bandFilter(x: FloatArray, band: Int, sr: Int) {
+            val last = BAND_HZ.size - 1
+            when (band) {
+                0 -> { biquad(x, 0, 177f, 0.7071f, sr); biquad(x, 0, 177f, 0.7071f, sr) }
+                last -> { biquad(x, 2, 5657f, 0.7071f, sr); biquad(x, 2, 5657f, 0.7071f, sr) }
+                else -> biquad(x, 1, BAND_HZ[band], 1.414f, sr)
+            }
+        }
+
+        /** type 0 = low-pass, 1 = band-pass (0 dB peak), 2 = high-pass. */
+        private fun biquad(x: FloatArray, type: Int, f0: Float, q: Float, sr: Int) {
+            val w = 2.0 * PI * min(f0.toDouble(), sr * 0.45) / sr
+            val cw = cos(w); val alpha = sin(w) / (2.0 * q)
+            val a0 = 1.0 + alpha
+            val (b0, b1, b2) = when (type) {
+                0 -> Triple((1 - cw) / 2, 1 - cw, (1 - cw) / 2)
+                1 -> Triple(alpha, 0.0, -alpha)
+                else -> Triple((1 + cw) / 2, -(1 + cw), (1 + cw) / 2)
+            }
+            val nb0 = b0 / a0; val nb1 = b1 / a0; val nb2 = b2 / a0
+            val na1 = -2 * cw / a0; val na2 = (1 - alpha) / a0
+            var x1 = 0.0; var x2 = 0.0; var y1 = 0.0; var y2 = 0.0
+            for (i in x.indices) {
+                val xi = x[i].toDouble()
+                val y = nb0 * xi + nb1 * x1 + nb2 * x2 - na1 * y1 - na2 * y2
+                x2 = x1; x1 = xi; y2 = y1; y1 = y
+                x[i] = y.toFloat()
+            }
+        }
+
+        private fun buildKernel(c: Character, sr: Int, hl: FloatArray, hr: FloatArray): Kernel {
+            val len = hl.size
+            // Direct taps for the first 64 samples (sparse early reflections).
+            val di = ArrayList<Int>()
+            for (i in 0 until min(DIRECT_LEN, len)) if (abs(hl[i]) > 1e-7f || abs(hr[i]) > 1e-7f) di.add(i)
+            val blocks = ArrayList<Int>()
+            val parts = ArrayList<Array<FloatArray>>()
+            val ffts = ArrayList<Fft>()
+            for (t in TIER_BLOCKS.indices) {
+                val b = TIER_BLOCKS[t]
+                val start = b
+                val end = if (t + 1 < TIER_BLOCKS.size) min(len, TIER_BLOCKS[t + 1]) else len
+                if (start >= end) break
+                val n = 2 * b
+                val fft = Fft(n)
+                val count = (end - start + b - 1) / b
+                val arr = Array(count) { pi ->
+                    val buf = FloatArray(2 * n)
+                    val off = start + pi * b
+                    for (i in 0 until b) {
+                        val j = off + i
+                        if (j >= end) break
+                        buf[2 * i] = hl[j]
+                        buf[2 * i + 1] = hr[j]
+                    }
+                    fft.transform(buf, false)
+                    buf
+                }
+                blocks.add(b); parts.add(arr); ffts.add(fft)
+            }
+            // Send high-pass (RBJ, Q 0.707).
+            val w = 2.0 * PI * c.sendHpHz / sr
+            val cw = cos(w); val alpha = sin(w) / (2.0 * 0.7071)
+            val a0 = 1.0 + alpha
+            val dt = 1f / sr
+            val rc = 1f / (2f * PI.toFloat() * min(11000f, sr * 0.45f))
+            return Kernel(
+                id = c.id, sr = sr,
+                directIdx = di.toIntArray(),
+                directL = FloatArray(di.size) { hl[di[it]] },
+                directR = FloatArray(di.size) { hr[di[it]] },
+                blocks = blocks.toIntArray(),
+                parts = parts.toTypedArray(),
+                ffts = ffts.toTypedArray(),
+                gain = 1f,
+                roomPower = 10.0.pow(c.roomDb / 10.0).toFloat(),
+                refWet = c.refWet.coerceAtLeast(1),
+                hb0 = ((1 + cw) / 2 / a0).toFloat(), hb1 = (-(1 + cw) / a0).toFloat(), hb2 = ((1 + cw) / 2 / a0).toFloat(),
+                ha1 = (-2 * cw / a0).toFloat(), ha2 = ((1 - alpha) / a0).toFloat(),
+                lpCoeff = dt / (rc + dt),
+            )
+        }
 
         private fun f(vararg v: Float) = v
 
-        private val PLAIN_DEFAULT = Character(
-            id = "generic-default", rt60 = 0.8f, bassRatio = 1.1f, trebleRatio = 0.7f, crossoverHz = 400f,
-            predelayMs = 14f,
-            erMs = f(4.3f, 9.7f, 15.1f, 21.9f, 29.3f, 37.1f),
-            erGain = f(0.7f, 0.56f, 0.46f, 0.38f, 0.3f, 0.24f),
-            erPan = f(-0.6f, 0.6f, -0.3f, 0.4f, -0.7f, 0.7f),
-            erLpHz = 8000f, sendHpHz = 150f, sendLpHz = 9000f,
-            diffusion = 0.68f, modDepthMs = 0.3f, modRateHz = 0.4f, fdnScale = 1f,
-            width = 0.8f, direct = 0.92f, erLevel = 0.8f, tailLevel = 0.9f,
-        )
+        private fun genericCharacter(room: Int, damp: Int, width: Int, size: Int): Character {
+            // Quantised so slider drags don't rebuild on every step.
+            val rq = (room.coerceIn(0, 100) / 5) * 5
+            val dq = (damp.coerceIn(0, 100) / 10) * 10
+            val wq = (width.coerceIn(0, 100) / 10) * 10
+            val sq = (size.coerceIn(50, 240) / 10) * 10
+            val rMid = 0.25f * 12f.pow(rq / 100f)
+            val d = dq / 100f
+            val s = sq / 100f
+            val rt = f(1.15f, 1.1f, 1f, 1f, 1f - 0.3f * d, 1f - 0.5f * d, 1f - 0.7f * d).map { it * rMid }.toFloatArray()
+            val lx = 12f * s; val ly = 16f * s; val lz = 5f * s.coerceAtMost(1.6f)
+            return Character(
+                id = "generic-$rq-$dq-$wq-$sq",
+                dims = f(lx, ly, lz), src = f(lx * 0.5f, ly * 0.2f, 1.8f), lis = f(lx * 0.42f, ly * 0.6f, 1.2f),
+                rt = rt, maxOrder = 3, width = wq / 100f,
+                roomDb = -8f, refWet = 100, sendHpHz = 150f,
+                maxLenSec = (rMid * 1.3f + 0.2f).coerceIn(0.3f, 4f),
+            )
+        }
+
+        private val PLAIN_DEFAULT = genericCharacter(60, 45, 80, 100)
 
         /** Ids match the app's Studio Space ids. */
         val CHARACTERS: Map<String, Character> = listOf(
-            // Tiny dead booth: walls answer in 1-6 ms, dark, almost no tail.
+            // Vintage lacquer booth: tiny, padded, almost no tail.
             Character(
-                id = "vinyl", rt60 = 0.22f, bassRatio = 1.1f, trebleRatio = 0.45f, crossoverHz = 500f,
-                predelayMs = 1f,
-                erMs = f(1.2f, 2.1f, 3.0f, 3.9f, 5.1f, 6.4f),
-                erGain = f(0.55f, 0.45f, 0.38f, 0.3f, 0.24f, 0.18f),
-                erPan = f(-0.6f, 0.6f, -0.3f, 0.4f, -0.7f, 0.7f),
-                erLpHz = 3500f, sendHpHz = 220f, sendLpHz = 4200f,
-                diffusion = 0.7f, modDepthMs = 0.08f, modRateHz = 0.5f, fdnScale = 0.55f,
-                width = 0.45f, direct = 0.97f, erLevel = 0.95f, tailLevel = 0.45f,
+                id = "vinyl", dims = f(2.6f, 2.0f, 2.3f), src = f(1.3f, 0.5f, 1.4f), lis = f(1.1f, 1.5f, 1.2f),
+                rt = f(0.26f, 0.22f, 0.18f, 0.15f, 0.12f, 0.1f, 0.08f), maxOrder = 6, width = 0.5f,
+                roomDb = -14f, refWet = 26, sendHpHz = 220f, maxLenSec = 0.4f,
             ),
-            // Treated control room: quick, bright, tightly controlled.
+            // Treated studio live room: short, even, controlled.
             Character(
-                id = "studio", rt60 = 0.32f, bassRatio = 1.0f, trebleRatio = 0.75f, crossoverHz = 400f,
-                predelayMs = 3f,
-                erMs = f(2.3f, 3.7f, 5.2f, 7.9f, 10.4f, 13.1f),
-                erGain = f(0.5f, 0.42f, 0.34f, 0.26f, 0.2f, 0.15f),
-                erPan = f(-0.7f, 0.7f, -0.4f, 0.5f, -0.2f, 0.3f),
-                erLpHz = 10000f, sendHpHz = 200f, sendLpHz = 10000f,
-                diffusion = 0.68f, modDepthMs = 0.12f, modRateHz = 0.6f, fdnScale = 0.62f,
-                width = 0.7f, direct = 0.97f, erLevel = 0.85f, tailLevel = 0.55f,
+                id = "studio", dims = f(7f, 5.5f, 3.2f), src = f(3.5f, 1.5f, 1.5f), lis = f(3.2f, 4f, 1.2f),
+                rt = f(0.42f, 0.36f, 0.32f, 0.3f, 0.28f, 0.26f, 0.22f), maxOrder = 5, width = 0.75f,
+                roomDb = -12.5f, refWet = 32, sendHpHz = 180f, maxLenSec = 0.6f,
             ),
-            // Soft furnished room: close walls, curtains eat the treble.
+            // Furnished bedroom: close walls, soft furnishings eat the top.
             Character(
-                id = "bedroom", rt60 = 0.5f, bassRatio = 1.15f, trebleRatio = 0.5f, crossoverHz = 450f,
-                predelayMs = 4f,
-                erMs = f(3.1f, 4.8f, 6.9f, 9.2f, 12.7f, 16.3f),
-                erGain = f(0.55f, 0.46f, 0.38f, 0.3f, 0.23f, 0.17f),
-                erPan = f(-0.5f, 0.6f, -0.7f, 0.3f, -0.2f, 0.7f),
-                erLpHz = 5200f, sendHpHz = 180f, sendLpHz = 6000f,
-                diffusion = 0.66f, modDepthMs = 0.18f, modRateHz = 0.5f, fdnScale = 0.7f,
-                width = 0.65f, direct = 0.95f, erLevel = 0.9f, tailLevel = 0.6f,
+                id = "bedroom", dims = f(4.2f, 3.6f, 2.6f), src = f(2.1f, 0.6f, 1.2f), lis = f(1.8f, 2.8f, 1.1f),
+                rt = f(0.55f, 0.45f, 0.38f, 0.33f, 0.28f, 0.23f, 0.18f), maxOrder = 5, width = 0.7f,
+                roomDb = -11f, refWet = 38, sendHpHz = 180f, maxLenSec = 0.7f,
             ),
-            // Low concrete ceiling: dense floor/ceiling bounces, bass hangs.
+            // Concrete club: low ceiling, bass hangs, crowd soaks the highs.
             Character(
-                id = "club", rt60 = 0.95f, bassRatio = 1.6f, trebleRatio = 0.5f, crossoverHz = 300f,
-                predelayMs = 6f,
-                erMs = f(4.0f, 7.5f, 11.2f, 15.0f, 18.6f, 22.4f, 30.1f),
-                erGain = f(0.6f, 0.55f, 0.45f, 0.42f, 0.33f, 0.3f, 0.2f),
-                erPan = f(0f, -0.5f, 0.5f, 0f, -0.6f, 0.6f, 0f),
-                erLpHz = 6000f, sendHpHz = 110f, sendLpHz = 6500f,
-                diffusion = 0.62f, modDepthMs = 0.25f, modRateHz = 0.7f, fdnScale = 0.82f,
-                width = 0.8f, direct = 0.92f, erLevel = 0.9f, tailLevel = 0.8f,
+                id = "club", dims = f(22f, 16f, 4.5f), src = f(11f, 1.5f, 2.5f), lis = f(9f, 10f, 1.7f),
+                rt = f(1.6f, 1.3f, 0.95f, 0.8f, 0.7f, 0.55f, 0.4f), maxOrder = 4, width = 0.85f,
+                roomDb = -9f, refWet = 40, sendHpHz = 120f, maxLenSec = 1.8f,
             ),
-            // Small stone chapel: bright, medium tail, clear side walls.
+            // Stone chapel: bright, clear side walls, singing tail.
             Character(
-                id = "chapel", rt60 = 2.1f, bassRatio = 1.0f, trebleRatio = 0.95f, crossoverHz = 400f,
-                predelayMs = 18f,
-                erMs = f(8f, 14f, 21f, 27f, 35f, 44f, 52f),
-                erGain = f(0.55f, 0.5f, 0.44f, 0.38f, 0.32f, 0.27f, 0.22f),
-                erPan = f(-0.7f, 0.7f, -0.4f, 0.5f, -0.8f, 0.8f, 0f),
-                erLpHz = 12000f, sendHpHz = 180f, sendLpHz = 12000f,
-                diffusion = 0.7f, modDepthMs = 0.25f, modRateHz = 0.4f, fdnScale = 1.05f,
-                width = 0.85f, direct = 0.88f, erLevel = 0.8f, tailLevel = 0.95f,
+                id = "chapel", dims = f(10f, 24f, 11f), src = f(5f, 3f, 1.8f), lis = f(4f, 15f, 1.2f),
+                rt = f(2.6f, 2.8f, 2.7f, 2.6f, 2.3f, 1.8f, 1.2f), maxOrder = 3, width = 0.9f,
+                roomDb = -6.5f, refWet = 48, sendHpHz = 160f, maxLenSec = 3.2f,
             ),
-            // Concert hall: strong lateral reflections, warm, lush bloom.
+            // Shoebox concert hall (Musikverein-class): lateral reflections, warm bloom.
             Character(
-                id = "hall", rt60 = 2.5f, bassRatio = 1.3f, trebleRatio = 0.62f, crossoverHz = 350f,
-                predelayMs = 22f,
-                erMs = f(11f, 14f, 19f, 24f, 31f, 37f, 45f, 58f, 72f),
-                erGain = f(0.6f, 0.58f, 0.5f, 0.46f, 0.4f, 0.34f, 0.3f, 0.24f, 0.18f),
-                erPan = f(-0.85f, 0.85f, -0.7f, 0.75f, -0.5f, 0.6f, -0.8f, 0.8f, 0f),
-                erLpHz = 8500f, sendHpHz = 120f, sendLpHz = 9000f,
-                diffusion = 0.72f, modDepthMs = 0.5f, modRateHz = 0.35f, fdnScale = 1.15f,
-                width = 1f, direct = 0.84f, erLevel = 0.85f, tailLevel = 1f,
+                id = "hall", dims = f(19f, 48f, 17f), src = f(9.5f, 5f, 1.8f), lis = f(7.5f, 23f, 1.2f),
+                rt = f(2.6f, 2.4f, 2.15f, 2.0f, 1.8f, 1.5f, 1.1f), maxOrder = 3, width = 1f,
+                roomDb = -6.5f, refWet = 50, sendHpHz = 120f, maxLenSec = 3f,
             ),
-            // Opera house: wood and velvet, warm and very wide, drier than a hall.
+            // Opera house: wood and velvet, warm, wide, drier than a hall.
             Character(
-                id = "opera", rt60 = 1.6f, bassRatio = 1.4f, trebleRatio = 0.5f, crossoverHz = 350f,
-                predelayMs = 16f,
-                erMs = f(9f, 13f, 17f, 23f, 29f, 36f, 44f),
-                erGain = f(0.62f, 0.6f, 0.52f, 0.46f, 0.38f, 0.3f, 0.24f),
-                erPan = f(-0.9f, 0.9f, -0.8f, 0.8f, -0.6f, 0.6f, 0f),
-                erLpHz = 6500f, sendHpHz = 120f, sendLpHz = 7000f,
-                diffusion = 0.72f, modDepthMs = 0.45f, modRateHz = 0.3f, fdnScale = 1.0f,
-                width = 1f, direct = 0.86f, erLevel = 0.95f, tailLevel = 0.85f,
+                id = "opera", dims = f(28f, 32f, 22f), src = f(14f, 4f, 1.8f), lis = f(12f, 18f, 1.2f),
+                rt = f(1.75f, 1.6f, 1.45f, 1.35f, 1.2f, 1.0f, 0.75f), maxOrder = 3, width = 1f,
+                roomDb = -7.5f, refWet = 56, sendHpHz = 120f, maxLenSec = 2.2f,
             ),
-            // Indoor arena: roof slap, long dark tail, big distance.
+            // Indoor arena: huge roof and far walls, long dark tail.
             Character(
-                id = "arena", rt60 = 2.8f, bassRatio = 1.25f, trebleRatio = 0.5f, crossoverHz = 350f,
-                predelayMs = 30f,
-                erMs = f(25f, 38f, 52f, 66f, 81f, 97f),
-                erGain = f(0.6f, 0.5f, 0.45f, 0.38f, 0.32f, 0.26f),
-                erPan = f(0f, -0.7f, 0.7f, -0.5f, 0.5f, 0f),
-                erLpHz = 6000f, sendHpHz = 140f, sendLpHz = 7000f,
-                diffusion = 0.62f, modDepthMs = 0.4f, modRateHz = 0.3f, fdnScale = 1.25f,
-                width = 1f, direct = 0.8f, erLevel = 0.75f, tailLevel = 1f,
-                echoMs = 145f, echoSpreadMs = 18f, echoGain = 0.35f, echoFeedback = 0.18f, echoLpHz = 4500f,
+                id = "arena", dims = f(85f, 115f, 34f), src = f(42f, 12f, 8f), lis = f(36f, 62f, 1.7f),
+                rt = f(3.6f, 3.3f, 2.9f, 2.5f, 2.1f, 1.6f, 1.05f), maxOrder = 3, width = 1f,
+                roomDb = -5.5f, refWet = 55, sendHpHz = 130f, maxLenSec = 3.8f,
             ),
-            // Open-air stadium: thin sky tail, the PA comes back off the far
-            // stands as distinct dark slapbacks (left/right stands differ).
+            // Open-air stadium: no roof, the PA slaps back off far stands.
             Character(
-                id = "stadium", rt60 = 1.9f, bassRatio = 1.2f, trebleRatio = 0.4f, crossoverHz = 300f,
-                predelayMs = 12f,
-                erMs = f(15f, 28f, 46f),
-                erGain = f(0.5f, 0.35f, 0.25f),
-                erPan = f(0f, -0.6f, 0.6f),
-                erLpHz = 5000f, sendHpHz = 160f, sendLpHz = 5000f,
-                diffusion = 0.55f, modDepthMs = 0.3f, modRateHz = 0.25f, fdnScale = 1.3f,
-                width = 1f, direct = 0.8f, erLevel = 0.55f, tailLevel = 0.7f,
-                echoMs = 260f, echoSpreadMs = 35f, echoGain = 0.6f, echoFeedback = 0.3f, echoLpHz = 3200f,
+                id = "stadium", dims = f(200f, 240f, 60f), src = f(100f, 25f, 10f), lis = f(88f, 105f, 1.7f),
+                rt = f(2.2f, 2.0f, 1.8f, 1.6f, 1.3f, 1.0f, 0.7f), maxOrder = 3,
+                surfaces = f(0.9f, 0.9f, 0.8f, 0.95f, 0.75f, 0f),
+                alpha = f(0.2f, 0.25f, 0.3f, 0.35f, 0.4f, 0.45f, 0.5f),
+                tailFactor = 6f, width = 1f,
+                roomDb = -6.5f, refWet = 56, sendHpHz = 150f, maxLenSec = 2.8f,
             ),
-            // Cathedral: long gap, sparse stone hits, very long bright wash.
+            // Gothic cathedral: long stone nave, very long bright wash.
             Character(
-                id = "cathedral", rt60 = 5.5f, bassRatio = 1.2f, trebleRatio = 0.7f, crossoverHz = 350f,
-                predelayMs = 45f,
-                erMs = f(32f, 47f, 61f, 79f, 96f, 118f, 140f),
-                erGain = f(0.5f, 0.46f, 0.42f, 0.36f, 0.32f, 0.27f, 0.22f),
-                erPan = f(-0.6f, 0.6f, -0.8f, 0.8f, -0.3f, 0.3f, 0f),
-                erLpHz = 9000f, sendHpHz = 140f, sendLpHz = 8500f,
-                diffusion = 0.75f, modDepthMs = 0.35f, modRateHz = 0.2f, fdnScale = 1.4f,
-                width = 1f, direct = 0.8f, erLevel = 0.7f, tailLevel = 1.1f,
+                id = "cathedral", dims = f(32f, 95f, 30f), src = f(16f, 10f, 1.8f), lis = f(13f, 52f, 1.2f),
+                rt = f(6.5f, 6.2f, 5.6f, 4.8f, 3.8f, 2.7f, 1.7f), maxOrder = 3, width = 1f,
+                roomDb = -4f, refWet = 62, sendHpHz = 140f, maxLenSec = 5f,
             ),
-            // Canyon: far rock walls, repeating echoes bouncing side to side.
+            // Canyon: two far rock walls trading echoes left and right.
             Character(
-                id = "canyon", rt60 = 2.6f, bassRatio = 1.0f, trebleRatio = 0.45f, crossoverHz = 300f,
-                predelayMs = 20f,
-                erMs = f(40f, 75f),
-                erGain = f(0.35f, 0.25f),
-                erPan = f(-0.7f, 0.7f),
-                erLpHz = 4500f, sendHpHz = 180f, sendLpHz = 4500f,
-                diffusion = 0.5f, modDepthMs = 0.2f, modRateHz = 0.2f, fdnScale = 1.3f,
-                width = 1f, direct = 0.86f, erLevel = 0.5f, tailLevel = 0.45f,
-                echoMs = 420f, echoSpreadMs = 0f, echoGain = 0.7f, echoFeedback = 0.5f, echoLpHz = 2800f,
-                echoPingPong = true,
+                id = "canyon", dims = f(140f, 1000f, 200f), src = f(70f, 500f, 1.8f), lis = f(45f, 470f, 1.7f),
+                rt = f(3.0f, 3.0f, 2.8f, 2.5f, 2.0f, 1.5f, 1.0f), maxOrder = 8,
+                surfaces = f(0.95f, 0.95f, 0f, 0f, 0.5f, 0f),
+                alpha = f(0.02f, 0.03f, 0.04f, 0.05f, 0.07f, 0.09f, 0.12f),
+                tailFactor = 4f, width = 1f,
+                roomDb = -6.5f, refWet = 62, sendHpHz = 160f, maxLenSec = 3.4f,
             ),
         ).associateBy { it.id }
     }
