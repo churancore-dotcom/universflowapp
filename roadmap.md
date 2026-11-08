@@ -1,8 +1,8 @@
 # Roadmap
 
-- [ ] Studio Spaces still sound dead on APK: measure real room levels and rebuild so reverb is clearly audible and clean
-- [x] Connect GitHub API (latest workspace move, account read verified)
-- [x] Connect Google Search Console (latest workspace move, sites listed)
+- [ ] Studio Spaces rebuilt as convolution with physically modelled rooms (measured -1.6..-14 dB vs old -10..-22 dB); typecheck/tests + demo clip + fresh APK pending
+- [ ] Connect GitHub API (workspace moved again)
+- [ ] Connect Google Search Console (workspace moved again)
 
 - [x] Automatic Premium activation and expiry messages (activation, 3-day, 1-day and expired notices; delivery needs real event/device testing)
 - [x] Account deletion reason/review/confirmation steps and admin request list (signed-in screens checked without submitting a destructive request)
