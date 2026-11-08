@@ -1,5 +1,9 @@
 # Roadmap
 
+- [ ] Studio Spaces still sound dead on APK: measure real room levels and rebuild so reverb is clearly audible and clean
+- [ ] Connect GitHub API (latest workspace move)
+- [ ] Connect Google Search Console (latest workspace move)
+
 - [x] Automatic Premium activation and expiry messages (activation, 3-day, 1-day and expired notices; delivery needs real event/device testing)
 - [x] Account deletion reason/review/confirmation steps and admin request list (signed-in screens checked without submitting a destructive request)
 - [ ] Account deletion confirmation email (sender setup required)
