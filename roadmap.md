@@ -1,8 +1,8 @@
 # Roadmap
 
-- [ ] Studio Spaces rebuilt as convolution with physically modelled rooms (measured -1.6..-14 dB vs old -10..-22 dB); typecheck/tests + demo clip + fresh APK pending
-- [ ] Connect GitHub API (workspace moved again)
-- [ ] Connect Google Search Console (workspace moved again)
+- [ ] Studio Spaces rebuilt as convolution with physically modelled rooms (measured -4..-9 dB room level on music vs old -10..-22 dB; 126 tests pass, demos rendered; needs fresh APK on a phone)
+- [x] Connect GitHub API (workspace moved again, account read verified)
+- [x] Connect Google Search Console (workspace moved again, sites listed)
 
 - [x] Automatic Premium activation and expiry messages (activation, 3-day, 1-day and expired notices; delivery needs real event/device testing)
 - [x] Account deletion reason/review/confirmation steps and admin request list (signed-in screens checked without submitting a destructive request)
