@@ -1,10 +1,10 @@
 # Roadmap
 
-- [ ] Automatic Premium activation and expiry messages
-- [ ] Account deletion reason/review/confirmation steps and admin request list
+- [x] Automatic Premium activation and expiry messages (activation, 3-day, 1-day and expired notices; delivery needs real event/device testing)
+- [x] Account deletion reason/review/confirmation steps and admin request list (signed-in screens checked without submitting a destructive request)
 - [ ] Account deletion confirmation email (sender setup required)
-- [ ] Connect GitHub API in the newly moved workspace
-- [ ] Connect Google Search Console in the newly moved workspace
+- [x] Connect GitHub API in the newly moved workspace (account read verified)
+- [x] Connect Google Search Console in the newly moved workspace (verified properties read)
 
 - [x] Advanced admin panel: user detail drawer, Content Control page, System Health live error feed
 - [x] Fix offline player: player now prefers the downloaded local copy before any network resolve (needs fresh APK to verify on phone)
