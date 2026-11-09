@@ -1643,7 +1643,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     // (multi-client InnerTube + on-device cipher + BotGuard PoToken). Passing the
     // videoId lets it skip its own title/artist lookup; without one it searches
     // YouTube by metadata itself. Either way one native call covers both sources.
-    if (isNativePlayerAvailable() && !opts.skipNativeFastPath && (song.title || videoId)) {
+    if (isNativePlayerAvailable() && (song.title || videoId)) {
       candidates.push(playable(
         resolveNativeMetadataStream({
           ...(videoId ? { videoId } : {}),
