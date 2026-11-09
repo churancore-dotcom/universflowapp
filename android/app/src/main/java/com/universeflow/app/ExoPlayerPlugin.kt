@@ -903,8 +903,8 @@ class ExoPlayerPlugin : Plugin() {
             val svc = service()
             svc?.savedLoudnessGainMb = gainMb
             svc?.ensureEffectsBound()
-            // Reuse the saved spatial/room snapshot; loudness has one PCM owner.
-            svc?.applyReverb(svc.savedReverbAmount)
+            // Loudness has one PCM owner, before the limiter.
+            svc?.applyLoudness(gainMb)
             svc?.persistEffectState()
             call.resolve()
         }

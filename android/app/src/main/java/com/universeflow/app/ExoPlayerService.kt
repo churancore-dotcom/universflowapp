@@ -930,6 +930,11 @@ class ExoPlayerService : MediaSessionService() {
         tailProcessor?.setEnhancements(spatialStrength, surroundStrength, lateNightGainMb, reverbAmount)
     }
 
+    fun applyLoudness(gainMb: Int) {
+        savedLoudnessGainMb = gainMb.coerceIn(0, 2000)
+        applyPcmEnhancements(savedSpatialStrength, savedSurroundStrength, savedLoudnessGainMb, savedReverbAmount)
+    }
+
     private fun applyReverbParameters(effect: EnvironmentalReverb, amount: Int) {
         val wet = amount.coerceIn(0, 100)
         effect.enabled = wet > 0
