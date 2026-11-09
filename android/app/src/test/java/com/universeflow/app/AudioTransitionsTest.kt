@@ -33,8 +33,8 @@ class AudioTransitionsTest {
     @Test fun curvesRemainDistinct() {
         assertEquals(0.5f, TransitionEnvelope.gains("linear", 0.5).second, 0.00001f)
         assertEquals(0.7071068f, TransitionEnvelope.gains("equal-power", 0.5).second, 0.00001f)
-        assertEquals(0.15625f, TransitionEnvelope.gains("smooth", 0.25).second, 0.00001f)
-        assertEquals(0.0625f, TransitionEnvelope.gains("exponential", 0.25).second, 0.00001f)
+        assertEquals(0.1618864f, TransitionEnvelope.gains("smooth", 0.25).second, 0.00001f)
+        assertEquals(0.0383408f, TransitionEnvelope.gains("exponential", 0.25).second, 0.00001f)
     }
 
     @Test fun rotatingPanSurvivesTrackFlush() {
@@ -65,6 +65,45 @@ class AudioTransitionsTest {
         var rightEnergy = 0L
         while (output.remaining() >= 4) { output.short; rightEnergy += kotlin.math.abs(output.short.toInt()) }
         assertTrue("left-only signal must reach the opposite ear", rightEnergy > 1000000)
+    }
+
+    @Test fun endOfSongKeepsFinalLimiterSamples() {
+        val processor = configured()
+        val input = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
+        input.putShort(12000); input.putShort(-12000); input.flip()
+        processor.queueInput(input)
+        val delayed = processor.output.order(ByteOrder.nativeOrder())
+        assertEquals("look-ahead outputs the delayed silent frame first", 4, delayed.remaining())
+        assertTrue(kotlin.math.abs(delayed.short.toInt()) <= 1)
+        delayed.short
+        processor.queueEndOfStream()
+        val drained = processor.output.order(ByteOrder.nativeOrder())
+        assertEquals(4, drained.remaining())
+        assertEquals(12000.0, drained.short.toDouble(), 1.0)
+        assertEquals(-12000.0, drained.short.toDouble(), 1.0)
+    }
+
+    @Test fun extremeBoostsNeverHitTheDigitalRail() {
+        val processor = configured()
+        processor.equalizer.setEnabled(true)
+        for (band in 0 until PcmEqualizer.BAND_COUNT) processor.equalizer.setBandMillibels(band, 1500)
+        processor.equalizer.setBassStrength(1000)
+        processor.setEnhancements(0, 0, 2000, 0)
+        processor.configure(AudioFormat(48000, 2, C.ENCODING_PCM_16BIT)); processor.flush()
+        val input = ByteBuffer.allocateDirect(48000 * 4).order(ByteOrder.nativeOrder())
+        repeat(48000) { val s = if (it % 2 == 0) Short.MAX_VALUE else Short.MIN_VALUE; input.putShort(s); input.putShort(s) }
+        input.flip(); processor.queueInput(input)
+        val output = processor.output.order(ByteOrder.nativeOrder())
+        while (output.hasRemaining()) assertTrue(kotlin.math.abs(output.short.toInt()) <= 31502)
+    }
+
+    @Test fun disabledEqualizerIsCleanFromFirstSample() {
+        val eq = PcmEqualizer()
+        eq.setBandMillibels(5, 1500)
+        eq.setEnabled(false)
+        eq.configure(48000)
+        assertFalse(eq.tickBlock())
+        assertEquals(1234f, eq.process(0, 1234f), 0f)
     }
 
     @Test fun monoStreamsStillHaveSpatialOutput() {
