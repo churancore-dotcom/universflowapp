@@ -607,9 +607,7 @@ object NativeYouTubeResolver {
                 // Never bench the signed-in client: it is the only one that can
                 // play age-gated/region-locked tracks, and a per-video refusal
                 // must not disqualify it from the next song's race.
-                if (!ctx.useAuth && (status == "LOGIN_REQUIRED" || status == "UNPLAYABLE")) {
-                    coolDownClient(ctx.name, status)
-                }
+                // Per-video refusals never bench a client for other songs.
                 return null
             }
             val streamingData = json.optJSONObject("streamingData") ?: run {
