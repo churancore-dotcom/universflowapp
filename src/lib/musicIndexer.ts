@@ -1110,10 +1110,10 @@ async function resolveYouTubeVideoStreamInner(
   recordPerfEvent({
     event_type: 'resolve_failed',
     severity: opts.background ? 'info' : 'error',
-    source: 'youtube',
+    source: 'catalog',
     track_id: id,
     latency_ms: Date.now() - ytStartedAt,
-    message: 'All YouTube resolvers failed',
+    message: 'Catalog fallbacks failed for YouTube catalog item',
   });
 
 

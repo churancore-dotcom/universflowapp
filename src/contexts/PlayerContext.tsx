@@ -1653,21 +1653,21 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       ));
     }
     candidates.push(playable(
-      resolveAudioUrl(song, { skipNative: true })
+      resolveAudioUrl(song, { skipNative: true, forceRefresh: opts.skipNativeFastPath === true })
         .then((url) => url ? buildNativeExoPlayerUrl(url) : null),
     ));
 
     if (candidates.length > 0) {
       const resolved = await Promise.race([
         ...candidates,
-        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 5000)),
+        new Promise<null>((resolve) => window.setTimeout(() => resolve(null), 7000)),
       ]);
       if (resolved) return resolved;
     }
 
     // Last resort for catalog uploads/direct CDN URLs. If this is a cloud-signed
     // googlevideo URL, buildStreamProxyUrl keeps the fetch on the signing side.
-    return directUrl ? buildNativeExoPlayerUrl(directUrl) : null;
+    return directUrl && !opts.skipNativeFastPath ? buildNativeExoPlayerUrl(directUrl) : null;
   }, [isPlayableUrl, resolveAudioUrl, playbackSettingsVersion]);
 
   // ── Preload NEXT queued track for zero-gap transitions ──
@@ -1976,7 +1976,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('[player/native] startup timeout; retrying fallback for', resolvedSong.title);
           nativeStartupSeqRef.current = null;
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
-        }, 7000);
+        }, 15000);
         reapplyNativeEqSoon();
         // LOOKAHEAD: warm the next few queue items on-device so the *next* tap
         // (or auto-advance) hits the resolver cache instead of the network.
@@ -3000,7 +3000,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             console.warn('[player/native] startup timeout; retrying fallback for', song.title);
             nativeStartupSeqRef.current = null;
             window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
-          }, 7000);
+          }, 15000);
           reapplyNativeEqSoon();
           void setNativePlaybackSpeed(getEQSettings().playbackSpeed);
           return;
@@ -3023,7 +3023,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           console.warn('[player/native] startup timeout; retrying fallback for', song.title);
           nativeStartupSeqRef.current = null;
           window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout', url: playUrl } }));
-        }, 7000);
+        }, 15000);
         reapplyNativeEqSoon();
         if (normalizedQueue && normalizedQueue.length > 0) {
           const refreshedQueue = normalizedQueue.map((queuedSong) => getSongIdentity(queuedSong) === intendedIdentity ? refreshedSong : queuedSong);
