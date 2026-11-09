@@ -1,5 +1,8 @@
 # Roadmap
 
+- [ ] Reconnect GitHub API and Google Search Console (another workspace move)
+- [ ] Fix dead Studio Spaces and frequent unavailable songs on APK
+
 - [x] Connect GitHub API in the latest workspace (account read verified)
 - [x] Connect Google Search Console in the latest workspace (verified sites listed)
 
