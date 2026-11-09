@@ -3,7 +3,7 @@
 - [ ] Connect GitHub API in the latest workspace
 - [ ] Connect Google Search Console in the latest workspace
 
-- [ ] APK app-switch stability and clean sound: correct overlap/focus, recovery, lock renewal and native gain processing; phone verification requires a fresh APK/device.
+- [x] APK app-switch stability and clean sound: corrected overlap/focus, recovery, lock renewal and native gain processing; native sound tests pass, phone listening still needs a fresh APK.
 
 - [ ] Studio Spaces rebuilt as convolution with physically modelled rooms (measured -4..-9 dB room level on music vs old -10..-22 dB; 126 tests pass, demos rendered; needs fresh APK on a phone)
 - [x] Connect GitHub API (workspace moved again, account read verified)
