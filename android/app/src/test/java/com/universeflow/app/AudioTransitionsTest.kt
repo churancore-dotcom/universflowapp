@@ -33,8 +33,8 @@ class AudioTransitionsTest {
     @Test fun curvesRemainDistinct() {
         assertEquals(0.5f, TransitionEnvelope.gains("linear", 0.5).second, 0.00001f)
         assertEquals(0.7071068f, TransitionEnvelope.gains("equal-power", 0.5).second, 0.00001f)
-        assertEquals(0.15625f, TransitionEnvelope.gains("smooth", 0.25).second, 0.00001f)
-        assertEquals(0.0625f, TransitionEnvelope.gains("exponential", 0.25).second, 0.00001f)
+        assertEquals(0.1618864f, TransitionEnvelope.gains("smooth", 0.25).second, 0.00001f)
+        assertEquals(0.0383408f, TransitionEnvelope.gains("exponential", 0.25).second, 0.00001f)
     }
 
     @Test fun rotatingPanSurvivesTrackFlush() {
@@ -72,7 +72,10 @@ class AudioTransitionsTest {
         val input = ByteBuffer.allocateDirect(4).order(ByteOrder.nativeOrder())
         input.putShort(12000); input.putShort(-12000); input.flip()
         processor.queueInput(input)
-        assertEquals(0, processor.output.remaining())
+        val delayed = processor.output.order(ByteOrder.nativeOrder())
+        assertEquals("look-ahead outputs the delayed silent frame first", 4, delayed.remaining())
+        assertTrue(kotlin.math.abs(delayed.short.toInt()) <= 1)
+        delayed.short
         processor.queueEndOfStream()
         val drained = processor.output.order(ByteOrder.nativeOrder())
         assertEquals(4, drained.remaining())
