@@ -1,7 +1,7 @@
 # Roadmap
 
-- [ ] Connect GitHub API in the latest workspace
-- [ ] Connect Google Search Console in the latest workspace
+- [x] Connect GitHub API in the latest workspace (account read verified)
+- [x] Connect Google Search Console in the latest workspace (verified sites listed)
 
 - [x] APK app-switch stability and clean sound: corrected overlap/focus, recovery, lock renewal and native gain processing; native sound tests pass, phone listening still needs a fresh APK.
 
