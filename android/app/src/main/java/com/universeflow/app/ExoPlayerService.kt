@@ -95,7 +95,7 @@ class ExoPlayerService : MediaSessionService() {
             if (p == null) { transitionHandler.postDelayed(this, 250L); return }
             val tail = tailPlayer
             if (tail != null && overlapStartedAt > 0L) {
-                if (!p.playWhenReady || p.currentMediaItem?.mediaId != incomingItem) {
+                if (!p.playWhenReady || p.playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE || p.currentMediaItem?.mediaId != incomingItem || tail.playbackState == Player.STATE_ENDED) {
                     cancelOverlap()
                 } else if (p.isPlaying) {
                     val progress = p.currentPosition.toDouble() / overlapDurationMs.coerceAtLeast(1L)
@@ -166,7 +166,12 @@ class ExoPlayerService : MediaSessionService() {
 
     fun setMasterVolume(volume: Float) {
         masterVolume = volume.coerceIn(0f, 1f)
-        if (tailPlayer == null) player?.volume = masterVolume
+        if (tailPlayer == null || overlapStartedAt == 0L) player?.volume = masterVolume
+        else player?.let { p ->
+            val gains = TransitionEnvelope.gains(transitionCurve, p.currentPosition.toDouble() / overlapDurationMs.coerceAtLeast(1L))
+            tailPlayer?.volume = masterVolume * gains.first
+            p.volume = masterVolume * gains.second
+        }
     }
 
     fun cancelOverlap() {
@@ -281,6 +286,7 @@ class ExoPlayerService : MediaSessionService() {
 
     private fun syncPcmState(processor: StemAudioProcessor) {
         processor.equalizer.setEnabled(eqEnabled)
+        processor.equalizer.setBassStrength(savedBassBoostStrength.toInt())
         for (i in 0 until PcmEqualizer.BAND_COUNT) {
             processor.equalizer.setBandMillibels(i, savedEqBands[i.toShort()]?.toInt() ?: 0)
         }
@@ -298,6 +304,7 @@ class ExoPlayerService : MediaSessionService() {
      */
     fun applyPcmEq() {
         pcmEqualizer.setEnabled(eqEnabled)
+        pcmEqualizer.setBassStrength(savedBassBoostStrength.toInt())
         for (i in 0 until PcmEqualizer.BAND_COUNT) {
             pcmEqualizer.setBandMillibels(i, savedEqBands[i.toShort()]?.toInt() ?: 0)
         }
@@ -321,7 +328,6 @@ class ExoPlayerService : MediaSessionService() {
             val p = player
             if (p == null || (!p.isPlaying && !(p.playWhenReady && p.playbackState == Player.STATE_BUFFERING))) return
             renewLocks()
-            lockHandler.postDelayed(this, LOCK_RENEWAL_MS)
         }
     }
 
@@ -526,7 +532,7 @@ class ExoPlayerService : MediaSessionService() {
                 if (playbackState == Player.STATE_READY) refreshMediaNotification()
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (!isPlaying && !exo.playWhenReady) cancelOverlap()
+                if (!isPlaying && (!exo.playWhenReady || exo.playbackSuppressionReason != Player.PLAYBACK_SUPPRESSION_REASON_NONE)) cancelOverlap()
                 if (isPlaying || (exo.playWhenReady && exo.playbackState == Player.STATE_BUFFERING)) acquireLocks() else releaseLocks()
                 ensureEffectsBound()
                 refreshMediaNotification()
@@ -777,14 +783,9 @@ class ExoPlayerService : MediaSessionService() {
         // pipeline so every device behaves identically.
         equalizer = null
         applyPcmEq()
-        try {
-            bassBoost = BassBoost(1, sid).apply {
-                if (savedBassBoostStrength > 0) {
-                    enabled = true
-                    if (strengthSupported) try { setStrength(savedBassBoostStrength) } catch (_: Throwable) {}
-                } else enabled = false
-            }
-        } catch (_: Throwable) { bassBoost = null }
+        // Gain-changing effects must precede our PCM limiter, never run again
+        // in an unbounded manufacturer-dependent AudioEffect after it.
+        bassBoost = null
         try {
             virtualizer = Virtualizer(1, sid).apply {
                 if (savedVirtualizerStrength > 0) {
@@ -793,22 +794,9 @@ class ExoPlayerService : MediaSessionService() {
                 } else enabled = false
             }
         } catch (_: Throwable) { virtualizer = null }
-        try {
-            loudnessEnhancer = LoudnessEnhancer(sid).apply {
-                if (savedLoudnessGainMb > 0) {
-                    try { setTargetGain(savedLoudnessGainMb) } catch (_: Throwable) {}
-                    enabled = true
-                } else enabled = false
-            }
-        } catch (_: Throwable) { loudnessEnhancer = null }
-        try {
-            environmentalReverb = EnvironmentalReverb(1, 0).apply {
-                applyReverbParameters(this, savedReverbAmount)
-            }
-            if (savedReverbAmount > 0) {
-                player?.setAuxEffectInfo(AuxEffectInfo(environmentalReverb!!.id, savedReverbAmount / 100f))
-            }
-        } catch (_: Throwable) { environmentalReverb = null }
+        loudnessEnhancer = null
+        environmentalReverb = null
+        try { player?.setAuxEffectInfo(AuxEffectInfo(0, 0f)) } catch (_: Throwable) {}
         boundSessionId = sid
         scheduleEffectRamp()
     }
@@ -891,12 +879,12 @@ class ExoPlayerService : MediaSessionService() {
         savedReverbAmount = amount.coerceIn(0, 100)
         syncPcmState(stemAudioProcessor)
         tailProcessor?.let { syncPcmState(it) }
-        if (appliedReverb == savedReverbAmount) return
         // The vendor EnvironmentalReverb aux bus is intentionally left off: it
         // stacks on our own RoomReverb and its per-device voicing is what made
         // Studio Spaces sound like a muddy fade instead of a real room.
         try { player?.setAuxEffectInfo(AuxEffectInfo(0, 0f)) } catch (_: Throwable) {}
         try { environmentalReverb?.enabled = false } catch (_: Throwable) {}
+        if (appliedReverb == savedReverbAmount) return
         appliedReverb = savedReverbAmount
         persistEffectState()
     }
@@ -1043,7 +1031,11 @@ class ExoPlayerService : MediaSessionService() {
                     setReferenceCounted(false)
                 }
             }
-            if (wakeLock?.isHeld != true) wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
+            if (wakeLock?.isHeld != true) {
+                wakeLock?.acquire(WAKELOCK_TIMEOUT_MS)
+                lockHandler.removeCallbacks(lockRenewal)
+                lockHandler.postDelayed(lockRenewal, LOCK_RENEWAL_MS)
+            }
 
             if (wifiLock == null) {
                 val wm = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
@@ -1052,8 +1044,6 @@ class ExoPlayerService : MediaSessionService() {
                 }
             }
             if (wifiLock?.isHeld != true) wifiLock?.acquire()
-            lockHandler.removeCallbacks(lockRenewal)
-            lockHandler.postDelayed(lockRenewal, LOCK_RENEWAL_MS)
         } catch (_: Throwable) { /* noop */ }
     }
 

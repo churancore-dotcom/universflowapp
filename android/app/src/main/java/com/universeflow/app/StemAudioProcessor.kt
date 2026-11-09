@@ -167,6 +167,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         lookaheadL = FloatArray(lookaheadLen)
         lookaheadR = FloatArray(lookaheadLen)
         lookaheadCursor = 0
+        pendingLookaheadFrames = 0
         limiterAttack = 1f - kotlin.math.exp((-4.0 / lookaheadLen)).toFloat()
         lowState = 0f
         highState = 0f
@@ -194,6 +195,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         lookaheadL.fill(0f)
         lookaheadR.fill(0f)
         lookaheadCursor = 0
+        pendingLookaheadFrames = 0
         limiterGain = 1f
         limiterHeld = 1f
         limiterHoldLeft = 0
@@ -347,14 +349,36 @@ class StemAudioProcessor : BaseAudioProcessor() {
             lookaheadL[lookaheadCursor] = rawLeft
             lookaheadR[lookaheadCursor] = rawRight
             if (++lookaheadCursor >= lookaheadLen) lookaheadCursor = 0
-            output.putShort(toPcm16(outL * limiterGain))
-            output.putShort(toPcm16(outR * limiterGain))
+            pendingLookaheadFrames = min(lookaheadLen, pendingLookaheadFrames + 1)
+            writeLimited(output, outL, outR)
 
             cursor += bytesPerFrame
         }
 
         inputBuffer.position(limit)
         output.flip()
+    }
+
+    override fun onQueueEndOfStream() {
+        // Drain delay only, not an unbounded room tail. Media3 consumes the
+        // normal output before signalling EOS, so this buffer cannot overwrite it.
+        val output = replaceOutputBuffer(pendingLookaheadFrames * 4)
+        var index = (lookaheadCursor + lookaheadLen - pendingLookaheadFrames) % lookaheadLen
+        repeat(pendingLookaheadFrames) {
+            writeLimited(output, lookaheadL[index], lookaheadR[index])
+            index = (index + 1) % lookaheadLen
+        }
+        pendingLookaheadFrames = 0
+        output.flip()
+    }
+
+    private fun writeLimited(output: ByteBuffer, left: Float, right: Float) {
+        // The smoothed attack is not a hard bound. Catch any residual overshoot
+        // with one linked gain so extreme boosts cannot clip or shift stereo.
+        val peak = max(kotlin.math.abs(left), kotlin.math.abs(right))
+        if (peak > 0f) limiterGain = min(limiterGain, LIMIT_CEILING / peak)
+        output.putShort(toPcm16(left * limiterGain))
+        output.putShort(toPcm16(right * limiterGain))
     }
 
     /**
@@ -383,6 +407,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var lookaheadL = FloatArray(64)
     private var lookaheadR = FloatArray(64)
     private var lookaheadCursor = 0
+    private var pendingLookaheadFrames = 0
     // Small safety margin: the look-ahead glide can land a hair late.
     private val LIMIT_CEILING = 31500f
 
