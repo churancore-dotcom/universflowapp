@@ -642,6 +642,7 @@ class ExoPlayerPlugin : Plugin() {
                 ensureListener(null)
                 if (!it.isPlaying) isStartingUp = true
                 if (it.playbackState == Player.STATE_ENDED && it.mediaItemCount > 0) it.seekTo(0)
+                if (it.playbackState == Player.STATE_IDLE && it.mediaItemCount > 0) it.prepare()
                 it.playWhenReady = true
                 it.play()
                 startProgress()
@@ -867,16 +868,7 @@ class ExoPlayerPlugin : Plugin() {
             val svc = service()
             svc?.savedBassBoostStrength = strength.toShort()
             svc?.ensureEffectsBound()
-            val bb = svc?.bassBoost
-            try {
-                if (bb != null) {
-                    if (strength <= 0) { bb.enabled = false }
-                    else {
-                        bb.enabled = true
-                        if (bb.strengthSupported) bb.setStrength(strength.toShort())
-                    }
-                }
-            } catch (_: Throwable) {}
+            svc?.applyPcmEq()
             svc?.persistEffectState()
             call.resolve()
         }
@@ -911,16 +903,8 @@ class ExoPlayerPlugin : Plugin() {
             val svc = service()
             svc?.savedLoudnessGainMb = gainMb
             svc?.ensureEffectsBound()
-            val le = svc?.loudnessEnhancer
-            try {
-                if (le != null) {
-                    if (gainMb <= 0) { le.enabled = false }
-                    else {
-                        le.setTargetGain(gainMb)
-                        le.enabled = true
-                    }
-                }
-            } catch (_: Throwable) {}
+            // Reuse the saved spatial/room snapshot; loudness has one PCM owner.
+            svc?.applyReverb(svc.savedReverbAmount)
             svc?.persistEffectState()
             call.resolve()
         }
@@ -991,10 +975,10 @@ class ExoPlayerPlugin : Plugin() {
                         .coerceIn(PcmEqualizer.MIN_LEVEL_MB, PcmEqualizer.MAX_LEVEL_MB).toShort()
                 }
             }
-            svc.applyPcmEq()
             svc.savedBassBoostStrength = bass.toShort()
             svc.savedVirtualizerStrength = virtualizer.toShort()
             svc.savedLoudnessGainMb = loudness
+            svc.applyPcmEq()
             // Settle the room FIRST so the enhancement/reverb updates below
             // never briefly replace the chosen Studio Space.
             if (spaceWet >= 0) {
