@@ -280,6 +280,15 @@ class ExoPlayerService : MediaSessionService() {
                 DefaultAudioSink.Builder(context)
                     .setAudioProcessors(arrayOf<AudioProcessor>(processor))
                     .setEnableFloatOutput(false)
+                    // Larger output buffer: when another app is in front Android
+                    // throttles our CPU, and the default ~250 ms buffer ran dry
+                    // while the effects chain caught up (audible glitches).
+                    .setAudioTrackBufferSizeProvider(
+                        androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider.Builder()
+                            .setMinPcmBufferDurationUs(750_000)
+                            .setMaxPcmBufferDurationUs(1_500_000)
+                            .build()
+                    )
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
                     .build()
         }
