@@ -370,7 +370,12 @@ const Settings = () => {
       }
       if ('indexedDB' in window) {
         const dbs = await indexedDB.databases?.() || [];
-        for (const db of dbs) { if (db.name) indexedDB.deleteDatabase(db.name); }
+        // Never delete offline downloads; only disposable caches.
+        const KEEP = new Set(['MusicAppOffline']);
+        await Promise.all(dbs.filter((db) => db.name && !KEEP.has(db.name)).map((db) => new Promise<void>((resolve) => {
+          const req = indexedDB.deleteDatabase(db.name!);
+          req.onsuccess = req.onerror = req.onblocked = () => resolve();
+        })));
       }
       for (let i = localStorage.length - 1; i >= 0; i--) {
         const key = localStorage.key(i);
