@@ -70,6 +70,7 @@ export function useGlobalAudioEngine(
     let nativeApplyChain: Promise<void> = Promise.resolve();
     let nativeApplyTimer: number | null = null;
     let pendingNativeSnapshot: ReturnType<typeof getEQSettings> | null = null;
+    let pendingNativeStem: ReturnType<typeof getActiveStemMix> | null = null;
     let lastNativeSnapshotJSON = '';
 
     // Once we've attached WebAudio for this element, we can't detach — the
@@ -112,10 +113,9 @@ export function useGlobalAudioEngine(
 
 
 
-    const applyNativeSnapshot = async (s: ReturnType<typeof getEQSettings>, revision: number) => {
+    const applyNativeSnapshot = async (s: ReturnType<typeof getEQSettings>, stem: ReturnType<typeof getActiveStemMix>, revision: number) => {
       if (revision !== nativeApplyRevision) return;
       if (!isNativePlayerAvailable()) return;
-      const stem = getActiveStemMix();
       if (!hasWebAudioEffects(s) && isDefaultMix(stem)) {
         await applyNativeAudioEffects({
           enabled: false,
@@ -179,19 +179,22 @@ export function useGlobalAudioEngine(
 
     };
 
-    const pushNative = (s: ReturnType<typeof getEQSettings>) => {
+    const pushNative = (s: ReturnType<typeof getEQSettings>, stemMix: ReturnType<typeof getActiveStemMix>) => {
       // The secondary (crossfade) element must not duplicate native AudioEffect
       // writes — ExoPlayer owns a single global effect chain.
       if (skipNative) return;
       if (!isNativePlayerAvailable()) return;
       pendingNativeSnapshot = s;
+      pendingNativeStem = stemMix;
       // Coalesce continuous slider events so Android hears the newest state
       // instead of draining a backlog of obsolete Capacitor bridge calls.
       if (nativeApplyTimer != null) return;
       nativeApplyTimer = window.setTimeout(() => {
         nativeApplyTimer = null;
         const snapshot = pendingNativeSnapshot;
+        const stemSnapshot = pendingNativeStem ?? { vocals: 100, backing: 100, shine: 0, width: 50 };
         pendingNativeSnapshot = null;
+        pendingNativeStem = null;
         if (!snapshot) return;
         // Media events (loadstart/loadedmetadata/canplay/play/playing) all
         // funnel here on every track change. Re-writing an identical effect
@@ -202,13 +205,13 @@ export function useGlobalAudioEngine(
         // asynchronously after cold boot, so a false -> true flip with an
         // unchanged EQ snapshot used to be swallowed here and left the whole
         // effect chain disabled until the user nudged a slider.
-        const json = `${getRuntimePremium() ? 1 : 0}|${JSON.stringify(snapshot)}`;
+        const json = `${getRuntimePremium() ? 1 : 0}|${JSON.stringify(snapshot)}|${JSON.stringify(stemSnapshot)}`;
         if (json === lastNativeSnapshotJSON) return;
         lastNativeSnapshotJSON = json;
         const revision = ++nativeApplyRevision;
         nativeApplyChain = nativeApplyChain
           .catch(() => undefined)
-          .then(() => applyNativeSnapshot(snapshot, revision))
+          .then(() => applyNativeSnapshot(snapshot, stemSnapshot, revision))
           .catch(() => {
             // Bridge/session error: forget the snapshot so the next media or EQ
             // event genuinely retries instead of being deduped away.
@@ -242,7 +245,7 @@ export function useGlobalAudioEngine(
 
       // Always push the native AudioEffect chain on Android — that path is
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.
-      pushNative(s);
+      pushNative(s, stem);
 
       const needsWebAudio = hasWebAudioEffects(s) || !isDefaultMix(stem);
 
