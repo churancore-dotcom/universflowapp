@@ -42,7 +42,7 @@ class PcmEqualizer {
     private val responseCos = DoubleArray(192)
     private val responseCos2 = DoubleArray(192)
 
-    fun setBassStrength(strength: Int) { bassDb = strength.coerceIn(0, 1000) * 0.006f }
+    fun setBassStrength(strength: Int) { bassDb = strength.coerceIn(0, 1000) * 0.009f }
 
     // Double precision: float biquads at 31-125 Hz accumulate rounding noise
     // and audible grit (low w0 makes the poles sit right next to the unit circle).
@@ -187,7 +187,11 @@ class PcmEqualizer {
             }
             peakSquared = maxOf(peakSquared, magnitudeSquared)
         }
-        preGain = if (peakSquared > 1.0001) (0.944 / sqrt(peakSquared)).toFloat() else 1f
+        // Compensate only HALF of the boost (in dB). Full compensation pulled the
+        // whole song down by exactly the boost, so +6 dB bass came out as "same
+        // bass, everything quieter" and users heard no effect at all. The
+        // look-ahead limiter after the chain catches the remaining peaks.
+        preGain = if (peakSquared > 1.0001) (1.0 / Math.pow(peakSquared, 0.25)).toFloat() else 1f
     }
 
     fun headroomGain(): Float = if (active) preGain else 1f
