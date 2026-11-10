@@ -1083,7 +1083,8 @@ class ExoPlayerService : MediaSessionService() {
         if (p == null || p.mediaItemCount == 0) {
             stopSelf()
         }
-        super.onTaskRemoved(rootIntent)
+        // Do not call super: Media3 stops the service when paused, which
+        // killed lock-screen resume after swiping the app away.
     }
 
     override fun onDestroy() {

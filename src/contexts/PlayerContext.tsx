@@ -3016,6 +3016,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           artist: refreshedSong.artist || '',
           artworkUrl: refreshedSong.cover_url || undefined,
         });
+        // A newer song may have been picked while the phone player was starting.
+        if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
         clearNativeStartupTimer();
         schedulePlayRecord(song, recentlyPlayedTimerRef);
         nativeStartupTimerRef.current = window.setTimeout(() => {

@@ -74,14 +74,19 @@ const SupportInbox = () => {
     setLoading(false);
   }, []);
 
+  const latestChatRef = useRef<string | null>(null);
   const loadMessages = useCallback(async (chatId: string) => {
-    const { data } = await supabase
+    latestChatRef.current = chatId;
+    setMessages([]);
+    // Newest 500, shown oldest-first; older replies must never hide recent ones.
+    const { data, error } = await supabase
       .from('support_messages')
       .select('*')
       .eq('chat_id', chatId)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(500);
-    setMessages((data || []) as Message[]);
+    if (latestChatRef.current !== chatId || error) return;
+    setMessages(((data || []) as Message[]).reverse());
     await supabase.from('support_chats').update({ unread_for_admin: 0 }).eq('id', chatId);
   }, []);
 
