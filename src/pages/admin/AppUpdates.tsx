@@ -68,7 +68,7 @@ export default function AppUpdates() {
     setSaving(true);
 
     // Deactivate older active rows so only the new one is current
-    { const { error: deactivateError } = await supabase.from('app_versions').update({ is_active: false }).eq('is_active', true); if (deactivateError) { toast.error('Could not update the current release. Nothing was changed.'); return; } }
+    { const { error: deactivateError } = await supabase.from('app_versions').update({ is_active: false }).eq('is_active', true); if (deactivateError) { toast.error('Could not update the current release. Nothing was changed.'); setSaving(false); return; } }
 
     const { error } = await supabase.from('app_versions').insert({
       version_code: code,
