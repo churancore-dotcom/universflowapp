@@ -295,13 +295,6 @@ class StemAudioProcessor : BaseAudioProcessor() {
                 val keep = 1f - depth * 0.8f
                 val delayL = if (az > 0f) az * itdMaxSamples * depth else 0f
                 val delayR = if (az < 0f) -az * itdMaxSamples * depth else 0f
-                val n = itdL.size
-                fun tap(buf: FloatArray, d: Float): Float {
-                    val i = d.toInt(); val f = d - i
-                    val a = buf[(itdCursor - i + n * 2) % n]
-                    val b = buf[(itdCursor - i - 1 + n * 2) % n]
-                    return a + (b - a) * f
-                }
                 val srcL = (tap(itdL, delayL) + tap(itdR, delayL)) * 0.5f
                 val srcR = (tap(itdL, delayR) + tap(itdR, delayR)) * 0.5f
                 farShadowL += farShadowCoeff * (srcL - farShadowL)
@@ -357,6 +350,16 @@ class StemAudioProcessor : BaseAudioProcessor() {
 
         inputBuffer.position(limit)
         output.flip()
+    }
+
+    // Member (not a local closure) so the per-sample 9D path never allocates
+    // on the audio thread; allocations there caused GC stutter in background.
+    private fun tap(buf: FloatArray, d: Float): Float {
+        val n = buf.size
+        val i = d.toInt(); val f = d - i
+        val a = buf[(itdCursor - i + n * 2) % n]
+        val b = buf[(itdCursor - i - 1 + n * 2) % n]
+        return a + (b - a) * f
     }
 
     override fun onQueueEndOfStream() {

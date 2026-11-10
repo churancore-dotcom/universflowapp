@@ -114,4 +114,14 @@ class AudioTransitionsTest {
         processor.setEnhancements(1000, 0, 0, 0)
         assertEquals(9600, render(processor, 0.1, true).size)
     }
+
+    @Test fun bassBoostIsAudiblyLouderNotCancelledByHeadroom() {
+        val eq = PcmEqualizer()
+        eq.setEnabled(true)
+        eq.setBassStrength(1000)
+        eq.configure(48000)
+        repeat(400) { eq.tickBlock() }
+        // A boosted 9 dB shelf may only be half-compensated, so at least ~4 dB remains.
+        assertTrue(eq.headroomGain() > 0.55f)
+    }
 }
