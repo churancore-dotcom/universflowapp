@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { getAuthError } from '@/lib/errorMessages';
 import { setSentryUser } from '@/lib/sentry';
@@ -219,9 +219,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       const nextId = nextSession?.user?.id ?? null;
       if (activeUserIdRef.current !== nextId) {
+        const switched = activeUserIdRef.current !== null;
         activeUserIdRef.current = nextId;
-        setIsAdmin(false);
-        setEmailVerified(null);
+        if (switched) {
+          setIsAdmin(false);
+          setEmailVerified(null);
+          try { localStorage.removeItem('uf_email_verified'); } catch { /* ignore */ }
+        }
       }
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
