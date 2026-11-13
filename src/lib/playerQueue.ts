@@ -6,10 +6,11 @@ export type QueueSongIdentity = {
 
 const cleanIdentityPart = (value?: string | null) =>
   (value || '')
+    .normalize('NFKC')
     .toLowerCase()
     .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
     .replace(/\b(official|video|audio|lyrics?|lyrical|full song|hd|4k|remaster(?:ed)?|visualizer|mv)\b/g, ' ')
-    .replace(/[^a-z0-9]+/g, '');
+    .replace(/[^\p{L}\p{N}]+/gu, '');
 
 /**
  * Words that mark a genuinely different recording of the same song. These stay
