@@ -367,7 +367,9 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [currentDownloadId, setCurrentDownloadId] = useState<string | null>(null);
   const processingRef = useRef(false);
-  const abortRef = useRef<AbortController | null>(null);
+  // One controller per active download, so starting a second download never
+  // orphans the first one's Cancel button.
+  const activeControllersRef = useRef<Map<string, AbortController>>(new Map());
   const cancelledIdsRef = useRef<Set<string>>(new Set());
   const objectUrls = useRef(new DownloadObjectUrls());
 
@@ -461,8 +463,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     }
 
 
-    // Check if already downloaded
-    if (downloads.some(d => d.id === song.id)) {
+    // Check if already downloaded or already downloading
+    if (downloads.some(d => d.id === song.id) || activeControllersRef.current.has(song.id)) {
       return;
     }
 
@@ -474,7 +476,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCurrentDownloadId(song.id);
     cancelledIdsRef.current.delete(song.id);
     const controller = new AbortController();
-    abortRef.current = controller;
+    activeControllersRef.current.set(song.id, controller);
 
     try {
       // Start download
@@ -599,7 +601,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       // Update state
-      setDownloads(prev => [...prev, downloadedSong]);
+      setDownloads(prev => [...prev.filter(d => d.id !== song.id), downloadedSong]);
       setBlobUrls(prev => ({ ...prev, [song.id]: playableUrl }));
       registerOfflineUrl(song.id, playableUrl);
 
@@ -647,19 +649,26 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }, wasCancelled ? 400 : 3000);
     } finally {
       cancelledIdsRef.current.delete(song.id);
-      if (abortRef.current === controller) abortRef.current = null;
-      setCurrentDownloadId(prev => (prev === song.id ? null : prev));
+      if (activeControllersRef.current.get(song.id) === controller) {
+        activeControllersRef.current.delete(song.id);
+      }
+      setCurrentDownloadId(prev => {
+        if (prev !== song.id) return prev;
+        const remaining = Array.from(activeControllersRef.current.keys());
+        return remaining.length > 0 ? remaining[remaining.length - 1] : null;
+      });
     }
   }, [downloads, isIndexedDBSupported]);
 
   const cancelDownload = useCallback((songId: string) => {
     // If song is in queue but not yet downloading, just drop it
     setDownloadQueue(prev => prev.filter(q => q.id !== songId));
-    if (currentDownloadId === songId && abortRef.current) {
+    const controller = activeControllersRef.current.get(songId);
+    if (controller) {
       cancelledIdsRef.current.add(songId);
-      try { abortRef.current.abort(); } catch {}
+      try { controller.abort(); } catch {}
     }
-  }, [currentDownloadId]);
+  }, []);
 
   const removeSong = useCallback(async (songId: string) => {
     try {
@@ -699,6 +708,13 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const totalStorageUsed = downloads.reduce((acc, song) => acc + song.size, 0);
 
   const clearAllDownloads = useCallback(async () => {
+    // Stop everything waiting or in flight first, otherwise a download that
+    // finishes a moment later writes its song back after the wipe.
+    setDownloadQueue([]);
+    for (const [id, controller] of activeControllersRef.current) {
+      cancelledIdsRef.current.add(id);
+      try { controller.abort(); } catch {}
+    }
     try {
       await Promise.all(downloads.map(d => deleteOfflineAudioFile(d.nativeUrl ?? null)));
       await clearDB();

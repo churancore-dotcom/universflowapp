@@ -403,6 +403,7 @@ class ExoPlayerPlugin : Plugin() {
     @PluginMethod
     fun playQueue(call: PluginCall) {
         val generation = playGeneration.incrementAndGet()
+        MasterResolver.beginPlayback()
         ensureNotificationPermissionBestEffort()
         val arr = call.getArray("tracks")
         if (arr == null || arr.length() == 0) { call.reject("missing tracks"); return }
@@ -517,11 +518,14 @@ class ExoPlayerPlugin : Plugin() {
     fun preloadQueue(call: PluginCall) {
         val arr = call.getArray("tracks")
         if (arr == null || arr.length() == 0) { call.resolve(); return }
+        val epoch = MasterResolver.currentEpoch()
         Thread {
             val max = minOf(arr.length(), call.getInt("limit") ?: 5)
             for (i in 0 until max) {
+                // Stop warming songs from a queue the user already left.
+                if (MasterResolver.currentEpoch() != epoch) break
                 val track = parseTrack(arr.optJSONObject(i), i) ?: continue
-                MasterResolver.resolve(track.videoId, track.title, track.artist, timeoutMs = 5200L)
+                try { MasterResolver.resolve(track.videoId, track.title, track.artist, timeoutMs = 5200L) } catch (_: Throwable) {}
             }
             call.resolve()
         }.start()
@@ -558,6 +562,7 @@ class ExoPlayerPlugin : Plugin() {
     @PluginMethod
     fun play(call: PluginCall) {
         val generation = playGeneration.incrementAndGet()
+        MasterResolver.beginPlayback()
         val url = call.getString("url")
         if (url.isNullOrBlank()) { call.reject("missing url"); return }
         ensureNotificationPermissionBestEffort()

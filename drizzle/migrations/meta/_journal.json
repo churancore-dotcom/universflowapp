@@ -134,6 +134,13 @@
       "when": 1794044555989,
       "tag": "0018_account_feedback_and_premium_notices",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1794572576633,
+      "tag": "0019_atomic_app_version_publish",
+      "breakpoints": true
     }
   ]
 }
