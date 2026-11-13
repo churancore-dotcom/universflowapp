@@ -2628,6 +2628,7 @@ export type Database = {
     }
     Functions: {
       accept_artist_invite: { Args: { _code: string }; Returns: Json }
+      activate_app_version: { Args: { _id: string }; Returns: undefined }
       admin_account_deletion_requests: {
         Args: { _offset?: number; _status?: string }
         Returns: {
@@ -2842,6 +2843,17 @@ export type Database = {
         Returns: undefined
       }
       process_premium_expiry_notifications: { Args: never; Returns: Json }
+      publish_app_version: {
+        Args: {
+          _apk_url: string
+          _is_mandatory: boolean
+          _min_supported_version_code: number
+          _release_notes: string
+          _version_code: number
+          _version_name: string
+        }
+        Returns: string
+      }
       publish_due_scheduled_songs: { Args: never; Returns: number }
       record_ad_event: {
         Args: { _action: string; _campaign_id: string }
