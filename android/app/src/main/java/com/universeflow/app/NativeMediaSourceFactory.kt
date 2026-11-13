@@ -62,10 +62,37 @@ object NativeMediaSourceFactory {
         // songs (saved as real files) could never play offline in the APK.
         val upstreamFactory = DefaultDataSource.Factory(ctx.applicationContext, httpFactory)
 
+        val sc = cache(ctx)
+        val cacheSinkFactory = CacheDataSink.Factory()
+            .setCache(sc)
+            .setFragmentSize(C.LENGTH_UNSET.toLong())
+
+        // The cache sits BELOW resolution, so it only ever sees the exact file
+        // that was chosen. Its key names the video, the audio format (itag) and
+        // the byte length (clen); a different format or a JioSaavn/fallback
+        // stream for the same song can therefore never be spliced into a
+        // half-saved file, which used to break playback mid-song.
+        val cacheFactory = CacheDataSource.Factory()
+            .setCache(sc)
+            .setUpstreamDataSourceFactory(upstreamFactory)
+            .setCacheWriteDataSinkFactory(cacheSinkFactory)
+            .setFlags(
+                CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR or
+                    CacheDataSource.FLAG_BLOCK_ON_CACHE,
+            )
+            .setCacheKeyFactory { spec: DataSpec -> spec.key ?: spec.uri.toString() }
+
+        val splitFactory = DataSource.Factory {
+            SchemeSplitDataSource(cacheFactory.createDataSource(), upstreamFactory.createDataSource())
+        }
+
         // Resolves yt://<id> -> direct googlevideo URL (or refreshes a stale one).
-        val resolvingFactory = ResolvingDataSource.Factory(upstreamFactory, ResolvingDataSource.Resolver { dataSpec ->
+        val resolvingFactory = ResolvingDataSource.Factory(splitFactory, ResolvingDataSource.Resolver { dataSpec ->
             val uri = dataSpec.uri
-            if (uri.scheme != SCHEME && uri.scheme != METADATA_SCHEME) return@Resolver dataSpec
+            if (uri.scheme != SCHEME && uri.scheme != METADATA_SCHEME) {
+                // Plain URLs and downloaded files stream straight through.
+                return@Resolver dataSpec.buildUpon().setKey(null).build()
+            }
             val videoId = if (uri.scheme == SCHEME) {
                 uri.host ?: uri.schemeSpecificPart?.removePrefix("//")?.substringBefore('?')
             } else null
@@ -82,42 +109,25 @@ object NativeMediaSourceFactory {
                 }
                 ?: throw java.io.IOException("Native resolve failed for $videoId")
             Log.d(TAG, "resolved $videoId via ${resolved.source}")
-            dataSpec.withUri(Uri.parse(resolved.url))
+            val resolvedUri = Uri.parse(resolved.url)
+            val key = if (videoId != null) cacheKeyFor(videoId, resolvedUri) else null
+            dataSpec.buildUpon().setUri(resolvedUri).setKey(key).build()
         })
 
-        val sc = cache(ctx)
-        val cacheSinkFactory = CacheDataSink.Factory()
-            .setCache(sc)
-            .setFragmentSize(C.LENGTH_UNSET.toLong())
+        return DefaultMediaSourceFactory(resolvingFactory)
+    }
 
-        val cacheFactory = CacheDataSource.Factory()
-            .setCache(sc)
-            .setUpstreamDataSourceFactory(resolvingFactory)
-            .setCacheWriteDataSinkFactory(cacheSinkFactory)
-            .setFlags(
-                CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR or
-                    CacheDataSource.FLAG_BLOCK_ON_CACHE,
-            )
-            // Use the videoId as cache key so re-resolved URLs hit the same cache entry.
-            .setCacheKeyFactory { spec: DataSpec ->
-                val u = spec.uri
-                if (u.scheme == SCHEME) "yt:${u.host ?: u.schemeSpecificPart?.removePrefix("//")?.substringBefore('?')}"
-                else if (u.scheme == METADATA_SCHEME) {
-                    // Length-prefixed so "A:B"+"C" and "A"+"B:C" never share audio.
-                    val t = u.getQueryParameter("title").orEmpty()
-                    val a = u.getQueryParameter("artist").orEmpty()
-                    "metadata:${t.length}:$t:${a.length}:$a"
-                }
-                else spec.key ?: u.toString()
-            }
-
-        // Title/artist lookups can resolve to a different source or version on
-        // each play, so caching them under one key could splice two different
-        // files together. Stream those uncached; video-ID songs keep the cache.
-        val splitFactory = DataSource.Factory {
-            SchemeSplitDataSource(cacheFactory.createDataSource(), resolvingFactory.createDataSource())
-        }
-        return DefaultMediaSourceFactory(splitFactory)
+    /**
+     * Cache key for one exact YouTube audio file, or null when the stream is
+     * not a fully identified googlevideo file (JioSaavn, fallback, unknown
+     * length) — those stream uncached rather than risk mixing two files.
+     */
+    internal fun cacheKeyFor(videoId: String, resolved: Uri): String? {
+        val host = resolved.host ?: return null
+        if (!host.endsWith("googlevideo.com")) return null
+        val itag = resolved.getQueryParameter("itag")?.takeIf { it.isNotBlank() && it.all(Char::isDigit) } ?: return null
+        val clen = resolved.getQueryParameter("clen")?.takeIf { it.isNotBlank() && it.all(Char::isDigit) } ?: return null
+        return "yt2:$videoId:$itag:$clen"
     }
 
     private class SchemeSplitDataSource(
@@ -130,7 +140,8 @@ object NativeMediaSourceFactory {
             direct.addTransferListener(transferListener)
         }
         override fun open(dataSpec: DataSpec): Long {
-            val src = if (dataSpec.uri.scheme == METADATA_SCHEME) direct else cached
+            // Only fully identified YouTube files (see cacheKeyFor) use the cache.
+            val src = if (dataSpec.key?.startsWith("yt2:") == true) cached else direct
             active = src
             return src.open(dataSpec)
         }
