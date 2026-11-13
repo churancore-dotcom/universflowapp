@@ -706,6 +706,8 @@ const Search = () => {
   const hasMoreLocal = visibleCount < visibleIndexedResults.length;
 
   // Deeper server fetch when the local pool is exhausted. Runs once per query.
+  const latestQueryRef = useRef(query);
+  latestQueryRef.current = query;
   const fetchMoreFromServer = useCallback(async () => {
     const trimmed = query.trim();
     if (trimmed.length < 2) return;
@@ -717,19 +719,20 @@ const Search = () => {
       // Deeper pages MUST go through the same ranker/spam filter as page one —
       // appending raw source order is what let junk results reappear on scroll.
       const ranked = rankAndDedupeResults(trimmed, deeper, [], [], false);
-      const existing = new Set(indexedResults.map((t) => t.id));
-      const additions = ranked.filter(
-        (t) => !existing.has(t.id) && !isHiddenTrack(t, hiddenResults),
-      );
-      if (additions.length > 0) {
-        setIndexedResults((prev) => [...prev, ...additions]);
-      }
+      // Ignore late pages from a query the user has already replaced.
+      if (latestQueryRef.current.trim() !== trimmed) return;
+      const candidates = ranked.filter((t) => !isHiddenTrack(t, hiddenResults));
+      setIndexedResults((prev) => {
+        const existing = new Set(prev.map((t) => t.id));
+        const additions = candidates.filter((t) => !existing.has(t.id));
+        return additions.length > 0 ? [...prev, ...additions] : prev;
+      });
     } catch {
       /* ignore */
     } finally {
       setLoadingMore(false);
     }
-  }, [query, indexedResults, hiddenResults]);
+  }, [query, hiddenResults]);
 
 
   // Infinite scroll — bump visibleCount as the user nears the bottom; when the

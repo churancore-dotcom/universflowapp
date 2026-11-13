@@ -2135,6 +2135,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       const activeIndex = currentIndexRef.current;
 
       if (activeRepeat === 'one') {
+        // Re-arm the ended guard so the next completion of this same replay
+        // is honoured (otherwise repeat-one stops after a single loop).
+        endedFiredForSeqRef.current = -1;
         audio.currentTime = 0;
         audio.play().catch(console.warn);
         return;
