@@ -36,16 +36,20 @@ const notifyLikeSubscribers = () => {
 
 const STREAM_LIKES_KEY = 'uf_stream_likes';
 
-const getStreamLikes = (): Set<string> => {
+// Scoped per account so one person's likes never show for another account on
+// the same device. The old unscoped key is ignored (its owner is unknown).
+const streamLikesKey = (userId: string) => `${STREAM_LIKES_KEY}:${userId}`;
+
+const getStreamLikes = (userId: string): Set<string> => {
   try {
-    const raw = localStorage.getItem(STREAM_LIKES_KEY);
+    const raw = localStorage.getItem(streamLikesKey(userId));
     return raw ? new Set(JSON.parse(raw)) : new Set();
   } catch { return new Set(); }
 };
 
-const saveStreamLikes = (likes: Set<string>) => {
+const saveStreamLikes = (userId: string, likes: Set<string>) => {
   try {
-    localStorage.setItem(STREAM_LIKES_KEY, JSON.stringify([...likes]));
+    localStorage.setItem(streamLikesKey(userId), JSON.stringify([...likes]));
   } catch { /* ignore */ }
 };
 
@@ -82,7 +86,7 @@ const loadLikeCache = async (userId: string, force = false): Promise<void> => {
 
     likeCache = new Set(data?.map(d => d.song_id) || []);
     // Merge stream likes
-    const streamLikes = getStreamLikes();
+    const streamLikes = getStreamLikes(userId);
     for (const id of streamLikes) likeCache.add(id);
     likeCacheLoaded = true;
     likeCachePromise = null;
@@ -187,9 +191,9 @@ export const useLike = (songId: string, song?: Song | null) => {
       }
 
       if (!isCatalog) {
-        const streamLikes = getStreamLikes();
+        const streamLikes = getStreamLikes(user.id);
         if (newLiked) streamLikes.add(songId); else streamLikes.delete(songId);
-        saveStreamLikes(streamLikes);
+        saveStreamLikes(user.id, streamLikes);
       }
 
       // The optimistic event above can race the write. Emit again only after

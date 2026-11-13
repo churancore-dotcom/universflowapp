@@ -96,6 +96,22 @@ const setStore = (patch: Partial<PremiumState>) => {
   emit();
 };
 
+let identityGeneration = 0;
+let inflightUserId: string | null = null;
+let expiryTimer: ReturnType<typeof setTimeout> | null = null;
+
+const scheduleExpiryRefresh = (userId: string, expiresAt: string | null | undefined) => {
+  if (expiryTimer) { clearTimeout(expiryTimer); expiryTimer = null; }
+  if (!expiresAt) return;
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (!Number.isFinite(ms) || ms <= 0) return;
+  // setTimeout caps at ~24.8 days; re-check at most daily until expiry.
+  expiryTimer = setTimeout(() => {
+    expiryTimer = null;
+    if (currentUserId === userId) void fetchOnce(userId);
+  }, Math.min(ms + 1000, 24 * 60 * 60 * 1000));
+};
+
 const fetchOnce = async (userId: string | null): Promise<void> => {
   if (!userId) {
     setStore({ ...initialState, isLoading: false });
@@ -103,8 +119,11 @@ const fetchOnce = async (userId: string | null): Promise<void> => {
     try { localStorage.removeItem(CACHE_KEY); } catch { /* ignore */ }
     return;
   }
-  if (inflight) return inflight;
-  inflight = (async () => {
+  if (inflight && inflightUserId === userId) return inflight;
+  const generation = identityGeneration;
+  const isCurrent = () => generation === identityGeneration && currentUserId === userId;
+  inflightUserId = userId;
+  const run = (async () => {
     try {
       const [premiumResult, subscriptionResult] = await Promise.all([
         supabase.rpc('has_premium_subscription', { _user_id: userId }),
@@ -126,7 +145,9 @@ const fetchOnce = async (userId: string | null): Promise<void> => {
           platform: row.platform,
         };
       }
+      if (!isCurrent()) return;
       writeCache(userId, next);
+      scheduleExpiryRefresh(userId, verified ? row?.expires_at : null);
       setStore({
         isPremium: verified,
         subscription: next,
@@ -138,6 +159,7 @@ const fetchOnce = async (userId: string | null): Promise<void> => {
       setRuntimePremium(verified);
       lastFetchAt = Date.now();
     } catch (err) {
+      if (!isCurrent()) return;
       setStore({
         isPremium: false,
         error: err instanceof Error ? err : new Error('Failed to fetch subscription'),
@@ -145,15 +167,18 @@ const fetchOnce = async (userId: string | null): Promise<void> => {
       });
       setRuntimePremium(false);
     } finally {
-      inflight = null;
+      if (inflight === run) { inflight = null; inflightUserId = null; }
     }
   })();
-  return inflight;
+  inflight = run;
+  return run;
 };
 
 const bindUser = (userId: string | null) => {
   if (currentUserId === userId) return;
   currentUserId = userId;
+  identityGeneration += 1;
+  if (expiryTimer) { clearTimeout(expiryTimer); expiryTimer = null; }
   if (currentChannel) {
     try { supabase.removeChannel(currentChannel); } catch { /* noop */ }
     currentChannel = null;
@@ -164,9 +189,12 @@ const bindUser = (userId: string | null) => {
     return;
   }
   // Seed from cache instantly
+  // Never carry the previous account's entitlement into this one.
+  setStore({ ...initialState, isLoading: true });
+  setRuntimePremium(false);
   const cached = readCache(userId);
   if (cached !== undefined) {
-    setStore({ subscription: cached ?? null, isLoading: store.isLoading });
+    setStore({ subscription: cached ?? null });
   }
   void fetchOnce(userId);
   currentChannel = supabase
@@ -184,7 +212,8 @@ const bindUser = (userId: string | null) => {
 // Soft refetch when the user returns to the tab if data is stale.
 if (typeof document !== 'undefined') {
   document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible' && currentUserId && Date.now() - lastFetchAt > 5 * 60 * 1000) {
+    const expired = store.isPremium && store.subscription?.expires_at && new Date(store.subscription.expires_at).getTime() <= Date.now();
+    if (document.visibilityState === 'visible' && currentUserId && (expired || Date.now() - lastFetchAt > 5 * 60 * 1000)) {
       void fetchOnce(currentUserId);
     }
   });

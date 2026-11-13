@@ -38,8 +38,26 @@ export const Route = createFileRoute('/api/public/process-account-deletions')({
         let deleted = 0;
         let failed = 0;
         for (const row of due ?? []) {
+          // Atomically claim the row: only proceed if it is still due, not
+          // cancelled and not already claimed. This closes the window where a
+          // request changed between the read above and the delete below.
+          const claimedAt = new Date().toISOString();
+          const { data: claimed } = await supabaseAdmin
+            .from('account_deletion_requests')
+            .update({ completed_at: claimedAt })
+            .eq('user_id', row.user_id)
+            .is('cancelled_at', null)
+            .is('completed_at', null)
+            .lte('delete_after', claimedAt)
+            .select('user_id');
+          if (!claimed || claimed.length === 0) continue;
           const { error } = await supabaseAdmin.auth.admin.deleteUser(row.user_id);
           if (error) {
+            await supabaseAdmin
+              .from('account_deletion_requests')
+              .update({ completed_at: null })
+              .eq('user_id', row.user_id)
+              .eq('completed_at', claimedAt);
             failed += 1;
             console.error('[account-deletion] delete failed', row.user_id, error.message);
           } else {
