@@ -12,6 +12,7 @@ import androidx.media3.datasource.DefaultHttpDataSource
 import androidx.media3.datasource.ResolvingDataSource
 import androidx.media3.datasource.cache.CacheDataSink
 import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.ContentMetadata
 import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
@@ -24,8 +25,9 @@ import java.io.File
  *    moment ExoPlayer opens the data source — so the first tap path has zero
  *    extra JS round-trips and the player can refresh expired googlevideo URLs
  *    on demand.
- * 2. Resolved audio bytes are persisted to a 512 MB LRU disk cache, so replaying
- *     a track is fully offline and instant.
+ * 2. Resolved audio bytes are persisted to a 512 MB LRU disk cache keyed by the
+ *    exact file (video + format + length), so replaying a fully saved track is
+ *    offline and instant and two versions of a song are never mixed.
  */
 object NativeMediaSourceFactory {
 
@@ -129,7 +131,11 @@ object NativeMediaSourceFactory {
         cache.keys.firstOrNull { k ->
             if (!k.startsWith(prefix)) return@firstOrNull false
             val len = k.substringAfterLast(':').toLongOrNull() ?: return@firstOrNull false
-            len > 0 && cache.isCached(k, 0, len)
+            // The saved length must match too, so the player knows where the
+            // song ends and never reaches for the network mid-song.
+            len > 0 &&
+                ContentMetadata.getContentLength(cache.getContentMetadata(k)) == len &&
+                cache.isCached(k, 0, len)
         }
     } catch (_: Throwable) { null }
 
