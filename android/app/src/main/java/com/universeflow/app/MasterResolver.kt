@@ -38,6 +38,22 @@ object MasterResolver {
      */
     private val inFlight = java.util.concurrent.ConcurrentHashMap<String, CompletableFuture<Resolved?>>()
 
+    /**
+     * Bumped every time the listener starts a new song or queue. Warm-up
+     * lookups remember the value they were queued under and stop as soon as it
+     * changes, so lookups for songs the user skipped past no longer hog the
+     * network while the next song is trying to start.
+     */
+    private val playbackEpoch = java.util.concurrent.atomic.AtomicLong(0L)
+
+    /** Small dedicated pool so warm-up never competes with a foreground tap for threads. */
+    private val prefetchPool = Executors.newFixedThreadPool(2) { r ->
+        Thread(r, "uf-prefetch").apply { isDaemon = true; priority = Thread.MIN_PRIORITY }
+    }
+
+    fun beginPlayback(): Long = playbackEpoch.incrementAndGet()
+    fun currentEpoch(): Long = playbackEpoch.get()
+
     private fun record(
         videoId: String?, label: String, winner: String, latencyMs: Long, ytFailure: String?,
     ) {
@@ -88,6 +104,9 @@ object MasterResolver {
         val label = listOfNotNull(title, artist).joinToString(" — ").ifBlank { videoId ?: "?" }
         val startedAt = System.currentTimeMillis()
         val ytFailure = AtomicReference<String?>(null)
+        // Set once this lookup has an answer or gave up; the YouTube candidate
+        // loop checks it so a losing race stops instead of trying more uploads.
+        val finished = java.util.concurrent.atomic.AtomicBoolean(false)
 
         // ── YouTube (deep): already-cached stream first, then a full resolve.
         val direct = videoId?.takeIf { it.length == 11 }
@@ -118,6 +137,7 @@ object MasterResolver {
                         return@supplyAsync null
                     }
                     for (id in ids) {
+                        if (finished.get()) return@supplyAsync null
                         val budget = ytDeadline - System.currentTimeMillis()
                         if (budget < 700L) break
                         // NewPipe Extractor and our own resolver race; first playable wins.
@@ -127,6 +147,10 @@ object MasterResolver {
                         }, pool)
                         val stop = System.currentTimeMillis() + budget.coerceAtMost(4500L)
                         while (System.currentTimeMillis() < stop && !(np.isDone && own.isDone)) {
+                            if (finished.get()) {
+                                np.cancel(true); own.cancel(true)
+                                return@supplyAsync null
+                            }
                             np.takeIf { it.isDone }?.getNow(null)?.let { h ->
                                 own.cancel(true)
                                 return@supplyAsync Resolved(h.url, "youtube:newpipe", h.expiresAt)
@@ -187,10 +211,9 @@ object MasterResolver {
                 }
             }
         }
-        if (winner == null) {
-            ytFuture?.cancel(true)
-            saavnFuture?.cancel(true)
-        }
+        finished.set(true)
+        ytFuture?.cancel(true)
+        saavnFuture?.cancel(true)
 
         record(
             videoId, label, winner?.source ?: "miss",
@@ -205,8 +228,11 @@ object MasterResolver {
      */
     fun prefetch(tracks: List<Triple<String?, String?, String?>>, limit: Int = 5) {
         val selected = tracks.take(limit)
+        val epoch = playbackEpoch.get()
         selected.forEach { (vid, title, artist) ->
-            pool.execute {
+            prefetchPool.execute {
+                // The user moved on before this warm-up started: skip it.
+                if (playbackEpoch.get() != epoch) return@execute
                 try { resolve(vid, title, artist, timeoutMs = 5200L) }
                 catch (_: Throwable) {}
             }
