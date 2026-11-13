@@ -93,7 +93,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // serves APK assets even in airplane mode.
   const [isOffline, setIsOffline] = useState(false);
 
-  useEffect(() => watchOfflineConnectivity(setIsOffline), []);
+  // Native connectivity is authoritative in the APK; navigator.onLine is a
+  // fallback until the native monitor reports.
+  const isOfflineRef = useRef(false);
+  const deviceOffline = () => isOfflineRef.current || !navigator.onLine;
+  useEffect(() => watchOfflineConnectivity((offline) => {
+    isOfflineRef.current = offline;
+    setIsOffline(offline);
+  }), []);
+  // Identity guard: async role/verification answers for a previous account
+  // must never land on the current one.
+  const activeUserIdRef = useRef<string | null>(null);
 
   const ensureUserProfile = useCallback(async (sessionUser: User) => {
     try {
@@ -131,21 +141,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const checkAdminRole = useCallback(async (userId: string) => {
     try {
       const { data } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
-      setIsAdmin(!!data);
+      if (activeUserIdRef.current === userId) setIsAdmin(!!data);
       return !!data;
     } catch {
-      setIsAdmin(false);
+      if (activeUserIdRef.current === userId) setIsAdmin(false);
       return false;
     }
   }, []);
 
   const loadEmailVerified = useCallback(async (userId: string) => {
     const remember = (value: boolean) => {
+      if (activeUserIdRef.current !== userId) return;
       try { localStorage.setItem('uf_email_verified', value ? '1' : '0'); } catch { /* private mode */ }
       setEmailVerified(value);
     };
     // Never let a hanging offline request keep the app on a blank screen.
     const guard = setTimeout(() => {
+      if (activeUserIdRef.current !== userId) return;
       setEmailVerified(prev => (prev === null ? true : prev));
     }, 3500);
     try {
@@ -167,7 +179,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       remember(!(data && data.email_verified === false));
     } catch {
       // Offline or unreachable: keep the last known answer instead of gating.
-      setEmailVerified(prev => (prev === null ? true : prev));
+      if (activeUserIdRef.current === userId) setEmailVerified(prev => (prev === null ? true : prev));
     } finally {
       clearTimeout(guard);
     }
@@ -189,13 +201,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // SIGNED_OUT / TOKEN_REFRESHED with a null session — that would log the user
       // out of the APK every time they open it without WiFi. Keep the cached
       // session so they can still play their downloaded songs.
-      if (!nextSession && !navigator.onLine && event !== 'SIGNED_OUT') {
+      if (!nextSession && deviceOffline() && event !== 'SIGNED_OUT') {
         setIsLoading(false);
         return;
       }
       // Also ignore an offline-driven SIGNED_OUT that wasn't user-initiated.
       // (A user-initiated signOut() also clears state in the signOut callback.)
-      if (event === 'SIGNED_OUT' && !navigator.onLine) {
+      if (event === 'SIGNED_OUT' && deviceOffline()) {
         setIsLoading(false);
         return;
       }
@@ -205,6 +217,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearAccessCache();
       }
 
+      const nextId = nextSession?.user?.id ?? null;
+      if (activeUserIdRef.current !== nextId) {
+        activeUserIdRef.current = nextId;
+        setIsAdmin(false);
+        setEmailVerified(null);
+      }
       setSession(nextSession);
       setUser(nextSession?.user ?? null);
       setSentryUser(nextSession?.user ? { id: nextSession.user.id, email: nextSession.user.email } : null);
@@ -227,11 +245,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
       if (cancelled) return;
+      activeUserIdRef.current = existingSession?.user?.id ?? null;
       setSession(existingSession);
       setUser(existingSession?.user ?? null);
       setIsLoading(false);
 
-      if (existingSession?.user) {
+      if (existingSession?.user && !deviceOffline()) {
         void Promise.allSettled([
           ensureUserProfile(existingSession.user),
           checkAdminRole(existingSession.user.id),
@@ -246,7 +265,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // The APK therefore booted signed-out, which emptied Home, avatars,
         // recently played and blocked authenticated stream URLs, while the web
         // build kept working. Only a confirmed, repeated auth rejection signs out.
-        if (navigator.onLine) {
+        if (!deviceOffline()) {
           void validateSessionOrSignOut();
         }
 
