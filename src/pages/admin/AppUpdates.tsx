@@ -67,17 +67,15 @@ export default function AppUpdates() {
 
     setSaving(true);
 
-    // Deactivate older active rows so only the new one is current
-    { const { error: deactivateError } = await supabase.from('app_versions').update({ is_active: false }).eq('is_active', true); if (deactivateError) { toast.error('Could not update the current release. Nothing was changed.'); setSaving(false); return; } }
-
-    const { error } = await supabase.from('app_versions').insert({
-      version_code: code,
-      version_name: form.version_name.trim(),
-      apk_url: form.apk_url.trim(),
-      release_notes: form.release_notes.trim() || null,
-      is_mandatory: form.is_mandatory,
-      is_active: true,
-      min_supported_version_code: Number(form.min_supported_version_code) || 0,
+    // One atomic step on the server: the new release goes live and the old one
+    // is switched off together, or nothing changes at all.
+    const { error } = await supabase.rpc('publish_app_version', {
+      _version_code: code,
+      _version_name: form.version_name.trim(),
+      _apk_url: form.apk_url.trim(),
+      _release_notes: form.release_notes.trim() || null,
+      _is_mandatory: form.is_mandatory,
+      _min_supported_version_code: Number(form.min_supported_version_code) || 0,
     });
 
     if (error) {
@@ -117,8 +115,7 @@ export default function AppUpdates() {
   };
 
   const setActive = async (id: string) => {
-    { const { error: deactivateError } = await supabase.from('app_versions').update({ is_active: false }).eq('is_active', true); if (deactivateError) { toast.error('Could not update the current release. Nothing was changed.'); return; } }
-    const { error } = await supabase.from('app_versions').update({ is_active: true }).eq('id', id);
+    const { error } = await supabase.rpc('activate_app_version', { _id: id });
     if (error) toast.error(error.message);
     else {
       toast.success('Set as active version');
