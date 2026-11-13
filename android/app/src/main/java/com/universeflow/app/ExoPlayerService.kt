@@ -213,12 +213,15 @@ class ExoPlayerService : MediaSessionService() {
         val processor = StemAudioProcessor()
         tailProcessor = processor
         syncPcmState(processor)
+        var built: ExoPlayer? = null
+        try {
         val tail = ExoPlayer.Builder(this)
             .setRenderersFactory(processedRenderers(processor))
             .setMediaSourceFactory(NativeMediaSourceFactory.build(this))
             .setAudioAttributes(p.audioAttributes, false)
             .setHandleAudioBecomingNoisy(true)
             .build()
+        built = tail
         if (p.audioSessionId != C.AUDIO_SESSION_ID_UNSET) tail.setAudioSessionId(p.audioSessionId)
         tailPlayer = tail
         transitionItem = outgoingId
@@ -235,6 +238,13 @@ class ExoPlayerService : MediaSessionService() {
             }
         })
         tail.prepare()
+        } catch (t: Throwable) {
+            // A failed setup must not leave a second, invisible player (and its
+            // listeners) running in the background next to the real one.
+            android.util.Log.w("ExoPlayerService", "overlap setup failed: ${t.message}")
+            if (tailPlayer !== built) try { built?.release() } catch (_: Throwable) {}
+            cancelOverlap()
+        }
     }
 
     // ---- Audio effects (lazy on first session-id discovery) ----
@@ -629,8 +639,19 @@ class ExoPlayerService : MediaSessionService() {
             android.util.Log.w("ExoPlayerService", "bitmap loader install failed: ${t.message}")
         }
 
+        val session = try {
+            sessionBuilder.build()
+        } catch (t: Throwable) {
+            // Without a session Android kills background playback anyway; a
+            // half-built player left behind would keep its listeners and
+            // network loaders alive with nothing able to stop them.
+            android.util.Log.e("ExoPlayerService", "media session setup failed: ${t.message}")
+            try { exo.release() } catch (_: Throwable) {}
+            releaseLocks()
+            return
+        }
         this.player = exo
-        this.mediaSession = sessionBuilder.build()
+        this.mediaSession = session
         // Media3 only draws the shade / lock-screen player for sessions it
         // manages. Our app talks to the player directly (no MediaController),
         // so the session was never registered and the player never appeared.
@@ -1092,7 +1113,9 @@ class ExoPlayerService : MediaSessionService() {
         cancelOverlap()
         ServiceRegistry.exoService = null
         releaseEffects()
-        try { mediaSession?.run { player.release(); release() } } catch (_: Throwable) {}
+        val session = mediaSession
+        try { session?.release() } catch (_: Throwable) {}
+        try { player?.release() } catch (_: Throwable) {}
         mediaSession = null
         player = null
         releaseLocks()
