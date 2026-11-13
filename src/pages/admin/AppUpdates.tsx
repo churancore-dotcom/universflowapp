@@ -73,7 +73,7 @@ export default function AppUpdates() {
       _version_code: code,
       _version_name: form.version_name.trim(),
       _apk_url: form.apk_url.trim(),
-      _release_notes: form.release_notes.trim() || null,
+      _release_notes: form.release_notes.trim(),
       _is_mandatory: form.is_mandatory,
       _min_supported_version_code: Number(form.min_supported_version_code) || 0,
     });
