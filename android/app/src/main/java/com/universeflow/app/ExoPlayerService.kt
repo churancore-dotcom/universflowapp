@@ -215,29 +215,29 @@ class ExoPlayerService : MediaSessionService() {
         syncPcmState(processor)
         var built: ExoPlayer? = null
         try {
-        val tail = ExoPlayer.Builder(this)
-            .setRenderersFactory(processedRenderers(processor))
-            .setMediaSourceFactory(NativeMediaSourceFactory.build(this))
-            .setAudioAttributes(p.audioAttributes, false)
-            .setHandleAudioBecomingNoisy(true)
-            .build()
-        built = tail
-        if (p.audioSessionId != C.AUDIO_SESSION_ID_UNSET) tail.setAudioSessionId(p.audioSessionId)
-        tailPlayer = tail
-        transitionItem = outgoingId
-        tail.volume = 0f
-        tail.playbackParameters = p.playbackParameters
-        tail.setMediaItem(item, p.currentPosition)
-        tail.playWhenReady = false
-        tail.addListener(object : Player.Listener {
-            override fun onPlaybackStateChanged(state: Int) {
-                if (state == Player.STATE_READY && tailPlayer === tail) tailReady = true
-            }
-            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
-                if (tailPlayer === tail) cancelOverlap()
-            }
-        })
-        tail.prepare()
+            val tail = ExoPlayer.Builder(this)
+                .setRenderersFactory(processedRenderers(processor))
+                .setMediaSourceFactory(NativeMediaSourceFactory.build(this))
+                .setAudioAttributes(p.audioAttributes, false)
+                .setHandleAudioBecomingNoisy(true)
+                .build()
+            built = tail
+            if (p.audioSessionId != C.AUDIO_SESSION_ID_UNSET) tail.setAudioSessionId(p.audioSessionId)
+            tailPlayer = tail
+            transitionItem = outgoingId
+            tail.volume = 0f
+            tail.playbackParameters = p.playbackParameters
+            tail.setMediaItem(item, p.currentPosition)
+            tail.playWhenReady = false
+            tail.addListener(object : Player.Listener {
+                override fun onPlaybackStateChanged(state: Int) {
+                    if (state == Player.STATE_READY && tailPlayer === tail) tailReady = true
+                }
+                override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                    if (tailPlayer === tail) cancelOverlap()
+                }
+            })
+            tail.prepare()
         } catch (t: Throwable) {
             // A failed setup must not leave a second, invisible player (and its
             // listeners) running in the background next to the real one.
