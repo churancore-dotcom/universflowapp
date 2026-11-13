@@ -99,6 +99,13 @@ object NativeMediaSourceFactory {
             if (uri.scheme == SCHEME && (videoId.isNullOrBlank() || videoId.length != 11)) {
                 throw java.io.IOException("Invalid yt:// uri: $uri")
             }
+            // A song already saved in full plays straight from the cache, so
+            // replays work offline and skip the lookup entirely.
+            if (videoId != null) {
+                fullyCachedKey(sc, videoId)?.let { key ->
+                    return@Resolver dataSpec.buildUpon().setKey(key).build()
+                }
+            }
             val title = uri.getQueryParameter("title")
             val artist = uri.getQueryParameter("artist")
             val fallback = uri.getQueryParameter("fallback")
@@ -116,6 +123,15 @@ object NativeMediaSourceFactory {
 
         return DefaultMediaSourceFactory(resolvingFactory)
     }
+
+    private fun fullyCachedKey(cache: SimpleCache, videoId: String): String? = try {
+        val prefix = "yt2:$videoId:"
+        cache.keys.firstOrNull { k ->
+            if (!k.startsWith(prefix)) return@firstOrNull false
+            val len = k.substringAfterLast(':').toLongOrNull() ?: return@firstOrNull false
+            len > 0 && cache.isCached(k, 0, len)
+        }
+    } catch (_: Throwable) { null }
 
     /**
      * Cache key for one exact YouTube audio file, or null when the stream is
