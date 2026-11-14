@@ -13,6 +13,7 @@ import { getRuntimePremium, subscribeRuntimePremium } from '@/lib/premiumState';
 import { noteSongCompleted, primeAdEngine, resetAdCounter } from '@/lib/adEngine';
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
+import { confirmsNativeStart, showsPlayIntent } from '@/lib/nativePlaybackPhase';
 import { isNativePlayerAvailable, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack, setNativeMiniPlayerState, setNativePlaybackSpeed, onNativeMediaButton } from '@/lib/nativePlayer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { prewarmSongs } from '@/lib/instantPlay';
@@ -2554,7 +2555,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           // player is not actually paused. Verify via ExoPlayerPlugin.isPlaying()
           // before flipping the UI.
           const progressMovingRecently = Date.now() - nativeLastProgressAtRef.current < 1500;
-          if (data.state === 'playing') {
+          if (confirmsNativeStart(data.state)) {
             if (nativeUserPausedRef.current) return;
             const identity = activeSongIdentityRef.current;
             if (identity) nativeRecoveryAttemptedRef.current.delete(identity);
@@ -2566,7 +2567,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             reapplyNativeEqSoon();
           }
 
-          else if (data.state === 'buffering') {
+          else if (showsPlayIntent(data.state)) {
+            // 'starting' = play requested, no audio yet. Show play intent but
+            // never treat it as a confirmed start (startup timer keeps running).
             if (nativeUserPausedRef.current) return;
             setIsPlaying(true);
             wasPlayingRef.current = true;
