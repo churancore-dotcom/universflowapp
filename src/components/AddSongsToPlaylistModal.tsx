@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Search, Music, Check, Loader2, Plus, Radio } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -31,13 +31,14 @@ const AddSongsToPlaylistModal = ({
   const [adding, setAdding] = useState(false);
 
   const searchRequestRef = useRef(0);
+  const knownSongsRef = useRef(new Map<string, any>());
   const fetchSongs = useCallback(async (term: string) => {
     const requestId = ++searchRequestRef.current;
     setLoading(true);
     const data = await searchIndexedTracks(term.trim() || 'top songs', 40).catch(() => [] as IndexedTrack[]);
     // A slower, older search must never replace newer results.
     if (requestId !== searchRequestRef.current) return;
-    setSongs(data.map(s => ({
+    const mapped = data.map(s => ({
       id: s.id,
       title: s.title,
       artist: s.artist,
@@ -46,7 +47,10 @@ const AddSongsToPlaylistModal = ({
       audio_url: 'resolving',
       duration: s.duration,
       source: 'indexed' as const,
-    })));
+    }));
+    // Remember every shown song so picks survive later searches.
+    for (const song of mapped) knownSongsRef.current.set(song.id, song);
+    setSongs(mapped);
     setLoading(false);
   }, []);
 
@@ -89,7 +93,7 @@ const AddSongsToPlaylistModal = ({
 
     const nextPosition = existingSongs && existingSongs.length > 0 ? existingSongs[0].position + 1 : 0;
 
-    const selected = songs.filter((song) => selectedSongs.has(song.id));
+    const selected = [...selectedSongs].map((id) => knownSongsRef.current.get(id)).filter(Boolean) as typeof songs;
     await Promise.all(selected.map((song) => persistStreamSong(song)));
 
     const songsToAdd = selected.map((song, index) => ({
