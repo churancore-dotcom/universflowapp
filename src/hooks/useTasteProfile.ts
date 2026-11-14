@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
+import { wantedScenes, setWantedScenes } from '@/lib/musicScene';
 import { getTasteProfile, invalidateTasteProfile, type TasteProfile } from '@/lib/feedPersonalizer';
 
 const EMPTY: TasteProfile = { artists: new Map(), keywords: new Map(), skips: new Map(), signalCount: 0 };
@@ -42,6 +43,12 @@ export function useTasteProfile(): TasteProfile {
       window.removeEventListener('universflow:recently-played-changed', refresh);
     };
   }, [user?.id, queryClient]);
+
+  useEffect(() => {
+    if (!data) return;
+    const next = wantedScenes(data.scenes ?? new Map(), data.positiveTotal ?? 0);
+    setWantedScenes(next);
+  }, [data]);
 
   return data ?? EMPTY;
 }

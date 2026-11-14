@@ -1,3 +1,4 @@
+import { feedAllows } from '@/lib/musicScene';
 /**
  * Rail quality gate — what makes a home shelf look "real" instead of scraped.
  *
@@ -83,7 +84,7 @@ export function cleanRail(songs: Song[], opts: { requireCover?: boolean } = {}):
   const seen = new Set<string>();
   const out: Song[] = [];
   for (const s of songs) {
-    if (!s || isJunkRailTrack(s)) continue;
+    if (!s || isJunkRailTrack(s) || !feedAllows(s)) continue;
     if (opts.requireCover && !s.cover_url && !videoIdOf(s)) continue;
     const fp = songFingerprint(s);
     if (fp === '~' || seen.has(fp)) continue;
