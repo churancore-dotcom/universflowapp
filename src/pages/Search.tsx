@@ -1050,12 +1050,9 @@ const Search = () => {
           {/* Results */}
           {searching ? <SearchSkeleton /> : (
             <>
-              {source === 'songs' && (() => {
-                const seed = displayedIndexedResults.find((t) => t.videoId);
-                return seed?.videoId ? (
-                  <SimilarSongsRail key={seed.videoId} seed={{ videoId: seed.videoId, title: seed.title, artist: seed.artist }} query={query.trim()} />
-                ) : null;
-              })()}
+              {source === 'songs' && query.trim().length > 1 && displayedIndexedResults.length > 0 && (
+                <SimilarSongsRail query={query.trim()} />
+              )}
               {source === 'songs' && displayedIndexedResults.length > 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={libraryResults.length > 0 ? 'mt-6' : ''}>
                   <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 flex items-center gap-2">

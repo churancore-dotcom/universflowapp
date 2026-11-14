@@ -8,10 +8,8 @@ import { prewarmSong } from '@/lib/instantPlay';
 
 const cache = new Map<string, SimilarTrack[]>();
 
-interface Props {
-  seed: { videoId: string; title: string; artist: string };
-  query: string;
-}
+interface Props { query: string }
+const cleanTitle = (t: string) => t.replace(/\s*\((from|feat|ft)[^)]*\)/gi, '').trim();
 
 const toSong = (t: SimilarTrack): Song => ({
   id: t.id, title: t.title, artist: t.artist, cover_url: t.cover_url,
@@ -20,25 +18,35 @@ const toSong = (t: SimilarTrack): Song => ({
 });
 
 /** YouTube-style "songs like this" built from the top result's music mix. */
-export default function SimilarSongsRail({ seed, query }: Props) {
+export default function SimilarSongsRail({ query }: Props) {
   const { playSong, currentSong } = usePlayer();
-  const [tracks, setTracks] = useState<SimilarTrack[] | null>(() => cache.get(seed.videoId) ?? null);
+  const key = query.toLowerCase();
+  const [state, setState] = useState<{ title: string; tracks: SimilarTrack[] } | null>(() => cache.get(key) ?? null);
 
   useEffect(() => {
-    const hit = cache.get(seed.videoId);
-    if (hit) { setTracks(hit); return; }
+    const hit = cache.get(key);
+    if (hit) { setState(hit); return; }
     let cancelled = false;
-    setTracks(null);
-    supabase.functions.invoke('ytm-radio', { body: { videoId: seed.videoId } })
-      .then(({ data }) => {
-        if (cancelled) return;
-        const list = filterSimilar(Array.isArray(data?.tracks) ? data.tracks : [], { title: seed.title, query }, 20);
-        cache.set(seed.videoId, list);
-        setTracks(list);
-      }, () => { if (!cancelled) setTracks([]); });
-    return () => { cancelled = true; };
-  }, [seed.videoId, seed.title, query]);
+    setState(null);
+    const timer = window.setTimeout(async () => {
+      try {
+        // Seed with YouTube's own top match for the query, like YouTube does.
+        const { data: found } = await supabase.functions.invoke('yt-innertube-search', { body: { query, limit: 3 } });
+        const top = (found?.results ?? []).find((r: SimilarTrack) => r?.videoId);
+        if (!top) throw new Error('no seed');
+        const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId: top.videoId } });
+        const title = cleanTitle(top.title);
+        const result = { title, tracks: filterSimilar(Array.isArray(data?.tracks) ? data.tracks : [], { title, query }, 20) };
+        cache.set(key, result);
+        if (!cancelled) setState(result);
+      } catch {
+        if (!cancelled) setState({ title: '', tracks: [] });
+      }
+    }, 400);
+    return () => { cancelled = true; clearTimeout(timer); };
+  }, [key, query]);
 
+  const tracks = state?.tracks ?? null;
   if (tracks && tracks.length < 3) return null;
 
   const queue = (tracks ?? []).map(toSong);
@@ -52,7 +60,7 @@ export default function SimilarSongsRail({ seed, query }: Props) {
             <Sparkles className="w-3 h-3" /> Similar sound
           </p>
           <h2 className="font-display text-[26px] font-black uppercase tracking-[0.04em] leading-none truncate mt-1">
-            Songs like {seed.title}
+            Songs like {state?.title || query}
           </h2>
         </div>
         {tracks && (
