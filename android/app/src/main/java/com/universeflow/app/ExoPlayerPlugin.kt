@@ -353,7 +353,8 @@ class ExoPlayerPlugin : Plugin() {
                         val videoId = uri?.takeIf { it.scheme == "yt" }?.host
                         if (videoId?.length == 11) {
                             NativeYouTubeResolver.invalidate(videoId)
-                            PlayerJsManager.onStreamRejected()
+                            // Player-JS refresh does network I/O; never on the main thread.
+                            Thread({ runCatching { PlayerJsManager.onStreamRejected() } }, "uf-playerjs-refresh").start()
                             Log.w("ExoPlayerPlugin", "re-resolving rejected stream for $videoId")
                         }
                     }

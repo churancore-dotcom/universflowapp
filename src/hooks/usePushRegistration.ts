@@ -152,17 +152,15 @@ async function registerAndWaitForSavedToken(
       resolve(result);
     };
 
-    const timeoutId = window.setTimeout(async () => {
+    const timeoutId = window.setTimeout(() => {
+      // The deadline always settles. A token already received keeps saving
+      // in the background; permission itself was granted.
       if (lastToken) {
-        try {
-          await upsertToken(lastToken, deviceMeta);
-          finish('granted');
-          return;
-        } catch (err) {
-          console.warn('[Push] late token save failed', err);
-        }
+        void upsertToken(lastToken, deviceMeta).catch((err) => console.warn('[Push] late token save failed', err));
+        finish('granted');
+        return;
       }
-      console.warn('[Push] registration timed out before a saved FCM token was confirmed');
+      console.warn('[Push] registration timed out before an FCM token arrived');
       finish('denied');
     }, 12000);
 

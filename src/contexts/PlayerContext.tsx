@@ -1525,10 +1525,30 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   // Get next song index - supports shuffle properly by tracking played songs
   const shuffleHistoryRef = useRef<Set<number>>(new Set());
   
-  const getNextIndex = useCallback((currentIdx: number, queueLength: number, isShuffle: boolean, repeatMode: 'off' | 'all' | 'one'): number | null => {
+  // A shuffle pick chosen for preloading is staged here and reused when the
+  // song actually ends, so preloading never marks unplayed songs as heard.
+  const pendingShuffleRef = useRef<{ from: number; to: number; len: number } | null>(null);
+
+  const getNextIndex = useCallback((currentIdx: number, queueLength: number, isShuffle: boolean, repeatMode: 'off' | 'all' | 'one', peek = false): number | null => {
     if (queueLength === 0) return null;
     
     if (isShuffle) {
+      const staged = pendingShuffleRef.current;
+      if (staged && staged.from === currentIdx && staged.len === queueLength && staged.to < queueLength) {
+        if (!peek) {
+          pendingShuffleRef.current = null;
+          shuffleHistoryRef.current.add(currentIdx);
+        }
+        return staged.to;
+      }
+      if (peek) {
+        const played = new Set(shuffleHistoryRef.current);
+        played.add(currentIdx);
+        const pool = Array.from({ length: queueLength }, (_, i) => i).filter(i => !played.has(i));
+        const pick = pool.length ? pool[Math.floor(Math.random() * pool.length)] : Math.floor(Math.random() * queueLength);
+        pendingShuffleRef.current = { from: currentIdx, to: pick, len: queueLength };
+        return pick;
+      }
       // Smart shuffle: avoid repeating until all songs played
       if (shuffleHistoryRef.current.size >= queueLength) {
         shuffleHistoryRef.current.clear();
@@ -1684,7 +1704,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
     if (isCrossfading.current) return;
 
-    const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat);
+    const nextIdx = getNextIndex(currentIndex, queue.length, shuffle, repeat, true);
     if (nextIdx === null) {
       preloadedNextIdRef.current = null;
       return;
@@ -1727,7 +1747,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     }
 
     // Also warm the track AFTER next so two-tap skips feel instant.
-    const nextNextIdx = getNextIndex(nextIdx, queue.length, shuffle, repeat);
+    const nextNextIdx = shuffle ? null : getNextIndex(nextIdx, queue.length, shuffle, repeat);
     if (nextNextIdx !== null && nextNextIdx !== currentIndex) {
       const afterNext = queue[nextNextIdx];
       if (afterNext && (afterNext.source === 'indexed' || afterNext.audio_url === 'resolving')) {
@@ -2144,7 +2164,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (!isNativePlayerAvailable() && isGaplessPreloadEnabled() && getRuntimePremium()) {
-        const target = getNextIndex(activeIndex, queueRef.current.length, activeShuffle, activeRepeat);
+        const target = getNextIndex(activeIndex, queueRef.current.length, activeShuffle, activeRepeat, true);
         if (target !== null && preloadedNextIdRef.current === queueRef.current[target]?.id && nextAudioRef.current?.readyState && nextAudioRef.current.readyState >= 2) {
           crossfadeAttemptedForSeqRef.current = -1;
           startCrossfade(0);
@@ -3523,6 +3543,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setShuffle(prev => {
       const newVal = !prev;
       // Clear shuffle history when toggling
+      pendingShuffleRef.current = null;
       if (newVal) {
         shuffleHistoryRef.current.clear();
       }
@@ -3549,11 +3570,17 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
   // Mirror queue edits (remove/reorder/add) into the phone player.
   useEffect(() => {
-    if (!isNativePlayerAvailable() || queue.length === 0) return;
+    if (!isNativePlayerAvailable()) return;
     const t = window.setTimeout(() => {
-      const songs = queueRef.current;
-      const idx = currentSong ? songs.findIndex((s) => getQueueFingerprint(s) === getQueueFingerprint(currentSong)) : -1;
-      if (idx < 0) return;
+      let songs = queueRef.current;
+      let idx = currentSong ? songs.findIndex((s) => getQueueFingerprint(s) === getQueueFingerprint(currentSong)) : -1;
+      // Queue cleared (or the playing song removed): keep only the current
+      // song on the phone so cleared songs can never auto-play afterwards.
+      if (idx < 0) {
+        if (!currentSong) return;
+        songs = [currentSong];
+        idx = 0;
+      }
       void ExoPlayerPlugin.syncQueue?.({ tracks: buildNativeQueuePayload(songs, idx), currentIndex: idx }).catch(() => undefined);
     }, 600);
     return () => window.clearTimeout(t);
