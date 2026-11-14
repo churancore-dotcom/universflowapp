@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cachesEnabled } from '@/lib/ssrCache';
 import { loadLibrarySongs } from '@/lib/streamSongs';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { notInterestedKey } from '@/lib/notInterested';
 import { detectScene, detectStyles, type Scene, type Style } from '@/lib/musicScene';
 
 export interface TasteProfile {
@@ -34,6 +35,8 @@ export interface TasteProfile {
   styles?: Map<Style, number>;
   /** language / style the listener keeps skipping */
   styleSkips?: Map<Style, number>;
+  /** exact songs (title|artist) the listener marked "Not interested" */
+  hiddenSongs?: Set<string>;
 }
 
 const POSITIVE_ACTIONS = new Set(['stream', 'save', 'share', 'playlist_add']);
@@ -114,7 +117,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
   // YouTube-style implicit taste: combine behavior (plays/skips), explicit
   // intent (likes), and artist follows. A listener should not need five cloud
   // play events before their feed starts feeling personal.
-  const [eventsResult, likedSongs, followedResult] = await Promise.all([
+  const [eventsResult, likedSongs, followedResult, hiddenResult] = await Promise.all([
     supabase
       .from('song_play_events')
       .select('action, artist, title, score_weight, created_at')
@@ -127,6 +130,12 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
       .from('user_artist_preferences')
       .select('artist_name')
       .eq('user_id', userId),
+    supabase
+      .from('feed_not_interested')
+      .select('title, artist')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false })
+      .limit(500),
   ]);
 
   const data = eventsResult.data ?? [];
@@ -204,7 +213,15 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
     signalCount += 1;
   }
 
-  const profile: TasteProfile = { artists, keywords, skips, signalCount, scenes, positiveTotal, styles, styleSkips };
+  const hiddenSongs = new Set<string>();
+  for (const row of hiddenResult.data ?? []) {
+    hiddenSongs.add(notInterestedKey(row.title, row.artist));
+    const artist = (row.artist || '').trim().toLowerCase();
+    if (artist) skips.set(artist, (skips.get(artist) || 0) + 3);
+    signalCount++;
+  }
+
+  const profile: TasteProfile = { artists, keywords, skips, signalCount, scenes, positiveTotal, styles, styleSkips, hiddenSongs };
   if (cachesEnabled()) cache = { userId, at: Date.now(), profile };
   return profile;
 }
@@ -264,6 +281,10 @@ export function isSuppressed(item: RerankItem, profile: TasteProfile): boolean {
  * Explicitly disliked artists are removed outright.
  */
 export function rerank<T extends RerankItem>(items: T[], profile: TasteProfile): T[] {
+  // "Not interested" is an explicit choice about one song: always honour it,
+  // even if the rail gets shorter.
+  const hidden = profile.hiddenSongs;
+  if (hidden && hidden.size) items = items.filter((item) => !hidden.has(notInterestedKey(item.title, item.artist)));
   if (profile.signalCount < 1 || items.length < 2) return items;
   const allowed = items.filter((item) => !isSuppressed(item, profile));
   // Never blank a rail: if suppression would empty it, fall back to the source.
