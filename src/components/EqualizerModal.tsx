@@ -621,6 +621,19 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                   })}
                 </div>
 
+                {settings.studioSpace !== 'off' && (
+                  <ControlSlider
+                    icon={Waves}
+                    label="Room strength"
+                    value={settings.roomStrength}
+                    min={0}
+                    max={100}
+                    step={5}
+                    display={settings.roomStrength <= 15 ? 'Light' : settings.roomStrength >= 90 ? 'Full' : `${settings.roomStrength}%`}
+                    onChange={(value) => setEQSettings({ roomStrength: value })}
+                  />
+                )}
+
                 <ToggleRow
                   icon={Headphones}
                   label="9D Surround"
