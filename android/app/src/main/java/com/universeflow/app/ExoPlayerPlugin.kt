@@ -346,7 +346,7 @@ class ExoPlayerPlugin : Plugin() {
                     PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
                     PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW,
                 )
-                if (transient && errorRetryCount < MAX_ERROR_RETRIES) {
+                if (transient && player.playWhenReady && errorRetryCount < MAX_ERROR_RETRIES) {
                     errorRetryCount += 1
                     if (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
                         val uri = player.currentMediaItem?.localConfiguration?.uri
