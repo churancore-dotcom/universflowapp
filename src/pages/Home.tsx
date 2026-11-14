@@ -200,9 +200,6 @@ const Home = () => {
 
   const userAvatar = useAvatarUrl();
 
-  const recentEntries = useLocalRecents(20);
-  const history = useMemo(() => recentSongs(recentEntries), [recentEntries]);
-
   // ── The stage: one card, real signal only ────────────────────────────────
   const clean = useMemo(
     () => cleanRail(allSongs.filter((s) => !isSpamSong(s)), { requireCover: true }),
@@ -220,22 +217,13 @@ const Home = () => {
     const claimed = claimedByOtherRails('hero');
     const song = personal.find((s) => !claimed.has(songFingerprint(s))) || personal[0] || allSongs[0];
     return song ? { song, label: taste.signalCount >= 5 ? 'Picked for you' : `Top in your area` } : null;
-  }, [currentSong, history, personal, allSongs, claimVersion]);
+  }, [currentSong, personal, allSongs, claimVersion]);
 
   useEffect(() => { if (stage?.song) claimRailSongs('hero', [stage.song]); }, [stage?.song?.id]);
   useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
 
   // ── Real personal stats for the header, chips and recap card ─────────────
   const insights = useHomeInsights();
-
-  const headline = useMemo(() => {
-    if (insights.loading || insights.weekPlays < 3) return null;
-    const flavour = insights.weekTopArtist || insights.topGenre;
-    const plural = insights.weekPlays === 1 ? 'song' : 'songs';
-    return flavour
-      ? `You've played ${insights.weekPlays} ${plural} this week — mostly ${flavour}.`
-      : `You've played ${insights.weekPlays} ${plural} this week.`;
-  }, [insights]);
 
 
 
