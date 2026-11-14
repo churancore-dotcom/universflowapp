@@ -2,6 +2,7 @@
 
 - [x] APK background recovery: bounded repeated stream restarts, reduced neutral PCM maths, aligned startup buffer; 21 JVM audio/state tests and 154 web tests passed.
 - [ ] Verify this background fix in a freshly built APK while switching apps; blocked on full Android CI build and physical-phone testing (service/plugin not compiled locally, room-builder thread requires Android).
+- [ ] Restore delivery of current playback fixes to the APK build repository: checked 2026-11-14 17:18 UTC, GitHub main/latest successful APK still uses the 14:59 account/search commit and lacks PlaybackRetryBudget; requires Project settings → Git status/re-check (agent cannot operate sync settings). User confirms glitches affect streams, not downloads.
 
 - [x] Connect GitHub API and Google Search Console after the latest workspace move (17:08 request; both verified).
 
