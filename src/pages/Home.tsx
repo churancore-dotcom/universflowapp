@@ -26,6 +26,7 @@ import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import HomeBento from '@/components/HomeBento';
+import CrossDeviceResume from '@/components/CrossDeviceResume';
 import FlowCoreSection from '@/components/FlowCoreSection';
 import HomeStage from '@/components/HomeStage';
 
@@ -332,6 +333,7 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={personal} /></div>
           ) : (
             <>
+              <CrossDeviceResume />
               {/* ── Featured song + personal bento, both from real history ── */}
               {stage?.song && <HomeStage song={stage.song} label={stage.label} />}
 

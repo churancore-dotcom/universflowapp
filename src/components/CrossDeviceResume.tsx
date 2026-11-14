@@ -3,7 +3,7 @@ import { Laptop, Play, X } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { usePlayer, type Song } from '@/contexts/PlayerContext';
-import { usePlayerProgress } from '@/hooks/usePlayerProgress';
+import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { getDeviceId } from '@/lib/deviceId';
 import { shouldOfferRemoteResume, resumePosition, type RemotePlaybackRow } from '@/lib/remoteResume';
 import OptimizedImage from '@/components/OptimizedImage';
