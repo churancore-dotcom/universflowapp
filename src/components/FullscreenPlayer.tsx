@@ -1,6 +1,6 @@
 import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines, ImagePlus } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines, ImagePlus, ThumbsDown } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
@@ -26,6 +26,8 @@ import { canDownloadSong, canLikeSong, isIndexedSong } from '@/lib/songSupport';
 import { usePremium } from '@/hooks/usePremium';
 import { getEQPresetLabel, useEQSettings } from '@/lib/eqSettings';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { markNotInterested } from '@/lib/notInterested';
 
 const formatTime = (seconds: number) => {
   if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -252,6 +254,21 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     setDirection(1);
     nextSong();
   }, [nextSong]);
+
+  const { user } = useAuth();
+  const handleNotInterested = useCallback(async () => {
+    if (!currentSong) return;
+    if (!user) { toast('Sign in to tune your feed'); return; }
+    triggerHaptic('selection');
+    try {
+      await markNotInterested(user.id, currentSong);
+      toast.success("Got it — you'll see less like this");
+      setDirection(1);
+      nextSong();
+    } catch {
+      toast.error("Couldn't save that. Try again.");
+    }
+  }, [currentSong, user, nextSong]);
 
   const handlePrev = useCallback(() => {
     triggerHaptic('impactMedium');
@@ -567,6 +584,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   aria-label="Equalizer"
                 >
                   <Sliders className="w-[18px] h-[18px] text-muted-foreground" />
+                </button>
+                <button
+                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
+                  onClick={handleNotInterested}
+                  aria-label="Not interested"
+                >
+                  <ThumbsDown className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
                 <button
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
