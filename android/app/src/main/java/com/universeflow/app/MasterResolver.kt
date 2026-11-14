@@ -92,14 +92,19 @@ object MasterResolver {
 
         val key = videoId?.takeIf { it.length == 11 }
             ?: "${title.orEmpty().trim().lowercase()}|${artist.orEmpty().trim().lowercase()}"
+        val callerStart = System.currentTimeMillis()
         val mine = CompletableFuture<Resolved?>()
         val existing = inFlight.putIfAbsent(key, mine)
         if (existing != null) {
-            return try {
-                existing.get(timeoutMs + 1000L, java.util.concurrent.TimeUnit.MILLISECONDS)
-            } catch (_: Throwable) {
-                null
-            }
+            // Joining callers honour THEIR deadline, not the owner's: a short
+            // prefetch can't stall a tap, and a tap whose shared lookup came
+            // back empty retries alone with whatever budget it has left.
+            val shared = try {
+                existing.get(ResolverDeadline.waitBudget(callerStart, System.currentTimeMillis(), timeoutMs), java.util.concurrent.TimeUnit.MILLISECONDS)
+            } catch (_: Throwable) { null }
+            if (shared != null) return shared
+            val retry = ResolverDeadline.retryBudget(callerStart, System.currentTimeMillis(), timeoutMs) ?: return null
+            return resolveFresh(videoId, title, artist, retry)
         }
 
         return try {
