@@ -464,10 +464,20 @@ class RoomReverb {
         internal fun kernelFor(c: Character, sr: Int): Kernel {
             val key = "${c.id}@$sr"
             synchronized(CACHE) { CACHE[key]?.let { return it } }
-            val (hl, hr) = synthesize(c, sr)
+            val (hl, hr) = RecordedRooms.load(c.id, sr)?.let { normalise(c, it) } ?: synthesize(c, sr)
             val k = buildKernel(c, sr, hl, hr)
             synchronized(CACHE) { CACHE[key] = k }
             return k
+        }
+
+        /** Scales a recorded room to this space's level (energy vs dry). */
+        internal fun normalise(c: Character, ir: Pair<FloatArray, FloatArray>): Pair<FloatArray, FloatArray> {
+            val (hl, hr) = ir
+            var e = 0.0
+            for (i in hl.indices) e += (hl[i] * hl[i] + hr[i] * hr[i]) * 0.5
+            val s = if (e > 0.0) sqrt(10.0.pow(c.roomDb / 10.0) / e).toFloat() else 0f
+            for (i in hl.indices) { hl[i] *= s; hr[i] *= s }
+            return hl to hr
         }
 
         /** Stereo impulse response of a space (direct sound excluded). */

@@ -473,6 +473,7 @@ class ExoPlayerService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
+        RecordedRooms.assets = applicationContext.assets
 
         // Promote to the foreground with a placeholder notification BEFORE the
         // player and session exist. On Android 12+ a service started from the
