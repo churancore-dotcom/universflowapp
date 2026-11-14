@@ -583,7 +583,6 @@ class ExoPlayerPlugin : Plugin() {
                 isStartingUp = true
                 errorRetryBudget.reset()
                 ensureListener(null)
-                if (it.playerError != null) errorRetryBudget.reset()
                 stopProgress()
                 val metadata = MediaMetadata.Builder()
                     .setTitle(title)
@@ -643,6 +642,7 @@ class ExoPlayerPlugin : Plugin() {
         runOnMain {
             service()?.player?.let {
                 ensureListener(null)
+                if (it.playerError != null) errorRetryBudget.reset()
                 if (!it.isPlaying) isStartingUp = true
                 if (it.playbackState == Player.STATE_ENDED && it.mediaItemCount > 0) it.seekTo(0)
                 if (it.playbackState == Player.STATE_IDLE && it.mediaItemCount > 0) it.prepare()
