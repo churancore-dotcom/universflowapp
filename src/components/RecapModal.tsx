@@ -211,7 +211,7 @@ const RecapModal = ({ isOpen, onClose, window: recapWindow = 'month' }: Props) =
     <AnimatePresence>
       {isOpen && (
         <motion.div
-          className="fixed inset-0 z-[220] bg-background flex flex-col overflow-hidden"
+          className="fixed inset-0 z-[220] recap-surface isolate flex flex-col overflow-hidden"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
@@ -298,12 +298,18 @@ const RecapModal = ({ isOpen, onClose, window: recapWindow = 'month' }: Props) =
               <AnimatePresence mode="wait">
                 <motion.div
                   key={slide.key}
-                  className="absolute inset-0 px-7 pb-14 flex flex-col justify-center"
+                  className="absolute inset-0 isolate px-7 pb-14 flex flex-col justify-center"
                   initial={{ opacity: 0, scale: 1.04 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                 >
+                  {slide.cover && (
+                    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
+                      <img src={slide.cover} alt="" className="h-full w-full scale-125 object-cover opacity-40 blur-3xl" />
+                      <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background" />
+                    </div>
+                  )}
                   {slide.cover && (
                     <motion.div
                       className="relative self-center w-[62%] aspect-square rounded-[28px] overflow-hidden mb-9 shadow-2xl"
