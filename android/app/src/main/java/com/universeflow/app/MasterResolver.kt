@@ -25,6 +25,20 @@ object MasterResolver {
 
     data class Resolved(val url: String, val source: String, val expiresAt: Long)
 
+    /**
+     * CompletableFuture.cancel(true) never interrupts its worker thread, so
+     * losing racers kept downloading in the background. Run on a FutureTask
+     * and forward cancellation so the loser's blocking network call stops.
+     */
+    private fun <T> interruptibleAsync(block: () -> T, executor: java.util.concurrent.ExecutorService): CompletableFuture<T> {
+        val result = CompletableFuture<T>()
+        val task = executor.submit {
+            try { result.complete(block()) } catch (t: Throwable) { result.completeExceptionally(t) }
+        }
+        result.whenComplete { _, _ -> if (result.isCancelled) task.cancel(true) }
+        return result
+    }
+
     /** Shared pool: racing spawns two short-lived tasks per resolve. */
     private val pool = Executors.newCachedThreadPool { r ->
         Thread(r, "uf-resolve").apply { isDaemon = true }
@@ -122,7 +136,7 @@ object MasterResolver {
 
         val ytDeadline = startedAt + timeoutMs.coerceIn(1_000L, 6_500L)
         val ytFuture: CompletableFuture<Resolved?>? = if (direct != null || !title.isNullOrBlank()) {
-            CompletableFuture.supplyAsync({
+            interruptibleAsync({
                 try {
                     // Candidate list, not a single guess: when the best match is
                     // age-gated, region-blocked or SABR-only, the next accepted
@@ -134,38 +148,38 @@ object MasterResolver {
                     }
                     if (ids.isEmpty()) {
                         ytFailure.set("NO_VIDEO_ID_MATCH")
-                        return@supplyAsync null
+                        return@interruptibleAsync null
                     }
                     for (id in ids) {
-                        if (finished.get()) return@supplyAsync null
+                        if (finished.get()) return@interruptibleAsync null
                         val budget = ytDeadline - System.currentTimeMillis()
                         if (budget < 700L) break
                         // NewPipe Extractor and our own resolver race; first playable wins.
-                        val np = CompletableFuture.supplyAsync({ NewPipeResolver.resolve(id) }, pool)
-                        val own = CompletableFuture.supplyAsync({
+                        val np = interruptibleAsync({ NewPipeResolver.resolve(id) }, pool)
+                        val own = interruptibleAsync({
                             NativeYouTubeResolver.resolve(id, timeoutMs = budget.coerceAtMost(4200L))
                         }, pool)
                         val stop = System.currentTimeMillis() + budget.coerceAtMost(4500L)
                         while (System.currentTimeMillis() < stop && !(np.isDone && own.isDone)) {
                             if (finished.get()) {
                                 np.cancel(true); own.cancel(true)
-                                return@supplyAsync null
+                                return@interruptibleAsync null
                             }
                             np.takeIf { it.isDone }?.let { f -> runCatching { f.getNow(null) }.getOrNull() }?.let { h ->
                                 own.cancel(true)
-                                return@supplyAsync Resolved(h.url, "youtube:newpipe", h.expiresAt)
+                                return@interruptibleAsync Resolved(h.url, "youtube:newpipe", h.expiresAt)
                             }
                             own.takeIf { it.isDone }?.let { f -> runCatching { f.getNow(null) }.getOrNull() }?.let { h ->
                                 np.cancel(true)
-                                return@supplyAsync Resolved(h.url, "youtube:${h.client}", 0L)
+                                return@interruptibleAsync Resolved(h.url, "youtube:${h.client}", 0L)
                             }
                             Thread.sleep(20L)
                         }
                         // getNow() throws on unfinished futures; only read completed ones.
                         np.takeIf { it.isDone }?.let { f -> runCatching { f.getNow(null) }.getOrNull() }
-                            ?.let { own.cancel(true); return@supplyAsync Resolved(it.url, "youtube:newpipe", it.expiresAt) }
+                            ?.let { own.cancel(true); return@interruptibleAsync Resolved(it.url, "youtube:newpipe", it.expiresAt) }
                         own.takeIf { it.isDone }?.let { f -> runCatching { f.getNow(null) }.getOrNull() }
-                            ?.let { np.cancel(true); return@supplyAsync Resolved(it.url, "youtube:${it.client}", 0L) }
+                            ?.let { np.cancel(true); return@interruptibleAsync Resolved(it.url, "youtube:${it.client}", 0L) }
                         np.cancel(true); own.cancel(true)
                         ytFailure.set(listOfNotNull(
                             NewPipeResolver.lastFailure(),
@@ -183,7 +197,7 @@ object MasterResolver {
         // ── JioSaavn: runs in parallel so a YouTube block never stalls a tap.
         val saavnFuture: CompletableFuture<Resolved?>? =
             if (!title.isNullOrBlank() && !artist.isNullOrBlank()) {
-                CompletableFuture.supplyAsync({
+                interruptibleAsync({
                     try {
                         JioSaavnClient.searchAndResolve(title, artist)?.let { saavn ->
                             Log.d(TAG, "JioSaavn hit for $title / $artist -> ${saavn.bitrateKbps}kbps")
