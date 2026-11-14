@@ -65,9 +65,9 @@ class NativeStateMachinesTest {
         assertEquals(1f, end.second, 0.001f)
     }
 
-    @Test fun eqLeavesOnlyThreeDbForTheLimiter() {
+    @Test fun eqLeavesAtMostFourAndHalfDbForTheLimiter() {
         assertEquals(1f, EqHeadroom.preGain(2.0), 0.0001f)
-        // +12 dB peak -> pulled down 9 dB
-        assertEquals(Math.pow(10.0, -9.0 / 20).toFloat(), EqHeadroom.preGain(12.0), 0.0001f)
+        // +12 dB peak -> pulled down 7.5 dB
+        assertEquals(Math.pow(10.0, -7.5 / 20).toFloat(), EqHeadroom.preGain(12.0), 0.0001f)
     }
 }

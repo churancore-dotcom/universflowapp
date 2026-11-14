@@ -193,7 +193,7 @@ class PcmEqualizer {
         // whole song down by exactly the boost, so +6 dB bass came out as "same
         // bass, everything quieter" and users heard no effect at all. The
         // look-ahead limiter after the chain catches the remaining peaks.
-        // Pull the summed curve's peak down to at most +3 dB, so the limiter
+        // Pull the summed curve's peak down to at most +4.5 dB, so the limiter
         // only shaves transients instead of squashing the whole song (half
         // compensation let +12 dB boosts slam the limiter: pumping, grit).
         val peakDb = 10.0 * kotlin.math.log10(peakSquared)
@@ -205,7 +205,7 @@ class PcmEqualizer {
 
 /** Pure headroom rule, unit-tested. */
 object EqHeadroom {
-    const val ALLOWED_OVER_DB = 3.0
+    const val ALLOWED_OVER_DB = 4.5
     fun preGain(peakDb: Double): Float =
         if (peakDb <= ALLOWED_OVER_DB) 1f else Math.pow(10.0, -(peakDb - ALLOWED_OVER_DB) / 20.0).toFloat()
 }
