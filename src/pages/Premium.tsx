@@ -453,6 +453,11 @@ const PremiumPage = memo(function PremiumPage() {
                   tagline="Try it out"
                 />
               </div>
+              {!playBuild && local.isConverted && (
+                <p className="text-[11px] text-muted-foreground mt-3 px-1">
+                  Prices shown in {local.currency} are estimates. You pay the exact rupee amount via UPI.
+                </p>
+              )}
             </motion.section>
           )}
 
