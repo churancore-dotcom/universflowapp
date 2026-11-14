@@ -39,7 +39,10 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // The country's official "Trending 20" chart leads (what is viral now),
   // followed by its Daily Top chart. Niche genre/language/live lists are never used.
   const youtubePool = useMemo(
-    () => [...(charts?.trending ?? []), ...(charts?.top ?? [])],
+    // Top Songs leads: in markets like India YouTube's "Trending" playlist is
+    // dominated by teasers and festival uploads, while Top Songs is what
+    // people actually play. Both are official YouTube Music charts in order.
+    () => [...(charts?.top ?? []), ...(charts?.trending ?? [])],
     [charts],
   );
   const servedCountry = youtubePool.length ? (charts?.country || country) : (countryChart?.country ?? country);
