@@ -45,3 +45,20 @@ export function filterSimilar(
   }
   return out;
 }
+
+/**
+ * YouTube Music "up next" mix for a song: different songs with a similar sound.
+ * Songs without a YouTube id are first matched to YouTube's top result.
+ */
+export async function fetchSongMix(song: { title: string; artist: string; videoId?: string }, limit = 25): Promise<SimilarTrack[]> {
+  const { supabase } = await import('@/integrations/supabase/client');
+  let videoId = song.videoId;
+  if (!videoId) {
+    const { data } = await supabase.functions.invoke('yt-innertube-search', { body: { query: `${song.title} ${song.artist}`, limit: 3 } });
+    videoId = (data?.results ?? []).find((r: SimilarTrack) => r?.videoId)?.videoId;
+  }
+  if (!videoId) return [];
+  const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId } });
+  const title = song.title.replace(/\s*\((from|feat|ft)[^)]*\)/gi, '').trim();
+  return filterSimilar(Array.isArray(data?.tracks) ? data.tracks : [], { title, query: title }, limit);
+}
