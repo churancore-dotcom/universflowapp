@@ -15,6 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cachesEnabled } from '@/lib/ssrCache';
 import { loadLibrarySongs } from '@/lib/streamSongs';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
+import { detectScene, type Scene } from '@/lib/musicScene';
 
 export interface TasteProfile {
   /** artistName(lowercased) -> affinity score (higher = better) */
@@ -25,6 +26,10 @@ export interface TasteProfile {
   skips: Map<string, number>;
   /** total signals observed; <5 means "cold start", keep ordering close to original */
   signalCount: number;
+  /** opt-in regional scenes (e.g. Bhojpuri) -> positive weight */
+  scenes?: Map<Scene, number>;
+  /** total positive weight, for scene share */
+  positiveTotal?: number;
 }
 
 const POSITIVE_ACTIONS = new Set(['stream', 'save', 'share', 'playlist_add']);
@@ -72,17 +77,22 @@ const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 function localOnlyProfile(): TasteProfile {
   const artists = new Map<string, number>();
   const keywords = new Map<string, number>();
+  const scenes = new Map<Scene, number>();
+  let positiveTotal = 0;
   for (const entry of readLocalRecent(null).slice(0, 50)) {
     const artist = (entry.song?.artist || '').trim().toLowerCase();
     if (!artist) continue;
     const ageDays = Math.max(0, (Date.now() - entry.played_at) / 86_400_000);
     const weight = Math.max(0.5, 4 * Math.exp(-ageDays / 7));
     artists.set(artist, (artists.get(artist) || 0) + weight);
+    positiveTotal += weight;
+    const sc = detectScene({ title: entry.song?.title, artist: entry.song?.artist });
+    if (sc) scenes.set(sc, (scenes.get(sc) || 0) + weight);
     for (const keyword of tokenize(entry.song?.title || '')) {
       keywords.set(keyword, (keywords.get(keyword) || 0) + weight * 0.35);
     }
   }
-  return { artists, keywords, skips: new Map(), signalCount: artists.size };
+  return { artists, keywords, skips: new Map(), signalCount: artists.size, scenes, positiveTotal };
 }
 
 /** Build (or reuse a cached) taste profile from recent play events. */
@@ -118,6 +128,13 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
   const artists = new Map<string, number>();
   const keywords = new Map<string, number>();
   const skips = new Map<string, number>();
+  const scenes = new Map<Scene, number>();
+  let positiveTotal = 0;
+  const tally = (title: string | null | undefined, artist: string | null | undefined, w: number) => {
+    positiveTotal += w;
+    const sc = detectScene({ title, artist });
+    if (sc) scenes.set(sc, (scenes.get(sc) || 0) + w);
+  };
   let signalCount = 0;
 
   for (const row of data) {
@@ -129,6 +146,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
     if (POSITIVE_ACTIONS.has(action) && a) {
       const w = baseW * r;
       artists.set(a, (artists.get(a) || 0) + w);
+      tally(row.title, row.artist, w);
       signalCount++;
       for (const k of tokenize(row.title || '')) {
         keywords.set(k, (keywords.get(k) || 0) + w * 0.3);
@@ -143,6 +161,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
     const artist = (song.artist || '').trim().toLowerCase();
     if (!artist) continue;
     artists.set(artist, (artists.get(artist) || 0) + 7);
+    tally(song.title, song.artist, 7);
     for (const keyword of tokenize(song.title || '')) {
       keywords.set(keyword, (keywords.get(keyword) || 0) + 1.5);
     }
@@ -153,6 +172,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
     const artist = (row.artist_name || '').trim().toLowerCase();
     if (!artist) continue;
     artists.set(artist, (artists.get(artist) || 0) + 9);
+    tally(null, row.artist_name, 9);
     signalCount += 2;
   }
 
@@ -166,13 +186,14 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
     const ageDays = Math.max(0, (Date.now() - entry.played_at) / 86_400_000);
     const weight = Math.max(0.5, 4 * Math.exp(-ageDays / 7));
     artists.set(artist, (artists.get(artist) || 0) + weight);
+    tally(title, entry.song?.artist, weight);
     for (const keyword of tokenize(title)) {
       keywords.set(keyword, (keywords.get(keyword) || 0) + weight * 0.35);
     }
     signalCount += 1;
   }
 
-  const profile: TasteProfile = { artists, keywords, skips, signalCount };
+  const profile: TasteProfile = { artists, keywords, skips, signalCount, scenes, positiveTotal };
   if (cachesEnabled()) cache = { userId, at: Date.now(), profile };
   return profile;
 }
