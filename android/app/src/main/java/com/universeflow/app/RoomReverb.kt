@@ -50,6 +50,9 @@ import kotlin.math.sqrt
  * (normalised from 16-bit scale) and the downstream look-ahead limiter
  * catches peaks.
  */
+/** +6 dB room energy over the measured reference so spaces are clearly audible. */
+private const val ROOM_BOOST = 2f
+
 class RoomReverb {
 
     /** Physical description of one Studio Space. */
@@ -222,8 +225,6 @@ class RoomReverb {
         out[0] = inL * dry + tmp[0] * g
         out[1] = inR * dry + tmp[1] * g
     }
-
-    private companion object Boost { const val ROOM_BOOST = 2f }
 
     private fun resetSend() {
         hx1 = 0f; hx2 = 0f; hy1 = 0f; hy2 = 0f; lpState = 0f
