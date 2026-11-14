@@ -20,6 +20,7 @@ import { checkPlayBillingReady, verifyPlayPurchase } from '@/lib/playPurchase.fu
 import { useServerFn } from '@tanstack/react-start';
 import { canBuyPlayProduct, planDisplayPrice } from '@/lib/playPaymentPolicy';
 import { Button } from '@/components/ui/button';
+import { useLocalCurrency } from '@/lib/localCurrency';
 
 
 
@@ -203,6 +204,7 @@ const PremiumPage = memo(function PremiumPage() {
     };
   }, [user, isPremium, refetchPremium, playBuild]);
 
+  const local = useLocalCurrency();
   const monthly = settings?.monthlyPrice ?? 99;
   const bimonthly = settings?.bimonthlyPrice ?? 199;
   const quarterly = settings?.quarterlyPrice ?? 280;
@@ -426,8 +428,8 @@ const PremiumPage = memo(function PremiumPage() {
                   badge={playBuild || bimonthlySave < 1 ? undefined : `Save ${bimonthlySave}%`}
                   title="2 Months"
                   price={bimonthly}
-                  formattedPrice={planDisplayPrice(playBuild, playPriceByPlan.bimonthly, bimonthly)}
-                  perMonth={playBuild ? '60 days' : `₹${bimonthlyPerMo}/mo`}
+                  formattedPrice={playBuild ? planDisplayPrice(true, playPriceByPlan.bimonthly, bimonthly) : local.format(bimonthly)}
+                  perMonth={playBuild ? '60 days' : `${local.format(Number(bimonthlyPerMo)).replace('≈ ', '')}/mo`}
                   tagline={playBuild ? 'One-time purchase' : 'Most popular'}
                   recommended
                 />
@@ -437,8 +439,8 @@ const PremiumPage = memo(function PremiumPage() {
                   badge={playBuild || quarterlySave < 1 ? undefined : `Save ${quarterlySave}%`}
                   title="3 Months"
                   price={quarterly}
-                  formattedPrice={planDisplayPrice(playBuild, playPriceByPlan.quarterly, quarterly)}
-                  perMonth={playBuild ? '90 days' : `₹${quarterlyPerMo}/mo`}
+                  formattedPrice={playBuild ? planDisplayPrice(true, playPriceByPlan.quarterly, quarterly) : local.format(quarterly)}
+                  perMonth={playBuild ? '90 days' : `${local.format(Number(quarterlyPerMo)).replace('≈ ', '')}/mo`}
                   tagline={playBuild ? 'One-time purchase' : 'Best value'}
                 />
                 <PlanCard
@@ -446,7 +448,7 @@ const PremiumPage = memo(function PremiumPage() {
                   onSelect={() => { haptics.light(); setSelectedPlan('monthly'); }}
                   title={playBuild ? '30 Days' : 'Monthly'}
                   price={monthly}
-                  formattedPrice={planDisplayPrice(playBuild, playPriceByPlan.monthly, monthly)}
+                  formattedPrice={playBuild ? planDisplayPrice(true, playPriceByPlan.monthly, monthly) : local.format(monthly)}
                   perMonth="30 days"
                   tagline="Try it out"
                 />
@@ -546,7 +548,7 @@ const PremiumPage = memo(function PremiumPage() {
                   {PLAN_LABEL[selectedPlan]}
                 </p>
                 <p className="text-[22px] font-bold leading-tight tracking-tight">
-                  {playBuild ? (playPriceByPlan[selectedPlan] || '—') : `₹${selectedPrice}`}
+                  {playBuild ? (playPriceByPlan[selectedPlan] || '—') : local.format(selectedPrice)}
                 </p>
               </div>
               <Button
