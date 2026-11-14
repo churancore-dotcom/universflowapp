@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Connect GitHub API and Google Search Console after the latest workspace move (17:08 request).
+
 - [ ] Fix and regression-test stale favorites, followed artists, and typing suggestions; verify signed-in search.
 
 - [x] Reconnect GitHub API and Google Search Console (another workspace move; both verified)
