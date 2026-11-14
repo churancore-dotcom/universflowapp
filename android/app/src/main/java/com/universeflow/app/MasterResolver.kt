@@ -41,7 +41,12 @@ object MasterResolver {
 
     /** Shared pool: racing spawns two short-lived tasks per resolve. */
     private val pool = Executors.newCachedThreadPool { r ->
-        Thread(r, "uf-resolve").apply { isDaemon = true }
+        Thread({
+            // Lookups (and their cipher solving) run below audio priority so a
+            // prefetch can never starve playback while another app is in front.
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            r.run()
+        }, "uf-resolve").apply { isDaemon = true }
     }
 
     /**
