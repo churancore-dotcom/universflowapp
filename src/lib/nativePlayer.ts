@@ -1,3 +1,4 @@
+import { playerProgressStore } from '@/lib/playerProgressStore';
 // Capacitor wrappers for the on-device InnerTube resolver and ExoPlayer
 // MediaSessionService. Both no-op on web — callers must check
 // `isNativePlayerAvailable()` first.
@@ -341,6 +342,7 @@ export async function setNativeStemMix(vocalMix: number, instrumentalMix: number
 export async function setNativePlaybackSpeed(speed: number): Promise<void> {
   if (!isNativePlayerAvailable()) return;
   const clamped = Math.max(0.5, Math.min(2, Number.isFinite(speed) ? speed : 1));
+  playerProgressStore.setRate(clamped);
   try { await ExoPlayerPlugin.setPlaybackSpeed({ speed: clamped }); } catch {}
 }
 

@@ -1,3 +1,4 @@
+import { playerProgressStore } from '@/lib/playerProgressStore';
 import { useEffect, useState } from 'react';
 import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, setVocalMix, setInstrumentalMix, resume, subscribe } from '@/lib/audioEngine';
 import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
@@ -242,6 +243,7 @@ export function useGlobalAudioEngine(
 
       // Always honor playback rate — native <audio> property, no graph needed.
       audioElement.playbackRate = s.playbackSpeed;
+      playerProgressStore.setRate(s.playbackSpeed);
 
       // Always push the native AudioEffect chain on Android — that path is
       // what's actually audible while ExoPlayer is active. Cheap no-op on web.

@@ -1,3 +1,4 @@
+import { playerProgressStore } from '@/lib/playerProgressStore';
 import { confirmAction } from '@/lib/confirmDialog';
 import { useState, useEffect, useCallback } from 'react';
 import {
@@ -316,7 +317,7 @@ const Settings = () => {
     if (isNativePlayerAvailable()) {
       void setNativePlaybackSpeed(speed);
     } else if (audioElement) {
-      try { audioElement.playbackRate = speed; } catch { /* ignore */ }
+      try { audioElement.playbackRate = speed; playerProgressStore.setRate(speed); } catch { /* ignore */ }
     }
   };
 
@@ -349,6 +350,8 @@ const Settings = () => {
     setPlaybackSpeed(1);
     writeEq({ playbackSpeed: 1 });
     if (audioElement) { try { audioElement.playbackRate = 1; } catch { /* ignore */ } }
+    playerProgressStore.setRate(1);
+    if (isNativePlayerAvailable()) void setNativePlaybackSpeed(1);
     handleGapless(true);
 
     handleAutoplay(true);

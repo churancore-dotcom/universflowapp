@@ -1,3 +1,4 @@
+import { playerProgressStore } from '@/lib/playerProgressStore';
 import { useEffect, useRef } from 'react';
 // TYPE-ONLY on purpose: PlayerContext imports this hook, so a value import
 // here made a real runtime cycle (PlayerContext -> useMediaSession ->
@@ -157,7 +158,7 @@ export const useMediaSession = ({
     try {
       navigator.mediaSession.setPositionState({
         duration: duration || 0,
-        playbackRate: 1,
+        playbackRate: playerProgressStore.getRate(),
         position: Math.min(Math.max(0, progress), duration || 0),
       });
     } catch (error) {
@@ -183,7 +184,7 @@ export const useMediaSession = ({
         const currentProgress = progressRef.current || 0;
         navigator.mediaSession.setPositionState({
           duration: currentDuration,
-          playbackRate: 1,
+          playbackRate: playerProgressStore.getRate(),
           position: Math.min(Math.max(0, currentProgress), currentDuration),
         });
       } catch {
