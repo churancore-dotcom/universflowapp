@@ -1,6 +1,25 @@
 import { createServerFn } from '@tanstack/react-start';
 import { requireSupabaseAuth } from '@/integrations/supabase/auth-middleware';
 import { deletionFeedback } from './accountNoticeRules';
+import { deletionScheduledEmail } from './deletionEmail';
+
+// Best effort: the deletion is already scheduled, so a mail failure must not undo it.
+async function sendDeletionEmail(to: string, deleteAfter: string) {
+  const key = process.env.RESEND_API_KEY;
+  if (!key || !to) return;
+  const email = deletionScheduledEmail(deleteAfter, to);
+  try {
+    const res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ from: 'Universflow <noreply@universflow.in>', reply_to: 'support@universflow.in', to: [to], ...email }),
+      signal: AbortSignal.timeout(8000),
+    });
+    if (!res.ok) console.error(`Deletion email failed [${res.status}]: ${await res.text()}`);
+  } catch (error) {
+    console.error('Deletion email failed', error);
+  }
+}
 
 export const requestAccountDeletion = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
@@ -8,7 +27,10 @@ export const requestAccountDeletion = createServerFn({ method: 'POST' })
   .handler(async ({ context, data: feedback }) => {
     const { data, error } = await context.supabase.rpc('request_account_deletion_with_feedback', { _reason: feedback.reason, _details: feedback.details });
     if (error) throw new Error('Could not schedule account deletion');
-    return { deleteAfter: String(data) };
+    const deleteAfter = String(data);
+    const email = typeof context.claims?.email === 'string' ? context.claims.email : '';
+    await sendDeletionEmail(email, deleteAfter);
+    return { deleteAfter };
   });
 
 export const getAccountDeletionRequests = createServerFn({ method: 'POST' })
