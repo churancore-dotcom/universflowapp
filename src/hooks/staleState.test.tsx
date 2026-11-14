@@ -5,7 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 // Use the same CommonJS instance as react-dom in the sandbox test runner.
 vi.mock('react', async () => {
   const { createRequire } = await import('node:module');
-  return createRequire(import.meta.url)('react');
+  const react = createRequire(import.meta.url)('react');
+  return { ...react, default: react };
 });
 
 const mocks = vi.hoisted(() => ({
