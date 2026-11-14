@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { useOptionalPlayer } from '@/contexts/PlayerContext';
@@ -18,6 +18,7 @@ export function usePlaybackSync() {
   const queue = player?.queue ?? [];
   const lastWriteRef = useRef<number>(0);
   const lastSongKeyRef = useRef<string>('');
+  const [tick, setTick] = useState(0);
 
   useEffect(() => {
     if (!player || !user || !currentSong) return;
@@ -64,5 +65,16 @@ export function usePlaybackSync() {
     }, delay);
 
     return () => window.clearTimeout(t);
-  }, [player, user?.id, currentSong?.id, isPlaying, queue.length]);
+  }, [player, user?.id, currentSong?.id, isPlaying, queue.length, tick]);
+
+  // The effect above only re-ran on song/play changes, so the saved position
+  // froze at the start of each song. Re-arm it every 10s while playing and
+  // flush immediately when the app goes to the background.
+  useEffect(() => {
+    if (!isPlaying || !user) return;
+    const iv = window.setInterval(() => setTick((n) => n + 1), 10_000);
+    const onHide = () => { if (document.visibilityState === 'hidden') { lastSongKeyRef.current = ''; setTick((n) => n + 1); } };
+    document.addEventListener('visibilitychange', onHide);
+    return () => { window.clearInterval(iv); document.removeEventListener('visibilitychange', onHide); };
+  }, [isPlaying, user?.id]);
 }

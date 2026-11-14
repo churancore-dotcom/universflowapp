@@ -26,6 +26,7 @@ import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import HomeBento from '@/components/HomeBento';
+import CrossDeviceResume from '@/components/CrossDeviceResume';
 import FlowCoreSection from '@/components/FlowCoreSection';
 import HomeStage from '@/components/HomeStage';
 
@@ -137,6 +138,8 @@ const Home = () => {
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
     queryFn: () => fetchHomeSongs(country),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
+    // Cached songs may be from another country: show them, but fetch fresh now.
+    initialDataUpdatedAt: 0,
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,
@@ -332,6 +335,7 @@ const Home = () => {
             <div className="px-6 pt-2"><AllSongsSection songs={personal} /></div>
           ) : (
             <>
+              <CrossDeviceResume />
               {/* ── Featured song + personal bento, both from real history ── */}
               {stage?.song && <HomeStage song={stage.song} label={stage.label} />}
 

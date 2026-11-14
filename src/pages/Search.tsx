@@ -570,10 +570,11 @@ const Search = () => {
   const scrollRef = useRef<HTMLElement>(null);
 
 
+  // Sync only when the URL's q changes, so typing/clearing isn't undone.
+  const urlQuery = params.get('q')?.trim() || '';
   useEffect(() => {
-    const urlQuery = params.get('q')?.trim() || '';
-    if (urlQuery && urlQuery !== query.trim()) setQuery(urlQuery);
-  }, [params, query]);
+    if (urlQuery) setQuery(urlQuery);
+  }, [urlQuery]);
 
   // Refresh history snapshot whenever the currently playing song changes
   useEffect(() => {

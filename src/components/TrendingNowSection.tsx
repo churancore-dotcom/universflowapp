@@ -64,6 +64,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // Trending owns these fingerprints: lower-priority rails (New Releases)
   // subtract them so the same regional hit never appears twice on Home.
   useEffect(() => { claimRailSongs('trending', trending); }, [trending]);
+  useEffect(() => () => claimRailSongs('trending', []), []);
 
   // Pre-resolve the top of the chart so the first taps are instant.
   useEffect(() => { prewarmSongs(trending, 4); }, [trending]);
