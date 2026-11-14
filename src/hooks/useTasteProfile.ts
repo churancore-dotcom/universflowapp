@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '@/contexts/AuthContext';
-import { wantedScenes, setWantedScenes } from '@/lib/musicScene';
+import { wantedScenes, setWantedScenes, setSceneAccount } from '@/lib/musicScene';
 import { getTasteProfile, invalidateTasteProfile, type TasteProfile } from '@/lib/feedPersonalizer';
 
 const EMPTY: TasteProfile = { artists: new Map(), keywords: new Map(), skips: new Map(), signalCount: 0 };
@@ -17,6 +17,8 @@ const EMPTY: TasteProfile = { artists: new Map(), keywords: new Map(), skips: ne
 export function useTasteProfile(): TasteProfile {
   const { user } = useAuth();
   const queryClient = useQueryClient();
+  // Switch the shared feed filter to this account before any rail renders.
+  setSceneAccount(user?.id);
 
   const { data } = useQuery({
     queryKey: ['taste-profile', user?.id ?? 'anon'],
@@ -45,10 +47,11 @@ export function useTasteProfile(): TasteProfile {
   }, [user?.id, queryClient]);
 
   useEffect(() => {
+    setSceneAccount(user?.id);
     if (!data) return;
     const next = wantedScenes(data.scenes ?? new Map(), data.positiveTotal ?? 0);
     setWantedScenes(next);
-  }, [data]);
+  }, [data, user?.id]);
 
   return data ?? EMPTY;
 }

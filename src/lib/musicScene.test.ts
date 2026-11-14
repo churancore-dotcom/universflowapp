@@ -20,3 +20,32 @@ describe('regional scene personalisation', () => {
     expect(wantedScenes(new Map([['bhojpuri', 1]]), 100).has('bhojpuri')).toBe(false);
   });
 });
+
+import { rerank, type TasteProfile } from './feedPersonalizer';
+import { detectStyles, setSceneAccount, setWantedScenes, feedAllows } from './musicScene';
+
+const profile = (p: Partial<TasteProfile>): TasteProfile => ({ artists: new Map(), keywords: new Map(), skips: new Map(), signalCount: 20, ...p });
+
+describe('taste ranking beyond genres', () => {
+  it('detects languages and styles', () => {
+    expect(detectStyles({ title: 'Softly', artist: 'Karan Aujla' })).toContain('punjabi');
+    expect(detectStyles({ title: 'Chuttamalle', artist: 'Anirudh Ravichander' })).toContain('tamil');
+  });
+  it('a Punjabi listener gets Punjabi songs ranked first', () => {
+    const songs = [{ title: 'Song A', artist: 'Taylor Swift' }, { title: 'Song B', artist: 'Arijit Singh' }, { title: 'Song C', artist: 'Karan Aujla' }];
+    const out = rerank(songs, profile({ styles: new Map([['punjabi', 40]]), positiveTotal: 50 }));
+    expect(out[0].artist).toBe('Karan Aujla');
+  });
+  it('liked artists outrank, skipped artists sink', () => {
+    const songs = [{ title: 'One', artist: 'Skipped Guy' }, { title: 'Two', artist: 'Other' }, { title: 'Three', artist: 'Fav' }];
+    const out = rerank(songs, profile({ artists: new Map([['fav', 30]]), skips: new Map([['skipped guy', 2]]) }));
+    expect(out[0].artist).toBe('Fav');
+    expect(out[out.length - 1].artist).toBe('Skipped Guy');
+  });
+  it('keeps preferences separate per account', () => {
+    setSceneAccount('user-a'); setWantedScenes(new Set(['bhojpuri']));
+    expect(feedAllows({ title: 'x', artist: 'Pawan Singh' })).toBe(true);
+    setSceneAccount('user-b');
+    expect(feedAllows({ title: 'x', artist: 'Pawan Singh' })).toBe(false);
+  });
+});
