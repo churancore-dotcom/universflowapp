@@ -1912,3 +1912,9 @@ html.ios-glass-lite .bg-secondary {
 .uf-island-title{font-size:13.5px!important;font-weight:600}
 .uf-island-icon,.uf-island-icon svg,.uf-hud-big,.uf-hud-big svg{width:22px!important;height:22px!important}
 .uf-hud-big circle{stroke-width:2!important}.uf-hud-big path{stroke-width:2.4!important}
+
+/* Full-screen story overlays must be opaque: the global .bg-background rule is
+   transparent so page content would bleed through. */
+@utility recap-surface {
+  background-color: hsl(var(--background));
+}
