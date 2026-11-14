@@ -776,7 +776,7 @@ class ExoPlayerPlugin : Plugin() {
             val v = p?.let {
                 it.isPlaying || (it.playWhenReady && (it.playbackState == Player.STATE_BUFFERING || it.playbackState == Player.STATE_READY))
             } == true
-            call.resolve(JSObject().put("isPlaying", v).put("isStarting", isStartingUp && !(player?.isPlaying ?: false)))
+            call.resolve(JSObject().put("isPlaying", v).put("isStarting", isStartingUp && p?.isPlaying != true))
         }
     }
 
