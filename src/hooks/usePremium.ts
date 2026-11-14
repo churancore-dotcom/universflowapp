@@ -123,7 +123,9 @@ const fetchOnce = async (userId: string | null): Promise<void> => {
   const generation = identityGeneration;
   const isCurrent = () => generation === identityGeneration && currentUserId === userId;
   inflightUserId = userId;
-  const run = (async () => {
+  // eslint-disable-next-line prefer-const
+  let run: Promise<void> | null = null;
+  run = (async () => {
     try {
       const [premiumResult, subscriptionResult] = await Promise.all([
         supabase.rpc('has_premium_subscription', { _user_id: userId }),
@@ -171,7 +173,7 @@ const fetchOnce = async (userId: string | null): Promise<void> => {
     }
   })();
   inflight = run;
-  return run;
+  return run!;
 };
 
 const bindUser = (userId: string | null) => {
