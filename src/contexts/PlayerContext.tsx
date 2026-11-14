@@ -1995,7 +1995,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
           console.warn('[player/native] startup timeout; retrying fallback for', resolvedSong.title);
           nativeStartupSeqRef.current = null;
-          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { seq: mySeq, message: 'native startup timeout' } }));
         }, 15000);
         reapplyNativeEqSoon();
         // LOOKAHEAD: warm the next few queue items on-device so the *next* tap
@@ -2007,7 +2007,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (mySeq !== playRequestSeqRef.current || activeSongIdentityRef.current !== intendedIdentity) return;
         nativeStartupSeqRef.current = null;
         clearNativeStartupTimer();
-        window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: (err as Error)?.message } }));
+        window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { seq: mySeq, message: (err as Error)?.message } }));
       }
       return;
     }
@@ -2410,7 +2410,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
       const seqAtRecoveryStart = playRequestSeqRef.current;
       const activeIdentity = activeSongIdentityRef.current;
-      const failedUrl = (event as CustomEvent<{ url?: string }>).detail?.url;
+      const failedDetail = (event as CustomEvent<{ url?: string; seq?: number }>).detail;
+      // A timeout/failure from an older play request must not touch the new song.
+      if (typeof failedDetail?.seq === 'number' && failedDetail.seq !== seqAtRecoveryStart) return;
+      const failedUrl = failedDetail?.url;
       if (activeIdentity && nativeRecoveryAttemptedRef.current.has(activeIdentity)) {
         if (seqAtRecoveryStart === playRequestSeqRef.current && activeSongIdentityRef.current === activeIdentity) {
           const nextIdx = getNextIndex(activeIndex, activeQueue.length, shuffleRef.current, repeatRef.current);
@@ -3025,7 +3028,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
             console.warn('[player/native] startup timeout; retrying fallback for', song.title);
             nativeStartupSeqRef.current = null;
-            window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout' } }));
+            window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { seq: mySeq, message: 'native startup timeout' } }));
           }, 15000);
           reapplyNativeEqSoon();
           void setNativePlaybackSpeed(getEQSettings().playbackSpeed);
@@ -3050,7 +3053,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           if (nativeStartupSeqRef.current !== mySeq || nativeStartedForSeqRef.current === mySeq) return;
           console.warn('[player/native] startup timeout; retrying fallback for', song.title);
           nativeStartupSeqRef.current = null;
-          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: 'native startup timeout', url: playUrl } }));
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { seq: mySeq, message: 'native startup timeout', url: playUrl } }));
         }, 15000);
         reapplyNativeEqSoon();
         if (normalizedQueue && normalizedQueue.length > 0) {
@@ -3084,7 +3087,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         if (mySeq === playRequestSeqRef.current && activeSongIdentityRef.current === intendedIdentity) {
           nativeStartupSeqRef.current = null;
           clearNativeStartupTimer();
-          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { message: (err as Error)?.message } }));
+          window.dispatchEvent(new CustomEvent('uf-native-playback-failed', { detail: { seq: mySeq, message: (err as Error)?.message } }));
         }
       }
       return;

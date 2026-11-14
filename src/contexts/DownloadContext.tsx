@@ -218,7 +218,19 @@ const checkIndexedDBSupport = (): boolean => {
 };
 
 // IndexedDB helper functions with error handling
+let sharedDB: Promise<IDBDatabase> | null = null;
+// One shared connection; reopened only if the browser closes it.
 const openDB = (): Promise<IDBDatabase> => {
+  if (!sharedDB) {
+    sharedDB = openDBFresh().then((db) => {
+      db.onclose = () => { sharedDB = null; };
+      db.onversionchange = () => { db.close(); sharedDB = null; };
+      return db;
+    }, (e) => { sharedDB = null; throw e; });
+  }
+  return sharedDB;
+};
+const openDBFresh = (): Promise<IDBDatabase> => {
   return new Promise((resolve, reject) => {
     try {
       if (typeof indexedDB === 'undefined') {
@@ -476,6 +488,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     setCurrentDownloadId(song.id);
     cancelledIdsRef.current.delete(song.id);
     const controller = new AbortController();
+    let pendingCoverUrl: string | null = null;
     activeControllersRef.current.set(song.id, controller);
 
     try {
@@ -557,6 +570,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
           if (coverResponse.ok) {
             coverBlob = await coverResponse.blob();
             offlineCoverUrl = objectUrls.current.create(coverBlob);
+            pendingCoverUrl = offlineCoverUrl;
           }
         } catch {
           // Cover caching is best effort; audio download must still succeed.
@@ -601,6 +615,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
 
       // Update state
+      pendingCoverUrl = null; // ownership moves to the saved download
       setDownloads(prev => [...prev.filter(d => d.id !== song.id), downloadedSong]);
       setBlobUrls(prev => ({ ...prev, [song.id]: playableUrl }));
       registerOfflineUrl(song.id, playableUrl);
@@ -648,6 +663,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         });
       }, wasCancelled ? 400 : 3000);
     } finally {
+      if (pendingCoverUrl) objectUrls.current.release(pendingCoverUrl);
       cancelledIdsRef.current.delete(song.id);
       if (activeControllersRef.current.get(song.id) === controller) {
         activeControllersRef.current.delete(song.id);
