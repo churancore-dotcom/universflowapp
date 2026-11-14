@@ -72,7 +72,7 @@ export default function SimilarSongsRail({ query }: Props) {
           </button>
         )}
       </div>
-      <div className="flex gap-3 overflow-x-auto hide-scrollbar -mx-4 px-4 snap-x">
+      <div className="flex gap-3 overflow-x-auto hide-scrollbar snap-x">
         {(tracks ?? Array.from({ length: 5 }, () => null)).map((t, i) => t ? (
           <button
             key={t.id}
