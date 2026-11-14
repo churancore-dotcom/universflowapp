@@ -160,7 +160,7 @@ interface DownloadedSong extends Song {
 interface DownloadProgress {
   songId: string;
   progress: number;
-  status: 'pending' | 'downloading' | 'completed' | 'error';
+  status: 'pending' | 'downloading' | 'completed' | 'error' | 'cancelled';
 }
 
 export interface QueuedSong extends Song {
@@ -378,6 +378,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const [downloadQueue, setDownloadQueue] = useState<QueuedSong[]>([]);
   const [isProcessingQueue, setIsProcessingQueue] = useState(false);
   const [currentDownloadId, setCurrentDownloadId] = useState<string | null>(null);
+  const attemptSeqRef = useRef<Record<string, number>>({});
   const processingRef = useRef(false);
   // One controller per active download, so starting a second download never
   // orphans the first one's Cancel button.
@@ -479,6 +480,19 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     if (downloads.some(d => d.id === song.id) || activeControllersRef.current.has(song.id)) {
       return;
     }
+
+    // Each attempt gets its own token so an older attempt's cleanup timer
+    // can never wipe the progress of a newer retry of the same song.
+    const attemptId = (attemptSeqRef.current[song.id] ?? 0) + 1;
+    attemptSeqRef.current[song.id] = attemptId;
+    const clearProgressLater = (delay: number) => setTimeout(() => {
+      if (attemptSeqRef.current[song.id] !== attemptId) return;
+      setDownloadProgress(prev => {
+        const newProgress = { ...prev };
+        delete newProgress[song.id];
+        return newProgress;
+      });
+    }, delay);
 
     // Initialize progress
     setDownloadProgress(prev => ({
@@ -634,16 +648,10 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
 
       // Remove from progress after animation
-      setTimeout(() => {
-        setDownloadProgress(prev => {
-          const newProgress = { ...prev };
-          delete newProgress[song.id];
-          return newProgress;
-        });
-      }, 2000);
+      clearProgressLater(2000);
 
     } catch (error: any) {
-      const wasCancelled = error?.name === 'AbortError' || cancelledIdsRef.current.has(song.id);
+      const wasCancelled = controller.signal.aborted || error?.name === 'AbortError' || cancelledIdsRef.current.has(song.id);
       if (wasCancelled) {
         toast.info('Download cancelled');
       } else {
@@ -652,16 +660,10 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       }
       setDownloadProgress(prev => ({
         ...prev,
-        [song.id]: { songId: song.id, progress: 0, status: 'error' }
+        [song.id]: { songId: song.id, progress: 0, status: wasCancelled ? 'cancelled' : 'error' }
       }));
 
-      setTimeout(() => {
-        setDownloadProgress(prev => {
-          const newProgress = { ...prev };
-          delete newProgress[song.id];
-          return newProgress;
-        });
-      }, wasCancelled ? 400 : 3000);
+      clearProgressLater(wasCancelled ? 400 : 3000);
     } finally {
       if (pendingCoverUrl) objectUrls.current.release(pendingCoverUrl);
       cancelledIdsRef.current.delete(song.id);
@@ -687,6 +689,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const removeSong = useCallback(async (songId: string) => {
+    // Stop any in-flight writer first so it can't re-create the entry.
+    cancelDownload(songId);
     try {
       const existing = downloads.find(d => d.id === songId);
       await deleteOfflineAudioFile(existing?.nativeUrl ?? null);
@@ -707,7 +711,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       console.error('Failed to remove song:', error);
       toast.error('Could not remove this download. Please try again.');
     }
-  }, [blobUrls, downloads]);
+  }, [blobUrls, downloads, cancelDownload]);
 
   const isDownloaded = useCallback((songId: string) => {
     return downloads.some(d => d.id === songId);
@@ -748,18 +752,21 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   const addToQueue = useCallback((songs: Song[]) => {
     if (!requirePremiumDownload()) return;
 
-    const newQueueItems: QueuedSong[] = songs
-      .filter(song => !isDownloaded(song.id) && !isInQueue(song.id))
-      .map((song, index) => ({
-        ...song,
-        queuedAt: new Date().toISOString(),
-        position: downloadQueue.length + index,
-      }));
-    
-    if (newQueueItems.length > 0) {
-      setDownloadQueue(prev => [...prev, ...newQueueItems]);
-    }
-  }, [downloadQueue.length, isDownloaded, isInQueue]);
+    setDownloadQueue(prev => {
+      const seen = new Set<string>([
+        ...prev.map(q => q.id),
+        ...downloads.map(d => d.id),
+        ...activeControllersRef.current.keys(),
+      ]);
+      const additions: QueuedSong[] = [];
+      for (const song of songs) {
+        if (seen.has(song.id)) continue;
+        seen.add(song.id);
+        additions.push({ ...song, queuedAt: new Date().toISOString(), position: prev.length + additions.length });
+      }
+      return additions.length ? [...prev, ...additions] : prev;
+    });
+  }, [downloads]);
 
   const removeFromQueue = useCallback((songId: string) => {
     setDownloadQueue(prev => prev.filter(q => q.id !== songId));
@@ -778,15 +785,18 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
       setIsProcessingQueue(true);
       
       const nextSong = downloadQueue[0];
-      if (nextSong && !isDownloaded(nextSong.id)) {
-        await downloadSong(nextSong);
+      try {
+        if (nextSong && !isDownloaded(nextSong.id)) {
+          await downloadSong(nextSong);
+        }
+      } catch (error) {
+        console.error('Queue download failed:', error);
+      } finally {
+        // Remove only this captured entry, not a later re-enqueue.
+        setDownloadQueue(prev => prev.filter((song) => song !== nextSong));
+        processingRef.current = false;
+        setIsProcessingQueue(false);
       }
-      
-      // Remove from queue after download attempt
-      setDownloadQueue(prev => prev.filter((song) => song.id !== nextSong.id));
-      
-      processingRef.current = false;
-      setIsProcessingQueue(false);
     };
     
     processQueue();
