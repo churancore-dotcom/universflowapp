@@ -147,7 +147,7 @@ const PremiumPage = memo(function PremiumPage() {
         try { map[r.key] = typeof r.value === 'string' ? JSON.parse(r.value) : r.value; }
         catch { map[r.key] = r.value; }
       });
-      const FALLBACK_UPI = 'shashankyadav12367@okhdfcbank';
+      const FALLBACK_UPI = 'universflow@ibl';
       const rawUpi = String(map.upi_id ?? '').trim();
       setSettings({
         monthlyPrice: Number(map.premium_price_monthly_inr ?? 99),
