@@ -17,6 +17,8 @@ export interface EQSettings {
   harmonicExciter: number;
   /** 0..100 — stereo widening. 100 = wide, 50 = normal, 0 = narrow/mono. */
   stereoWidth: number;
+  /** 0..100 — how strongly the chosen Studio Space is heard. 0 = light, 50 = normal, 100 = full. */
+  roomStrength: number;
   activePreset: string;
 }
 
@@ -31,6 +33,7 @@ export const DEFAULT_EQ_SETTINGS: EQSettings = {
   headphoneSurround: false,
   harmonicExciter: 0,
   stereoWidth: 50,
+  roomStrength: 50,
   activePreset: 'flat',
 };
 
@@ -56,6 +59,7 @@ export function normalizeEQSettings(input: Partial<EQSettings> | null | undefine
     headphoneSurround: !!input?.headphoneSurround,
     harmonicExciter: clamp(input?.harmonicExciter, 0, 100, DEFAULT_EQ_SETTINGS.harmonicExciter),
     stereoWidth: clamp(input?.stereoWidth, 0, 100, DEFAULT_EQ_SETTINGS.stereoWidth),
+    roomStrength: clamp(input?.roomStrength, 0, 100, DEFAULT_EQ_SETTINGS.roomStrength),
     activePreset: input?.activePreset || DEFAULT_EQ_SETTINGS.activePreset,
   };
 }
@@ -184,4 +188,9 @@ export function useUserEQSettingsSync(userId?: string | null) {
       supabase.removeChannel(channel);
     };
   }, [userId]);
+}
+/** Room strength 0..100 -> multiplier on the space's wet level (light 0.25x, normal 1x, full 1.75x). */
+export function roomStrengthFactor(strength: number): number {
+  const v = Math.min(100, Math.max(0, Number.isFinite(strength) ? strength : 50));
+  return v <= 50 ? 0.25 + (v / 50) * 0.75 : 1 + ((v - 50) / 50) * 0.75;
 }
