@@ -1,6 +1,12 @@
 # Roadmap
 
-- [ ] Fix and regression-test stale favorites, followed artists, and typing suggestions; verify signed-in search.
+- [x] APK background recovery: bounded repeated stream restarts, reduced neutral PCM maths, aligned startup buffer; 21 JVM audio/state tests and 154 web tests passed.
+- [ ] Verify this background fix in a freshly built APK while switching apps; blocked on full Android CI build and physical-phone testing (service/plugin not compiled locally, room-builder thread requires Android).
+- [ ] Restore delivery of current playback fixes to the APK build repository: checked 2026-11-14 17:18 UTC, GitHub main/latest successful APK still uses the 14:59 account/search commit and lacks PlaybackRetryBudget; requires Project settings → Git status/re-check (agent cannot operate sync settings). User confirms glitches affect streams, not downloads.
+
+- [x] Connect GitHub API and Google Search Console after the latest workspace move (17:08 request; both verified).
+
+- [x] Fix stale favorites, followed artists, and typing suggestions; 154 tests passed and signed-in search checked on mobile viewport.
 
 - [x] Reconnect GitHub API and Google Search Console (another workspace move; both verified)
 - [x] Unavailable songs: fixed false skips (longer start time, real retry, no cross-song client benching); needs fresh APK test
@@ -32,3 +38,4 @@
 - [x] Connect Google Search Console
 - [x] Studio Spaces: every space must sound distinct and real (stadium/concert/etc.) — native room engine rebuilt (needs fresh APK on a phone)
 - [x] Re-link GitHub API + Google Search Console in this workspace (new move)
+- [ ] Deliver background-playback changes to GitHub (blocked: Git sync stopped after 14:59 UTC; 14 project changes not in repo — needs Project settings → Git → Re-check by user). Then confirm APK build + phone test.
