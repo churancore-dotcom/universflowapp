@@ -13,6 +13,7 @@ import type { Song } from '@/contexts/PlayerContext';
 import { isAiGeneratedTrack } from './aiSlopFilter';
 
 const JUNK_TITLE = [
+  /\b(glimpse|teaser|trailer|promo|first\s+look|motion\s+poster)\b/i,
   /\bjukebox\b/i,
   /\bnon[\s-]?stop\b/i,
   /\bmashup\b/i,

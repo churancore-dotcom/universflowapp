@@ -7,7 +7,7 @@ import { prewarmSong } from '@/lib/instantPlay';
 import { useSongCache } from '@/hooks/useSongCache';
 import { useAuth } from '@/contexts/AuthContext';
 import { useDownloads } from '@/contexts/DownloadContext';
-import { getGeoTopTracks, getYouTubeMusicCharts } from '@/lib/musicIndexer';
+import { getGeoTopTracks, getYouTubeMusicCharts, getArtistTopTracksByName } from '@/lib/musicIndexer';
 import { type HomeFeedSignals } from '@/lib/homeFeedOrder';
 
 import AllSongsSection from '@/components/AllSongsSection';
@@ -53,7 +53,7 @@ import { isSpamSong } from '@/pages/Search';
 import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 import { useNavigate } from '@/lib/router-compat';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
-import { rerank } from '@/lib/feedPersonalizer';
+import { rerank, topTasteArtists } from '@/lib/feedPersonalizer';
 
 const EmptyState = memo(() => (
   <div className="text-center py-16 px-8">
@@ -207,7 +207,49 @@ const Home = () => {
   // Ranked for THIS listener (plays, likes, skips, follows). Trending keeps
   // the official chart order and only receives the cleaned list.
   const taste = useTasteProfile();
-  const personal = useMemo(() => rerank(clean.length ? clean : allSongs, taste), [clean, allSongs, taste]);
+  // The personal pool is built from THIS listener's own artists first, with
+  // the local chart only filling gaps — reranking chart songs alone left Home
+  // looking like everyone else's Trending page.
+  const seedArtists = useMemo(() => topTasteArtists(taste, 6), [taste]);
+  const { data: tasteSongs = [] } = useQuery({
+    queryKey: ['home', 'taste-pool', user?.id ?? 'anon', seedArtists.join('|')],
+    enabled: !isOffline && seedArtists.length > 0,
+    staleTime: 30 * 60 * 1000,
+    gcTime: 2 * 60 * 60 * 1000,
+    queryFn: async (): Promise<Song[]> => {
+      const lists = await Promise.allSettled(seedArtists.map((a) => getArtistTopTracksByName(a, 8)));
+      const perArtist = lists.map((r) => (r.status === 'fulfilled' ? r.value : []));
+      const out: Song[] = [];
+      // Round-robin so one artist cannot take over the whole feed.
+      for (let i = 0; i < 8; i++) {
+        for (const list of perArtist) {
+          const t = list[i];
+          if (!t?.id || !t.title || !t.artist) continue;
+          out.push({
+            id: t.id, title: t.title, artist: t.artist, album: t.album,
+            cover_url: upgradeThumb(t.cover_url),
+            audio_url: t.audio_url || (t.videoId ? `yt-video:${t.videoId}` : 'resolving'),
+            duration: t.duration,
+          } as Song);
+        }
+      }
+      return out;
+    },
+  });
+  const personal = useMemo(() => {
+    const own = cleanRail(tasteSongs.filter((s) => !isSpamSong(s)), { requireCover: true });
+    const chart = clean.length ? clean : allSongs;
+    if (!own.length) return rerank(chart, taste);
+    // Mostly the listener's own taste, with one local hit every third slot.
+    const mixed: Song[] = [];
+    let o = 0, c = 0;
+    while (o < own.length || c < chart.length) {
+      if (o < own.length) mixed.push(own[o++]);
+      if (o < own.length) mixed.push(own[o++]);
+      if (c < chart.length) mixed.push(chart[c++]);
+    }
+    return rerank(cleanRail(mixed), taste);
+  }, [tasteSongs, clean, allSongs, taste]);
 
   const stage = useMemo(() => {
     if (currentSong) {

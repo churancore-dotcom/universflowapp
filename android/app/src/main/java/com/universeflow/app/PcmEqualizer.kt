@@ -205,7 +205,7 @@ class PcmEqualizer {
 
 /** Pure headroom rule, unit-tested. */
 object EqHeadroom {
-    const val ALLOWED_OVER_DB = 4.5
+    const val ALLOWED_OVER_DB = 6.0
     fun preGain(peakDb: Double): Float =
         if (peakDb <= ALLOWED_OVER_DB) 1f else Math.pow(10.0, -(peakDb - ALLOWED_OVER_DB) / 20.0).toFloat()
 }

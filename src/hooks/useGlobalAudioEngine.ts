@@ -1,7 +1,7 @@
 import { playerProgressStore } from '@/lib/playerProgressStore';
 import { useEffect, useState } from 'react';
 import { bypassAudioElement, connectAudioElement, getState, setBands, setReverb, setSpatial, setLateNight, setHeadphoneSurround, setStudioSpace as engineSetStudioSpace, setVocalMix, setInstrumentalMix, resume, subscribe } from '@/lib/audioEngine';
-import { getEQSettings, hasWebAudioEffects } from '@/lib/eqSettings';
+import { getEQSettings, hasWebAudioEffects, roomStrengthFactor } from '@/lib/eqSettings';
 import { getRuntimePremium } from '@/lib/premiumState';
 import { getActiveStemMix, isDefaultMix } from '@/lib/stemLab';
 import {
@@ -165,7 +165,7 @@ export function useGlobalAudioEngine(
         ...nativeSpatialSettings(s),
         loudnessGainMb: Math.max(lateNightMb, space.loud, stemMakeupMb),
         reverbAmount: Math.max(s.reverb, space.reverb),
-        space: space.geo ? { ...space.geo, kind: s.studioSpace } : null,
+        space: space.geo ? { ...space.geo, wet: Math.min(100, Math.round(space.geo.wet * roomStrengthFactor(s.roomStrength))), kind: s.studioSpace } : null,
 
         vocalMix: stem.vocals,
         instrumentalMix: stem.backing,

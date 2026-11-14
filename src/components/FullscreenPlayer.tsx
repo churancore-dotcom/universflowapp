@@ -1,6 +1,6 @@
 import { useState, memo, useCallback, useRef, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, useMotionValue, animate } from 'framer-motion';
-import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines, ImagePlus } from 'lucide-react';
+import { Play, Pause, SkipBack, SkipForward, Volume2, VolumeX, Shuffle, Repeat, Repeat1, ChevronDown, ListMusic, Share2, Sliders, ListOrdered, Mic2, Bookmark, AudioLines, ImagePlus, ThumbsDown } from 'lucide-react';
 import SyncedLyricsView from './SyncedLyricsView';
 import { usePlayer } from '@/contexts/PlayerContext';
 import { playerProgressStore, usePlayerProgress } from '@/lib/playerProgressStore';
@@ -26,6 +26,11 @@ import { canDownloadSong, canLikeSong, isIndexedSong } from '@/lib/songSupport';
 import { usePremium } from '@/hooks/usePremium';
 import { getEQPresetLabel, useEQSettings } from '@/lib/eqSettings';
 import { toast } from 'sonner';
+import { useAuth } from '@/contexts/AuthContext';
+import { markNotInterested } from '@/lib/notInterested';
+import { fetchSongMix } from '@/lib/similarSongs';
+
+const vibeCache = new Map<string, Song[]>();
 
 const formatTime = (seconds: number) => {
   if (!seconds || isNaN(seconds) || !isFinite(seconds)) return '0:00';
@@ -126,47 +131,35 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
   }, [isPremium]);
 
 
-  const vibeSuggestions = useMemo(() => {
-    if (!currentSong) return [];
-    const seenVibes = new Set<string>();
-    const currentMood = currentSong.mood?.toLowerCase().trim();
-    const currentGenre = currentSong.genre?.toLowerCase().trim();
-    const currentArtist = currentSong.artist.toLowerCase().trim();
-    const currentAlbum = currentSong.album?.toLowerCase().trim();
-    const currentTitleWords = currentSong.title.toLowerCase().replace(/[^a-z0-9]+/g, ' ').split(' ').filter((word) => word.length > 3);
-    return queue
-      .filter((song) => song.id !== currentSong.id && !song.id.startsWith('mock-'))
-      .map((song) => {
-        const songMood = song.mood?.toLowerCase().trim();
-        const songGenre = song.genre?.toLowerCase().trim();
-        const songArtist = song.artist.toLowerCase().trim();
-        const songAlbum = song.album?.toLowerCase().trim();
-        const titleHaystack = `${song.title} ${song.album || ''}`.toLowerCase().replace(/[^a-z0-9]+/g, ' ');
-        const moodMatch = currentMood && songMood === currentMood ? 5 : 0;
-        const genreMatch = currentGenre && songGenre === currentGenre ? 4 : 0;
-        const artistMatch = currentArtist && songArtist === currentArtist ? 4 : 0;
-        const albumMatch = currentAlbum && songAlbum === currentAlbum ? 3 : 0;
-        const titleOverlap = currentTitleWords.filter((word) => titleHaystack.includes(word)).length;
-        return { song, score: moodMatch + genreMatch + artistMatch + albumMatch + titleOverlap };
-      })
-      .filter((item) => item.score >= 4)
-      .sort((a, b) => b.score - a.score)
-      // Dedupe by track fingerprint — the queue can hold the same recording
-      // several times (different ids/sources), which showed up as the same
-      // chip repeated three times in a row.
-      .filter((item, _i, _all) => {
-        const fp = `${item.song.title} ${item.song.artist}`
-          .toLowerCase()
-          .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
-          .replace(/[^a-z0-9]+/g, ' ')
-          .trim();
-        if (seenVibes.has(fp)) return false;
-        seenVibes.add(fp);
-        return true;
-      })
-      .slice(0, 8)
-      .map((item) => item.song);
-  }, [currentSong, queue]);
+  // Like YouTube Music: every song gets its own mix of similar-sounding
+  // songs, fetched per song (cached), independent of the current queue.
+  const [vibeSuggestions, setVibeSuggestions] = useState<Song[]>([]);
+  useEffect(() => {
+    if (!currentSong) { setVibeSuggestions([]); return; }
+    const key = `${currentSong.title}|${currentSong.artist}`.toLowerCase();
+    const cached = vibeCache.get(key);
+    if (cached) { setVibeSuggestions(cached); return; }
+    setVibeSuggestions([]);
+    let alive = true;
+    const vid = /^yt-video:(.+)$/.exec(currentSong.audio_url || '')?.[1];
+    const t = setTimeout(() => {
+      fetchSongMix({ title: currentSong.title, artist: currentSong.artist, videoId: vid }, 12)
+        .then((mix) => {
+          const hidden = new Set(queue.map((q) => q.id));
+          const songs: Song[] = mix.filter((m) => !hidden.has(m.id)).slice(0, 10).map((m) => ({
+            id: m.id, title: m.title, artist: m.artist, cover_url: m.cover_url,
+            audio_url: m.audio_url || (m.videoId ? `yt-video:${m.videoId}` : 'resolving'),
+            duration: m.duration, source: 'indexed' as const,
+          }));
+          if (vibeCache.size > 60) vibeCache.clear();
+          vibeCache.set(key, songs);
+          if (alive) setVibeSuggestions(songs);
+        })
+        .catch(() => {});
+    }, 600);
+    return () => { alive = false; clearTimeout(t); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentSong?.title, currentSong?.artist]);
   const suggestionsLabel = 'Same Vibe';
 
 
@@ -252,6 +245,21 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     setDirection(1);
     nextSong();
   }, [nextSong]);
+
+  const { user } = useAuth();
+  const handleNotInterested = useCallback(async () => {
+    if (!currentSong) return;
+    if (!user) { toast('Sign in to tune your feed'); return; }
+    triggerHaptic('selection');
+    try {
+      await markNotInterested(user.id, currentSong);
+      toast.success("Got it — you'll see less like this");
+      setDirection(1);
+      nextSong();
+    } catch {
+      toast.error("Couldn't save that. Try again.");
+    }
+  }, [currentSong, user, nextSong]);
 
   const handlePrev = useCallback(() => {
     triggerHaptic('impactMedium');
@@ -536,7 +544,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                     <button
                       key={song.id}
                       type="button"
-                      onClick={() => { triggerHaptic('selection'); playSong(song, undefined, queue); }}
+                      onClick={() => { triggerHaptic('selection'); playSong(song, undefined, [song, ...vibeSuggestions.filter((v) => v.id !== song.id)]); }}
                       className="group flex items-center gap-2 flex-shrink-0 rounded-full bg-foreground/5 hover:bg-foreground/10 pl-1 pr-3 py-1 active:scale-[0.96] transition-all max-w-[180px]"
                       aria-label={`Play ${song.title}`}
                     >
@@ -567,6 +575,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                   aria-label="Equalizer"
                 >
                   <Sliders className="w-[18px] h-[18px] text-muted-foreground" />
+                </button>
+                <button
+                  className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
+                  onClick={handleNotInterested}
+                  aria-label="Not interested"
+                >
+                  <ThumbsDown className="w-[18px] h-[18px] text-muted-foreground" />
                 </button>
                 <button
                   className="w-11 h-11 flex items-center justify-center active:scale-90 transition-transform"
