@@ -562,6 +562,8 @@ export function getStudioSpace(): StudioSpaceId {
 }
 
 function disconnectAll() {
+  // Stop the 9D oscillators too, or each processed rebuild leaks two running LFOs.
+  teardownNineD();
   if (overlapSource) { try { overlapSource.disconnect(); } catch {} overlapSource = null; }
   const nodes: (AudioNode | null)[] = [
     engine.source, ...engine.filters, engine.preGain,
