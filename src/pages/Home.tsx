@@ -21,8 +21,7 @@ import FeaturedArtistsSection from '@/components/FeaturedArtistsSection';
 import BottomNav from '@/components/BottomNav';
 import QueueDrawer from '@/components/QueueDrawer';
 import EqualizerModal from '@/components/EqualizerModal';
-import { greetingForHour, recentSongs } from '@/lib/personalHome';
-import { useLocalRecents } from '@/hooks/useLocalRecents';
+import { greetingForHour } from '@/lib/personalHome';
 import { useHomeInsights } from '@/hooks/useHomeInsights';
 import RecapProgressCard from '@/components/RecapProgressCard';
 import HomeBento from '@/components/HomeBento';
@@ -200,9 +199,6 @@ const Home = () => {
 
   const userAvatar = useAvatarUrl();
 
-  const recentEntries = useLocalRecents(20);
-  const history = useMemo(() => recentSongs(recentEntries), [recentEntries]);
-
   // ── The stage: one card, real signal only ────────────────────────────────
   const clean = useMemo(
     () => cleanRail(allSongs.filter((s) => !isSpamSong(s)), { requireCover: true }),
@@ -217,28 +213,16 @@ const Home = () => {
     if (currentSong) {
       return { song: currentSong, label: 'Now playing' };
     }
-    if (history[0]) {
-      return { song: history[0], label: 'Pick up where you left off' };
-    }
     const claimed = claimedByOtherRails('hero');
     const song = personal.find((s) => !claimed.has(songFingerprint(s))) || personal[0] || allSongs[0];
     return song ? { song, label: taste.signalCount >= 5 ? 'Picked for you' : `Top in your area` } : null;
-  }, [currentSong, history, personal, allSongs, claimVersion]);
+  }, [currentSong, personal, allSongs, claimVersion]);
 
   useEffect(() => { if (stage?.song) claimRailSongs('hero', [stage.song]); }, [stage?.song?.id]);
   useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
 
   // ── Real personal stats for the header, chips and recap card ─────────────
   const insights = useHomeInsights();
-
-  const headline = useMemo(() => {
-    if (insights.loading || insights.weekPlays < 3) return null;
-    const flavour = insights.weekTopArtist || insights.topGenre;
-    const plural = insights.weekPlays === 1 ? 'song' : 'songs';
-    return flavour
-      ? `You've played ${insights.weekPlays} ${plural} this week — mostly ${flavour}.`
-      : `You've played ${insights.weekPlays} ${plural} this week.`;
-  }, [insights]);
 
 
 
@@ -274,9 +258,7 @@ const Home = () => {
               <h1 className="font-display text-[26px] leading-none tracking-[0.06em] uppercase text-foreground mt-1.5">
                 Universflow
               </h1>
-              {headline && (
-                <p className="text-[12px] font-medium text-muted-foreground mt-1.5 truncate">{headline}</p>
-              )}
+
             </div>
 
 
