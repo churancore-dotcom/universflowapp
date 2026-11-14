@@ -228,8 +228,13 @@ class StemAudioProcessor : BaseAudioProcessor() {
 
             val vocal = currentVocalMix.coerceIn(0f, 1.4f)
             val instrument = currentInstrumentalMix.coerceIn(0f, 1.4f)
-            val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
-            val makeup = if (power > 0.04f) min(1.6f, max(1f, 1f / power)) else 1f
+            // Neutral settings are the common case. Do not pay for three
+            // double-precision square roots and a sine on every sample when
+            // neither stem gain nor rotating pan is changing the signal.
+            val makeup = if (vocal == 1f && instrument == 1f) 1f else {
+                val power = sqrt(((vocal * vocal + instrument * instrument) / 2f).toDouble()).toFloat()
+                if (power > 0.04f) min(1.6f, max(1f, 1f / power)) else 1f
+            }
             val left = inputBuffer.getShort(cursor).toInt()
             val right = if (inputAudioFormat.channelCount == 1) left else inputBuffer.getShort(cursor + 2).toInt()
 
@@ -245,11 +250,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val midBand = mid - lowState - midHigh
             val centre = (midLow + midHigh) * instrument + midBand * vocal * (1f + currentShine * 0.35f)
             val widenedSide = side * instrument * currentWidth.coerceIn(0f, 2f)
-            val pan = sin(spatialPhase).toFloat() * currentSpatialDepth * 0.82f
+            val pan = if (currentSpatialDepth > 0.00001f) sin(spatialPhase).toFloat() * currentSpatialDepth * 0.82f else 0f
             spatialPhase += spatialPhaseStep
             if (spatialPhase >= 2.0 * Math.PI) spatialPhase -= 2.0 * Math.PI
-            val leftPan = sqrt(((1f - pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
-            val rightPan = sqrt(((1f + pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
+            val leftPan = if (pan == 0f) 1f else sqrt(((1f - pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
+            val rightPan = if (pan == 0f) 1f else sqrt(((1f + pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
             val lateMakeup = 1f + currentLateNight * 0.4f
             var rawLeft = (centre + widenedSide) * makeup * leftPan * lateMakeup
             var rawRight = (centre - widenedSide) * makeup * rightPan * lateMakeup

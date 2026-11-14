@@ -506,8 +506,8 @@ class ExoPlayerService : MediaSessionService() {
 
         val renderersFactory = processedRenderers(stemAudioProcessor)
 
-        // Start after a small verified audio buffer. 250ms keeps weak mobile
-        // links stable while removing the fixed ~750ms floor from every tap.
+        // Start with enough PCM to fill the output reservoir, not 250 ms that
+        // can run dry as soon as another app takes CPU or network time.
         // Keep a moderate forward buffer so playback does not aggressively
         // consume bandwidth needed by resolver/prefetch requests.
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
@@ -515,7 +515,7 @@ class ExoPlayerService : MediaSessionService() {
             // the network/CPU, resume with enough audio that it does not
             // immediately stutter again. Time beats byte caps so high-bitrate
             // streams still keep the full forward buffer.
-            .setBufferDurationsMs(20_000, 50_000, 250, 2_000)
+            .setBufferDurationsMs(20_000, 50_000, 1_000, 2_000)
             .setPrioritizeTimeOverSizeThresholds(true)
             .setBackBuffer(10_000, true)
             .build()

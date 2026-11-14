@@ -70,4 +70,37 @@ class NativeStateMachinesTest {
         // +12 dB peak -> pulled down 7.5 dB
         assertEquals(Math.pow(10.0, -7.5 / 20).toFloat(), EqHeadroom.preGain(12.0), 0.0001f)
     }
+
+    @Test fun briefPlaybackCannotRearmEndlessNetworkRetries() {
+        val budget = PlaybackRetryBudget()
+        assertEquals(1000L, budget.nextDelay(0))
+        budget.onPlayingChanged(true, 1000)
+        budget.onPlayingChanged(false, 1500)
+        assertEquals(2000L, budget.nextDelay(1500))
+        budget.onPlayingChanged(true, 3500)
+        budget.onPlayingChanged(false, 4000)
+        assertNull(budget.nextDelay(4000))
+        assertNull(budget.nextDelay(10_000))
+    }
+
+    @Test fun onlyStablePlaybackOrANewItemReplenishesRecovery() {
+        val budget = PlaybackRetryBudget()
+        assertEquals(1000L, budget.nextDelay(0))
+        budget.onPlayingChanged(true, 1000)
+        budget.onPlayingChanged(false, 31_000)
+        assertEquals(1000L, budget.nextDelay(31_000))
+        assertEquals(2000L, budget.nextDelay(32_000))
+        assertNull(budget.nextDelay(33_000))
+        budget.reset()
+        assertEquals(1000L, budget.nextDelay(34_000))
+    }
+
+    @Test fun RepeatedPlayingCallbacksDoNotMoveStablePlaybackStart() {
+        val budget = PlaybackRetryBudget()
+        budget.nextDelay(0)
+        budget.nextDelay(1)
+        budget.onPlayingChanged(true, 1000)
+        budget.onPlayingChanged(true, 20_000)
+        assertEquals(1000L, budget.nextDelay(31_000))
+    }
 }
