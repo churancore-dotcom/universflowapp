@@ -2211,7 +2211,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           return;
         }
         const seed = activeQueue[activeIndex] || currentSongRef.current;
+        const extendSeq = playRequestSeqRef.current;
         extendQueueWithMix(seed).then((added) => {
+          // The user picked something else while recommendations loaded.
+          if (playRequestSeqRef.current !== extendSeq) return;
           if (added.length > 0) {
 
             // Append happened via setQueueState; jump to the first new track.

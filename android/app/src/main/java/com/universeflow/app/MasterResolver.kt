@@ -151,18 +151,21 @@ object MasterResolver {
                                 np.cancel(true); own.cancel(true)
                                 return@supplyAsync null
                             }
-                            np.takeIf { it.isDone }?.getNow(null)?.let { h ->
+                            np.takeIf { it.isDone }?.let { f -> runCatching { f.getNow(null) }.getOrNull() }?.let { h ->
                                 own.cancel(true)
                                 return@supplyAsync Resolved(h.url, "youtube:newpipe", h.expiresAt)
                             }
-                            own.takeIf { it.isDone }?.getNow(null)?.let { h ->
+                            own.takeIf { it.isDone }?.let { f -> runCatching { f.getNow(null) }.getOrNull() }?.let { h ->
                                 np.cancel(true)
                                 return@supplyAsync Resolved(h.url, "youtube:${h.client}", 0L)
                             }
                             Thread.sleep(20L)
                         }
-                        np.getNow(null)?.let { return@supplyAsync Resolved(it.url, "youtube:newpipe", it.expiresAt) }
-                        own.getNow(null)?.let { return@supplyAsync Resolved(it.url, "youtube:${it.client}", 0L) }
+                        // getNow() throws on unfinished futures; only read completed ones.
+                        np.takeIf { it.isDone }?.let { f -> runCatching { f.getNow(null) }.getOrNull() }
+                            ?.let { own.cancel(true); return@supplyAsync Resolved(it.url, "youtube:newpipe", it.expiresAt) }
+                        own.takeIf { it.isDone }?.let { f -> runCatching { f.getNow(null) }.getOrNull() }
+                            ?.let { np.cancel(true); return@supplyAsync Resolved(it.url, "youtube:${it.client}", 0L) }
                         np.cancel(true); own.cancel(true)
                         ytFailure.set(listOfNotNull(
                             NewPipeResolver.lastFailure(),

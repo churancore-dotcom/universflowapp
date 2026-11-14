@@ -64,6 +64,9 @@ object NewPipeResolver {
 
     fun lastFailure(): String? = lastError
 
+    /** Drop a cached URL the CDN rejected so the next attempt resolves fresh. */
+    fun invalidate(videoId: String) { cache.remove(videoId) }
+
     /** Blocking; call from a worker thread. */
     fun resolve(videoId: String): Hit? {
         peek(videoId)?.let { return it }
