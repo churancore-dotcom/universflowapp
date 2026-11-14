@@ -11,18 +11,21 @@ import { getUserArtistPrefs, type UserArtistPref } from '@/lib/userArtistPrefs';
  */
 export function useFollowedArtists() {
   const { user } = useAuth();
-  const [prefs, setPrefs] = useState<UserArtistPref[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [state, setState] = useState<{ userId: string | null; prefs: UserArtistPref[]; loading: boolean }>({ userId: null, prefs: [], loading: true });
 
   useEffect(() => {
     let cancelled = false;
-    if (!user) { setPrefs([]); setLoading(false); return; }
+    let request = 0;
+    if (!user) { setState({ userId: null, prefs: [], loading: false }); return; }
+    setState({ userId: user.id, prefs: [], loading: true });
 
     const load = (force = false) => {
+      const mine = ++request;
       getUserArtistPrefs(user.id, force).then((p) => {
-        if (cancelled) return;
-        setPrefs(p);
-        setLoading(false);
+        if (cancelled || mine !== request) return;
+        setState({ userId: user.id, prefs: p, loading: false });
+      }).catch(() => {
+        if (!cancelled && mine === request) setState({ userId: user.id, prefs: [], loading: false });
       });
     };
 
@@ -35,5 +38,7 @@ export function useFollowedArtists() {
     };
   }, [user?.id]);
 
-  return { prefs, loading, names: prefs.map((p) => p.artist_name).filter(Boolean) };
+  const matches = state.userId === (user?.id ?? null);
+  const prefs = matches ? state.prefs : [];
+  return { prefs, loading: user ? !matches || state.loading : false, names: prefs.map((p) => p.artist_name).filter(Boolean) };
 }
