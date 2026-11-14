@@ -6,7 +6,7 @@ import { usePlayer, type Song } from '@/contexts/PlayerContext';
 import { filterSimilar, type SimilarTrack } from '@/lib/similarSongs';
 import { prewarmSong } from '@/lib/instantPlay';
 
-const cache = new Map<string, SimilarTrack[]>();
+const cache = new Map<string, { title: string; tracks: SimilarTrack[] }>();
 
 interface Props { query: string }
 const cleanTitle = (t: string) => t.replace(/\s*\((from|feat|ft)[^)]*\)/gi, '').trim();
