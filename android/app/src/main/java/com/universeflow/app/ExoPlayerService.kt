@@ -295,8 +295,8 @@ class ExoPlayerService : MediaSessionService() {
                     // while the effects chain caught up (audible glitches).
                     .setAudioTrackBufferSizeProvider(
                         androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider.Builder()
-                            .setMinPcmBufferDurationUs(750_000)
-                            .setMaxPcmBufferDurationUs(1_500_000)
+                            .setMinPcmBufferDurationUs(1_000_000)
+                            .setMaxPcmBufferDurationUs(2_000_000)
                             .build()
                     )
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
@@ -524,7 +524,13 @@ class ExoPlayerService : MediaSessionService() {
         // Keep a moderate forward buffer so playback does not aggressively
         // consume bandwidth needed by resolver/prefetch requests.
         val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            .setBufferDurationsMs(15_000, 30_000, 250, 750)
+            // Rebuffer threshold 2s: after a dip caused by another app hogging
+            // the network/CPU, resume with enough audio that it does not
+            // immediately stutter again. Time beats byte caps so high-bitrate
+            // streams still keep the full forward buffer.
+            .setBufferDurationsMs(20_000, 50_000, 250, 2_000)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .setBackBuffer(10_000, true)
             .build()
 
         val builder = ExoPlayer.Builder(this)

@@ -39,3 +39,4 @@
 - The APK media cache sits below stream resolution and keys entries by exact file (video, itag, clen); unidentified streams (JioSaavn, fallbacks, metadata lookups) play uncached so two versions of a song can never be spliced.
 - Admin release publishing and activation go through atomic admin-checked database functions, never multi-step client writes, so a failure can never leave zero active releases.
 - Column-guard triggers that test current_user must be SECURITY INVOKER; as definer, current_user is always the owner and the guard silently never applies.
+- Android background work (stream lookups, cipher solving, room-kernel builds) runs at THREAD_PRIORITY_BACKGROUND, and playback keeps a ≥1 s PCM buffer plus a 2 s rebuffer threshold, so another app taking CPU/network cannot starve the audio thread.

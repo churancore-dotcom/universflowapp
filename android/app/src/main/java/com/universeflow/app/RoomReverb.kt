@@ -450,7 +450,12 @@ class RoomReverb {
         private val AIR_DB_PER_M = floatArrayOf(0.0004f, 0.0011f, 0.0024f, 0.0045f, 0.0093f, 0.028f, 0.095f)
 
         private val BUILDER = Executors.newSingleThreadExecutor { r ->
-            Thread(r, "RoomReverbBuild").apply { isDaemon = true; priority = Thread.NORM_PRIORITY - 1 }
+            Thread({
+                // Kernel builds are heavy maths; never let them compete with the
+                // playback thread when another app is taking the CPU.
+                android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+                r.run()
+            }, "RoomReverbBuild").apply { isDaemon = true }
         }
         private val CACHE = object : LinkedHashMap<String, Kernel>(8, 0.75f, true) {
             override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, Kernel>?): Boolean = size > 3
