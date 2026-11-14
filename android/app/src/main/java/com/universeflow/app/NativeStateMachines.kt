@@ -80,3 +80,16 @@ object ResolverDeadline {
         return if (left >= MIN_RETRY_MS) left else null
     }
 }
+
+/**
+ * Two full-scale, separately limited players summed by the Android mixer clip
+ * at a constant-power midpoint (0.707 + 0.707 = 1.41 => +3 dB over). Scale the
+ * pair so the summed gain never exceeds unity; the curve shape is kept.
+ */
+object OverlapMix {
+    fun safe(gains: Pair<Float, Float>): Pair<Float, Float> {
+        val sum = gains.first + gains.second
+        if (sum <= 1f) return gains
+        return Pair(gains.first / sum, gains.second / sum)
+    }
+}

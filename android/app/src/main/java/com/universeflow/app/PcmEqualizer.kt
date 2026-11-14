@@ -27,7 +27,9 @@ class PcmEqualizer {
         const val BAND_COUNT = 10
         const val MIN_LEVEL_MB = -1500
         const val MAX_LEVEL_MB = 1500
-        private const val Q = 1.0
+        /** Octave-wide bands (Q≈1.41): Q=1 made neighbours overlap and stack, so
+         *  two raised sliders became one huge muddy boost. */
+        private const val Q = 1.41
         /** Max dB moved per smoothing block; keeps sweeps click-free. */
         private const val MAX_DB_STEP = 0.08f
         private const val CHANNELS = 2
@@ -191,8 +193,19 @@ class PcmEqualizer {
         // whole song down by exactly the boost, so +6 dB bass came out as "same
         // bass, everything quieter" and users heard no effect at all. The
         // look-ahead limiter after the chain catches the remaining peaks.
-        preGain = if (peakSquared > 1.0001) (1.0 / Math.pow(peakSquared, 0.25)).toFloat() else 1f
+        // Pull the summed curve's peak down to at most +3 dB, so the limiter
+        // only shaves transients instead of squashing the whole song (half
+        // compensation let +12 dB boosts slam the limiter: pumping, grit).
+        val peakDb = 10.0 * kotlin.math.log10(peakSquared)
+        preGain = EqHeadroom.preGain(peakDb)
     }
 
     fun headroomGain(): Float = if (active) preGain else 1f
+}
+
+/** Pure headroom rule, unit-tested. */
+object EqHeadroom {
+    const val ALLOWED_OVER_DB = 3.0
+    fun preGain(peakDb: Double): Float =
+        if (peakDb <= ALLOWED_OVER_DB) 1f else Math.pow(10.0, -(peakDb - ALLOWED_OVER_DB) / 20.0).toFloat()
 }
