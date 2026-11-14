@@ -52,6 +52,8 @@ import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { isSpamSong } from '@/pages/Search';
 import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 import { useNavigate } from '@/lib/router-compat';
+import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { rerank } from '@/lib/feedPersonalizer';
 
 const EmptyState = memo(() => (
   <div className="text-center py-16 px-8">
@@ -203,6 +205,10 @@ const Home = () => {
     () => cleanRail(allSongs.filter((s) => !isSpamSong(s)), { requireCover: true }),
     [allSongs],
   );
+  // Ranked for THIS listener (plays, likes, skips, follows). Trending keeps
+  // the official chart order and only receives the cleaned list.
+  const taste = useTasteProfile();
+  const personal = useMemo(() => rerank(clean.length ? clean : allSongs, taste), [clean, allSongs, taste]);
 
   const stage = useMemo(() => {
     if (currentSong) {
@@ -212,9 +218,9 @@ const Home = () => {
       return { song: history[0], label: 'Pick up where you left off' };
     }
     const claimed = claimedByOtherRails('hero');
-    const song = clean.find((s) => !claimed.has(songFingerprint(s))) || clean[0] || allSongs[0];
-    return song ? { song, label: `Top in your area` } : null;
-  }, [currentSong, history, clean, allSongs, claimVersion]);
+    const song = personal.find((s) => !claimed.has(songFingerprint(s))) || personal[0] || allSongs[0];
+    return song ? { song, label: taste.signalCount >= 5 ? 'Picked for you' : `Top in your area` } : null;
+  }, [currentSong, history, personal, allSongs, claimVersion]);
 
   useEffect(() => { if (stage?.song) claimRailSongs('hero', [stage.song]); }, [stage?.song?.id]);
   useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
@@ -323,13 +329,13 @@ const Home = () => {
           ) : isOffline && songs.length === 0 ? (
             <EmptyState />
           ) : isOffline ? (
-            <div className="px-6 pt-2"><AllSongsSection songs={allSongs} /></div>
+            <div className="px-6 pt-2"><AllSongsSection songs={personal} /></div>
           ) : (
             <>
               {/* ── Featured song + personal bento, both from real history ── */}
               {stage?.song && <HomeStage song={stage.song} label={stage.label} />}
 
-              <div className="mt-6"><HomeBento songs={clean.length ? clean : allSongs} /></div>
+              <div className="mt-6"><HomeBento songs={personal} /></div>
 
               {/* ── Chapter 1: what the world plays right now ── */}
               <ChapterLabel index="01" title="Out there now" />
@@ -344,14 +350,14 @@ const Home = () => {
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => navigate('/recap')} />
                 <OnRepeatSection />
                 <MadeForYouSection />
-                <FlowCoreSection pool={clean.length ? clean : allSongs} />
+                <FlowCoreSection pool={personal} />
                 <HistoryPlaylistsSection />
               </div>
 
               {/* ── Chapter 3: the people behind the music ── */}
               <ChapterLabel index="03" title="Artists" />
               <div className="uf-feed-sections px-6 space-y-11 pb-24">
-                <FeaturedArtistsSection songs={clean.length ? clean : allSongs} circle />
+                <FeaturedArtistsSection songs={personal} circle />
               </div>
 
             </>

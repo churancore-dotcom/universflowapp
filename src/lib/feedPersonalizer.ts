@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { cachesEnabled } from '@/lib/ssrCache';
 import { loadLibrarySongs } from '@/lib/streamSongs';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
-import { detectScene, type Scene } from '@/lib/musicScene';
+import { detectScene, detectStyles, type Scene, type Style } from '@/lib/musicScene';
 
 export interface TasteProfile {
   /** artistName(lowercased) -> affinity score (higher = better) */
@@ -30,6 +30,10 @@ export interface TasteProfile {
   scenes?: Map<Scene, number>;
   /** total positive weight, for scene share */
   positiveTotal?: number;
+  /** language / style affinity (Punjabi, Tamil, lofi, rap...) */
+  styles?: Map<Style, number>;
+  /** language / style the listener keeps skipping */
+  styleSkips?: Map<Style, number>;
 }
 
 const POSITIVE_ACTIONS = new Set(['stream', 'save', 'share', 'playlist_add']);
@@ -78,6 +82,7 @@ function localOnlyProfile(): TasteProfile {
   const artists = new Map<string, number>();
   const keywords = new Map<string, number>();
   const scenes = new Map<Scene, number>();
+  const styles = new Map<Style, number>();
   let positiveTotal = 0;
   for (const entry of readLocalRecent(null).slice(0, 50)) {
     const artist = (entry.song?.artist || '').trim().toLowerCase();
@@ -88,11 +93,12 @@ function localOnlyProfile(): TasteProfile {
     positiveTotal += weight;
     const sc = detectScene({ title: entry.song?.title, artist: entry.song?.artist });
     if (sc) scenes.set(sc, (scenes.get(sc) || 0) + weight);
+    for (const st of detectStyles({ title: entry.song?.title, artist: entry.song?.artist })) styles.set(st, (styles.get(st) || 0) + weight);
     for (const keyword of tokenize(entry.song?.title || '')) {
       keywords.set(keyword, (keywords.get(keyword) || 0) + weight * 0.35);
     }
   }
-  return { artists, keywords, skips: new Map(), signalCount: artists.size, scenes, positiveTotal };
+  return { artists, keywords, skips: new Map(), signalCount: artists.size, scenes, positiveTotal, styles };
 }
 
 /** Build (or reuse a cached) taste profile from recent play events. */
@@ -130,8 +136,11 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
   const skips = new Map<string, number>();
   const scenes = new Map<Scene, number>();
   let positiveTotal = 0;
+  const styles = new Map<Style, number>();
+  const styleSkips = new Map<Style, number>();
   const tally = (title: string | null | undefined, artist: string | null | undefined, w: number) => {
     positiveTotal += w;
+    for (const st of detectStyles({ title, artist })) styles.set(st, (styles.get(st) || 0) + w);
     const sc = detectScene({ title, artist });
     if (sc) scenes.set(sc, (scenes.get(sc) || 0) + w);
   };
@@ -152,7 +161,9 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
         keywords.set(k, (keywords.get(k) || 0) + w * 0.3);
       }
     } else if (NEGATIVE_ACTIONS.has(action) && a) {
-      skips.set(a, (skips.get(a) || 0) + r * (STRONG_NEGATIVE.has(action) ? 6 : 2));
+      const neg = r * (STRONG_NEGATIVE.has(action) ? 6 : 2);
+      skips.set(a, (skips.get(a) || 0) + neg);
+      for (const st of detectStyles({ title: row.title, artist: row.artist })) styleSkips.set(st, (styleSkips.get(st) || 0) + neg);
       signalCount++;
     }
   }
@@ -193,7 +204,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
     signalCount += 1;
   }
 
-  const profile: TasteProfile = { artists, keywords, skips, signalCount, scenes, positiveTotal };
+  const profile: TasteProfile = { artists, keywords, skips, signalCount, scenes, positiveTotal, styles, styleSkips };
   if (cachesEnabled()) cache = { userId, at: Date.now(), profile };
   return profile;
 }
@@ -201,7 +212,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
 /** Force-refresh next call (e.g. after a like / strong signal). */
 export function invalidateTasteProfile() { cache = null; }
 
-export interface RerankItem { artist?: string | null; title?: string | null }
+export interface RerankItem { artist?: string | null; title?: string | null; genre?: string | null }
 
 /**
  * Score one item against the taste profile.
@@ -218,6 +229,14 @@ export function tasteScore(item: RerankItem, profile: TasteProfile): number {
   if (item.title) {
     const tokens = tokenize(item.title);
     for (const t of tokens) s += (profile.keywords.get(t) || 0);
+  }
+  // Language / style share: a Punjabi listener's feed leans Punjabi, a lofi
+  // listener's leans lofi, and styles they keep skipping sink.
+  const total = Math.max(1, profile.positiveTotal || 0);
+  for (const st of detectStyles(item)) {
+    const share = (profile.styles?.get(st) || 0) / total;
+    s += share * 12;
+    s -= Math.min(6, (profile.styleSkips?.get(st) || 0) / 3);
   }
   return s;
 }
