@@ -36,8 +36,7 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   // search for "top songs this week" is not a chart and skewed every market
   // toward the same rows. This path also works while signed out.
   const { data: countryChart, isLoading: countryChartLoading } = useCountryCharts(country, enabled);
-  // The country's official "Trending 20" chart leads (what is viral now),
-  // followed by its Daily Top chart. Niche genre/language/live lists are never used.
+  // Niche genre/language/live lists are never used.
   const youtubePool = useMemo(
     // Top Songs leads: in markets like India YouTube's "Trending" playlist is
     // dominated by teasers and festival uploads, while Top Songs is what
