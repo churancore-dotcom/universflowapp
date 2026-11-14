@@ -2168,8 +2168,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const target = getNextIndex(activeIndex, queueRef.current.length, activeShuffle, activeRepeat, true);
         if (target !== null && preloadedNextIdRef.current === queueRef.current[target]?.id && nextAudioRef.current?.readyState && nextAudioRef.current.readyState >= 2) {
           crossfadeAttemptedForSeqRef.current = -1;
-          startCrossfade(0);
-          return;
+          // Latest callback (fresh index/shuffle/repeat); only stop here if a
+          // transition really started, otherwise fall through to auto-advance.
+          (startCrossfadeRef.current ?? startCrossfade)(0);
+          if (isCrossfading.current) return;
         }
       }
       // Move to next song immediately - no async operations
@@ -2792,6 +2794,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
 
   // Crossfade implementation
+  const startCrossfadeRef = useRef<((t?: number) => void) | null>(null);
   const startCrossfade = useCallback((transitionSeconds = crossfadeDuration) => {
     if (isNativePlayerAvailable()) return;
     if (!audioRef.current || !nextAudioRef.current || isCrossfading.current) return;
