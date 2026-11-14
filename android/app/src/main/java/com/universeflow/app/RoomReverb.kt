@@ -209,9 +209,11 @@ class RoomReverb {
         val level = max(abs(inL), abs(inR)) * INV_FULL_SCALE
         env += (if (level > env) envAttack else envRelease) * (level - env)
         val dx = (env * 3f).coerceIn(0f, 1f)
-        val duck = 1f - 0.22f * (dx * dx * (3f - 2f * dx))
+        val duck = 1f - 0.12f * (dx * dx * (3f - 2f * dx))
 
-        val amp = (currentWet * 100f / k.refWet).coerceIn(0f, 2f) * fade
+        // ROOM_BOOST: +6 dB more room energy than the measured reference so
+        // spaces are clearly audible; dry compensation keeps total loudness.
+        val amp = (currentWet * 100f / k.refWet).coerceIn(0f, 2f) * ROOM_BOOST * fade
         val g = amp * k.gain * duck
         // Keep total loudness constant: the louder the room, the more the
         // direct sound steps back (pure gain, never EQ).
@@ -220,6 +222,8 @@ class RoomReverb {
         out[0] = inL * dry + tmp[0] * g
         out[1] = inR * dry + tmp[1] * g
     }
+
+    private companion object Boost { const val ROOM_BOOST = 2f }
 
     private fun resetSend() {
         hx1 = 0f; hx2 = 0f; hy1 = 0f; hy2 = 0f; lpState = 0f
