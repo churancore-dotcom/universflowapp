@@ -41,3 +41,4 @@
 - Column-guard triggers that test current_user must be SECURITY INVOKER; as definer, current_user is always the owner and the guard silently never applies.
 - Android background work (stream lookups, cipher solving, room-kernel builds) runs at THREAD_PRIORITY_BACKGROUND, and playback keeps a ≥1 s PCM buffer plus a 2 s rebuffer threshold, so another app taking CPU/network cannot starve the audio thread.
 - Admin status writes (reports, artist applications) update only from the expected prior status and treat zero returned rows as a conflict, so concurrent reviewers can't silently overwrite each other; deletion workers lease rows with processing_started_at and set completed_at only after success.
+- Android overlap timing, shared-lookup deadlines and starting-vs-playing reporting live in pure `NativeStateMachines.kt` helpers with JVM tests; joining lookup callers keep their own deadline, and only a native "playing" event confirms audio started.

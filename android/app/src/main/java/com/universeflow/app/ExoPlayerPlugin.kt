@@ -137,16 +137,10 @@ class ExoPlayerPlugin : Plugin() {
     }
 
     private fun emitPlaybackState(player: Player) {
-        val name = when {
-            player.playbackState == Player.STATE_ENDED -> "ended"
-            player.playbackState == Player.STATE_IDLE -> "stopped"
-            player.isPlaying -> "playing"
-            player.playWhenReady && (player.playbackState == Player.STATE_BUFFERING || player.playbackState == Player.STATE_READY) -> "buffering"
-            else -> "paused"
-        }
+        val name = PlaybackPhase.classify(player.playbackState, player.isPlaying, player.playWhenReady, isStartingUp)
         // During a track swap ExoPlayer briefly emits IDLE/paused/ended for the
         // old item. If JS receives that after a tap, it looks like an auto-pause.
-        if (isStartingUp && (name == "stopped" || name == "paused" || name == "ended")) return
+        if (PlaybackPhase.suppressDuringStartup(name, isStartingUp)) return
         notifyListeners("playbackStateChange", JSObject().put("state", name))
     }
 
@@ -782,7 +776,7 @@ class ExoPlayerPlugin : Plugin() {
             val v = p?.let {
                 it.isPlaying || (it.playWhenReady && (it.playbackState == Player.STATE_BUFFERING || it.playbackState == Player.STATE_READY))
             } == true
-            call.resolve(JSObject().put("isPlaying", v))
+            call.resolve(JSObject().put("isPlaying", v).put("isStarting", isStartingUp && p?.isPlaying != true))
         }
     }
 

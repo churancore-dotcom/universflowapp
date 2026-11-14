@@ -50,7 +50,7 @@ interface StreamResolverPluginShape {
 }
 
 export interface ExoPlaybackState {
-  state: 'playing' | 'paused' | 'buffering' | 'stopped' | 'ended' | 'unknown';
+  state: 'playing' | 'starting' | 'paused' | 'buffering' | 'stopped' | 'ended' | 'unknown';
 }
 
 export interface ExoPlaybackProgress {
@@ -92,7 +92,7 @@ interface ExoPlayerPluginShape {
   setVolume: (opts: { volume: number }) => Promise<void>;
   getCurrentPosition: () => Promise<{ position: number }>;
   getDuration: () => Promise<{ duration: number }>;
-  isPlaying: () => Promise<{ isPlaying: boolean }>;
+  isPlaying: () => Promise<{ isPlaying: boolean; isStarting?: boolean }>;
   getAudioSessionId: () => Promise<{ sessionId: number }>;
   setEQEnabled: (opts: { enabled: boolean }) => Promise<void>;
   setEQBand: (opts: { band: number; levelMillibels: number }) => Promise<void>;

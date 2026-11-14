@@ -109,7 +109,7 @@ class ExoPlayerService : MediaSessionService() {
                 cancelOverlap()
             } else if (p.isPlaying && tail == null && p.hasNextMediaItem()) {
                 val window = TransitionEnvelope.window(transitionEnabled, transitionDuration, gaplessProEnabled, p.repeatMode == Player.REPEAT_MODE_ONE)
-                val left = p.duration - p.currentPosition
+                val left = OverlapTimeline.wallClockLeft(p.duration, p.currentPosition, p.playbackParameters.speed)
                 val item = p.currentMediaItem
                 // Prepare the outgoing copy several seconds early: it must
                 // re-open the stream, which used to take longer than the
@@ -118,34 +118,20 @@ class ExoPlayerService : MediaSessionService() {
                     attemptedItem = item.mediaId
                     prepareOverlap(p)
                 }
-            } else if (tail != null && overlapStartedAt == 0L && tailReady) {
+            } else if (tail != null && overlapStartedAt == 0L) {
+                // Formal overlap phases (see OverlapTimeline): PREPARING ->
+                // PRIMING (silent, in-sync copy) -> FADING. Timing uses
+                // wall-clock time left so fades start on time at any speed.
                 val window = TransitionEnvelope.window(transitionEnabled, transitionDuration, gaplessProEnabled, p.repeatMode == Player.REPEAT_MODE_ONE)
-                val left = p.duration - p.currentPosition
-                if (window <= 0 || p.duration <= 0) {
-                    if (window <= 0) cancelOverlap()
-                } else if (left <= window * 1000 + OVERLAP_PRIME_LEAD_MS) {
-                    // A real crossfade needs the outgoing song ALREADY playing
-                    // in sync before the swap. The old code seeked the copy at
-                    // the very moment of the fade, so the outgoing song cut out
-                    // while it re-buffered and the new one faded in alone — a
-                    // dropout instead of a blend. Prime it silently first.
-                    val drift = tail.currentPosition - p.currentPosition
-                    if (!tailPrimed) {
-                        tailPrimed = true
-                        tail.volume = 0f
-                        tail.seekTo(p.currentPosition + 40L)
-                        tail.play()
-                    } else if (tail.isPlaying && kotlin.math.abs(drift) > OVERLAP_SYNC_TOLERANCE_MS && left > window * 1000) {
-                        // Still silent: re-align quietly before the swap.
-                        tail.seekTo(p.currentPosition + 40L)
-                    }
-                    val synced = tail.isPlaying && kotlin.math.abs(drift) <= OVERLAP_SYNC_TOLERANCE_MS
-                    if (left <= window * 1000) {
-                        if (synced) beginOverlap(p, tail)
-                        // Copy not ready in time: fall back to a clean gapless
-                        // change rather than a broken half-fade.
-                        else if (left < 350L) cancelOverlap()
-                    }
+                val left = if (p.duration > 0) OverlapTimeline.wallClockLeft(p.duration, p.currentPosition, p.playbackParameters.speed) else Long.MAX_VALUE
+                val drift = tail.currentPosition - p.currentPosition
+                val phase = if (tailPrimed) OverlapPhase.PRIMING else OverlapPhase.PREPARING
+                when (OverlapTimeline.next(phase, tailReady, tail.isPlaying, drift, left, (window * 1000).toLong(), OVERLAP_PRIME_LEAD_MS.toLong(), OVERLAP_SYNC_TOLERANCE_MS.toLong())) {
+                    OverlapAction.PRIME -> { tailPrimed = true; tail.volume = 0f; tail.seekTo(p.currentPosition + 40L); tail.play() }
+                    OverlapAction.REALIGN -> tail.seekTo(p.currentPosition + 40L)
+                    OverlapAction.BEGIN_FADE -> beginOverlap(p, tail)
+                    OverlapAction.ABORT -> cancelOverlap()
+                    OverlapAction.WAIT -> Unit
                 }
             }
             transitionHandler.postDelayed(this, 25L)
