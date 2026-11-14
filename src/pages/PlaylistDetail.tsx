@@ -52,32 +52,46 @@ const PlaylistDetail = () => {
 
   const isOwner = playlist?.user_id === user?.id;
 
+  const playlistRequestRef = useRef(0);
+
   useEffect(() => {
     if (id) {
+      setLoading(true);
+      setPlaylist(null);
+      setSongs([]);
       fetchPlaylist();
     }
   }, [id]);
 
   const fetchPlaylist = async () => {
     if (!id) return;
+    // Only the newest request for the current playlist may update the screen.
+    const requestId = ++playlistRequestRef.current;
+    const isStale = () => requestId !== playlistRequestRef.current;
+    try {
+      const [playlistRes, songsData] = await Promise.all([
+        supabase
+          .from('playlists')
+          .select('*')
+          .eq('id', id)
+          .maybeSingle(),
+        loadPlaylistSongs(id),
+      ]);
+      if (isStale()) return;
 
-    const [playlistRes, songsData] = await Promise.all([
-      supabase
-        .from('playlists')
-        .select('*')
-        .eq('id', id)
-        .single(),
-      loadPlaylistSongs(id),
-    ]);
-
-    if (playlistRes.data) {
-      const [playlistWithCover] = await hydratePlaylistCoverUrls([playlistRes.data]);
-      setPlaylist(playlistWithCover as any);
+      if (playlistRes.data) {
+        const [playlistWithCover] = await hydratePlaylistCoverUrls([playlistRes.data]);
+        if (isStale()) return;
+        setPlaylist(playlistWithCover as any);
+      } else {
+        setPlaylist(null);
+      }
+      setSongs(songsData as PlaylistSong[]);
+    } catch {
+      if (!isStale()) setPlaylist(null);
+    } finally {
+      if (!isStale()) setLoading(false);
     }
-
-    setSongs(songsData as PlaylistSong[]);
-
-    setLoading(false);
   };
 
   const handlePlayAll = () => {

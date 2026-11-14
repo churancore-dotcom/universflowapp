@@ -30,9 +30,13 @@ const AddSongsToPlaylistModal = ({
   const [selectedSongs, setSelectedSongs] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
 
-  const fetchSongs = useCallback(async () => {
+  const searchRequestRef = useRef(0);
+  const fetchSongs = useCallback(async (term: string) => {
+    const requestId = ++searchRequestRef.current;
     setLoading(true);
-    const data = await searchIndexedTracks(searchQuery.trim() || 'top songs', 40).catch(() => [] as IndexedTrack[]);
+    const data = await searchIndexedTracks(term.trim() || 'top songs', 40).catch(() => [] as IndexedTrack[]);
+    // A slower, older search must never replace newer results.
+    if (requestId !== searchRequestRef.current) return;
     setSongs(data.map(s => ({
       id: s.id,
       title: s.title,
@@ -44,18 +48,17 @@ const AddSongsToPlaylistModal = ({
       source: 'indexed' as const,
     })));
     setLoading(false);
-  }, [searchQuery]);
+  }, []);
 
+  // Selections reset only when the window opens, not on every keystroke.
   useEffect(() => {
-    if (isOpen) {
-      fetchSongs();
-      setSelectedSongs(new Set());
-    }
-  }, [isOpen, fetchSongs]);
+    if (isOpen) setSelectedSongs(new Set());
+  }, [isOpen]);
 
+  // One debounced search (runs immediately on open).
   useEffect(() => {
     if (!isOpen) return;
-    const id = setTimeout(fetchSongs, 350);
+    const id = setTimeout(() => { void fetchSongs(searchQuery); }, searchQuery ? 350 : 0);
     return () => clearTimeout(id);
   }, [isOpen, searchQuery, fetchSongs]);
 
