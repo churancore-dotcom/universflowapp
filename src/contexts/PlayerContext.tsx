@@ -2820,16 +2820,23 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     nextAudioRef.current.currentTime = 0;
     
     nextAudioRef.current.play().then(() => {
-      if (playRequestSeqRef.current !== sequence || (outgoing.paused && !outgoing.ended)) { incoming.pause(); disconnectOverlapElement(); isCrossfading.current = false; return; }
+      // A newer request owns the shared elements now; never touch them.
+      if (playRequestSeqRef.current !== sequence) return;
+      if (outgoing.paused && !outgoing.ended) { incoming.pause(); disconnectOverlapElement(); isCrossfading.current = false; return; }
       const effectiveDuration = Math.max(0, transitionSeconds);
       const steps = effectiveDuration === 0 ? 1 : Math.max(12, Math.min(90, Math.round(effectiveDuration * 24)));
       const stepDuration = Math.max(16, (effectiveDuration * 1000) / steps);
       let currentStep = 0;
 
-      crossfadeIntervalRef.current = window.setInterval(() => {
-        if (playRequestSeqRef.current !== sequence || (outgoing.paused && !outgoing.ended) || !wasPlayingRef.current) {
-          if (crossfadeIntervalRef.current) clearInterval(crossfadeIntervalRef.current);
-          crossfadeIntervalRef.current = null;
+      const interval = window.setInterval(() => {
+        if (playRequestSeqRef.current !== sequence) {
+          clearInterval(interval);
+          if (crossfadeIntervalRef.current === interval) crossfadeIntervalRef.current = null;
+          return;
+        }
+        if ((outgoing.paused && !outgoing.ended) || !wasPlayingRef.current) {
+          clearInterval(interval);
+          if (crossfadeIntervalRef.current === interval) crossfadeIntervalRef.current = null;
           incoming.pause(); disconnectOverlapElement(); outgoing.volume = volumeRef.current;
           isCrossfading.current = false;
           return;
@@ -2852,10 +2859,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         }
 
         if (currentStep >= steps) {
-          if (crossfadeIntervalRef.current) {
-            clearInterval(crossfadeIntervalRef.current);
-            crossfadeIntervalRef.current = null;
-          }
+          clearInterval(interval);
+          if (crossfadeIntervalRef.current === interval) crossfadeIntervalRef.current = null;
 
         // Stop old audio
         if (audioRef.current) {
@@ -2896,7 +2901,9 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           isCrossfading.current = false;
         }
       }, stepDuration);
+      crossfadeIntervalRef.current = interval;
     }).catch(() => {
+      if (playRequestSeqRef.current !== sequence) return;
       disconnectOverlapElement();
       outgoing.volume = volumeRef.current;
       isCrossfading.current = false;
