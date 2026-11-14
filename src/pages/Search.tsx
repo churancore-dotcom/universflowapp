@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from '@/lib/router-compat';
-import { Search as SearchIcon, Music, X, Radio, Loader2, Clock, Trash2, UserSearch } from 'lucide-react';
+import { Search as SearchIcon, Music, X, Radio, ArrowUpLeft, Loader2, Clock, Trash2, UserSearch } from 'lucide-react';
 import { toast } from 'sonner';
 import { prewarmSong } from '@/lib/instantPlay';
 import { readRecentQueries, rememberQuery, forgetQuery } from '@/lib/recentQueries';
@@ -17,7 +17,8 @@ import RoseHero from '@/components/RoseHero';
 import { Input } from '@/components/ui/input';
 import { SearchSkeleton } from '@/components/PageSkeletons';
 import VirtualList from '@/components/VirtualList';
-import SimilarSongsRail from '@/components/SimilarSongsRail';
+import { fetchSongMix } from '@/lib/similarSongs';
+import type { YtmSuggestionItem } from '@/lib/ytmSuggestions';
 
 import { useYtmSuggestions } from '@/hooks/useYtmSuggestions';
 import { supabase } from '@/integrations/supabase/client';
@@ -561,7 +562,8 @@ const Search = () => {
   useEffect(() => { setRecentQueries(readRecentQueries()); }, []);
 
   const expandedQueriesRef = useRef<Set<string>>(new Set());
-  const { playSong, currentSong, isPlaying } = usePlayer();
+  const { playSong, currentSong, isPlaying, setQueue } = usePlayer();
+  const mixSeqRef = useRef(0);
   const { getDownloadedUrl } = useDownloads();
   const navigate = useNavigate();
   const [params] = useSearchParams();
@@ -764,29 +766,47 @@ const Search = () => {
   }, []);
 
 
+  // Like YouTube Music: playing a searched song fills Up Next with its mix of
+  // similar-sounding songs, not the other same-named search results.
+  const playWithMix = useCallback((song: Song, videoId?: string) => {
+    const mine = ++mixSeqRef.current;
+    playSong(song, undefined, [song]);
+    void fetchSongMix({ title: song.title, artist: song.artist, videoId })
+      .then((mix) => {
+        if (mine !== mixSeqRef.current || !mix.length) return;
+        setQueue([song, ...mix.map((t) => ({
+          id: t.id, title: t.title, artist: t.artist, cover_url: t.cover_url,
+          audio_url: t.audio_url || (t.videoId ? `yt-video:${t.videoId}` : 'resolving'),
+          duration: t.duration, source: 'indexed' as const,
+        }))]);
+      })
+      .catch(() => {});
+  }, [playSong, setQueue]);
+
   const handlePlayIndexed = useCallback((track: IndexedTrack) => {
-    const trackAudioUrl = track.audio_url || (track.videoId ? `yt-video:${track.videoId}` : 'resolving');
-    const song: Song = {
-      id: track.id,
-      title: track.title,
-      artist: track.artist,
-      album: track.album,
+    playWithMix({
+      id: track.id, title: track.title, artist: track.artist, album: track.album,
       cover_url: track.cover_url,
-      audio_url: trackAudioUrl,
-      duration: track.duration,
-      source: 'indexed',
-    };
-    playSong(song, undefined, displayedIndexedResults.map((item) => ({
-      id: item.id,
-      title: item.title,
-      artist: item.artist,
-      album: item.album,
-      cover_url: item.cover_url,
-      audio_url: item.audio_url || (item.videoId ? `yt-video:${item.videoId}` : 'resolving'),
-      duration: item.duration,
-      source: 'indexed' as const,
-    })));
-  }, [playSong, displayedIndexedResults]);
+      audio_url: track.audio_url || (track.videoId ? `yt-video:${track.videoId}` : 'resolving'),
+      duration: track.duration, source: 'indexed',
+    }, track.videoId);
+  }, [playWithMix]);
+
+  const handleSuggestionItem = useCallback((item: YtmSuggestionItem) => {
+    setSuggestActive(false);
+    (document.activeElement as HTMLElement | null)?.blur?.();
+    if ((item.kind === 'song' || item.kind === 'video') && item.videoId) {
+      const artist = item.subtitle.split(' • ')[0] || '';
+      playWithMix({
+        id: `ytm-${item.videoId}`, title: item.title, artist, cover_url: item.thumbnail,
+        audio_url: `yt-video:${item.videoId}`, source: 'indexed',
+      }, item.videoId);
+    } else if (item.kind === 'artist') {
+      navigate(`/artists?focus=${encodeURIComponent(item.title)}`);
+    } else {
+      setQuery(item.title);
+    }
+  }, [playWithMix, navigate]);
 
   return (
     <TabTransition>
@@ -862,28 +882,58 @@ const Search = () => {
                 re-rendering that races React and throws
                 "removeChild: node is not a child of this node", which blanked
                 the whole Search screen behind the error boundary. */}
-            {isFocused && suggestActive && suggestions.length > 0 && (
+            {isFocused && suggestActive && (suggestions.queries.length > 0 || suggestions.items.length > 0) && (
               <motion.div
                 initial={{ opacity: 0, y: -4 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.14 }}
-                className="absolute left-0 right-0 top-full mt-2 z-40 rounded-2xl overflow-hidden"
-                style={{
-                  background: 'hsl(var(--card))',
-                  border: '1px solid hsl(var(--foreground) / 0.05)',
-                  boxShadow: '0 12px 32px rgba(0,0,0,0.45)',
-                }}
+                className="absolute left-0 right-0 top-full mt-2 z-40 rounded-[22px] overflow-hidden bg-card border border-border/60 shadow-2xl max-h-[70dvh] overflow-y-auto"
               >
-                {suggestions.map((s) => (
+                {suggestions.queries.map((s) => (
+                  <div key={`q-${s}`} className="flex items-center active:bg-foreground/10">
+                    <button
+                      type="button"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => { setQuery(s); setSuggestActive(false); }}
+                      className="flex-1 min-w-0 flex items-center gap-3 pl-4 py-3 text-left text-[14px]"
+                    >
+                      <SearchIcon className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                      <span className="truncate">
+                        {s.toLowerCase().startsWith(query.trim().toLowerCase())
+                          ? <><span className="text-muted-foreground">{s.slice(0, query.trim().length)}</span><span className="font-semibold text-foreground">{s.slice(query.trim().length)}</span></>
+                          : s}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      aria-label={`Fill in ${s}`}
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => setQuery(s + ' ')}
+                      className="w-11 h-11 flex items-center justify-center text-muted-foreground"
+                    >
+                      <ArrowUpLeft className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+                {suggestions.items.length > 0 && suggestions.queries.length > 0 && <div className="h-px bg-border/60 mx-4 my-1" />}
+                {suggestions.items.map((it) => (
                   <button
-                    key={s}
+                    key={`i-${it.videoId || it.browseId || it.title}`}
                     type="button"
                     onMouseDown={(e) => e.preventDefault()}
-                    onClick={() => { setQuery(s); setSuggestActive(false); }}
-                    className="w-full flex items-center gap-2.5 px-3.5 py-2.5 text-left text-sm hover:bg-foreground/5 active:bg-foreground/10 transition-colors"
+                    onClick={() => handleSuggestionItem(it)}
+                    className="w-full flex items-center gap-3 px-4 py-2.5 text-left active:bg-foreground/10"
                   >
-                    <SearchIcon className="w-3.5 h-3.5 text-muted-foreground flex-shrink-0" />
-                    <span className="truncate">{s}</span>
+                    <div className={`w-11 h-11 flex-shrink-0 overflow-hidden bg-muted ${it.kind === 'artist' ? 'rounded-full' : 'rounded-[10px]'}`}>
+                      {it.thumbnail && <img src={it.thumbnail} alt="" className="w-full h-full object-cover" loading="lazy" referrerPolicy="no-referrer" />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[14px] font-semibold text-foreground truncate">{it.title}</p>
+                      <p className="text-[12px] text-muted-foreground truncate">
+                        {it.kind === 'artist' ? 'Artist' : it.kind === 'album' ? 'Album' : it.kind === 'video' ? 'Video' : 'Song'}
+                        {it.subtitle ? ` • ${it.subtitle}` : ''}
+                      </p>
+                    </div>
                   </button>
                 ))}
               </motion.div>
@@ -1050,9 +1100,6 @@ const Search = () => {
           {/* Results */}
           {searching ? <SearchSkeleton /> : (
             <>
-              {source === 'songs' && query.trim().length > 1 && displayedIndexedResults.length > 0 && (
-                <SimilarSongsRail query={query.trim()} />
-              )}
               {source === 'songs' && displayedIndexedResults.length > 0 && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className={libraryResults.length > 0 ? 'mt-6' : ''}>
                   <h2 className="font-display text-[32px] font-black uppercase tracking-[0.04em] leading-none mb-3 flex items-center gap-2">
