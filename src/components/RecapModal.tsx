@@ -305,7 +305,7 @@ const RecapModal = ({ isOpen, onClose, window: recapWindow = 'month' }: Props) =
                   transition={{ duration: 0.45, ease: [0.16, 1, 0.3, 1] }}
                 >
                   {slide.cover && (
-                    <div aria-hidden className="pointer-events-none absolute inset-x-0 -top-28 bottom-0 -z-10 overflow-hidden">
+                    <div aria-hidden className="pointer-events-none absolute inset-0 -z-10 overflow-hidden">
                       <img src={slide.cover} alt="" className="h-full w-full scale-125 object-cover opacity-40 blur-3xl" />
                       <div className="absolute inset-0 bg-gradient-to-b from-background/40 via-background/70 to-background" />
                     </div>
