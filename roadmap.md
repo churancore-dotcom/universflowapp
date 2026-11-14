@@ -1,5 +1,7 @@
 # Roadmap
 
+- [ ] Investigate APK background glitches, reduce unnecessary audio-thread work, add native regression tests, and verify compilation where possible.
+
 - [x] Connect GitHub API and Google Search Console after the latest workspace move (17:08 request; both verified).
 
 - [x] Fix stale favorites, followed artists, and typing suggestions; 154 tests passed and signed-in search checked on mobile viewport.
