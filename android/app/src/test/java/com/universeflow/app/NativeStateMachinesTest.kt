@@ -55,4 +55,19 @@ class NativeStateMachinesTest {
         assertEquals(4000L, ResolverDeadline.retryBudget(0, 1000, 5000))
         assertNull(ResolverDeadline.retryBudget(0, 4500, 5000))
     }
+
+    @Test fun crossfadeSumNeverClips() {
+        for (i in 0..20) {
+            val g = OverlapMix.safe(TransitionEnvelope.gains("equal-power", i / 20.0))
+            assertTrue(g.first + g.second <= 1.0001f)
+        }
+        val end = OverlapMix.safe(TransitionEnvelope.gains("equal-power", 1.0))
+        assertEquals(1f, end.second, 0.001f)
+    }
+
+    @Test fun eqLeavesAtMostFourAndHalfDbForTheLimiter() {
+        assertEquals(1f, EqHeadroom.preGain(2.0), 0.0001f)
+        // +12 dB peak -> pulled down 7.5 dB
+        assertEquals(Math.pow(10.0, -7.5 / 20).toFloat(), EqHeadroom.preGain(12.0), 0.0001f)
+    }
 }

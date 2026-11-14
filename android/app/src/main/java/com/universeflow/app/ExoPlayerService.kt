@@ -100,7 +100,7 @@ class ExoPlayerService : MediaSessionService() {
                 } else if (p.isPlaying) {
                     val progress = p.currentPosition.toDouble() / overlapDurationMs.coerceAtLeast(1L)
                     if (p.duration > 0) overlapDurationMs = minOf(overlapDurationMs, p.duration)
-                    val gains = TransitionEnvelope.gains(transitionCurve, progress)
+                    val gains = OverlapMix.safe(TransitionEnvelope.gains(transitionCurve, progress))
                     tail.volume = masterVolume * gains.first
                     p.volume = masterVolume * gains.second
                     if (progress >= 1.0) cancelOverlap()
@@ -154,7 +154,7 @@ class ExoPlayerService : MediaSessionService() {
         masterVolume = volume.coerceIn(0f, 1f)
         if (tailPlayer == null || overlapStartedAt == 0L) player?.volume = masterVolume
         else player?.let { p ->
-            val gains = TransitionEnvelope.gains(transitionCurve, p.currentPosition.toDouble() / overlapDurationMs.coerceAtLeast(1L))
+            val gains = OverlapMix.safe(TransitionEnvelope.gains(transitionCurve, p.currentPosition.toDouble() / overlapDurationMs.coerceAtLeast(1L)))
             tailPlayer?.volume = masterVolume * gains.first
             p.volume = masterVolume * gains.second
         }
