@@ -74,8 +74,10 @@ export default function JoinTeam() {
   const decline = async () => {
     setBusy(true);
     try {
-      const { error } = await supabase.rpc('decline_artist_invite', { _code: code.trim().toLowerCase() });
+      const { data, error } = await supabase.rpc('decline_artist_invite', { _code: code.trim().toLowerCase() });
       if (error) throw error;
+      const result = data as { ok?: boolean; error?: string } | null;
+      if (!result?.ok) throw new Error(result?.error ? `Could not decline: ${result.error.replace(/_/g, ' ')}` : 'Could not decline invite');
       toast.success('Invite declined');
       setInvite(null); setCode(''); setSp({});
     } catch (e: any) { toast.error(e.message ?? 'Failed'); }

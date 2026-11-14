@@ -47,13 +47,20 @@ const SupportChatModal = ({ isOpen, onClose }: Props) => {
   }, [user]);
 
   const loadMessages = useCallback(async (cid: string) => {
-    const { data } = await supabase
+    // Newest 200, shown oldest-first. Merge so realtime messages that
+    // arrived while this loaded are never dropped.
+    const { data, error } = await supabase
       .from('support_messages')
       .select('*')
       .eq('chat_id', cid)
-      .order('created_at', { ascending: true })
+      .order('created_at', { ascending: false })
       .limit(200);
-    setMessages((data || []) as Message[]);
+    if (error) { setLoading(false); return false; }
+    const history = ((data || []) as Message[]).reverse();
+    setMessages(prev => {
+      const seen = new Set(history.map(m => m.id));
+      return [...history, ...prev.filter(m => !seen.has(m.id))];
+    });
     setLoading(false);
     // Reset unread for user
     await supabase.from('support_chats').update({ unread_for_user: 0 }).eq('id', cid);
@@ -63,12 +70,15 @@ const SupportChatModal = ({ isOpen, onClose }: Props) => {
     if (!isOpen || !user) return;
     setLoading(true);
     let channel: ReturnType<typeof supabase.channel> | null = null;
+    let cancelled = false;
+    setMessages([]);
     (async () => {
       const cid = await ensureChat();
+      if (cancelled) return;
       if (!cid) { setLoading(false); return; }
       setChatId(cid);
-      await loadMessages(cid);
 
+      // Subscribe first, then load history, so no reply falls in the gap.
       channel = supabase
         .channel(`support_chat_${cid}`)
         .on('postgres_changes', {
@@ -87,9 +97,11 @@ const SupportChatModal = ({ isOpen, onClose }: Props) => {
             supabase.from('support_chats').update({ unread_for_user: 0 }).eq('id', cid);
           }
         })
-        .subscribe();
+        .subscribe((status) => {
+          if (status === 'SUBSCRIBED' && !cancelled) void loadMessages(cid);
+        });
     })();
-    return () => { if (channel) supabase.removeChannel(channel); };
+    return () => { cancelled = true; if (channel) supabase.removeChannel(channel); };
   }, [isOpen, user, ensureChat, loadMessages]);
 
   useEffect(() => {

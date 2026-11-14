@@ -56,7 +56,7 @@ export default function AdminPayouts() {
   useEffect(() => { load(); }, [load]);
 
   const markPaid = async (row: Row) => {
-    const note = window.prompt(`Confirm ₹${row.amount_inr} to ${row.upi_id ?? 'this artist'}?\n\nOptional note:`) ?? undefined;
+    const note = window.prompt(`Confirm ₹${row.amount_inr} to ${row.upi_id ?? 'this artist'}?\n\nOptional note:`);
     if (note === null) return;
     setBusy(row.id);
     const { error } = await supabase.rpc('admin_mark_payout_paid', { _payout_id: row.id, _admin_note: note || undefined });
@@ -70,12 +70,15 @@ export default function AdminPayouts() {
     const note = window.prompt('Reason for rejecting this payout?');
     if (!note) return;
     setBusy(row.id);
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from('artist_payouts')
       .update({ status: 'rejected', admin_note: note })
-      .eq('id', row.id);
+      .eq('id', row.id)
+      .in('status', ['pending', 'processing'])
+      .select('id');
     setBusy(null);
     if (error) { toast.error(error?.message ?? 'Error'); return; }
+    if (!updated || updated.length !== 1) { toast.error('This payout was already handled'); load(); return; }
     toast.success('Payout rejected');
     load();
   };

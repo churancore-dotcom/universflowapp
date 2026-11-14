@@ -72,10 +72,12 @@ export default function TeamManagement() {
 
   const revoke = async (uid: string) => {
     if (!artistProfileId) return;
-    const { error } = await supabase.rpc('revoke_artist_member', {
+    const { data, error } = await supabase.rpc('revoke_artist_member', {
       _artist_profile_id: artistProfileId, _user_id: uid,
     });
     if (error) return toast.error(error.message);
+    const result = data as { ok?: boolean; error?: string } | null;
+    if (!result?.ok) return toast.error(result?.error ? `Could not revoke: ${result.error.replace(/_/g, ' ')}` : 'Could not revoke member');
     toast.success('Member revoked');
     reload(artistProfileId);
   };
