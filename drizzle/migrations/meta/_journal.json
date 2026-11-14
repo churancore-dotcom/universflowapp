@@ -141,6 +141,13 @@
       "when": 1794572576633,
       "tag": "0019_atomic_app_version_publish",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1794663105840,
+      "tag": "0020_trigger_guards_security_invoker",
+      "breakpoints": true
     }
   ]
 }
