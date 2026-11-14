@@ -10,6 +10,7 @@ const listeners = new Set<Listener>();
 let progress = 0;
 let duration = 0;
 let playing = false;
+let rate = 1;
 
 let snapshot = { progress, duration, playing };
 
@@ -48,6 +49,15 @@ export const playerProgressStore = {
     lastProgressAt = now();
     emit();
   },
+  /** Playback speed, so estimated progress (bar, lyrics, lock screen) doesn't drift. */
+  setRate(v: number) {
+    const next = Number.isFinite(v) && v > 0 ? v : 1;
+    if (next === rate) return;
+    progress = this.getEstimatedProgress();
+    lastProgressAt = now();
+    rate = next;
+  },
+  getRate() { return rate; },
   reset() {
     progress = 0;
     duration = 0;
@@ -59,7 +69,7 @@ export const playerProgressStore = {
   getEstimatedProgress() {
     if (!playing) return clampProgress(progress);
     const elapsed = Math.max(0, (now() - lastProgressAt) / 1000);
-    return clampProgress(progress + elapsed);
+    return clampProgress(progress + elapsed * rate);
   },
   getDuration() { return duration; },
   getPlaying() { return playing; },
