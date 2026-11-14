@@ -146,19 +146,33 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
     }
 
     override fun onPurchasesUpdated(result: BillingResult, purchases: MutableList<com.android.billingclient.api.Purchase>?) {
-        val call = pendingPurchaseCall ?: return
+        // A purchase can finish long after checkout closed (pending cash or
+        // bank payments). Those arrive with no waiting call and are forwarded
+        // as events so the app can verify them; nothing is granted here.
+        val call = pendingPurchaseCall
         pendingPurchaseCall = null
         if (result.responseCode == BillingClient.BillingResponseCode.USER_CANCELED) {
-            call.reject("purchase_cancelled", "PURCHASE_CANCELLED")
+            call?.reject("purchase_cancelled", "PURCHASE_CANCELLED")
             return
         }
-        val purchase = purchases?.firstOrNull { it.purchaseState == com.android.billingclient.api.Purchase.PurchaseState.PURCHASED }
-        val productId = purchase?.products?.firstOrNull()
-        if (result.responseCode != BillingClient.BillingResponseCode.OK || purchase == null || productId == null) {
-            call.reject("Purchase was not completed: ${result.debugMessage}")
+        if (result.responseCode != BillingClient.BillingResponseCode.OK) {
+            call?.reject("Purchase was not completed: ${result.debugMessage}")
             return
         }
-        call.resolve(purchaseJson(productId, purchase.purchaseToken, purchase.orderId))
+        val purchased = purchases?.firstOrNull { it.purchaseState == com.android.billingclient.api.Purchase.PurchaseState.PURCHASED }
+        val productId = purchased?.products?.firstOrNull()
+        val payload: JSObject? = when {
+            purchased != null && productId != null ->
+                purchaseJson(productId, purchased.purchaseToken, purchased.orderId).apply { put("status", "purchased") }
+            purchases?.any { it.purchaseState == com.android.billingclient.api.Purchase.PurchaseState.PENDING } == true ->
+                JSObject().apply { put("status", "pending") }
+            else -> null
+        }
+        if (payload == null) {
+            call?.reject("Purchase was not completed: ${result.debugMessage}")
+            return
+        }
+        if (call != null) call.resolve(payload) else notifyListeners("purchaseUpdated", payload, true)
     }
 
     private fun purchaseJson(productId: String, token: String, orderId: String?): JSObject = JSObject().apply {
