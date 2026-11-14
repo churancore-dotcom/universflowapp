@@ -41,14 +41,19 @@ export const Route = createFileRoute('/api/public/process-account-deletions')({
           // Atomically claim the row: only proceed if it is still due, not
           // cancelled and not already claimed. This closes the window where a
           // request changed between the read above and the delete below.
+          // Lease the row with processing_started_at. completed_at stays null
+          // until deletion actually succeeds, so a crash mid-way leaves the
+          // row retryable once the lease goes stale (15 minutes).
           const claimedAt = new Date().toISOString();
+          const staleBefore = new Date(Date.now() - 15 * 60 * 1000).toISOString();
           const { data: claimed } = await supabaseAdmin
             .from('account_deletion_requests')
-            .update({ completed_at: claimedAt })
+            .update({ processing_started_at: claimedAt })
             .eq('user_id', row.user_id)
             .is('cancelled_at', null)
             .is('completed_at', null)
             .lte('delete_after', claimedAt)
+            .or(`processing_started_at.is.null,processing_started_at.lt.${staleBefore}`)
             .select('user_id');
           if (!claimed || claimed.length === 0) continue;
           let error: { message: string } | null = null;
@@ -60,12 +65,18 @@ export const Route = createFileRoute('/api/public/process-account-deletions')({
           if (error) {
             await supabaseAdmin
               .from('account_deletion_requests')
-              .update({ completed_at: null })
+              .update({ processing_started_at: null })
               .eq('user_id', row.user_id)
-              .eq('completed_at', claimedAt);
+              .eq('processing_started_at', claimedAt);
             failed += 1;
             console.error('[account-deletion] delete failed', row.user_id, error.message);
           } else {
+            // The row normally cascades away with the account; mark it done in
+            // case it survives (e.g. profile row already gone).
+            await supabaseAdmin
+              .from('account_deletion_requests')
+              .update({ completed_at: new Date().toISOString() })
+              .eq('user_id', row.user_id);
             deleted += 1;
           }
         }

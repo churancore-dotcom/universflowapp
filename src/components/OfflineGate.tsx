@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useLocation, useNavigate } from '@/lib/router-compat';
 import { useAuth } from '@/contexts/AuthContext';
+import { forgetOfflineReturn, rememberOfflineReturn, takeOfflineReturn } from '@/lib/offlineReturn';
 
 /**
  * When offline, the app collapses to a single screen: the standalone
@@ -16,11 +17,22 @@ const OfflineGate = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isOffline) return;
-    if (!OFFLINE_ALLOWED.has(location.pathname)) {
-      navigate('/offline-player', { replace: true });
+    if (isOffline) {
+      if (!OFFLINE_ALLOWED.has(location.pathname)) {
+        rememberOfflineReturn(location.pathname + location.search + location.hash);
+        navigate('/offline-player', { replace: true });
+      } else if (location.pathname === '/auth') {
+        // The user chose to go elsewhere; don't yank them back later.
+        forgetOfflineReturn();
+      }
+      return;
     }
-  }, [isOffline, location.pathname, navigate]);
+    // Back online: return to where we auto-redirected from, if anywhere.
+    const destination = takeOfflineReturn();
+    if (destination && location.pathname === '/offline-player') {
+      navigate(destination, { replace: true });
+    }
+  }, [isOffline, location.pathname, location.search, location.hash, navigate]);
 
   return null;
 };

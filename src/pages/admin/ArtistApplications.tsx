@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Camera,
@@ -117,56 +117,68 @@ export default function ArtistApplications() {
 
   const filtered = filter === 'all' ? apps : apps.filter((a) => a.status === filter);
 
+  // Each opened application gets a token; late responses for a previously
+  // opened applicant are dropped so their details never show on another.
+  const selectionToken = useRef(0);
+  const reviewLock = useRef(false);
+  const [detailsLoading, setDetailsLoading] = useState(false);
+  useEffect(() => () => { selectionToken.current += 1; }, []);
+
+  const closeReview = () => { selectionToken.current += 1; setActive(null); };
+
   const openReview = async (app: App) => {
+    const token = ++selectionToken.current;
     setActive(app);
     setActiveEmail(null);
     setActiveUsername(null);
-    // admin_note is fetched on demand via the admin RPC so the column stays
-    // hidden from regular signed-in users at the database level.
-    let currentNote: string | null = null;
-    try {
-      const { data: note } = await supabase.rpc('admin_get_artist_application_note', { _app_id: app.id });
-      currentNote = (note as string | null) ?? null;
-    } catch { /* ignore */ }
-    setNote(currentNote ?? '');
+    setNote('');
     setPreviews({});
-    supabase.from('profiles').select('email, username').eq('user_id', app.user_id).maybeSingle()
-      .then(({ data }) => {
-        if (data) {
-          setActiveEmail(data.email ?? null);
-          setActiveUsername(data.username ?? null);
-        }
+    setDetailsLoading(true);
+    try {
+      let currentNote: string | null = null;
+      try {
+        const { data: note } = await supabase.rpc('admin_get_artist_application_note', { _app_id: app.id });
+        currentNote = (note as string | null) ?? null;
+      } catch { /* ignore */ }
+      if (token !== selectionToken.current) return;
+      setNote(currentNote ?? '');
+      const { data: profile } = await supabase.from('profiles').select('email, username').eq('user_id', app.user_id).maybeSingle();
+      if (token !== selectionToken.current) return;
+      if (profile) {
+        setActiveEmail(profile.email ?? null);
+        setActiveUsername(profile.username ?? null);
+      }
+      const faceShots = app.social_links?.face_shots;
+      const face = Array.isArray(faceShots) ? faceShots.filter((path): path is string => typeof path === 'string') : [];
+      const [selfie, center, left, right, up] = await Promise.all([
+        signed(app.selfie_path), signed(face[0]), signed(face[1]), signed(face[2]), signed(face[3]),
+      ]);
+      if (token !== selectionToken.current) return;
+      setPreviews({
+        selfie: selfie ?? undefined, center: center ?? undefined, left: left ?? undefined,
+        right: right ?? undefined, up: up ?? undefined,
       });
-    const faceShots = app.social_links?.face_shots;
-    const face = Array.isArray(faceShots) ? faceShots.filter((path): path is string => typeof path === 'string') : [];
-    const [selfie, center, left, right, up] = await Promise.all([
-      signed(app.selfie_path),
-      signed(face[0]),
-      signed(face[1]),
-      signed(face[2]),
-      signed(face[3]),
-    ]);
-    setPreviews({
-      selfie: selfie ?? undefined,
-      center: center ?? undefined,
-      left: left ?? undefined,
-      right: right ?? undefined,
-      up: up ?? undefined,
-    });
+    } finally {
+      if (token === selectionToken.current) setDetailsLoading(false);
+    }
   };
 
   const review = async (status: Exclude<Status, 'pending'>) => {
-    if (!active) return;
+    if (!active || detailsLoading || reviewLock.current) return;
     if (status === 'rejected' && note.trim().length < 10) {
       toast.error('Add a clear rejection reason first — the artist must know what to fix.');
       return;
     }
+    reviewLock.current = true;
+    const previousStatus = active.status;
+    const token = selectionToken.current;
     setBusy(true);
     try {
       const { data, error } = await supabase
         .from('artist_applications')
         .update({ status, admin_note: note.trim() || null })
         .eq('id', active.id)
+        .eq('status', previousStatus)
         .select('id, status')
         .maybeSingle();
       if (error) {
@@ -174,15 +186,17 @@ export default function ArtistApplications() {
         return;
       }
       if (!data) {
-        toast.error('Nothing was updated. You may have lost admin access — sign out and back in.');
+        toast.error('Already reviewed by another admin, or you lost admin access. Refreshing.');
+        load();
         return;
       }
       toast.success(status === 'approved' ? 'Artist verified and dashboard unlocked' : 'Application rejected');
-      setActive(null);
+      if (token === selectionToken.current) closeReview();
       load();
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : 'Unexpected error while updating the application.');
     } finally {
+      reviewLock.current = false;
       setBusy(false);
     }
   };
@@ -241,7 +255,7 @@ export default function ArtistApplications() {
         </div>
       )}
 
-      <Sheet open={!!active} onOpenChange={(o) => !o && setActive(null)}>
+      <Sheet open={!!active} onOpenChange={(o) => !o && closeReview()}>
         <SheetContent side="right" className="w-full sm:max-w-3xl overflow-y-auto p-0 border-l border-white/[0.08]">
           <SheetHeader className="px-5 pt-5 pb-4 border-b border-white/[0.06] bg-gradient-to-b from-primary/[0.08] to-transparent">
             <SheetTitle className="flex items-center gap-3 text-left">
@@ -350,10 +364,10 @@ export default function ArtistApplications() {
 
               {active.status === 'pending' ? (
                 <div className="sticky bottom-0 -mx-5 -mb-5 px-5 py-4 bg-background/95 backdrop-blur border-t border-white/[0.06] grid grid-cols-2 gap-2">
-                  <Button variant="outline" disabled={busy} onClick={() => review('rejected')}>
+                  <Button variant="outline" disabled={busy || detailsLoading} onClick={() => review('rejected')}>
                     {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <XCircle className="w-4 h-4 mr-1.5" />} Reject
                   </Button>
-                  <Button disabled={busy} onClick={() => review('approved')}>
+                  <Button disabled={busy || detailsLoading} onClick={() => review('approved')}>
                     {busy ? <Loader2 className="w-4 h-4 mr-1.5 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1.5" />} Approve
                   </Button>
                 </div>

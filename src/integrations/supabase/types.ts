@@ -20,6 +20,7 @@ export type Database = {
           completed_at: string | null
           delete_after: string
           feedback: string
+          processing_started_at: string | null
           reason: string
           requested_at: string
           user_id: string
@@ -29,6 +30,7 @@ export type Database = {
           completed_at?: string | null
           delete_after?: string
           feedback?: string
+          processing_started_at?: string | null
           reason?: string
           requested_at?: string
           user_id: string
@@ -38,6 +40,7 @@ export type Database = {
           completed_at?: string | null
           delete_after?: string
           feedback?: string
+          processing_started_at?: string | null
           reason?: string
           requested_at?: string
           user_id?: string

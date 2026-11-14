@@ -1,4 +1,4 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { Capacitor, registerPlugin, type PluginListenerHandle } from '@capacitor/core';
 import { usesPlayCheckout } from '@/lib/playPaymentPolicy';
 
 export const PLAY_PRODUCTS = {
@@ -22,9 +22,14 @@ export interface PlayPurchase {
   orderId: string;
 }
 
+export type PlayPurchaseResult =
+  | ({ status: 'purchased' } & PlayPurchase)
+  | { status: 'pending' };
+
 interface PlayBillingPluginShape {
   getProducts(options: { productIds: string[] }): Promise<{ products: PlayProduct[] }>;
-  purchase(options: { productId: string }): Promise<PlayPurchase>;
+  purchase(options: { productId: string }): Promise<PlayPurchaseResult>;
+  addListener(eventName: 'purchaseUpdated', listener: (purchase: PlayPurchaseResult) => void): Promise<PluginListenerHandle>;
   restorePurchases(): Promise<{ purchases: PlayPurchase[] }>;
 }
 
@@ -46,9 +51,19 @@ export async function getPlayProducts(): Promise<PlayProduct[]> {
   return (await PlayBilling.getProducts({ productIds: Object.values(PLAY_PRODUCTS) })).products;
 }
 
-export async function startPlayPurchase(plan: PlayPlan): Promise<PlayPurchase> {
+export async function startPlayPurchase(plan: PlayPlan): Promise<PlayPurchaseResult> {
   requirePlayRuntime();
-  return PlayBilling.purchase({ productId: PLAY_PRODUCTS[plan] });
+  const result = await PlayBilling.purchase({ productId: PLAY_PRODUCTS[plan] });
+  // Older native builds resolve without a status; treat them as purchased.
+  return (result as { status?: string }).status === 'pending'
+    ? { status: 'pending' }
+    : { ...(result as PlayPurchase), status: 'purchased' };
+}
+
+/** Purchases that finish later (e.g. a pending cash payment completing). */
+export async function addPlayPurchaseListener(listener: (purchase: PlayPurchaseResult) => void): Promise<PluginListenerHandle> {
+  requirePlayRuntime();
+  return PlayBilling.addListener('purchaseUpdated', listener);
 }
 
 export async function restorePlayPurchases(): Promise<PlayPurchase[]> {

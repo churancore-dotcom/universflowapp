@@ -15,7 +15,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from '@/hooks/use-toast';
 import SEOHead from '@/components/SEOHead';
-import { getPlayProducts, isPlayStoreBuild, restorePlayPurchases, startPlayPurchase, PLAY_PRODUCTS, type PlayPlan, type PlayProduct } from '@/lib/playBilling';
+import { addPlayPurchaseListener, getPlayProducts, isPlayStoreBuild, restorePlayPurchases, startPlayPurchase, PLAY_PRODUCTS, type PlayPlan, type PlayProduct, type PlayPurchase } from '@/lib/playBilling';
 import { checkPlayBillingReady, verifyPlayPurchase } from '@/lib/playPurchase.functions';
 import { useServerFn } from '@tanstack/react-start';
 import { canBuyPlayProduct, planDisplayPrice } from '@/lib/playPaymentPolicy';
@@ -100,26 +100,40 @@ const PremiumPage = memo(function PremiumPage() {
   const checkBillingReady = useServerFn(checkPlayBillingReady);
   const [playVerificationReady, setPlayVerificationReady] = useState(false);
   const [playAvailability, setPlayAvailability] = useState<'loading' | 'ready' | 'unavailable'>('loading');
-  const [playBuying, setPlayBuying] = useState(false);
+  // One explicit phase for every Play operation; a ref mirrors it so a second
+  // tap in the same frame can't start a parallel checkout.
+  const [playPhase, setPlayPhase] = useState<'idle' | 'checkout' | 'verifying' | 'restoring'>('idle');
+  const playPhaseRef = useRef<'idle' | 'checkout' | 'verifying' | 'restoring'>('idle');
+  const changePlayPhase = useCallback((phase: 'idle' | 'checkout' | 'verifying' | 'restoring') => {
+    playPhaseRef.current = phase; setPlayPhase(phase);
+  }, []);
+  const playBuying = playPhase !== 'idle';
+  const playLoadGeneration = useRef(0);
+  const pendingRequestId = useRef(0);
   const [playProducts, setPlayProducts] = useState<PlayProduct[]>([]);
   const playBuild = isPlayStoreBuild();
 
   const loadPlayBilling = useCallback(async () => {
+    const generation = ++playLoadGeneration.current;
     if (!playBuild) return;
     setPlayAvailability('loading');
     setPlayVerificationReady(false);
     try {
       const products = await getPlayProducts();
-      setPlayProducts(products);
       const readiness = user ? await checkBillingReady() : { ready: false };
+      if (generation !== playLoadGeneration.current) return;
+      setPlayProducts(products);
       setPlayVerificationReady(readiness.ready);
       setPlayAvailability(products.length && readiness.ready ? 'ready' : 'unavailable');
     } catch {
-      setPlayAvailability('unavailable');
+      if (generation === playLoadGeneration.current) setPlayAvailability('unavailable');
     }
   }, [checkBillingReady, playBuild, user]);
 
-  useEffect(() => { void loadPlayBilling(); }, [loadPlayBilling]);
+  useEffect(() => {
+    void loadPlayBilling();
+    return () => { playLoadGeneration.current += 1; };
+  }, [loadPlayBilling]);
 
   useEffect(() => {
     if (playBuild) return;
@@ -146,10 +160,14 @@ const PremiumPage = memo(function PremiumPage() {
   }, [playBuild]);
 
   useEffect(() => {
+    pendingRequestId.current += 1;
     if (playBuild || !user || isPremium) { setPending(null); return; }
     let cancelled = false;
     const fetchPending = async () => {
-      const { data } = await supabase
+      // Only the newest read may update the banner, so an older "nothing
+      // pending" answer can't hide a payment that was just submitted.
+      const requestId = ++pendingRequestId.current;
+      const { data, error } = await supabase
         .from('payment_requests')
         .select('id, utr_number, amount_paise, plan, created_at')
         .eq('user_id', user.id)
@@ -157,7 +175,8 @@ const PremiumPage = memo(function PremiumPage() {
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (!cancelled) setPending(data ?? null);
+      if (cancelled || error || requestId !== pendingRequestId.current) return;
+      setPending(data ?? null);
     };
     fetchPending();
 
@@ -196,6 +215,7 @@ const PremiumPage = memo(function PremiumPage() {
 
     return () => {
       cancelled = true;
+      pendingRequestId.current += 1;
       window.clearInterval(poll);
       document.removeEventListener('visibilitychange', onVisible);
       window.removeEventListener('focus', onVisible);
@@ -217,32 +237,55 @@ const PremiumPage = memo(function PremiumPage() {
     (Object.entries(PLAY_PRODUCTS) as Array<[PlayPlan, string]>).map(([plan, productId]) => [plan, playProducts.find((product) => product.productId === productId)?.formattedPrice]),
   ) as Partial<Record<PlayPlan, string>>;
 
+  // Payment and access are separate steps: if Google took the money but our
+  // check failed, say so honestly and leave Restore as the retry path.
+  const confirmPlayPurchase = useCallback(async (purchase: PlayPurchase): Promise<boolean> => {
+    changePlayPhase('verifying');
+    try {
+      await verifyPurchase({ data: purchase });
+      await refetchPremium();
+      toast({ title: 'Premium activated', description: 'Your Google Play purchase was verified.' });
+      return true;
+    } catch {
+      toast({ title: 'Payment received', description: "We're still confirming it. Tap Restore purchases, or reopen this page later." });
+      return false;
+    }
+  }, [changePlayPhase, refetchPremium, verifyPurchase]);
+
   const handleUpgrade = useCallback(async () => {
     haptics.medium();
     if (playBuild) {
       if (!user) { navigate('/auth'); return; }
-      if (playBuying || !canBuyPlayProduct(playPriceByPlan[selectedPlan], playVerificationReady)) {
+      if (playPhaseRef.current !== 'idle') return;
+      if (!canBuyPlayProduct(playPriceByPlan[selectedPlan], playVerificationReady)) {
         toast({ title: 'Google Play purchase unavailable', description: 'No payment was taken. Please try again later.', variant: 'destructive' });
         return;
       }
-      setPlayBuying(true);
+      changePlayPhase('checkout');
       try {
-        const purchase = await startPlayPurchase(selectedPlan as PlayPlan);
-        await verifyPurchase({ data: purchase });
-        await refetchPremium();
-        toast({ title: 'Premium activated', description: 'Your Google Play purchase was verified.' });
-      } catch (error) {
-        const message = error instanceof Error ? error.message : 'Purchase was not completed';
-        if (!/cancel/i.test(message)) toast({ title: 'Purchase not completed', description: message, variant: 'destructive' });
+        let result;
+        try {
+          result = await startPlayPurchase(selectedPlan as PlayPlan);
+        } catch (error) {
+          const message = error instanceof Error ? error.message : 'Purchase was not completed';
+          if (!/cancel/i.test(message)) toast({ title: 'Purchase not completed', description: message, variant: 'destructive' });
+          return;
+        }
+        if (result.status === 'pending') {
+          toast({ title: 'Payment pending', description: 'Google Play is waiting for your payment. Premium turns on automatically once it completes.' });
+          return;
+        }
+        await confirmPlayPurchase(result);
       } finally {
-        setPlayBuying(false);
+        changePlayPhase('idle');
       }
       return;
     }
     setShowCheckout(true);
-  }, [haptics, navigate, playBuild, playBuying, playPriceByPlan, playVerificationReady, refetchPremium, selectedPlan, user, verifyPurchase]);
+  }, [haptics, navigate, playBuild, playPriceByPlan, playVerificationReady, selectedPlan, user, changePlayPhase, confirmPlayPurchase]);
 
   const handlePaymentSubmitted = useCallback((payment: PendingPayment) => {
+    pendingRequestId.current += 1;
     setPending(payment);
     setShowCheckout(false);
     window.setTimeout(() => {
@@ -252,22 +295,41 @@ const PremiumPage = memo(function PremiumPage() {
 
   const handleRestore = useCallback(async () => {
     if (!user) { navigate('/auth'); return; }
-    setPlayBuying(true);
+    if (playPhaseRef.current !== 'idle') return;
+    changePlayPhase('restoring');
     try {
-      const purchases = await restorePlayPurchases();
+      let purchases: PlayPurchase[];
+      try {
+        purchases = await restorePlayPurchases();
+      } catch (error) {
+        toast({ title: 'Restore failed', description: error instanceof Error ? error.message : 'Try again later', variant: 'destructive' });
+        return;
+      }
       if (purchases.length === 0) {
         toast({ title: 'No purchase to restore' });
         return;
       }
-      for (const purchase of purchases) await verifyPurchase({ data: purchase });
-      await refetchPremium();
-      toast({ title: 'Premium restored' });
-    } catch (error) {
-      toast({ title: 'Restore failed', description: error instanceof Error ? error.message : 'Try again later', variant: 'destructive' });
+      for (const purchase of purchases) await confirmPlayPurchase(purchase);
     } finally {
-      setPlayBuying(false);
+      changePlayPhase('idle');
     }
-  }, [navigate, refetchPremium, user, verifyPurchase]);
+  }, [navigate, user, changePlayPhase, confirmPlayPurchase]);
+
+  // Purchases that complete later (pending payments) arrive as events.
+  useEffect(() => {
+    if (!playBuild || !user) return;
+    let cancelled = false;
+    let remove: (() => void) | undefined;
+    addPlayPurchaseListener((purchase) => {
+      if (cancelled || purchase.status !== 'purchased') return;
+      void confirmPlayPurchase(purchase).finally(() => {
+        if (playPhaseRef.current === 'verifying') changePlayPhase('idle');
+      });
+    }).then((handle) => {
+      if (cancelled) void handle.remove(); else remove = () => { void handle.remove(); };
+    }).catch(() => { /* billing unavailable; existing UI handles it */ });
+    return () => { cancelled = true; remove?.(); };
+  }, [playBuild, user, confirmPlayPurchase, changePlayPhase]);
 
   const expiryText = subscription?.expires_at
     ? new Date(subscription.expires_at).toLocaleDateString(undefined, { day: 'numeric', month: 'long', year: 'numeric' })
@@ -685,6 +747,7 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
   const [step, setStep] = useState<Step>('pay');
   const [utr, setUtr] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const basePrice = plan === 'quarterly' ? settings.quarterlyPrice : plan === 'bimonthly' ? settings.bimonthlyPrice : settings.monthlyPrice;
   const planLabel = PLAN_LABEL[plan];
@@ -703,10 +766,11 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
   const openUpiApp = () => { if (isPlayStoreBuild()) return; haptics.medium(); window.location.href = upiUrl; };
 
   const submitUtr = async () => {
-    if (isPlayStoreBuild()) return;
+    if (isPlayStoreBuild() || submittingRef.current) return;
     if (!user) { toast({ title: 'Please sign in first', variant: 'destructive' }); return; }
     const cleanUtr = utr.replace(/\D/g, '');
     if (cleanUtr.length !== 12) { toast({ title: 'UTR must be exactly 12 digits', variant: 'destructive' }); return; }
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       // Block re-submitting if a pending request already exists for this user
@@ -731,8 +795,19 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
         plan,
       }).select('id, utr_number, amount_paise, plan, created_at').single();
       if (error) {
-        if (error.code === '23505') toast({ title: 'This UTR was already submitted', variant: 'destructive' });
-        else toast({ title: 'Submission failed', description: error.message, variant: 'destructive' });
+        if (error.code === '23505') {
+          // Either this UTR was used before, or another tab already has a
+          // payment waiting for review — show that one if it exists.
+          const { data: stillPending } = await supabase
+            .from('payment_requests')
+            .select('id, utr_number, amount_paise, plan, created_at')
+            .eq('user_id', user.id).eq('status', 'pending')
+            .limit(1).maybeSingle();
+          if (stillPending) {
+            toast({ title: 'A payment is already being verified', description: 'Please wait for it to complete.' });
+            onSubmitted(stillPending as PendingPayment);
+          } else toast({ title: 'This UTR was already submitted', variant: 'destructive' });
+        } else toast({ title: 'Submission failed', description: error.message, variant: 'destructive' });
         setSubmitting(false); return;
       }
       haptics.success();
@@ -751,7 +826,7 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
       }).catch(() => {});
     } catch {
       toast({ title: 'Something went wrong', variant: 'destructive' });
-    } finally { setSubmitting(false); }
+    } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
 

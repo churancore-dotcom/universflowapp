@@ -233,6 +233,8 @@ object MasterResolver {
                 }
             }
         }
+        // A racer that completed right at the deadline is still a valid answer.
+        if (winner == null) winner = peekDone(ytFuture) ?: peekDone(saavnFuture)
         finished.set(true)
         ytFuture?.cancel(true)
         saavnFuture?.cancel(true)

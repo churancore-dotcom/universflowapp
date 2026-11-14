@@ -1,7 +1,8 @@
 /**
  * Route guards — optimized with lazy loading for better initial page load.
  */
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import { rememberOfflineReturn } from '@/lib/offlineReturn';
 import { supabase } from '@/integrations/supabase/client';
 import { Navigate } from '@/lib/router-compat';
 import { useAuth } from '@/contexts/AuthContext';
@@ -17,9 +18,28 @@ const GetApp = lazy(() => import('@/pages/GetApp'));
 
 export const LazyFallback = PageLoader;
 
+/**
+ * State tagged with the user it was computed for. Reading it under a
+ * different user yields `fallback`, so a freshly switched account can never
+ * render even one frame with the previous account's access result.
+ */
+function useUserScopedState<T>(userId: string | undefined, init: () => T, fallback: T) {
+  const [state, setState] = useState<{ userId: string | undefined; value: T }>(() => ({ userId, value: init() }));
+  const value = state.userId === userId ? state.value : fallback;
+  const set = useCallback((next: T) => setState({ userId, value: next }), [userId]);
+  return [value, set] as const;
+}
+
+function OfflineRedirect() {
+  if (typeof window !== 'undefined') {
+    rememberOfflineReturn(window.location.pathname + window.location.search + window.location.hash);
+  }
+  return <Navigate to="/offline-player" replace />;
+}
+
 export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, emailVerified, isOffline } = useAuth();
-  if (isOffline) return <Navigate to="/offline-player" replace />;
+  if (isOffline) return <OfflineRedirect />;
   if (isLoading) return <LazyFallback />;
   if (!user) return <Navigate to="/auth" replace />;
   if (emailVerified === null) return <LazyFallback />;
@@ -29,8 +49,10 @@ export const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 export const ArtistProtectedRoute = ({ children, requireArtistRole = false }: { children: React.ReactNode; requireArtistRole?: boolean }) => {
   const { user, isLoading, emailVerified } = useAuth();
-  const [verifiedArtist, setVerifiedArtist] = useState<null | boolean>(
+  const [verifiedArtist, setVerifiedArtist] = useUserScopedState<null | boolean>(
+    user?.id,
     () => (requireArtistRole ? peekAccess<boolean>(user?.id, 'artist-access') ?? null : true),
+    null,
   );
 
   useEffect(() => {
@@ -64,7 +86,7 @@ export const ArtistProtectedRoute = ({ children, requireArtistRole = false }: { 
       .then((allowed) => { if (!cancelled) setVerifiedArtist(allowed); })
       .catch(() => { if (!cancelled) setVerifiedArtist(false); });
     return () => { cancelled = true; };
-  }, [user, emailVerified, requireArtistRole]);
+  }, [user, emailVerified, requireArtistRole, setVerifiedArtist]);
 
   if (isLoading) return <LazyFallback />;
   if (!user) return <Navigate to="/artist/auth" replace />;
@@ -77,8 +99,10 @@ export const ArtistProtectedRoute = ({ children, requireArtistRole = false }: { 
 
 export const ListenerRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading, emailVerified, isOffline } = useAuth();
-  const [artistDestination, setArtistDestination] = useState<ArtistDestination | undefined>(
+  const [artistDestination, setArtistDestination] = useUserScopedState<ArtistDestination | undefined>(
+    user?.id,
     () => peekAccess<ArtistDestination>(user?.id, 'artist-destination'),
+    undefined,
   );
 
   useEffect(() => {
@@ -92,9 +116,9 @@ export const ListenerRoute = ({ children }: { children: React.ReactNode }) => {
       if (!cancelled) setArtistDestination(destination);
     });
     return () => { cancelled = true; };
-  }, [user, emailVerified]);
+  }, [user, emailVerified, setArtistDestination]);
 
-  if (isOffline) return <Navigate to="/offline-player" replace />;
+  if (isOffline) return <OfflineRedirect />;
   if (isLoading) return <LazyFallback />;
   if (!user) return <Navigate to="/auth" replace />;
   if (emailVerified === false) return <Navigate to="/check-email" replace />;
@@ -105,8 +129,10 @@ export const ListenerRoute = ({ children }: { children: React.ReactNode }) => {
 
 export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isLoading } = useAuth();
-  const [verified, setVerified] = useState<null | boolean>(
+  const [verified, setVerified] = useUserScopedState<null | boolean>(
+    user?.id,
     () => peekAccess<boolean>(user?.id, 'admin-access') ?? null,
+    null,
   );
 
   useEffect(() => {
@@ -123,7 +149,7 @@ export const AdminRoute = ({ children }: { children: React.ReactNode }) => {
       .then((allowed) => { if (!cancelled) setVerified(allowed); })
       .catch(() => { if (!cancelled) setVerified(false); });
     return () => { cancelled = true; };
-  }, [user]);
+  }, [user, setVerified]);
 
   if (isLoading || verified === null) return <LazyFallback />;
   if (!user) return <Navigate to="/auth" replace />;
@@ -175,7 +201,7 @@ export const RootGate = () => {
     return () => { cancelled = true; };
   }, [user, emailVerified]);
 
-  if (isOffline) return <Navigate to="/offline-player" replace />;
+  if (isOffline) return <OfflineRedirect />;
   if (isLoading) return <LazyFallback />;
   if (user) {
     if (emailVerified === null) return <LazyFallback />;
