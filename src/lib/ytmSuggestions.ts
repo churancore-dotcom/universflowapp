@@ -37,7 +37,7 @@ export function parseYtmSuggestions(json: any): YtmSuggestions {
       else if (pageType.includes('ARTIST')) kind = 'artist';
       else if (pageType.includes('ALBUM')) kind = 'album';
       if (!kind) continue;
-      const subtitle = (kind === 'artist' ? parts : parts.slice(1)).join(' • ');
+      const subtitle = (['song', 'video', 'artist', 'album', 'single', 'ep'].includes(label) ? parts.slice(1) : parts).join(' • ');
       items.push({ kind, title, subtitle, thumbnail, videoId: ne.watchEndpoint?.videoId, browseId: ne.browseEndpoint?.browseId });
     }
   }
