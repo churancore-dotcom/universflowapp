@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion } from 'framer-motion';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
@@ -144,9 +144,17 @@ const ContentModeration = () => {
     }
   };
 
+  const inFlightReports = useRef(new Set<string>());
+
   const updateReportStatus = async (id: string, status: string, action?: string) => {
+    // One write per report at a time, and only from the status we last saw,
+    // so two admins can't silently overwrite each other's decision.
+    if (inFlightReports.current.has(id)) return;
+    const currentStatus = reports.find((r) => r.id === id)?.status ?? selectedReport?.status;
+    if (!currentStatus) return;
+    inFlightReports.current.add(id);
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('content_reports')
         .update({
           status,
@@ -154,16 +162,26 @@ const ContentModeration = () => {
           reviewed_at: new Date().toISOString(),
           action_taken: action || null,
         })
-        .eq('id', id);
+        .eq('id', id)
+        .eq('status', currentStatus)
+        .select('id')
+        .maybeSingle();
 
       if (error) throw error;
+      if (!data) {
+        toast.error('Already reviewed by another admin');
+        fetchReports();
+        return;
+      }
       toast.success(`Report marked as ${status}`);
-      setSelectedReport(null);
+      setSelectedReport((current) => (current?.id === id ? null : current));
       setActionNote('');
       fetchReports();
     } catch (error) {
       console.error('Error updating report:', error);
       toast.error('Failed to update report');
+    } finally {
+      inFlightReports.current.delete(id);
     }
   };
 
