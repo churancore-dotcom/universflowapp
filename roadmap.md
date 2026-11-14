@@ -1,8 +1,8 @@
 # Roadmap
 
-- [ ] Connect GitHub API and Google Search Console after the latest workspace move (17:08 request).
+- [x] Connect GitHub API and Google Search Console after the latest workspace move (17:08 request; both verified).
 
-- [ ] Fix and regression-test stale favorites, followed artists, and typing suggestions; verify signed-in search.
+- [x] Fix stale favorites, followed artists, and typing suggestions; 154 tests passed and signed-in search checked on mobile viewport.
 
 - [x] Reconnect GitHub API and Google Search Console (another workspace move; both verified)
 - [x] Unavailable songs: fixed false skips (longer start time, real retry, no cross-song client benching); needs fresh APK test
