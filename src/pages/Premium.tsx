@@ -423,7 +423,7 @@ const PremiumPage = memo(function PremiumPage() {
                 <PlanCard
                   selected={selectedPlan === 'bimonthly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('bimonthly'); }}
-                  badge={playBuild ? undefined : `Save ${bimonthlySave}%`}
+                  badge={playBuild || bimonthlySave < 1 ? undefined : `Save ${bimonthlySave}%`}
                   title="2 Months"
                   price={bimonthly}
                   formattedPrice={planDisplayPrice(playBuild, playPriceByPlan.bimonthly, bimonthly)}
@@ -434,7 +434,7 @@ const PremiumPage = memo(function PremiumPage() {
                 <PlanCard
                   selected={selectedPlan === 'quarterly'}
                   onSelect={() => { haptics.light(); setSelectedPlan('quarterly'); }}
-                  badge={playBuild ? undefined : `Save ${quarterlySave}%`}
+                  badge={playBuild || quarterlySave < 1 ? undefined : `Save ${quarterlySave}%`}
                   title="3 Months"
                   price={quarterly}
                   formattedPrice={planDisplayPrice(playBuild, playPriceByPlan.quarterly, quarterly)}
