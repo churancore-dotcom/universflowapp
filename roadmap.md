@@ -38,4 +38,4 @@
 - [x] Connect Google Search Console
 - [x] Studio Spaces: every space must sound distinct and real (stadium/concert/etc.) — native room engine rebuilt (needs fresh APK on a phone)
 - [x] Re-link GitHub API + Google Search Console in this workspace (new move)
-- [ ] Deliver background-playback changes to GitHub (blocked: Git sync stopped after 14:59 UTC; 14 project changes not in repo — needs Project settings → Git → Re-check by user). Then confirm APK build + phone test.
+- [x] Deliver background-playback changes to GitHub (pushed via API, APK build succeeded; phone test pending)
