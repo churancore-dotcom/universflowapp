@@ -46,3 +46,4 @@
 - Home personal rails (stage, bento, all songs, flow core, artists) are reranked per account from plays, likes, skips, follows and language/style affinity; Trending only receives cleaned, unranked songs. Scene preferences are stored per account id.
 - Native EQ uses octave-wide bands and caps the summed boost reaching the limiter (EqHeadroom); overlap players are scaled so their summed gain never exceeds unity (OverlapMix), because two limited full-scale players clip in the Android mixer.
 - Studio Spaces with a bundled recording in `android/app/src/main/assets/rooms/<id>.wav` (measured OpenAIR IRs, direct sound removed, credited on About) convolve that real room; only spaces without a recording use the synthesized model, so rooms sound like real places.
+- Favorites and followed-artist reads must verify account/request ownership before committing; typing suggestions use bounded market-scoped caches and clear on query changes to prevent stale results.

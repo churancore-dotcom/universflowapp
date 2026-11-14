@@ -15,16 +15,20 @@ export function useYtmSuggestions(query: string, enabled = true): YtmSuggestions
     const mine = ++seq.current; // invalidate any in-flight request
     const q = query.trim();
     if (!enabled || q.length < 1) { setValue(EMPTY); return; }
-    const key = q.toLowerCase();
-    const hit = cache.get(key);
-    if (hit) { setValue(hit); return; }
+    setValue(EMPTY);
     const t = setTimeout(async () => {
       try {
         const gl = (await detectCountrySilently().catch(() => 'US')).toUpperCase();
-        const res = await getYtmSuggestions({ data: { q, gl: /^[A-Z]{2}$/.test(gl) ? gl : 'US' } });
+        if (mine !== seq.current) return;
+        const market = /^[A-Z]{2}$/.test(gl) ? gl : 'US';
+        const key = `${market}:${q.toLowerCase()}`;
+        const hit = cache.get(key);
+        if (hit) { setValue(hit); return; }
+        const res = await getYtmSuggestions({ data: { q, gl: market } });
+        if (cache.size >= 100) { const oldest = cache.keys().next().value; if (oldest !== undefined) cache.delete(oldest); }
         cache.set(key, res);
         if (mine === seq.current) setValue(res);
-      } catch { /* keep previous */ }
+      } catch { if (mine === seq.current) setValue(EMPTY); }
     }, 120);
     return () => { clearTimeout(t); if (seq.current === mine) seq.current++; };
   }, [query, enabled]);

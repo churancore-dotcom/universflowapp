@@ -17,6 +17,7 @@ let likeCache = new Set<string>();
 let likeCacheLoaded = false;
 let likeCacheUserId: string | null = null;
 let likeCachePromise: Promise<void> | null = null;
+let likeCacheGeneration = 0;
 let likeRealtimeUserId: string | null = null;
 let likeRealtimeChannel: ReturnType<typeof supabase.channel> | null = null;
 
@@ -54,6 +55,7 @@ const saveStreamLikes = (userId: string, likes: Set<string>) => {
 };
 
 export const resetLikeCache = () => {
+  likeCacheGeneration++;
   if (likeRealtimeChannel) {
     supabase.removeChannel(likeRealtimeChannel);
     likeRealtimeChannel = null;
@@ -76,23 +78,27 @@ const loadLikeCache = async (userId: string, force = false): Promise<void> => {
     // Serialize a realtime refresh behind an in-flight initial read so an
     // older response can never overwrite the newer committed library state.
     await likeCachePromise;
+    if (likeCacheUserId !== userId) return;
   }
 
-  likeCachePromise = (async () => {
-    const { data } = await supabase
+  const generation = ++likeCacheGeneration;
+  const request = (async () => {
+    const { data, error } = await supabase
       .from('user_library')
       .select('song_id')
       .eq('user_id', userId);
 
+    if (generation !== likeCacheGeneration || likeCacheUserId !== userId) return;
+    if (error) return; // Keep the last known state; a failed read is not an empty library.
     likeCache = new Set(data?.map(d => d.song_id) || []);
     // Merge stream likes
     const streamLikes = getStreamLikes(userId);
     for (const id of streamLikes) likeCache.add(id);
     likeCacheLoaded = true;
-    likeCachePromise = null;
   })();
-
-  return likeCachePromise;
+  likeCachePromise = request;
+  try { await request; }
+  finally { if (likeCachePromise === request) likeCachePromise = null; }
 };
 
 const ensureLikeRealtime = (userId: string) => {
@@ -117,6 +123,10 @@ export const useLike = (songId: string, song?: Song | null) => {
   const [isLiked, setIsLiked] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const mountedRef = useRef(true);
+  const identityRef = useRef('');
+  const identity = `${user?.id ?? ''}:${songId}`;
+  identityRef.current = identity;
+  const pendingRef = useRef<string | null>(null);
 
   useEffect(() => {
     mountedRef.current = true;
@@ -124,14 +134,17 @@ export const useLike = (songId: string, song?: Song | null) => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    setIsLoading(false);
+    setIsLiked(Boolean(user && likeCacheUserId === user.id && likeCache.has(songId)));
     if (!songId) { setIsLiked(false); return; }
 
     const sync = () => {
-      if (!mountedRef.current) return;
+      if (!mountedRef.current || cancelled) return;
       if (!user) {
         setIsLiked(false);
       } else {
-        setIsLiked(likeCache.has(songId));
+        setIsLiked(likeCacheUserId === user.id && likeCache.has(songId));
       }
     };
 
@@ -139,13 +152,14 @@ export const useLike = (songId: string, song?: Song | null) => {
       sync();
     } else {
       loadLikeCache(user.id).then(() => {
+        if (cancelled || likeCacheUserId !== user.id) return;
         ensureLikeRealtime(user.id);
         sync();
-      });
+      }).catch(() => {});
     }
 
     likeSubscribers.add(sync);
-    return () => { likeSubscribers.delete(sync); };
+    return () => { cancelled = true; likeSubscribers.delete(sync); };
   }, [user?.id, songId]);
 
   const toggleLike = useCallback(async () => {
@@ -156,7 +170,8 @@ export const useLike = (songId: string, song?: Song | null) => {
       return;
     }
 
-    if (isLoading) return;
+    if (isLoading || pendingRef.current === identity) return;
+    pendingRef.current = identity;
     setIsLoading(true);
     const newLiked = !isLiked;
 
@@ -198,18 +213,21 @@ export const useLike = (songId: string, song?: Song | null) => {
 
       // The optimistic event above can race the write. Emit again only after
       // persistence so Library/Profile/feed refetch the committed row.
+      if (!mountedRef.current || identityRef.current !== identity || likeCacheUserId !== user.id) return;
       notifyLikeSubscribers();
       toast.success(newLiked ? 'Added to favorites ❤️' : 'Removed from favorites');
     } catch (error) {
       console.error('Error toggling like:', error);
+      if (!mountedRef.current || identityRef.current !== identity || likeCacheUserId !== user.id) return;
       setIsLiked(!newLiked);
       if (!newLiked) { likeCache.add(songId); } else { likeCache.delete(songId); }
       notifyLikeSubscribers();
       toast.error('Failed to update favorites');
     } finally {
-      if (mountedRef.current) setIsLoading(false);
+      if (pendingRef.current === identity) pendingRef.current = null;
+      if (mountedRef.current && identityRef.current === identity) setIsLoading(false);
     }
-  }, [user, songId, song, isLiked, isLoading]);
+  }, [user, songId, song, isLiked, isLoading, identity]);
 
   return { isLiked, isLoading, toggleLike };
 };
