@@ -2164,7 +2164,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       }
 
       if (!isNativePlayerAvailable() && isGaplessPreloadEnabled() && getRuntimePremium()) {
-        const target = getNextIndex(activeIndex, queueRef.current.length, activeShuffle, activeRepeat);
+        const target = getNextIndex(activeIndex, queueRef.current.length, activeShuffle, activeRepeat, true);
         if (target !== null && preloadedNextIdRef.current === queueRef.current[target]?.id && nextAudioRef.current?.readyState && nextAudioRef.current.readyState >= 2) {
           crossfadeAttemptedForSeqRef.current = -1;
           startCrossfade(0);
