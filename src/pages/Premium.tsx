@@ -747,6 +747,7 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
   const [step, setStep] = useState<Step>('pay');
   const [utr, setUtr] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const submittingRef = useRef(false);
 
   const basePrice = plan === 'quarterly' ? settings.quarterlyPrice : plan === 'bimonthly' ? settings.bimonthlyPrice : settings.monthlyPrice;
   const planLabel = PLAN_LABEL[plan];
@@ -765,10 +766,11 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
   const openUpiApp = () => { if (isPlayStoreBuild()) return; haptics.medium(); window.location.href = upiUrl; };
 
   const submitUtr = async () => {
-    if (isPlayStoreBuild()) return;
+    if (isPlayStoreBuild() || submittingRef.current) return;
     if (!user) { toast({ title: 'Please sign in first', variant: 'destructive' }); return; }
     const cleanUtr = utr.replace(/\D/g, '');
     if (cleanUtr.length !== 12) { toast({ title: 'UTR must be exactly 12 digits', variant: 'destructive' }); return; }
+    submittingRef.current = true;
     setSubmitting(true);
     try {
       // Block re-submitting if a pending request already exists for this user
@@ -793,8 +795,19 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
         plan,
       }).select('id, utr_number, amount_paise, plan, created_at').single();
       if (error) {
-        if (error.code === '23505') toast({ title: 'This UTR was already submitted', variant: 'destructive' });
-        else toast({ title: 'Submission failed', description: error.message, variant: 'destructive' });
+        if (error.code === '23505') {
+          // Either this UTR was used before, or another tab already has a
+          // payment waiting for review — show that one if it exists.
+          const { data: stillPending } = await supabase
+            .from('payment_requests')
+            .select('id, utr_number, amount_paise, plan, created_at')
+            .eq('user_id', user.id).eq('status', 'pending')
+            .limit(1).maybeSingle();
+          if (stillPending) {
+            toast({ title: 'A payment is already being verified', description: 'Please wait for it to complete.' });
+            onSubmitted(stillPending as PendingPayment);
+          } else toast({ title: 'This UTR was already submitted', variant: 'destructive' });
+        } else toast({ title: 'Submission failed', description: error.message, variant: 'destructive' });
         setSubmitting(false); return;
       }
       haptics.success();
@@ -813,7 +826,7 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
       }).catch(() => {});
     } catch {
       toast({ title: 'Something went wrong', variant: 'destructive' });
-    } finally { setSubmitting(false); }
+    } finally { submittingRef.current = false; setSubmitting(false); }
   };
 
 
