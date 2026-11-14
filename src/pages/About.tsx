@@ -57,6 +57,17 @@ export default function About() {
           </section>
         ))}
 
+        <section className="mb-9 space-y-2.5">
+          <h2 className="text-[17px] font-semibold tracking-tight text-foreground">Room sound credits</h2>
+          <p className="text-[13px] leading-relaxed text-muted-foreground">
+            Studio Spaces in the Android app use real acoustic recordings from the OpenAIR library,
+            University of York (CC BY 4.0): Live Room and Dixon Studio Theatre (York), Lady Chapel of
+            St Albans Cathedral, Usina del Arte Symphony Hall, Jack Lyons Concert Hall, Air Museum hangar,
+            R1 Nuclear Reactor Hall, York Minster and Koli National Park. Recordings were trimmed and
+            converted to stereo.
+          </p>
+        </section>
+
         <nav className="flex flex-wrap gap-3 pb-4 pt-2 text-[13px] font-semibold">
           <Link to="/support" className="rounded-full border border-border px-4 py-2">Support</Link>
           <Link to="/legal/privacy" className="rounded-full border border-border px-4 py-2">Privacy</Link>
