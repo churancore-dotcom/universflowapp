@@ -117,9 +117,6 @@ const GetApp = () => {
               <button onClick={handleShare} className="flex items-center gap-1.5 text-xs text-white/70 active:text-white">
                 <Share2 className="w-4 h-4" /> Share
               </button>
-              <Link to="/auth" className="text-xs text-white/70 underline underline-offset-4 decoration-white/20">
-                Try in browser
-              </Link>
             </div>
           </div>
         </section>
