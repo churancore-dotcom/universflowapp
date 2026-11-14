@@ -76,7 +76,7 @@ object NativeYouTubeResolver {
     // The active client set can contain eight clients. Keeping one worker per
     // client preserves the intended first-success race instead of queueing the
     // final clients behind slower requests.
-    private val raceExecutor = Executors.newFixedThreadPool(8)
+    private val raceExecutor = Executors.newFixedThreadPool(8) { r -> Thread({ android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND); r.run() }, "uf-yt").apply { isDaemon = true } }
     private val consecutiveAllClientFailures = AtomicInteger(0)
 
     private val http: OkHttpClient by lazy {
@@ -87,7 +87,7 @@ object NativeYouTubeResolver {
             .retryOnConnectionFailure(true)
             .connectionPool(ConnectionPool(10, 5, TimeUnit.MINUTES))
             .protocols(listOf(Protocol.HTTP_2, Protocol.HTTP_1_1))
-            .dispatcher(Dispatcher(Executors.newFixedThreadPool(8)).apply {
+            .dispatcher(Dispatcher(Executors.newFixedThreadPool(8) { r -> Thread({ android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND); r.run() }, "uf-yt").apply { isDaemon = true } }).apply {
                 maxRequests = 16
                 maxRequestsPerHost = 8
             })
