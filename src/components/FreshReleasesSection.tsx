@@ -46,6 +46,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
 
   useEffect(() => { claimRailSongs('fresh', fresh); }, [fresh]);
+  useEffect(() => () => claimRailSongs('fresh', []), []);
   useEffect(() => { prewarmSongs(fresh, 4); }, [fresh]);
 
   if (fresh.length === 0) return enabled && isLoading ? <RailSkeleton layout="grid" title="w-52" /> : null;

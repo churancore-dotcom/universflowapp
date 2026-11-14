@@ -2916,6 +2916,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (outgoing.ended && playRequestSeqRef.current === sequence) void playSongAtIndex(nextIdx, queueRef.current);
     });
   }, [queue, currentIndex, shuffle, repeat, crossfadeDuration, crossfadeCurve, getNextIndex, isPlayableUrl, playSongAtIndex]);
+  startCrossfadeRef.current = startCrossfade;
 
   const playActualSong = useCallback(async (song: Song, offlineUrl?: string | null, songsQueue?: Song[]) => {
     if (!audioRef.current) return;

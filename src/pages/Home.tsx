@@ -138,6 +138,8 @@ const Home = () => {
     queryKey: ['home', 'ytm-feed', 'v3-country', country || 'GLOBAL'],
     queryFn: () => fetchHomeSongs(country),
     initialData: cachedSongs && cachedSongs.length > 0 ? cachedSongs : undefined,
+    // Cached songs may be from another country: show them, but fetch fresh now.
+    initialDataUpdatedAt: 0,
     placeholderData: (prev) => prev,
     staleTime: 5 * 60 * 1000,
     gcTime: 30 * 60 * 1000,

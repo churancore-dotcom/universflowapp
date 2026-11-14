@@ -12,12 +12,12 @@ export function useYtmSuggestions(query: string, enabled = true): YtmSuggestions
   const seq = useRef(0);
 
   useEffect(() => {
+    const mine = ++seq.current; // invalidate any in-flight request
     const q = query.trim();
     if (!enabled || q.length < 1) { setValue(EMPTY); return; }
     const key = q.toLowerCase();
     const hit = cache.get(key);
     if (hit) { setValue(hit); return; }
-    const mine = ++seq.current;
     const t = setTimeout(async () => {
       try {
         const gl = (await detectCountrySilently().catch(() => 'US')).toUpperCase();
@@ -26,7 +26,7 @@ export function useYtmSuggestions(query: string, enabled = true): YtmSuggestions
         if (mine === seq.current) setValue(res);
       } catch { /* keep previous */ }
     }, 120);
-    return () => clearTimeout(t);
+    return () => { clearTimeout(t); if (seq.current === mine) seq.current++; };
   }, [query, enabled]);
 
   return value;
