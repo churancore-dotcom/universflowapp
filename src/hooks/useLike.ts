@@ -129,7 +129,7 @@ export const useLike = (songId: string, song?: Song | null) => {
     const sync = () => {
       if (!mountedRef.current) return;
       if (!user) {
-        setIsLiked(getStreamLikes().has(songId));
+        setIsLiked(false);
       } else {
         setIsLiked(likeCache.has(songId));
       }
