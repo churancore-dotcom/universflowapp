@@ -139,10 +139,12 @@ const ManageArtists = () => {
   const deleteArtist = async (a: ArtistRow) => {
     if (!await confirmAction(`Delete artist "${a.stage_name}" and ALL their uploaded songs? This cannot be undone.`)) return;
     try {
-      await supabase.from('artist_songs').delete().eq('artist_user_id', a.user_id);
+      const songsRes = await supabase.from('artist_songs').delete().eq('artist_user_id', a.user_id);
+      if (songsRes.error) throw songsRes.error;
       const { error } = await supabase.from('artist_profiles').delete().eq('id', a.id);
       if (error) throw error;
-      await supabase.from('user_roles').delete().eq('user_id', a.user_id).eq('role', 'artist');
+      const roleRes = await supabase.from('user_roles').delete().eq('user_id', a.user_id).eq('role', 'artist');
+      if (roleRes.error) throw roleRes.error;
       toast.success('Artist removed');
       setSelected(null);
       load();

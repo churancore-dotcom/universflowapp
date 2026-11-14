@@ -51,7 +51,12 @@ export const Route = createFileRoute('/api/public/process-account-deletions')({
             .lte('delete_after', claimedAt)
             .select('user_id');
           if (!claimed || claimed.length === 0) continue;
-          const { error } = await supabaseAdmin.auth.admin.deleteUser(row.user_id);
+          let error: { message: string } | null = null;
+          try {
+            ({ error } = await supabaseAdmin.auth.admin.deleteUser(row.user_id));
+          } catch (thrown) {
+            error = { message: thrown instanceof Error ? thrown.message : 'delete threw' };
+          }
           if (error) {
             await supabaseAdmin
               .from('account_deletion_requests')

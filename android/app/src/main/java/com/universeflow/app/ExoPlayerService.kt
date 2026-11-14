@@ -345,7 +345,7 @@ class ExoPlayerService : MediaSessionService() {
     private val lockRenewal = object : Runnable {
         override fun run() {
             val p = player
-            if (p == null || (!p.isPlaying && !(p.playWhenReady && p.playbackState == Player.STATE_BUFFERING))) return
+            if (p == null || (!p.isPlaying && !(p.playWhenReady && p.playbackState == Player.STATE_BUFFERING))) { releaseLocks(); return }
             renewLocks()
         }
     }
@@ -560,6 +560,9 @@ class ExoPlayerService : MediaSessionService() {
                 ensureEffectsBound()
             }
             override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+                // Pausing while buffering never fires onIsPlayingChanged; reconcile
+                // locks here so Wi-Fi/wake locks can't stay held while paused.
+                if (exo.isPlaying || (playWhenReady && exo.playbackState == Player.STATE_BUFFERING)) acquireLocks() else releaseLocks()
                 if (reason != Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM) boundaryResumeGeneration += 1
                 // Gapless OFF inserts a deliberate between-track pause, not a stop.
                 if (!playWhenReady && reason == Player.PLAY_WHEN_READY_CHANGE_REASON_END_OF_MEDIA_ITEM && !gaplessEnabled) {
