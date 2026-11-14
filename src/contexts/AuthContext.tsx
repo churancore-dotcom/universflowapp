@@ -84,8 +84,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // which is what looked like being "logged out" when opening downloads.
   const [emailVerified, setEmailVerified] = useState<boolean | null>(() => {
     try {
-      const cached = localStorage.getItem('uf_email_verified');
-      return cached === '1' ? true : cached === '0' ? false : null;
+      // Cached as "<userId>:<0|1>" so one account's answer is never reused for
+      // another; the bare legacy value is ignored.
+      const cached = localStorage.getItem('uf_email_verified') || '';
+      const [, flag] = cached.split(':');
+      return flag === '1' ? true : flag === '0' ? false : null;
     } catch { return null; }
   });
   const [isLoading, setIsLoading] = useState(true);
@@ -149,10 +152,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, []);
 
-  const loadEmailVerified = useCallback(async (userId: string) => {
+  const loadEmailVerifiedRef = useRef<((userId: string, retried?: boolean) => Promise<void>) | null>(null);
+  const loadEmailVerified = useCallback(async (userId: string, retried = false) => {
     const remember = (value: boolean) => {
       if (activeUserIdRef.current !== userId) return;
-      try { localStorage.setItem('uf_email_verified', value ? '1' : '0'); } catch { /* private mode */ }
+      try { localStorage.setItem('uf_email_verified', `${userId}:${value ? '1' : '0'}`); } catch { /* private mode */ }
       setEmailVerified(value);
     };
     // Never let a hanging offline request keep the app on a blank screen.
@@ -166,7 +170,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // hasn't been flipped (seeded accounts, magic-link logins, etc.).
       try {
         const { data: adminFlag } = await supabase.rpc('has_role', { _user_id: userId, _role: 'admin' });
-        if (adminFlag) { remember(true); return; }
+        if (adminFlag) { clearTimeout(guard); remember(true); return; }
       } catch { /* fall through to normal check */ }
 
       const { data } = await supabase
@@ -176,14 +180,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         .maybeSingle();
       // Treat NULL as verified so legacy accounts aren't blocked. Only explicit
       // `false` triggers the verification gate.
+      clearTimeout(guard);
       remember(!(data && data.email_verified === false));
+      return;
     } catch {
       // Offline or unreachable: keep the last known answer instead of gating.
       if (activeUserIdRef.current === userId) setEmailVerified(prev => (prev === null ? true : prev));
     } finally {
       clearTimeout(guard);
     }
+    // The answer above was a fail-open guess, not a real result: re-check once
+    // so an unverified account doesn't keep access for the whole session.
+    if (!retried) {
+      setTimeout(() => {
+        if (activeUserIdRef.current === userId) void loadEmailVerifiedRef.current?.(userId, true);
+      }, 8000);
+    }
   }, []);
+  loadEmailVerifiedRef.current = loadEmailVerified;
 
   const refreshEmailVerified = useCallback(async () => {
     if (!user) { setEmailVerified(null); return; }
@@ -194,8 +208,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let cancelled = false;
     // Session refresh can stall offline. Local downloads never depend on it.
     const loadingGuard = setTimeout(() => { if (!cancelled) setIsLoading(false); }, 3500);
+    // Any auth event newer than the bootstrap read wins; a slow getSession()
+    // must never overwrite a sign-in/out that happened while it was pending.
+    let authEvents = 0;
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
       if (cancelled) return;
+      authEvents += 1;
       // CRITICAL: never wipe the local session as a side effect of being offline.
       // When the device has no internet, Supabase's auto-refresh fails and emits
       // SIGNED_OUT / TOKEN_REFRESHED with a null session — that would log the user
@@ -247,8 +265,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     });
 
+    const eventsAtBootstrap = authEvents;
     supabase.auth.getSession().then(async ({ data: { session: existingSession } }) => {
       if (cancelled) return;
+      if (authEvents !== eventsAtBootstrap) { setIsLoading(false); return; }
       activeUserIdRef.current = existingSession?.user?.id ?? null;
       setSession(existingSession);
       setUser(existingSession?.user ?? null);
