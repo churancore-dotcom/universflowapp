@@ -351,7 +351,7 @@ jobs:
 
       - name: Build Debug APK
         working-directory: android
-        run: ./gradlew assembleDebug
+        run: ./gradlew testDebugUnitTest assembleDebug
 
       - name: Verify built APK manifest
         run: |

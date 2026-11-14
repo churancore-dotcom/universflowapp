@@ -1,5 +1,8 @@
 # Roadmap
 
+- [x] APK background recovery: bounded repeated stream restarts, reduced neutral PCM maths, aligned startup buffer; 21 JVM audio/state tests and 154 web tests passed.
+- [ ] Verify this background fix in a freshly built APK while switching apps; blocked on full Android CI build and physical-phone testing (service/plugin not compiled locally, room-builder thread requires Android).
+
 - [x] Connect GitHub API and Google Search Console after the latest workspace move (17:08 request; both verified).
 
 - [x] Fix stale favorites, followed artists, and typing suggestions; 154 tests passed and signed-in search checked on mobile viewport.

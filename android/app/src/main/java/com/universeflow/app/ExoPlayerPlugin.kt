@@ -306,8 +306,7 @@ class ExoPlayerPlugin : Plugin() {
         }, timeoutMs)
     }
 
-    private var errorRetryCount = 0
-    private val MAX_ERROR_RETRIES = 2
+    private val errorRetryBudget = PlaybackRetryBudget()
 
     private fun ensureListener(call: PluginCall?) {
         val svc = service() ?: return
@@ -322,7 +321,8 @@ class ExoPlayerPlugin : Plugin() {
                 }
             }
             override fun onIsPlayingChanged(isPlaying: Boolean) {
-                if (isPlaying) { isStartingUp = false; errorRetryCount = 0 }
+                errorRetryBudget.onPlayingChanged(isPlaying, android.os.SystemClock.elapsedRealtime())
+                if (isPlaying) isStartingUp = false
                 emitPlaybackState(player)
                 if (isPlaying) startProgress() else stopProgress()
             }
@@ -340,8 +340,8 @@ class ExoPlayerPlugin : Plugin() {
                     PlaybackException.ERROR_CODE_IO_UNSPECIFIED,
                     PlaybackException.ERROR_CODE_BEHIND_LIVE_WINDOW,
                 )
-                if (transient && player.playWhenReady && errorRetryCount < MAX_ERROR_RETRIES) {
-                    errorRetryCount += 1
+                val retryDelay = if (transient && player.playWhenReady) errorRetryBudget.nextDelay(android.os.SystemClock.elapsedRealtime()) else null
+                if (retryDelay != null) {
                     if (error.errorCode == PlaybackException.ERROR_CODE_IO_BAD_HTTP_STATUS) {
                         val uri = player.currentMediaItem?.localConfiguration?.uri
                         val videoId = uri?.takeIf { it.scheme == "yt" }?.host
@@ -353,7 +353,7 @@ class ExoPlayerPlugin : Plugin() {
                             Log.w("ExoPlayerPlugin", "re-resolving rejected stream for $videoId")
                         }
                     }
-                    val delayMs = 350L * errorRetryCount
+                    val delayMs = retryDelay
                     val generation = playGeneration.get()
                     val mediaId = player.currentMediaItem?.mediaId
                     main.postDelayed({
@@ -371,7 +371,6 @@ class ExoPlayerPlugin : Plugin() {
                 }
 
                 isStartingUp = false
-                errorRetryCount = 0
                 notifyListeners(
                     "playbackError",
                     JSObject().put("message", error.message ?: "playback error"),
@@ -381,7 +380,7 @@ class ExoPlayerPlugin : Plugin() {
                 // Retry allowance belongs to one media item. Without resetting
                 // here, failures on earlier songs eventually disabled recovery
                 // for every later song in a long listening session.
-                errorRetryCount = 0
+                errorRetryBudget.reset()
                 mediaItem?.let {
                     notifyListeners(
                         "mediaItemTransition",
@@ -438,6 +437,7 @@ class ExoPlayerPlugin : Plugin() {
                     call.reject("First track has no playable URI")
                 } else {
                     isStartingUp = true
+                    errorRetryBudget.reset()
                     ensureListener(null)
                     stopProgress()
                     player.stop()
@@ -581,6 +581,7 @@ class ExoPlayerPlugin : Plugin() {
                 call.reject("ExoPlayer player not ready")
             } else {
                 isStartingUp = true
+                errorRetryBudget.reset()
                 ensureListener(null)
                 stopProgress()
                 val metadata = MediaMetadata.Builder()
@@ -641,6 +642,7 @@ class ExoPlayerPlugin : Plugin() {
         runOnMain {
             service()?.player?.let {
                 ensureListener(null)
+                if (it.playerError != null) errorRetryBudget.reset()
                 if (!it.isPlaying) isStartingUp = true
                 if (it.playbackState == Player.STATE_ENDED && it.mediaItemCount > 0) it.seekTo(0)
                 if (it.playbackState == Player.STATE_IDLE && it.mediaItemCount > 0) it.prepare()

@@ -106,6 +106,21 @@ class AudioTransitionsTest {
         assertEquals(1234f, eq.process(0, 1234f), 0f)
     }
 
+    @Test fun neutralBackgroundPathKeepsOriginalStereoSamples() {
+        val processor = configured()
+        val input = ByteBuffer.allocateDirect(4800 * 4).order(ByteOrder.nativeOrder())
+        repeat(4800) { input.putShort(6000); input.putShort(-3000) }
+        input.flip()
+        processor.queueInput(input)
+        val output = processor.output.order(ByteOrder.nativeOrder())
+        // Skip the fixed look-ahead delay, then require unchanged stereo gain.
+        output.position(100 * 4)
+        while (output.remaining() >= 4) {
+            assertEquals(6000.0, output.short.toDouble(), 1.0)
+            assertEquals(-3000.0, output.short.toDouble(), 1.0)
+        }
+    }
+
     @Test fun monoStreamsStillHaveSpatialOutput() {
         val processor = StemAudioProcessor()
         val output = processor.configure(AudioFormat(48000, 1, C.ENCODING_PCM_16BIT))

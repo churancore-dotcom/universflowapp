@@ -93,3 +93,34 @@ object OverlapMix {
         return Pair(gains.first / sum, gains.second / sum)
     }
 }
+
+/** Briefly restarting audio is not proof that a failing stream recovered. */
+class PlaybackRetryBudget(private val maxRetries: Int = 2, private val stableMs: Long = 30_000L) {
+    private var attempts = 0
+    private var playingSince: Long? = null
+
+    fun reset() { attempts = 0; playingSince = null }
+
+    fun onPlayingChanged(playing: Boolean, now: Long) {
+        if (playing) {
+            if (playingSince == null) playingSince = now
+        } else {
+            replenishIfStable(now)
+            playingSince = null
+        }
+    }
+
+    private fun replenishIfStable(now: Long) {
+        val since = playingSince ?: return
+        if (now - since >= stableMs) attempts = 0
+    }
+
+    /** Returns backoff, or null when this item has exhausted recovery. */
+    fun nextDelay(now: Long): Long? {
+        replenishIfStable(now)
+        playingSince = null
+        if (attempts >= maxRetries) return null
+        attempts++
+        return 1_000L * attempts
+    }
+}

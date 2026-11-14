@@ -47,3 +47,4 @@
 - Native EQ uses octave-wide bands and caps the summed boost reaching the limiter (EqHeadroom); overlap players are scaled so their summed gain never exceeds unity (OverlapMix), because two limited full-scale players clip in the Android mixer.
 - Studio Spaces with a bundled recording in `android/app/src/main/assets/rooms/<id>.wav` (measured OpenAIR IRs, direct sound removed, credited on About) convolve that real room; only spaces without a recording use the synthesized model, so rooms sound like real places.
 - Favorites and followed-artist reads must verify account/request ownership before committing; typing suggestions use bounded market-scoped caches and clear on query changes to prevent stale results.
+- Native transient retries replenish only after sustained playback or explicit item/retry selection, never on a brief playing event; APK CI runs native unit tests before packaging to catch recovery regressions.
