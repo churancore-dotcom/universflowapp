@@ -27,7 +27,7 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
             .build()
     }
 
-    private fun withBillingClient(call: PluginCall, action: () -> Unit) {
+    private fun withBillingClient(call: PluginCall, onFail: () -> Unit = {}, action: () -> Unit) {
         if (billingClient.isReady) {
             action()
             return
@@ -35,7 +35,7 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
         billingClient.startConnection(object : BillingClientStateListener {
             override fun onBillingSetupFinished(result: BillingResult) {
                 if (result.responseCode == BillingClient.BillingResponseCode.OK) action()
-                else call.reject("Play Billing unavailable: ${result.debugMessage}")
+                else { onFail(); call.reject("Play Billing unavailable: ${result.debugMessage}") }
             }
             override fun onBillingServiceDisconnected() = Unit
         })
@@ -87,7 +87,11 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
             call.reject("productId required")
             return
         }
-        withBillingClient(call) {
+        // Reserve the purchase slot immediately so a second tap during the
+        // async product lookup is rejected instead of overwriting this call.
+        pendingPurchaseCall = call
+        val release = { if (pendingPurchaseCall === call) pendingPurchaseCall = null }
+        withBillingClient(call, onFail = release) {
             val product = QueryProductDetailsParams.Product.newBuilder()
                 .setProductId(productId)
                 .setProductType(BillingClient.ProductType.INAPP)
@@ -97,15 +101,16 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
             ) { result, details ->
                 val item = details.productDetailsList.firstOrNull()
                 if (result.responseCode != BillingClient.BillingResponseCode.OK || item == null) {
+                    release()
                     call.reject("Play product unavailable")
                     return@queryProductDetailsAsync
                 }
                 val offer = item.oneTimePurchaseOfferDetailsList?.firstOrNull()
                 if (offer == null) {
+                    release()
                     call.reject("Play purchase offer unavailable")
                     return@queryProductDetailsAsync
                 }
-                pendingPurchaseCall = call
                 val detailsBuilder = BillingFlowParams.ProductDetailsParams.newBuilder()
                     .setProductDetails(item)
                 offer.offerToken?.let { detailsBuilder.setOfferToken(it) }
@@ -113,7 +118,7 @@ class PlayBillingPlugin : Plugin(), com.android.billingclient.api.PurchasesUpdat
                     .setProductDetailsParamsList(listOf(detailsBuilder.build())).build()
                 val launch = billingClient.launchBillingFlow(activity, params)
                 if (launch.responseCode != BillingClient.BillingResponseCode.OK) {
-                    pendingPurchaseCall = null
+                    release()
                     call.reject("Could not open Play checkout: ${launch.debugMessage}")
                 }
             }
