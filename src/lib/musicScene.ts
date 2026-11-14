@@ -8,15 +8,15 @@ export type Scene = 'bhojpuri' | 'haryanvi' | 'devotional';
 const SCENES: Record<Scene, { words: RegExp; artists: string[] }> = {
   bhojpuri: {
     words: /\bbhojpuri\b|भोजपुरी/i,
-    artists: ['pawan singh', 'khesari lal yadav', 'khesari lal', 'ritesh pandey', 'arvind akela kallu', 'shilpi raj', 'neelkamal singh', 'pramod premi yadav', 'pramod premi', 'samar singh', 'ankush raja', 'dinesh lal yadav', 'nirahua', 'antra singh priyanka', 'priyanka singh', 'shivani singh', 'gunjan singh', 'tuntun yadav', 'raja ji', 'ankit singh patel', 'golu gold', 'kallu', 'chandan chanchal', 'rakesh mishra', 'abhishek lal yadav', 'arvind akela'],
+    artists: ['pawan singh', 'khesari lal yadav', 'khesari lal', 'ritesh pandey', 'arvind akela kallu', 'shilpi raj', 'neelkamal singh', 'pramod premi yadav', 'pramod premi', 'samar singh', 'ankush raja', 'dinesh lal yadav', 'nirahua', 'antra singh priyanka', 'priyanka singh', 'shivani singh', 'gunjan singh', 'tuntun yadav', 'raja ji', 'ankit singh patel', 'golu gold', 'kallu', 'chandan chanchal', 'rakesh mishra', 'abhishek lal yadav', 'arvind akela', 'raushan rohi', 'amit aashik', 'raja raushan', 'sadhu tiwari', 'shilpi raj', 'kumar abhishek anjan', 'saurabh shandilya'],
   },
   haryanvi: {
     words: /\bharyanvi\b|हरियाणवी/i,
-    artists: ['sapna choudhary', 'masoom sharma', 'raju punjabi', 'khasa aala chahar', 'renuka panwar', 'ruchika jangid', 'amanraj gill', 'ndee kundu', 'gulzaar chhaniwala', 'pranjal dahiya', 'anjali raghav', 'diler kharkiya', 'vishvajeet choudhary', 'sumit goswami', 'mohit sharma'],
+    artists: ['sapna choudhary', 'masoom sharma', 'raju punjabi', 'khasa aala chahar', 'renuka panwar', 'ruchika jangid', 'amanraj gill', 'ndee kundu', 'gulzaar chhaniwala', 'pranjal dahiya', 'anjali raghav', 'diler kharkiya', 'vishvajeet choudhary', 'sumit goswami', 'mohit sharma', 'kabootar records', 'sonotek haryanvi'],
   },
   devotional: {
-    words: /\b(bhajan|aarti|chalisa|mantra|bhakti|jagran|kirtan|stuti)\b|भजन|आरती|चालीसा/i,
-    artists: ['gulshan kumar', 'anuradha paudwal', 'hariharan bhajan', 'lakhbir singh lakha', 'narendra chanchal'],
+    words: /\b(bhajan|aarti|chalisa|mantra|bhakti|jagran|kirtan|stuti|ashtakam|stotram|vandana|chhath|jai\s+\w+\s+mata|mata\s+ki|maiya)\b|भजन|आरती|चालीसा|मैया|छठ|माता|मंत्र/i,
+    artists: ['gulshan kumar', 'anuradha paudwal', 'hariharan bhajan', 'lakhbir singh lakha', 'narendra chanchal', 'shemaroo bhakti', 'drc bhakti', 't-series bhakti', 'bhakti sagar', 'shiv raga', 'spiritual activity', 'rajshri soul'],
   },
 };
 
@@ -29,6 +29,9 @@ export function detectScene(item: { title?: string | null; artist?: string | nul
     const def = SCENES[s];
     if (def.words.test(text)) return s;
     if (artist && def.artists.some((a) => artist.includes(a))) return s;
+    // Chart uploads often put the singer in the title ("… Masoom Sharma").
+    const lowerText = text.toLowerCase();
+    if (def.artists.some((a) => a.length > 6 && lowerText.includes(a))) return s;
   }
   return null;
 }

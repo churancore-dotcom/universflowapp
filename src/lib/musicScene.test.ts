@@ -49,3 +49,17 @@ describe('taste ranking beyond genres', () => {
     expect(feedAllows({ title: 'x', artist: 'Pawan Singh' })).toBe(false);
   });
 });
+
+import { detectScene as detect2 } from './musicScene';
+import { isJunkRailTrack } from './railQuality';
+describe('India chart noise', () => {
+  it('recognises devotional and regional chart uploads', () => {
+    expect(detect2({ title: 'के सुनतै दुख छठी मैया', artist: 'Amit Aashik' })).not.toBeNull();
+    expect(detect2({ title: 'Kuber Mantra, Kubera Ashta Lakshmi', artist: 'DRC Bhakti Music' })).toBe('devotional');
+    expect(detect2({ title: 'KOOD KOOD NACHIYE Masoom Sharma', artist: 'Kabootar Records' })).toBe('haryanvi');
+    expect(detect2({ title: 'Tu Mil Jaaye (From "KING")', artist: 'Arijit Singh' })).toBeNull();
+  });
+  it('drops film teasers from song rails', () => {
+    expect(isJunkRailTrack({ title: "Vetri Maaran's Arasan 'FIRE' Glimpse", artist: 'Kalaippuli S Thanu', duration: 120 })).toBe(true);
+  });
+});
