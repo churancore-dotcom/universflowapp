@@ -1,0 +1,3 @@
+ALTER TABLE public.account_deletion_requests ADD COLUMN IF NOT EXISTS processing_started_at timestamptz;
+COMMENT ON COLUMN public.account_deletion_requests.processing_started_at IS 'Worker lease; stale leases (>15 min) are retried. completed_at is only set when deletion finished.';
+CREATE UNIQUE INDEX IF NOT EXISTS payment_requests_one_pending_per_user ON public.payment_requests(user_id) WHERE status = 'pending';
