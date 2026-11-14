@@ -39,14 +39,14 @@ object RecordedRooms {
         }
         if (rate == sr) return l to r
         val outLen = (frames.toLong() * sr / rate).toInt()
-        val ol = FloatArray(outLen); val or = FloatArray(outLen)
+        val ol = FloatArray(outLen); val rr = FloatArray(outLen)
         val step = rate.toDouble() / sr
         for (i in 0 until outLen) {
             val pos = i * step; val j = pos.toInt(); val f = (pos - j).toFloat()
             val j1 = min(j + 1, frames - 1)
             ol[i] = l[j] + (l[j1] - l[j]) * f
-            or[i] = r[j] + (r[j1] - r[j]) * f
+            rr[i] = r[j] + (r[j1] - r[j]) * f
         }
-        return ol to or
+        return ol to rr
     }
 }
