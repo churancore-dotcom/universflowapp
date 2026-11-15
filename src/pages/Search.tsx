@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { useNavigate, useSearchParams } from '@/lib/router-compat';
 import { Search as SearchIcon, Music, X, Radio, ArrowUpLeft, Loader2, Clock, Trash2, UserSearch } from 'lucide-react';
 import { toast } from 'sonner';
+import { Capacitor } from '@capacitor/core';
 import { prewarmSong } from '@/lib/instantPlay';
 import { readRecentQueries, rememberQuery, forgetQuery } from '@/lib/recentQueries';
 import { usePlayer, Song } from '@/contexts/PlayerContext';
@@ -681,7 +682,10 @@ const Search = () => {
   // Measured on a real signed-in session: a pre-resolved row starts in ~350ms,
   // an un-resolved one takes ~1050ms, and the entire gap is stream resolution.
   // Staggering keeps this off the critical path while covering deep rows too.
-  const prewarmDepth = 40;
+  // On the APK each pre-warm is a full on-device lookup with cipher solving;
+  // dozens at once exhausted memory and crashed the app mid-search.
+  const isNativeApp = Capacitor.isNativePlatform();
+  const prewarmDepth = isNativeApp ? 3 : 40;
   const prewarmedRef = useRef<Set<string>>(new Set());
   useEffect(() => { prewarmedRef.current = new Set(); }, [query]);
 
@@ -697,7 +701,7 @@ const Search = () => {
         prewarmedRef.current.add(track.id);
         if (track.videoId) prefetchYouTubeVideoStream(track.videoId, { title: track.title, artist: track.artist });
         else prefetchIndexedTrack(track.artist, track.title);
-      }, i < 6 ? 0 : (i - 5) * 90),
+      }, isNativeApp ? 900 + i * 700 : (i < 6 ? 0 : (i - 5) * 90)),
     );
     return () => timers.forEach(clearTimeout);
 
