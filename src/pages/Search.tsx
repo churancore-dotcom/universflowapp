@@ -585,8 +585,13 @@ const Search = () => {
     if (currentSong) setSearchHistory(getSongHistory());
   }, [currentSong]);
 
+  const searchGenRef = useRef(0);
+  const initialDoneRef = useRef(false);
+  const mountedRef = useRef(true);
   useEffect(() => {
     const trimmedQuery = query.trim();
+    const gen = ++searchGenRef.current;
+    initialDoneRef.current = false;
 
     if (trimmedQuery.length < 2) {
       setIndexedResults([]);
@@ -613,6 +618,7 @@ const Search = () => {
 
 
     let cancelled = false;
+    if (cachedNow?.length) initialDoneRef.current = true;
     const timer = setTimeout(async () => {
       try {
         // Stage 1 — fast pass. One YT Music query + uploaded songs, rendered as
@@ -671,6 +677,7 @@ const Search = () => {
         if (!cancelled && !cachedNow?.length) { setIndexedResults([]); setArtistResults([]); }
       } finally {
         if (!cancelled) setSearching(false);
+        if (gen === searchGenRef.current) initialDoneRef.current = true;
       }
     }, NATIVE_SEARCH ? 450 : 130);
 
@@ -718,20 +725,24 @@ const Search = () => {
 
   // Deeper server fetch when the local pool is exhausted. Runs once per query.
   const latestQueryRef = useRef(query);
+  useEffect(() => { mountedRef.current = true; return () => { mountedRef.current = false; searchGenRef.current++; }; }, []);
   latestQueryRef.current = query;
   const fetchMoreFromServer = useCallback(async () => {
     const trimmed = query.trim();
     if (trimmed.length < 2) return;
+    // Wait for the initial pass, or its final result list would wipe these rows.
+    if (!initialDoneRef.current) return;
+    const gen = searchGenRef.current;
     if (expandedQueriesRef.current.has(trimmed)) return;
     expandedQueriesRef.current.add(trimmed);
     setLoadingMore(true);
     try {
-      const deeper = await fetchResilientSearchTracks(trimmed, 400);
+      const deeper = await fetchResilientSearchTracks(trimmed, NATIVE_SEARCH ? 120 : 400);
       // Deeper pages MUST go through the same ranker/spam filter as page one —
       // appending raw source order is what let junk results reappear on scroll.
       const ranked = rankAndDedupeResults(trimmed, deeper, [], [], false);
       // Ignore late pages from a query the user has already replaced.
-      if (latestQueryRef.current.trim() !== trimmed) return;
+      if (gen !== searchGenRef.current || !mountedRef.current) return;
       const candidates = ranked.filter((t) => !isHiddenTrack(t, hiddenResults));
       setIndexedResults((prev) => {
         const existing = new Set(prev.map((t) => t.id));
@@ -741,7 +752,7 @@ const Search = () => {
     } catch {
       /* ignore */
     } finally {
-      setLoadingMore(false);
+      if (gen === searchGenRef.current && mountedRef.current) setLoadingMore(false);
     }
   }, [query, hiddenResults]);
 
