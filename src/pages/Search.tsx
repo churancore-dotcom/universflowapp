@@ -513,6 +513,9 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     .map((candidate) => candidate.track);
 }
 
+// Phone WebViews get killed (app reloads) under bursty parallel searches.
+const NATIVE_SEARCH = typeof window !== 'undefined' && !!(window as any).Capacitor?.isNativePlatform?.();
+
 async function fetchResilientSearchTracks(query: string, limit: number) {
   const intent = buildResilientSearchIntent(query);
   const [youtube, uploaded] = await Promise.all([
@@ -529,10 +532,10 @@ async function fetchResilientSearchTracks(query: string, limit: number) {
     const normalizedOriginal = normalizeText(query);
     const expansionQueries = intent.variants
       .filter((variant) => normalizeText(variant) !== normalizedOriginal)
-      .slice(0, 5);
-    const genreQueries = intent.genre ? (GENRE_QUERY_ALIASES[intent.genre] || [intent.genre]).slice(0, 4) : [];
+      .slice(0, NATIVE_SEARCH ? 2 : 5);
+    const genreQueries = intent.genre ? (GENRE_QUERY_ALIASES[intent.genre] || [intent.genre]).slice(0, NATIVE_SEARCH ? 1 : 4) : [];
     const [expandedSets, genreSets] = await Promise.all([
-      Promise.all(expansionQueries.map((variant, index) => searchYouTubeMusicTracks(variant, Math.max(80, Math.min(limit, 160)), `resilient-${normalizedOriginal}-${index}`))),
+      Promise.all(expansionQueries.map((variant, index) => searchYouTubeMusicTracks(variant, NATIVE_SEARCH ? 40 : Math.max(80, Math.min(limit, 160)), `resilient-${normalizedOriginal}-${index}`))),
       Promise.all(genreQueries.map((tag) => getTagTopTracks(tag, 50))),
     ]);
     expandedYoutube = expandedSets.flat();
@@ -631,14 +634,14 @@ const Search = () => {
         // page) merged in behind the already-visible rows.
         const artistJob = searchArtistDirectory(trimmedQuery, 30);
         const [rankedTracks, artists] = await Promise.all([
-          fetchResilientSearchTracks(trimmedQuery, 200),
+          fetchResilientSearchTracks(trimmedQuery, NATIVE_SEARCH ? 80 : 200),
           artistJob,
         ]);
         if (cancelled) return;
 
         const merged = rankedTracks
           .filter((track) => !isHiddenTrack(track, hiddenResults))
-          .slice(0, 300);
+          .slice(0, NATIVE_SEARCH ? 120 : 300);
 
         if (merged.length) setCached(SEARCH_CACHE_NAMESPACE, trimmedQuery, merged);
         // Artist tab only: require a strong artist-name match. Do NOT allow
@@ -669,7 +672,7 @@ const Search = () => {
       } finally {
         if (!cancelled) setSearching(false);
       }
-    }, 130);
+    }, NATIVE_SEARCH ? 450 : 130);
 
 
     return () => {
