@@ -379,6 +379,11 @@ export function blendWebBandsForNativeBand(
   webFrequenciesHz: number[],
   nativeCenterHz: number,
 ): number {
+  // The APK EQ has the same 10 bands as the sliders: a matching slider maps
+  // 1:1. Blending smeared one +12 dB slider into ~+4.5 dB spread over 5 bands.
+  for (let i = 0; i < webFrequenciesHz.length; i++) {
+    if (Math.abs(Math.log2(Math.max(1, webFrequenciesHz[i]) / Math.max(1, nativeCenterHz))) < 0.25) return webBands[i] ?? 0;
+  }
   let weighted = 0;
   let weight = 0;
   for (let i = 0; i < webFrequenciesHz.length; i++) {
