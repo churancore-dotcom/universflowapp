@@ -154,7 +154,6 @@ class PcmEqualizer {
         val a = 10.0.pow(currentDb[index] / 40.0)
         val w0 = 2.0 * Math.PI * freq / sampleRate
         val cosW0 = cos(w0)
-        val alpha = sin(w0) / (2.0 * Q)
         if (index == BAND_COUNT) {
             // RBJ low shelf, before the limiter and shared by both players.
             val shelfAlpha = sin(w0) / sqrt(2.0)
@@ -167,12 +166,12 @@ class PcmEqualizer {
             a2[index] = ((a + 1) + (a - 1) * cosW0 - beta) / denominator
             return
         }
-        val a0 = 1.0 + alpha / a
-        b0[index] = (1.0 + alpha * a) / a0
-        b1[index] = (-2.0 * cosW0) / a0
-        b2[index] = (1.0 - alpha * a) / a0
-        a1[index] = (-2.0 * cosW0) / a0
-        a2[index] = (1.0 - alpha / a) / a0
+        // Analog-matched peaking EQ (Vicanek 2016). RBJ's bilinear design forces
+        // 0 dB at Nyquist, so the 8k/16k sliders barely moved the treble
+        // (+6 dB at 16k gave ~+1 dB at 20k). Matched poles + magnitude fitting
+        // reproduce a real analog EQ curve across the whole band.
+        val c = MatchedPeaking.design(freq, currentDb[index].toDouble(), Q, sampleRate.toDouble())
+        b0[index] = c[0]; b1[index] = c[1]; b2[index] = c[2]; a1[index] = c[3]; a2[index] = c[4]
     }
 
     /** Cache the combined implemented response, not the largest single band. */
@@ -208,4 +207,32 @@ object EqHeadroom {
     const val ALLOWED_OVER_DB = 6.0
     fun preGain(peakDb: Double): Float =
         if (peakDb <= ALLOWED_OVER_DB) 1f else Math.pow(10.0, -(peakDb - ALLOWED_OVER_DB) / 20.0).toFloat()
+}
+
+/** Pure analog-matched peaking biquad (Vicanek), unit-tested. Returns b0,b1,b2,a1,a2. */
+object MatchedPeaking {
+    fun design(f0: Double, gainDb: Double, q: Double, fs: Double): DoubleArray {
+        val g = Math.pow(10.0, gainDb / 20.0)
+        val w0 = 2.0 * Math.PI * f0 / fs
+        val zeta = 1.0 / (2.0 * q * sqrt(g))
+        val a1 = if (zeta <= 1.0) -2.0 * Math.exp(-zeta * w0) * cos(sqrt(1.0 - zeta * zeta) * w0)
+                 else -2.0 * Math.exp(-zeta * w0) * Math.cosh(sqrt(zeta * zeta - 1.0) * w0)
+        val a2 = Math.exp(-2.0 * zeta * w0)
+        val aa0 = (1.0 + a1 + a2).let { it * it }
+        val aa1 = (1.0 - a1 + a2).let { it * it }
+        val aa2 = -4.0 * a2
+        val s2 = sin(w0 / 2.0).let { it * it }
+        val p1 = s2; val p0 = 1.0 - s2; val p2 = 4.0 * p0 * p1
+        val r1 = (aa0 * p0 + aa1 * p1 + aa2 * p2) * g * g
+        val r2 = (-aa0 + aa1 + 4.0 * (p0 - p1) * aa2) * g * g
+        val bb0 = aa0
+        val bb2 = (r1 - r2 * p1 - bb0) / (4.0 * p1 * p1)
+        val bb1 = r2 + bb0 + 4.0 * (p1 - p0) * bb2
+        val sb0 = sqrt(bb0); val sb1 = sqrt(bb1.coerceAtLeast(0.0))
+        val w = 0.5 * (sb0 + sb1)
+        val b0 = 0.5 * (w + sqrt((w * w + bb2).coerceAtLeast(0.0)))
+        val b1 = 0.5 * (sb0 - sb1)
+        val b2 = -bb2 / (4.0 * b0)
+        return doubleArrayOf(b0, b1, b2, a1, a2)
+    }
 }

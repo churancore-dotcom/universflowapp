@@ -168,6 +168,8 @@ class StemAudioProcessor : BaseAudioProcessor() {
         lookaheadR = FloatArray(lookaheadLen)
         lookaheadCursor = 0
         pendingLookaheadFrames = 0
+        // Hold longer than a 40 Hz half-cycle so the gain never rides the bass wave.
+        limiterHoldLen = (inputAudioFormat.sampleRate * 0.02f).toInt()
         limiterAttack = 1f - kotlin.math.exp((-4.0 / lookaheadLen)).toFloat()
         lowState = 0f
         highState = 0f
@@ -335,7 +337,11 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val needed = if (peak > LIMIT_CEILING) LIMIT_CEILING / peak else 1f
             if (needed <= limiterHeld) {
                 limiterHeld = needed
-                limiterHoldLeft = lookaheadLen
+                limiterHoldLeft = limiterHoldLen
+            } else if (needed < 1f && needed <= limiterHeld + (1f - limiterHeld) * 0.25f) {
+                // Repeated peaks of a boosted bass wave keep the gain steady;
+                // releasing between them modulated the waveform (bass grit).
+                limiterHoldLeft = limiterHoldLen
             } else if (limiterHoldLeft > 0) {
                 limiterHoldLeft--
             } else {
@@ -409,6 +415,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var limiterGain = 1f
     private var limiterHeld = 1f
     private var limiterHoldLeft = 0
+    private var limiterHoldLen = 960
     private var limiterAttack = 0.05f
     private var limiterRelease = 0.0003f
     private var lookaheadLen = 64

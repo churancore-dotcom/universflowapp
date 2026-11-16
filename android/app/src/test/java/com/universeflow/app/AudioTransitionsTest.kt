@@ -139,4 +139,20 @@ class AudioTransitionsTest {
         // A boosted 9 dB shelf may only be half-compensated, so at least ~4 dB remains.
         assertTrue(eq.headroomGain() > 0.55f)
     }
+
+    private fun magDb(c: DoubleArray, f: Double, fs: Double): Double {
+        val w = 2 * Math.PI * f / fs
+        val nr = c[0] + c[1] * Math.cos(w) + c[2] * Math.cos(2 * w); val ni = -(c[1] * Math.sin(w) + c[2] * Math.sin(2 * w))
+        val dr = 1 + c[3] * Math.cos(w) + c[4] * Math.cos(2 * w); val di = -(c[3] * Math.sin(w) + c[4] * Math.sin(2 * w))
+        return 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di))
+    }
+
+    @Test fun matchedPeakingHitsCentreGainAndKeepsTrebleLikeAnalog() {
+        val c = MatchedPeaking.design(16000.0, 6.0, 1.41, 48000.0)
+        assertEquals(6.0, magDb(c, 16000.0, 48000.0), 0.05)
+        // Analog +6 dB @16k gives ~+4.2 dB at 20 kHz; the old RBJ gave under 1 dB.
+        assertTrue(magDb(c, 20000.0, 48000.0) > 3.5)
+        assertEquals(0.0, magDb(c, 20.0, 48000.0), 0.05)
+    }
 }
+
