@@ -41,3 +41,6 @@
 - [x] Deliver background-playback changes to GitHub (pushed via API, APK build succeeded; phone test pending)
 
 - [x] Link GitHub API and Google Search Console in the new workspace
+
+- [ ] Link GitHub API and Google Search Console in the new workspace (again)
+- [ ] Fix EQ: 1:1 slider mapping, matched high bands, bass-safe limiter
