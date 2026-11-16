@@ -39,3 +39,5 @@
 - [x] Studio Spaces: every space must sound distinct and real (stadium/concert/etc.) — native room engine rebuilt (needs fresh APK on a phone)
 - [x] Re-link GitHub API + Google Search Console in this workspace (new move)
 - [x] Deliver background-playback changes to GitHub (pushed via API, APK build succeeded; phone test pending)
+
+- [ ] Link GitHub API and Google Search Console in the new workspace

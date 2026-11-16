@@ -18,7 +18,7 @@ import type { Song } from '@/contexts/PlayerContext';
 import { prefetchIndexedTrack } from '@/lib/musicIndexer';
 import { isNativePlayerAvailable, StreamResolverPlugin } from '@/lib/nativePlayer';
 
-const warmed = new Set<string>();
+const WARM_MAX = 200;
 const WARM_TTL_MS = 5 * 60 * 1000;
 const warmedAt = new Map<string, number>();
 
@@ -59,9 +59,10 @@ export function prewarmSong(song?: WarmableSong | null): void {
   const key = warmKey(song);
   if (!key || key === '|') return;
   const last = warmedAt.get(key) ?? 0;
-  if (warmed.has(key) && Date.now() - last < WARM_TTL_MS) return;
-  warmed.add(key);
+  if (Date.now() - last < WARM_TTL_MS) return;
+  warmedAt.delete(key);
   warmedAt.set(key, Date.now());
+  while (warmedAt.size > WARM_MAX) { const oldest = warmedAt.keys().next().value; if (oldest === undefined) break; warmedAt.delete(oldest); }
 
   const videoId = getSongVideoId(song);
 
@@ -71,7 +72,7 @@ export function prewarmSong(song?: WarmableSong | null): void {
       void StreamResolverPlugin.prefetch({
         tracks: [{ videoId: videoId || undefined, title: song.title || undefined, artist: song.artist || undefined }],
         limit: 1,
-      });
+      })?.catch?.(() => { /* best-effort warm */ });
     } catch { /* plugin missing — web path below still warms */ }
   }
 

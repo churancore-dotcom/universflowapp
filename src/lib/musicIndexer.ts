@@ -192,6 +192,14 @@ function persistSearchCache() {
   } catch { /* ignore quota */ }
 }
 
+/** Drop expired entries, then oldest, so in-memory caches can't grow forever. */
+function pruneCache<V extends { expiresAt: number }>(map: Map<string, V>, max: number) {
+  if (map.size <= max) return;
+  const now = Date.now();
+  for (const [k, v] of map) if (v.expiresAt <= now) map.delete(k);
+  while (map.size > max) { const oldest = map.keys().next().value; if (oldest === undefined) break; map.delete(oldest); }
+}
+
 function searchKey(source: string, query: string, limit: number) {
   return `${source}:${limit}:${query.trim().toLowerCase().replace(/\s+/g, ' ')}`;
 }
@@ -200,7 +208,9 @@ async function cachedSearch(key: string, fetcher: () => Promise<IndexedTrack[]>)
   const hit = searchCache.get(key);
   if (hit && hit.expiresAt > Date.now()) return hit.data;
   const data = await fetcher();
+  searchCache.delete(key);
   searchCache.set(key, { data, expiresAt: Date.now() + SEARCH_CACHE_TTL });
+  pruneCache(searchCache, 80);
   persistSearchCache();
   return data;
 }
@@ -215,7 +225,9 @@ function getCachedStream(key: string): { url: string; meta?: Partial<ResolveTrac
 function setCachedStream(key: string, url: string, meta?: Partial<ResolveTrackResponse>) {
   if (isKnownBrokenStreamUrl(url)) return;
   const ttl = isVolatileMirrorStream(url) ? VOLATILE_STREAM_CACHE_TTL : STREAM_CACHE_TTL;
+  streamCache.delete(key);
   streamCache.set(key, { url, expiresAt: Date.now() + ttl, meta });
+  pruneCache(streamCache, 400);
   persistCache();
 }
 
