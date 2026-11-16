@@ -592,6 +592,7 @@ const Search = () => {
     const trimmedQuery = query.trim();
     const gen = ++searchGenRef.current;
     initialDoneRef.current = false;
+    setLoadingMore(false);
 
     if (trimmedQuery.length < 2) {
       setIndexedResults([]);
@@ -618,7 +619,6 @@ const Search = () => {
 
 
     let cancelled = false;
-    if (cachedNow?.length) initialDoneRef.current = true;
     const timer = setTimeout(async () => {
       try {
         // Stage 1 — fast pass. One YT Music query + uploaded songs, rendered as
