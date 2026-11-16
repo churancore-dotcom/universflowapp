@@ -49,3 +49,4 @@
 - Favorites and followed-artist reads must verify account/request ownership before committing; typing suggestions use bounded market-scoped caches and clear on query changes to prevent stale results.
 - Native transient retries replenish only after sustained playback or explicit item/retry selection, never on a brief playing event; APK CI runs native unit tests before packaging to catch recovery regressions.
 - Home personal rails are seeded from the listener's own top taste artists (round-robin) with local chart songs only filling every third slot; explicit "Not interested" songs are always removed per account.
+- Equalizer sliders map 1:1 onto matching native bands, and native peaking bands use the analog-matched (Vicanek) design; blending or bilinear RBJ near Nyquist made sliders weak and treble bands inert.
