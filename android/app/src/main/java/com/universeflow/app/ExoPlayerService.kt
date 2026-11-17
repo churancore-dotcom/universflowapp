@@ -204,6 +204,13 @@ class ExoPlayerService : MediaSessionService() {
             val tail = ExoPlayer.Builder(this)
                 .setRenderersFactory(processedRenderers(processor))
                 .setMediaSourceFactory(NativeMediaSourceFactory.build(this))
+            .setLoadControl(
+                androidx.media3.exoplayer.DefaultLoadControl.Builder()
+                    .setBufferDurationsMs(20_000, 50_000, 1_000, 2_000)
+                    .setPrioritizeTimeOverSizeThresholds(true)
+                    .setBackBuffer(10_000, true)
+                    .build()
+            )
                 .setAudioAttributes(p.audioAttributes, false)
                 .setHandleAudioBecomingNoisy(true)
                 .build()

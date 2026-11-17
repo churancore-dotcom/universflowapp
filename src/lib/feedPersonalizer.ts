@@ -78,6 +78,7 @@ const EMPTY_PROFILE: TasteProfile = {
 };
 
 let cache: { userId: string; at: number; profile: TasteProfile } | null = null;
+let cacheGeneration = 0;
 const CACHE_TTL = 60 * 60 * 1000; // 1 hour
 
 /** Local-only profile for signed-out listeners (device history, no cloud read). */
@@ -113,6 +114,7 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
   }
 
 
+  const generation = cacheGeneration;
   const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
   // YouTube-style implicit taste: combine behavior (plays/skips), explicit
   // intent (likes), and artist follows. A listener should not need five cloud
@@ -222,12 +224,17 @@ export async function getTasteProfile(userId: string | null | undefined): Promis
   }
 
   const profile: TasteProfile = { artists, keywords, skips, signalCount, scenes, positiveTotal, styles, styleSkips, hiddenSongs };
-  if (cachesEnabled()) cache = { userId, at: Date.now(), profile };
+  if (cachesEnabled() && generation === cacheGeneration) {
+    cache = { userId, at: Date.now(), profile };
+  }
   return profile;
 }
 
 /** Force-refresh next call (e.g. after a like / strong signal). */
-export function invalidateTasteProfile() { cache = null; }
+export function invalidateTasteProfile() {
+  cacheGeneration++;
+  cache = null;
+}
 
 export interface RerankItem { artist?: string | null; title?: string | null; genre?: string | null }
 
