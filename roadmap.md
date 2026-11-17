@@ -45,4 +45,4 @@
 - [x] Link GitHub API and Google Search Console in the new workspace (again)
 - [x] Fix EQ: 1:1 slider mapping, matched high bands, bass-safe limiter (web tests pass; native compile + phone listening pending)
 
-- [ ] Reconnect GitHub API and Google Search Console after workspace move
+- [x] Reconnect GitHub API and Google Search Console after workspace move
