@@ -46,3 +46,4 @@
 - [x] Fix EQ: 1:1 slider mapping, matched high bands, bass-safe limiter (web tests pass; native compile + phone listening pending)
 
 - [x] Reconnect GitHub API and Google Search Console after workspace move
+- [x] Fix APK Search crash on first keystroke (server calls had no server on the phone)
