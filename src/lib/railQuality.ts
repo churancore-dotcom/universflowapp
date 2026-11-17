@@ -73,7 +73,7 @@ export function songFingerprint(s: { title?: string | null; artist?: string | nu
       .toLowerCase()
       .replace(/\([^)]*\)|\[[^\]]*\]/g, ' ')
       .replace(/\b(official|video|audio|lyrics?|hd|4k|full|song)\b/g, ' ')
-      .replace(/[^a-z0-9]+/g, '');
+      .replace(/[^\p{L}\p{N}\p{M}]+/gu, '');
   return `${norm(s.title)}~${norm(s.artist)}`;
 }
 

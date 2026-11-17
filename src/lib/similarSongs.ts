@@ -54,11 +54,13 @@ export async function fetchSongMix(song: { title: string; artist: string; videoI
   const { supabase } = await import('@/integrations/supabase/client');
   let videoId = song.videoId;
   if (!videoId) {
-    const { data } = await supabase.functions.invoke('yt-innertube-search', { body: { query: `${song.title} ${song.artist}`, limit: 3 } });
+    const { data, error } = await supabase.functions.invoke('yt-innertube-search', { body: { query: `${song.title} ${song.artist}`, limit: 3 } });
+    if (error) throw error;
     videoId = (data?.results ?? []).find((r: SimilarTrack) => r?.videoId)?.videoId;
   }
   if (!videoId) return [];
-  const { data } = await supabase.functions.invoke('ytm-radio', { body: { videoId } });
+  const { data, error } = await supabase.functions.invoke('ytm-radio', { body: { videoId } });
+  if (error) throw error;
   const title = song.title.replace(/\s*\((from|feat|ft)[^)]*\)/gi, '').trim();
   return filterSimilar(Array.isArray(data?.tracks) ? data.tracks : [], { title, query: title }, limit);
 }

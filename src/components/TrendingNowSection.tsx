@@ -13,6 +13,8 @@ import { RailSkeleton } from './PageSkeletons';
 import { cleanRail, claimRailSongs } from '@/lib/railQuality';
 import { slice, sliceTransition, pressShear } from '@/lib/ufMotion';
 import RailHeader from './RailHeader';
+import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { notInterestedKey } from '@/lib/notInterested';
 
 
 
@@ -47,16 +49,17 @@ const TrendingNowSection = memo(({ enabled = true }: Props) => {
   const servedCountry = youtubePool.length ? (charts?.country || country) : (countryChart?.country ?? country);
   const fromYouTube = youtubePool.length > 0;
 
+  const taste = useTasteProfile();
   const trending = useMemo(() => {
     // YouTube Music's official regional Trending playlist is first, followed
     // by its Top Songs and Music Videos charts. If YouTube has no chart, use
     // the fresh Apple Music most-played chart stored by the hourly aggregator.
     const sourceRows = youtubePool.length ? youtubePool : (countryChart?.songs ?? []);
     return cleanRail(
-      sourceRows.filter((s) => !isSpamSong(s)),
+      sourceRows.filter((s) => !isSpamSong(s) && !taste.hiddenSongs?.has(notInterestedKey(s.title, s.artist))),
       { requireCover: true },
     ).slice(0, 18);
-  }, [youtubePool, countryChart]);
+  }, [youtubePool, countryChart, taste.hiddenSongs]);
 
 
 

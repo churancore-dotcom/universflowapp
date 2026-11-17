@@ -11,6 +11,8 @@ import { RailSkeleton } from './PageSkeletons';
 import { cleanRail, songFingerprint, claimRailSongs, claimedByOtherRails, useRailClaimVersion } from '@/lib/railQuality';
 import { sliceUp, sliceTransition, pressShear } from '@/lib/ufMotion';
 import RailHeader from './RailHeader';
+import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { notInterestedKey } from '@/lib/notInterested';
 
 
 interface Props { songs?: Song[]; enabled?: boolean }
@@ -22,6 +24,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
   // Re-run the memo when another rail (Trending) changes what it claims.
   const claimVersion = useRailClaimVersion();
 
+  const taste = useTasteProfile();
   const fresh = useMemo(() => {
     // The "fake/mock songs on top" were auto-generated compilations that
     // YouTube's release feed mixes in (jukebox / nonstop / slowed+reverb /
@@ -33,14 +36,14 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
     // like it kept repeating the same songs.
     const claimed = claimedByOtherRails('fresh');
     const clean = cleanRail(
-        pool.filter((s) => !isSpamSong(s) && !claimed.has(songFingerprint(s))),
+        pool.filter((s) => !isSpamSong(s) && !claimed.has(songFingerprint(s)) && !taste.hiddenSongs?.has(notInterestedKey(s.title, s.artist))),
         { requireCover: true },
     );
     // New Releases must stay chronological (that's what "new" means). We only
     // bubble taste matches to the front, preserving recency inside each group,
     // instead of re-ranking or filtering real fresh drops out of the rail.
     return clean.slice(0, 40);
-  }, [pool, claimVersion]);
+  }, [pool, claimVersion, taste.hiddenSongs]);
 
 
 
