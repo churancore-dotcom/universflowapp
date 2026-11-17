@@ -761,8 +761,17 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
 
   const upiUrl = `upi://pay?pa=${encodeURIComponent(settings.upiId)}&pn=${encodeURIComponent(settings.payeeName)}&am=${amountFinal}&cu=INR&tn=${encodeURIComponent(`Premium-${plan}-${user?.id?.slice(0, 8) ?? ''}`)}`;
 
-  const copyUpi = () => { navigator.clipboard.writeText(settings.upiId); haptics.light(); toast({ title: 'UPI ID copied' }); };
-  const copyAmount = () => { navigator.clipboard.writeText(amountFinal); haptics.light(); toast({ title: 'Amount copied' }); };
+  const copyValue = async (value: string, title: string) => {
+    try {
+      await navigator.clipboard.writeText(value);
+      haptics.light();
+      toast({ title });
+    } catch {
+      toast({ title: 'Could not copy', description: 'Please copy the displayed value manually.', variant: 'destructive' });
+    }
+  };
+  const copyUpi = () => { void copyValue(settings.upiId, 'UPI ID copied'); };
+  const copyAmount = () => { void copyValue(amountFinal, 'Amount copied'); };
   const openUpiApp = () => { if (isPlayStoreBuild()) return; haptics.medium(); window.location.href = upiUrl; };
 
   const submitUtr = async () => {

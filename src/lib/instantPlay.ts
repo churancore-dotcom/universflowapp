@@ -95,7 +95,7 @@ export function prewarmSongs(songs?: Array<WarmableSong | null | undefined> | nu
           artist: s.artist || undefined,
         })),
         limit: batch.length,
-      });
+      })?.catch?.(() => { /* best-effort warm */ });
     } catch { /* ignore */ }
   }
 

@@ -154,8 +154,18 @@ const ManageSubscriptions = () => {
 
   const grantPremium = async (userId: string, days: 30 | 60 | 90) => {
     try {
-      const expiresAt = new Date();
-      expiresAt.setUTCDate(expiresAt.getUTCDate() + days);
+      const { data: current, error: currentError } = await supabase
+        .from('user_subscriptions')
+        .select('status, expires_at')
+        .eq('user_id', userId)
+        .maybeSingle();
+      if (currentError) throw currentError;
+      const existingExpiry = current?.status === 'active' && current.expires_at
+        ? Date.parse(current.expires_at)
+        : NaN;
+      const expiresAt = new Date(
+        Math.max(Date.now(), Number.isFinite(existingExpiry) ? existingExpiry : 0) + days * 86_400_000,
+      );
       const { error } = await supabase
         .from('user_subscriptions')
         .upsert({
