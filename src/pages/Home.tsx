@@ -256,11 +256,14 @@ const Home = () => {
       return { song: currentSong, label: 'Now playing' };
     }
     const claimed = claimedByOtherRails('hero');
-    const song = personal.find((s) => !claimed.has(songFingerprint(s))) || personal[0] || allSongs[0];
+    const song = personal.find((s) => !claimed.has(songFingerprint(s))) || personal[0];
     return song ? { song, label: taste.signalCount >= 5 ? 'Picked for you' : `Top in your area` } : null;
   }, [currentSong, personal, allSongs, claimVersion]);
 
-  useEffect(() => { if (stage?.song) claimRailSongs('hero', [stage.song]); }, [stage?.song?.id]);
+  useEffect(() => {
+    claimRailSongs('hero', stage?.song ? [stage.song] : []);
+    return () => claimRailSongs('hero', []);
+  }, [stage?.song?.id]);
   useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
 
   // ── Real personal stats for the header, chips and recap card ─────────────

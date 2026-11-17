@@ -2295,14 +2295,14 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       if (premiumAudioTransitions && crossfade && queue.length > 1 && audio.duration && !isCrossfading.current) {
         const timeLeft = audio.duration - audio.currentTime;
         if (timeLeft <= crossfadeDuration && timeLeft > 0 && crossfadeAttemptedForSeqRef.current !== playRequestSeqRef.current) {
-          startCrossfade();
+          startCrossfadeRef.current?.();
         }
       } else if (premiumAudioTransitions && gaplessPro && !crossfade && queue.length > 1 && audio.duration && !isCrossfading.current) {
         // Gapless Pro — fire a ~0.45s overlap right before end so the swap is
         // truly seamless even when the next track needs a beat to decode.
         const timeLeft = audio.duration - audio.currentTime;
         if (timeLeft <= GAPLESS_PRO_OVERLAP_SECONDS && timeLeft > 0 && crossfadeAttemptedForSeqRef.current !== playRequestSeqRef.current) {
-          startCrossfade(GAPLESS_PRO_OVERLAP_SECONDS);
+          startCrossfadeRef.current?.(GAPLESS_PRO_OVERLAP_SECONDS);
         }
       }
       // Last-resort web safety net. Keep this below an audio render frame so
@@ -2736,7 +2736,10 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       // Only refresh resolvable tracks (need artist/title or YT fallback id).
       if (!cur.artist || !cur.title) return;
       try {
+        const requestSeq = playRequestSeqRef.current;
+        const requestIdentity = activeSongIdentityRef.current;
         const fresh = await resolveAudioUrl(cur, { forceRefresh: true });
+        if (requestSeq !== playRequestSeqRef.current || requestIdentity !== activeSongIdentityRef.current || audio !== audioRef.current) return;
         if (!fresh || fresh === cur.audio_url || isYouTubeFallbackUrl(fresh)) return;
         // Never hot-swap the active stream while the app is hidden: Android can
         // throttle metadata/canplay events in background, leaving the element at

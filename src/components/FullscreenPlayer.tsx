@@ -145,8 +145,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     const t = setTimeout(() => {
       fetchSongMix({ title: currentSong.title, artist: currentSong.artist, videoId: vid }, 12)
         .then((mix) => {
-          const hidden = new Set(queue.map((q) => q.id));
-          const songs: Song[] = mix.filter((m) => !hidden.has(m.id)).slice(0, 10).map((m) => ({
+          const songs: Song[] = mix.map((m) => ({
             id: m.id, title: m.title, artist: m.artist, cover_url: m.cover_url,
             audio_url: m.audio_url || (m.videoId ? `yt-video:${m.videoId}` : 'resolving'),
             duration: m.duration, source: 'indexed' as const,
@@ -160,6 +159,10 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     return () => { alive = false; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.title, currentSong?.artist]);
+  const visibleVibeSuggestions = useMemo(() => {
+    const queued = new Set(queue.map((s) => s.id));
+    return vibeSuggestions.filter((s) => !queued.has(s.id)).slice(0, 10);
+  }, [vibeSuggestions, queue]);
   const suggestionsLabel = 'Same Vibe';
 
 
@@ -537,14 +540,14 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
               {/* Volume slider */}
               <VolumeSlider value={volume} onChange={setVolume} />
 
-              {vibeSuggestions.length > 0 && (
+              {visibleVibeSuggestions.length > 0 && (
                 <div className="flex items-center gap-2 -mx-1 px-1 overflow-x-auto hide-scrollbar">
                   <span className="flex-shrink-0 text-[9px] font-bold uppercase tracking-[0.18em] text-muted-foreground/80 pr-1">{suggestionsLabel}</span>
-                  {vibeSuggestions.map((song) => (
+                  {visibleVibeSuggestions.map((song) => (
                     <button
                       key={song.id}
                       type="button"
-                      onClick={() => { triggerHaptic('selection'); playSong(song, undefined, [song, ...vibeSuggestions.filter((v) => v.id !== song.id)]); }}
+                      onClick={() => { triggerHaptic('selection'); playSong(song, undefined, [song, ...visibleVibeSuggestions.filter((v) => v.id !== song.id)]); }}
                       className="group flex items-center gap-2 flex-shrink-0 rounded-full bg-foreground/5 hover:bg-foreground/10 pl-1 pr-3 py-1 active:scale-[0.96] transition-all max-w-[180px]"
                       aria-label={`Play ${song.title}`}
                     >
