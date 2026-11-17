@@ -97,8 +97,19 @@ const UserDetailDrawer = ({ user, onClose, onStatusChange }: Props) => {
     if (!user) return;
     setActing('grant');
     try {
-      const expires = new Date();
-      expires.setUTCDate(expires.getUTCDate() + days);
+      const { data: current, error: currentError } = await supabase
+        .from('user_subscriptions')
+        .select('expires_at')
+        .eq('user_id', user.user_id)
+        .eq('status', 'active')
+        .order('expires_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (currentError) throw currentError;
+      const existing = current?.expires_at ? Date.parse(current.expires_at) : NaN;
+      const expires = new Date(
+        Math.max(Date.now(), Number.isFinite(existing) ? existing : 0) + days * 86_400_000,
+      );
       const { error } = await supabase.from('user_subscriptions').insert({
         user_id: user.user_id,
         subscription_type: 'premium_monthly',

@@ -349,7 +349,10 @@ class ExoPlayerPlugin : Plugin() {
                             NativeYouTubeResolver.invalidate(videoId)
                             NewPipeResolver.invalidate(videoId)
                             // Player-JS refresh does network I/O; never on the main thread.
-                            Thread({ runCatching { PlayerJsManager.onStreamRejected() } }, "uf-playerjs-refresh").start()
+                            Thread({
+            android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
+            runCatching { PlayerJsManager.onStreamRejected() }
+        }, "uf-playerjs-refresh").start()
                             Log.w("ExoPlayerPlugin", "re-resolving rejected stream for $videoId")
                         }
                     }
