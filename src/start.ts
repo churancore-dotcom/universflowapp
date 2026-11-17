@@ -2,6 +2,7 @@ import { createStart, createCsrfMiddleware, createMiddleware } from "@tanstack/r
 
 import { renderErrorPage } from "./lib/error-page";
 import { attachSupabaseAuth } from "@/integrations/supabase/auth-attacher";
+import { nativeServerFetch } from "@/lib/nativeServerFetch";
 
 const errorMiddleware = createMiddleware().server(async ({ next }) => {
   try {
@@ -24,5 +25,7 @@ const csrfMiddleware = createCsrfMiddleware({
 
 export const startInstance = createStart(() => ({
   functionMiddleware: [attachSupabaseAuth],
+  // The APK has no server of its own; route its server calls to the live site.
+  serverFns: { fetch: nativeServerFetch },
   requestMiddleware: [errorMiddleware, csrfMiddleware],
 }));

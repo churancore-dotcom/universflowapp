@@ -6,6 +6,17 @@ import { detectCountrySilently } from '@/lib/geoCountry';
 const EMPTY: YtmSuggestions = { queries: [], items: [] };
 const cache = new Map<string, YtmSuggestions>();
 
+/** Never trust the reply's shape: a bad reply must not crash the Search screen. */
+export function normalizeSuggestions(res: unknown): YtmSuggestions {
+  const r = (res && typeof res === 'object') ? res as Partial<YtmSuggestions> : {};
+  const queries = Array.isArray(r.queries) ? r.queries.filter((q): q is string => typeof q === 'string' && q.trim().length > 0) : [];
+  const items = Array.isArray(r.items)
+    ? r.items.filter((it) => it && typeof it === 'object' && typeof it.title === 'string' && it.title.length > 0)
+        .map((it) => ({ ...it, subtitle: typeof it.subtitle === 'string' ? it.subtitle : '' }))
+    : [];
+  return { queries: [...new Set(queries)], items };
+}
+
 /** Debounced YouTube Music typing suggestions (terms + songs/artists). */
 export function useYtmSuggestions(query: string, enabled = true): YtmSuggestions {
   const [value, setValue] = useState<YtmSuggestions>(EMPTY);
@@ -24,7 +35,7 @@ export function useYtmSuggestions(query: string, enabled = true): YtmSuggestions
         const key = `${market}:${q.toLowerCase()}`;
         const hit = cache.get(key);
         if (hit) { setValue(hit); return; }
-        const res = await getYtmSuggestions({ data: { q, gl: market } });
+        const res = normalizeSuggestions(await getYtmSuggestions({ data: { q, gl: market } }));
         if (cache.size >= 100) { const oldest = cache.keys().next().value; if (oldest !== undefined) cache.delete(oldest); }
         cache.set(key, res);
         if (mine === seq.current) setValue(res);
