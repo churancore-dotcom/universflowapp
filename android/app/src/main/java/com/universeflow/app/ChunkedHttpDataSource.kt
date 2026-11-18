@@ -21,8 +21,14 @@ class ChunkedHttpDataSource(
     companion object {
         const val DEFAULT_CHUNK_BYTES = 2L * 1024L * 1024L
 
-        internal fun shouldChunk(uri: Uri): Boolean =
-            uri.host?.endsWith("googlevideo.com") == true
+        internal fun shouldChunk(uri: Uri): Boolean = isChunkedHost(uri.host)
+
+        /** Only googlevideo throttles open-ended requests; keep others untouched. */
+        fun isChunkedHost(host: String?): Boolean = host?.endsWith("googlevideo.com") == true
+
+        /** Bytes to request next, never past the known end (exclusive; <=0 = unknown). */
+        fun chunkLength(position: Long, end: Long, chunkBytes: Long): Long =
+            if (end > 0) minOf(chunkBytes, end - position) else chunkBytes
 
         /** Total bytes of the file from the `clen` query parameter, if present. */
         internal fun contentLength(uri: Uri): Long? =
@@ -60,7 +66,7 @@ class ChunkedHttpDataSource(
     private fun openChunk(): Boolean {
         val spec = base ?: return false
         if (end > 0 && position >= end) return false
-        val len = if (end > 0) minOf(chunkBytes, end - position) else chunkBytes
+        val len = chunkLength(position, end, chunkBytes)
         try {
             inner.open(spec.buildUpon().setPosition(position).setLength(len).build())
         } catch (e: HttpDataSource.InvalidResponseCodeException) {

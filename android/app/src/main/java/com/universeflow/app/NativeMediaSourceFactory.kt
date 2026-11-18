@@ -62,7 +62,10 @@ object NativeMediaSourceFactory {
         // DefaultDataSource opens file:// / content:// itself and hands http(s)
         // to the HTTP factory. The upstream used to be HTTP-only, so downloaded
         // songs (saved as real files) could never play offline in the APK.
-        val upstreamFactory = DefaultDataSource.Factory(ctx.applicationContext, httpFactory)
+        // googlevideo throttles one open-ended request to about playback speed,
+        // leaving no buffer when the screen locks; bounded ranges load at full speed.
+        val chunkedHttpFactory = DataSource.Factory { ChunkedHttpDataSource(httpFactory.createDataSource()) }
+        val upstreamFactory = DefaultDataSource.Factory(ctx.applicationContext, chunkedHttpFactory)
 
         val sc = cache(ctx)
         val cacheSinkFactory = CacheDataSink.Factory()

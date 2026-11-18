@@ -51,3 +51,4 @@
 - Home personal rails are seeded from the listener's own top taste artists (round-robin) with local chart songs only filling every third slot; explicit "Not interested" songs are always removed per account.
 - Equalizer sliders map 1:1 onto matching native bands, and native peaking bands use the analog-matched (Vicanek) design; blending or bilinear RBJ near Nyquist made sliders weak and treble bands inert.
 - APK server-function calls go through `nativeServerFetch` (start.ts serverFns.fetch) to the live site with its own origin header, because the bundled https://localhost shell has no server and returns HTML; client code must still validate server-function reply shapes before rendering.
+- Native googlevideo streams load through ChunkedHttpDataSource in bounded byte ranges, because one open-ended request is throttled to playback speed and leaves no buffer for screen lock or background CPU/network squeezes.
