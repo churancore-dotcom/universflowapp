@@ -27,7 +27,8 @@ import { usePremium } from '@/hooks/usePremium';
 import { getEQPresetLabel, useEQSettings } from '@/lib/eqSettings';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
-import { markNotInterested } from '@/lib/notInterested';
+import { markNotInterested, notInterestedKey } from '@/lib/notInterested';
+import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { fetchSongMix } from '@/lib/similarSongs';
 
 const vibeCache = new Map<string, Song[]>();
@@ -159,10 +160,13 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
     return () => { alive = false; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentSong?.title, currentSong?.artist]);
+  const vibeTaste = useTasteProfile();
   const visibleVibeSuggestions = useMemo(() => {
     const queued = new Set(queue.map((s) => s.id));
-    return vibeSuggestions.filter((s) => !queued.has(s.id)).slice(0, 10);
-  }, [vibeSuggestions, queue]);
+    return vibeSuggestions
+      .filter((s) => !queued.has(s.id) && !vibeTaste.hiddenSongs?.has(notInterestedKey(s.title, s.artist)))
+      .slice(0, 10);
+  }, [vibeSuggestions, queue, vibeTaste.hiddenSongs]);
   const suggestionsLabel = 'Same Vibe';
 
 

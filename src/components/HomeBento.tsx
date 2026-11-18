@@ -16,6 +16,7 @@ import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
 import { recentSongs, rediscoverSongs } from '@/lib/personalHome';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
+import { notInterestedKey } from '@/lib/notInterested';
 import { isSuppressed } from '@/lib/feedPersonalizer';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { cleanRail, songFingerprint } from '@/lib/railQuality';
@@ -191,8 +192,8 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
   const country = useUserCountry();
   const { data: releasePool = [] } = useYtmNewReleases(country, 8, true);
   const newRelease = useMemo(
-    () => cleanRail(releasePool.filter((s) => !isSpamSong(s)), { requireCover: true })[0] || null,
-    [releasePool],
+    () => cleanRail(releasePool.filter((s) => !isSpamSong(s) && !taste.hiddenSongs?.has(notInterestedKey(s.title, s.artist))), { requireCover: true })[0] || null,
+    [releasePool, taste.hiddenSongs],
   );
 
   // ── Moods — each chip searches the real catalogue and plays what comes back
@@ -205,7 +206,7 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
       const { searchYouTubeMusicTracks } = await import('@/lib/musicIndexer');
       const found = await searchYouTubeMusicTracks(mood.query, 30);
       const pool = cleanRail(
-        (found as unknown as Song[]).filter((s) => !isSpamSong(s)),
+        (found as unknown as Song[]).filter((s) => !isSpamSong(s) && !taste.hiddenSongs?.has(notInterestedKey(s.title, s.artist))),
         { requireCover: true },
       );
       if (!pool.length) return;
