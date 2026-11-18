@@ -54,4 +54,4 @@
 - [x] Splash screen glitch on app load (phone test needed)
 - [x] Kotlin audit: app/song glitches (phone test needed)
 - [x] YouTube-style recommendations from YouTube Music mixes of own plays
-- [ ] Reconnect GitHub API + Search Console (workspace move 2)
+- [x] Reconnect GitHub API + Search Console (workspace move 2)
