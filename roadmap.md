@@ -51,6 +51,7 @@
 - [x] Reconnect GitHub API and Google Search Console in the new workspace
 - [x] Lock-screen streamed playback glitch: chunked googlevideo loading (phone test still needed)
 
-- [ ] Splash screen glitch on app load
-- [ ] Kotlin audit: app/song glitches
-- [ ] YouTube-style recommendations (real YouTube Music mixes from own listening)
+- [x] Splash screen glitch on app load (phone test needed)
+- [x] Kotlin audit: app/song glitches (phone test needed)
+- [x] YouTube-style recommendations from YouTube Music mixes of own plays
+- [ ] Reconnect GitHub API + Search Console (workspace move 2)

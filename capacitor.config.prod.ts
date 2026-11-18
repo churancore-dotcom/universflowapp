@@ -28,8 +28,10 @@ const config: CapacitorConfig = {
     SplashScreen: {
       // Short native splash → React's own SplashScreen component takes over.
       // If this is too long and React crashes, the user sees endless black.
-      launchShowDuration: 1200,
-      launchAutoHide: true,
+      // Hidden by the app itself right after its first paint (hideNativeSplash),
+      // so there is no timer racing the shell and no gap or double logo.
+      launchAutoHide: false,
+      launchFadeOutDuration: 180,
       backgroundColor: '#000000',
       showSpinner: false,
       androidSpinnerStyle: 'small',

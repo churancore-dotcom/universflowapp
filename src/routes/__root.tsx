@@ -20,6 +20,7 @@ import { DownloadProvider } from "@/contexts/DownloadContext";
 import { NavDirectionProvider } from "@/components/PageTransition";
 import { SentryErrorBoundary } from "@/components/SentryErrorBoundary";
 import SplashScreen from "@/components/SplashScreen";
+import { Capacitor } from "@capacitor/core";
 import { SplashActiveContext } from "@/components/splash-context";
 import MobileShell from "@/components/MobileShell";
 import { usePushRegistration } from "@/hooks/usePushRegistration";
@@ -253,7 +254,11 @@ const NavigationPending = () => {
 };
 
 const AppContent = () => {
-  const [showSplash, setShowSplash] = useState(true);
+  // The APK keeps only its native splash; the web logo cover never renders there.
+  const [showSplash, setShowSplash] = useState(() => !Capacitor.isNativePlatform());
+  useEffect(() => {
+    void import("@/lib/capacitorBoot").then((m) => m.hideNativeSplash());
+  }, []);
   const { user } = useAuth();
   usePushRegistration();
   usePlaybackSync();

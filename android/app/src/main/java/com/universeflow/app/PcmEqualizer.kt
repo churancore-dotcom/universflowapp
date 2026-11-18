@@ -37,7 +37,11 @@ class PcmEqualizer {
     }
 
     @Volatile private var enabled = false
-    private val targetDb = FloatArray(FILTER_COUNT)
+    // Written by effect updates, read on the audio thread: atomic float bits
+    // give safe visibility without locking the playback path.
+    private val targetDb = java.util.concurrent.atomic.AtomicIntegerArray(FILTER_COUNT)
+    private fun targetBandDb(index: Int): Float = Float.fromBits(targetDb.get(index))
+    private val coefficientScratch = DoubleArray(5)
     private val currentDb = FloatArray(FILTER_COUNT)
     @Volatile private var bassDb = 0f
     private var preGain = 1f
@@ -71,12 +75,12 @@ class PcmEqualizer {
 
     fun setBandMillibels(index: Int, millibels: Int) {
         if (index < 0 || index >= BAND_COUNT) return
-        targetDb[index] = millibels.coerceIn(MIN_LEVEL_MB, MAX_LEVEL_MB) / 100f
+        targetDb.set(index, (millibels.coerceIn(MIN_LEVEL_MB, MAX_LEVEL_MB) / 100f).toRawBits())
     }
 
     fun getBandMillibels(index: Int): Int {
         if (index < 0 || index >= BAND_COUNT) return 0
-        return (targetDb[index] * 100f).toInt()
+        return (targetBandDb(index) * 100f).toInt()
     }
 
     fun configure(rate: Int) {
@@ -88,7 +92,7 @@ class PcmEqualizer {
             responseCos2[i] = cos(2 * w)
         }
         for (i in 0 until FILTER_COUNT) {
-            currentDb[i] = if (i == BAND_COUNT) bassDb else if (enabled) targetDb[i] else 0f
+            currentDb[i] = if (i == BAND_COUNT) bassDb else if (enabled) targetBandDb(i) else 0f
             recompute(i)
         }
         updateHeadroom()
@@ -112,7 +116,7 @@ class PcmEqualizer {
         var moving = false
         var nonFlat = false
         for (i in 0 until FILTER_COUNT) {
-            val goal = if (i == BAND_COUNT) bassDb else if (enabled) targetDb[i] else 0f
+            val goal = if (i == BAND_COUNT) bassDb else if (enabled) targetBandDb(i) else 0f
             val delta = goal - currentDb[i]
             if (kotlin.math.abs(delta) > 0.001f) {
                 currentDb[i] += delta.coerceIn(-MAX_DB_STEP, MAX_DB_STEP)
@@ -170,7 +174,8 @@ class PcmEqualizer {
         // 0 dB at Nyquist, so the 8k/16k sliders barely moved the treble
         // (+6 dB at 16k gave ~+1 dB at 20k). Matched poles + magnitude fitting
         // reproduce a real analog EQ curve across the whole band.
-        val c = MatchedPeaking.design(freq, currentDb[index].toDouble(), Q, sampleRate.toDouble())
+        val c = coefficientScratch
+        MatchedPeaking.designInto(freq, currentDb[index].toDouble(), Q, sampleRate.toDouble(), c)
         b0[index] = c[0]; b1[index] = c[1]; b2[index] = c[2]; a1[index] = c[3]; a2[index] = c[4]
     }
 
@@ -211,7 +216,11 @@ object EqHeadroom {
 
 /** Pure analog-matched peaking biquad (Vicanek), unit-tested. Returns b0,b1,b2,a1,a2. */
 object MatchedPeaking {
-    fun design(f0: Double, gainDb: Double, q: Double, fs: Double): DoubleArray {
+    fun design(f0: Double, gainDb: Double, q: Double, fs: Double): DoubleArray =
+        DoubleArray(5).also { designInto(f0, gainDb, q, fs, it) }
+
+    /** Allocation-free variant for the audio thread. */
+    fun designInto(f0: Double, gainDb: Double, q: Double, fs: Double, out: DoubleArray) {
         val g = Math.pow(10.0, gainDb / 20.0)
         val w0 = 2.0 * Math.PI * f0 / fs
         val zeta = 1.0 / (2.0 * q * sqrt(g))
@@ -233,6 +242,6 @@ object MatchedPeaking {
         val b0 = 0.5 * (w + sqrt((w * w + bb2).coerceAtLeast(0.0)))
         val b1 = 0.5 * (sb0 - sb1)
         val b2 = -bb2 / (4.0 * b0)
-        return doubleArrayOf(b0, b1, b2, a1, a2)
+        out[0] = b0; out[1] = b1; out[2] = b2; out[3] = a1; out[4] = a2
     }
 }

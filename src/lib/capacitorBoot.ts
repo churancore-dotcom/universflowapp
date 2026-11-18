@@ -2,22 +2,26 @@
 // Safe no-op on web — every call is wrapped so missing native bridge never throws.
 import { Capacitor } from '@capacitor/core';
 
+let splashHidden = false;
+/** Called after the app shell has committed: two paints, then one fade. */
+export function hideNativeSplash() {
+  if (splashHidden || !Capacitor.isNativePlatform()) return;
+  splashHidden = true;
+  void import('@capacitor/splash-screen')
+    .then(({ SplashScreen }) => {
+      requestAnimationFrame(() => requestAnimationFrame(() => {
+        void SplashScreen.hide({ fadeOutDuration: 180 }).catch(() => {});
+      }));
+    })
+    .catch(() => {});
+}
+
 export async function initCapacitorNative() {
   if (!Capacitor.isNativePlatform()) return;
 
-  // Release the native cover after the shell has had two paint opportunities.
-  // Never put this behind audio/status-bar initialization or a fixed sleep.
-  void import('@capacitor/splash-screen').then(({ SplashScreen }) => {
-    let hidden = false;
-    const hide = () => {
-      if (hidden) return;
-      hidden = true;
-      window.clearTimeout(fallback);
-      void SplashScreen.hide({ fadeOutDuration: 180 }).catch(() => {});
-    };
-    const fallback = window.setTimeout(hide, 800);
-    window.requestAnimationFrame(() => window.requestAnimationFrame(hide));
-  }).catch((error) => console.warn('[capacitor] SplashScreen init failed:', error));
+  // The native splash is released by hideNativeSplash() once the shell mounts.
+  // Safety net only if the shell never mounts (crash): never an endless splash.
+  window.setTimeout(hideNativeSplash, 5000);
 
   // Streaming Quality tier → on-device InnerTube resolver. Applied at boot and
   // re-applied whenever Settings changes the tier, so Saver/Normal/High/Ultra

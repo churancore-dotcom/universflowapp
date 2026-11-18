@@ -54,6 +54,12 @@ class ChunkedHttpDataSource(
             return inner.open(dataSpec)
         }
         position = dataSpec.position
+        val resourceLength = contentLength(dataSpec.uri)
+        if (resourceLength != null && position > resourceLength) {
+            throw androidx.media3.datasource.DataSourceException(
+                androidx.media3.common.PlaybackException.ERROR_CODE_IO_READ_POSITION_OUT_OF_RANGE,
+            )
+        }
         end = when {
             dataSpec.length != C.LENGTH_UNSET.toLong() -> dataSpec.position + dataSpec.length
             else -> contentLength(dataSpec.uri) ?: C.LENGTH_UNSET.toLong()
@@ -67,14 +73,17 @@ class ChunkedHttpDataSource(
         val spec = base ?: return false
         if (end > 0 && position >= end) return false
         val len = chunkLength(position, end, chunkBytes)
+        // Mark open first: a DataSource must be closed even when open() throws.
+        innerOpen = true
         try {
             inner.open(spec.buildUpon().setPosition(position).setLength(len).build())
-        } catch (e: HttpDataSource.InvalidResponseCodeException) {
+        } catch (e: Exception) {
+            try { closeInner() } catch (closeError: Exception) { e.addSuppressed(closeError) }
             // Unknown length and we asked past the end: that is end of file.
-            if (e.responseCode == 416 && end <= 0 && position > spec.position) return false
+            if (e is HttpDataSource.InvalidResponseCodeException && e.responseCode == 416 &&
+                end <= 0 && position > spec.position) return false
             throw e
         }
-        innerOpen = true
         chunkRemaining = len
         return true
     }

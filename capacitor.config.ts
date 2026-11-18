@@ -15,7 +15,9 @@ const config: CapacitorConfig = {
   },
   plugins: {
     SplashScreen: {
-      launchShowDuration: 800,
+      // Hidden by the app itself right after its first paint (hideNativeSplash),
+      // so there is no timer racing the shell and no gap or double logo.
+      launchAutoHide: false,
       launchFadeOutDuration: 180,
       backgroundColor: '#000000',
       showSpinner: false,

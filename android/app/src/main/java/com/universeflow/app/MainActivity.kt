@@ -55,7 +55,7 @@ class MainActivity : BridgeActivity() {
             web.settings.blockNetworkImage = false
             // Draw immediately with a transparent background — kills the white
             // flash between the splash screen and the first paint of the shell.
-            web.setBackgroundColor(0x00000000)
+            web.setBackgroundColor(android.graphics.Color.BLACK)
             web.visibility = View.VISIBLE
             web.webChromeClient = object : BridgeWebChromeClient(bridge) {
                 override fun onPermissionRequest(request: PermissionRequest) {
