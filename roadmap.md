@@ -48,5 +48,5 @@
 - [x] Reconnect GitHub API and Google Search Console after workspace move
 - [x] Fix APK Search crash on first keystroke (server calls had no server on the phone)
 
-- [ ] Reconnect GitHub API and Google Search Console in the new workspace
+- [x] Reconnect GitHub API and Google Search Console in the new workspace
 - [x] Lock-screen streamed playback glitch: chunked googlevideo loading (phone test still needed)
