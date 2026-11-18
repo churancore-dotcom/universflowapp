@@ -121,12 +121,13 @@ const Library = () => {
   }, [isOffline]);
 
   useEffect(() => {
+    if (isOffline) { if (activeTab !== 'downloads') setActiveTab('downloads'); return; }
     const nextTab = searchParams.get('tab');
     if (!nextTab) return;
     if (['liked', 'artists', 'downloads', 'playlists'].includes(nextTab) && nextTab !== activeTab) {
       setActiveTab(nextTab);
     }
-  }, [searchParams, activeTab]);
+  }, [searchParams, activeTab, isOffline]);
 
   const likedSongs = data?.likedSongs || [];
   const playlists = data?.playlists || [];

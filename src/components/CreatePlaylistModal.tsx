@@ -4,6 +4,7 @@ import { X, Music, Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { useQueryClient } from '@tanstack/react-query';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { iosSpring, iosBounce } from '@/lib/animations';
@@ -25,6 +26,7 @@ const CreatePlaylistModal = memo(function CreatePlaylistModal({
   initialSong = null,
 }: CreatePlaylistModalProps) {
   const { user } = useAuth();
+  const queryClient = useQueryClient();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [isPublic, setIsPublic] = useState(true);
@@ -69,6 +71,7 @@ const CreatePlaylistModal = memo(function CreatePlaylistModal({
         if (songError) throw songError;
       }
 
+      await queryClient.invalidateQueries({ queryKey: ['library', user.id] });
       toast.success(initialSong ? 'Playlist created with this song! 🎵' : 'Playlist created! 🎵');
       setTitle('');
       setDescription('');

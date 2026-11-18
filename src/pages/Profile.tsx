@@ -257,11 +257,11 @@ const Profile = () => {
         else break;
       }
 
-      setListenStats({
-        minutes: Math.round(totalSeconds / 60),
-        streak,
-        totalPlays: rows.length,
-      });
+      setListenStats(prev => ({
+        minutes: Math.max(prev.minutes, Math.round(totalSeconds / 60)),
+        streak: Math.max(prev.streak, streak),
+        totalPlays: Math.max(prev.totalPlays, rows.length),
+      }));
     } finally { setStatsReady(true); }
   };
 
