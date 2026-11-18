@@ -22,6 +22,8 @@ import { getCountryQueries } from '@/lib/countryQueries';
 import { fetchCountryCharts } from '@/lib/countryCharts';
 
 import { rerank, topTasteArtists, topTasteKeywords } from '@/lib/feedPersonalizer';
+import { fetchSongMix, pickMixSeeds, blendMixes, type MixSeed } from '@/lib/similarSongs';
+import { notInterestedKey } from '@/lib/notInterested';
 
 const MadeForYouSection = memo(() => {
   const { user } = useAuth();
@@ -62,7 +64,7 @@ const MadeForYouSection = memo(() => {
     // shelf kept flickering to a different set. Key on the top seeds only and
     // bucket the signal count so it moves when taste actually changes.
     queryKey: [
-      'ytm-made-for-you-v6',
+      'ytm-made-for-you-v7',
       (country || 'GLOBAL').toUpperCase(),
 
       user?.id ?? 'anon',
@@ -75,6 +77,44 @@ const MadeForYouSection = memo(() => {
     gcTime: 6 * 60 * 60 * 1000,
     refetchInterval: 15 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
+      // Like YouTube's home: blend YouTube Music's own "up next" mixes for the
+      // songs this listener actually played most recently. Keyword searches
+      // ("<artist> songs") only remain as the cold-start fallback.
+      const norm0 = (v?: string | null) => (v || '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+      const recentKeys = new Set(recentEntries.map((e) => `${norm0(e.song?.title)}~${norm0(e.song?.artist)}`));
+      const seedPool: MixSeed[] = recentEntries.map((e) => e.song).filter(Boolean) as MixSeed[];
+      if (user?.id && seedPool.length < 3) {
+        const { data: playedRows } = await supabase
+          .from('song_play_events')
+          .select('artist, title')
+          .eq('user_id', user.id)
+          .eq('action', 'stream')
+          .order('created_at', { ascending: false })
+          .limit(12);
+        seedPool.push(...((playedRows ?? []) as MixSeed[]));
+      }
+      const mixSeeds = pickMixSeeds(seedPool, 3);
+      if (mixSeeds.length) {
+        const mixes = await Promise.allSettled(mixSeeds.map((seed) => fetchSongMix(seed, 25)));
+        const blended = blendMixes(
+          mixes.flatMap((m) => (m.status === 'fulfilled' ? [m.value] : [])),
+          24,
+          (t) =>
+            recentKeys.has(`${norm0(t.title)}~${norm0(t.artist)}`) ||
+            !!taste.hiddenSongs?.has(notInterestedKey(t.title, t.artist)),
+        );
+        const fromYouTube = cleanRail(
+          blended
+            .map((t) => ({
+              id: t.id, title: t.title, artist: t.artist, cover_url: t.cover_url,
+              audio_url: t.audio_url || (t.videoId ? `yt-video:${t.videoId}` : 'resolving'),
+              duration: t.duration,
+            }) as Song)
+            .filter((song) => !isSpamSong(song)),
+          { requireCover: true },
+        );
+        if (fromYouTube.length >= 6) return diversifyByArtist(fromYouTube).slice(0, 18);
+      }
 
       let seedQueries: string[] = [];
       // Snapshot artists from local recents cover YT/audius tracks that never
@@ -219,7 +259,7 @@ const MadeForYouSection = memo(() => {
     <section className="relative">
       <RailHeader
         title="Made For You"
-        subtitle={taste.signalCount > 0 ? 'Based on your listening' : 'Play a few songs to shape this'}
+        subtitle={recentEntries.length > 0 ? 'Mixed from songs you play' : 'Play a few songs to shape this'}
       />
 
       {/* Wide plate — the only landscape card on Home */}

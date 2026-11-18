@@ -212,19 +212,34 @@ const Home = () => {
   // looking like everyone else's Trending page.
   const seedArtists = useMemo(() => topTasteArtists(taste, 6), [taste]);
   const { data: tasteSongs = [] } = useQuery({
-    queryKey: ['home', 'taste-pool', user?.id ?? 'anon', seedArtists.join('|')],
+    queryKey: ['home', 'taste-pool-v2', user?.id ?? 'anon', seedArtists.join('|'), Math.floor(taste.signalCount / 5)],
     enabled: !isOffline && seedArtists.length > 0,
     staleTime: 30 * 60 * 1000,
     gcTime: 2 * 60 * 60 * 1000,
     queryFn: async (): Promise<Song[]> => {
-      const lists = await Promise.allSettled(seedArtists.map((a) => getArtistTopTracksByName(a, 8)));
-      const perArtist = lists.map((r) => (r.status === 'fulfilled' ? r.value : []));
+      // Like YouTube's home: YouTube Music's own mixes for the songs this
+      // listener just played bring in NEW similar songs, alongside top tracks
+      // of the artists they already love.
+      const { readLocalRecent } = await import('@/lib/localRecentlyPlayed');
+      const { fetchSongMix, pickMixSeeds } = await import('@/lib/similarSongs');
+      const recentSongs = readLocalRecent(user?.id ?? null).map((e) => e.song).filter(Boolean);
+      const mixSeeds = pickMixSeeds(recentSongs as { title?: string; artist?: string; audio_url?: string }[], 3);
+      const [lists, mixLists] = await Promise.all([
+        Promise.allSettled(seedArtists.map((a) => getArtistTopTracksByName(a, 8))),
+        Promise.allSettled(mixSeeds.map((seed) => fetchSongMix(seed, 12))),
+      ]);
+      const perArtist = [
+        ...mixLists.map((r) => (r.status === 'fulfilled' ? r.value : [])),
+        ...lists.map((r) => (r.status === 'fulfilled' ? r.value : [])),
+      ] as { id: string; title: string; artist: string; album?: string; cover_url?: string; audio_url?: string; videoId?: string; duration?: number }[][];
       const out: Song[] = [];
-      // Round-robin so one artist cannot take over the whole feed.
-      for (let i = 0; i < 8; i++) {
+      const seenIds = new Set<string>();
+      // Round-robin so one artist or one mix cannot take over the whole feed.
+      for (let i = 0; i < 12; i++) {
         for (const list of perArtist) {
           const t = list[i];
-          if (!t?.id || !t.title || !t.artist) continue;
+          if (!t?.id || !t.title || !t.artist || seenIds.has(t.id)) continue;
+          seenIds.add(t.id);
           out.push({
             id: t.id, title: t.title, artist: t.artist, album: t.album,
             cover_url: upgradeThumb(t.cover_url),

@@ -64,3 +64,54 @@ export async function fetchSongMix(song: { title: string; artist: string; videoI
   const title = song.title.replace(/\s*\((from|feat|ft)[^)]*\)/gi, '').trim();
   return filterSimilar(Array.isArray(data?.tracks) ? data.tracks : [], { title, query: title }, limit);
 }
+
+/** A song the listener actually played/liked, used to seed YouTube mixes. */
+export interface MixSeed { title?: string | null; artist?: string | null; audio_url?: string | null }
+
+/**
+ * Picks up to `max` recent songs by different artists — the same way YouTube's
+ * home builds mixes from what you just listened to, not from keyword searches.
+ */
+export function pickMixSeeds(songs: MixSeed[], max = 3): { title: string; artist: string; videoId?: string }[] {
+  const artists = new Set<string>();
+  const out: { title: string; artist: string; videoId?: string }[] = [];
+  for (const s of songs) {
+    const title = (s?.title || '').trim();
+    const artist = (s?.artist || '').trim();
+    if (!title || !artist) continue;
+    const key = norm(artist);
+    if (!key || artists.has(key)) continue;
+    artists.add(key);
+    const videoId = /^yt-video:([\w-]{11})/.exec(s.audio_url || '')?.[1];
+    out.push(videoId ? { title, artist, videoId } : { title, artist });
+    if (out.length >= max) break;
+  }
+  return out;
+}
+
+/**
+ * Interleaves several YouTube mixes round-robin, keeping each mix's own
+ * relevance order and dropping duplicates and excluded songs.
+ */
+export function blendMixes(
+  mixes: SimilarTrack[][],
+  limit: number,
+  exclude: (t: SimilarTrack) => boolean = () => false,
+): SimilarTrack[] {
+  const seen = new Set<string>();
+  const out: SimilarTrack[] = [];
+  const longest = Math.max(0, ...mixes.map((m) => m.length));
+  for (let i = 0; i < longest && out.length < limit; i++) {
+    for (const mix of mixes) {
+      const t = mix[i];
+      if (!t) continue;
+      const key = `${norm(t.title)}|${norm(t.artist)}`;
+      if (seen.has(key) || seen.has(t.id)) continue;
+      seen.add(key); seen.add(t.id);
+      if (exclude(t)) continue;
+      out.push(t);
+      if (out.length >= limit) break;
+    }
+  }
+  return out;
+}
