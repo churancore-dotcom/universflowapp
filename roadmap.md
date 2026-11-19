@@ -55,4 +55,4 @@
 - [x] Kotlin audit: app/song glitches (phone test needed)
 - [x] YouTube-style recommendations from YouTube Music mixes of own plays
 - [x] Reconnect GitHub API + Search Console (workspace move 2)
-- [ ] Reconnect GitHub API + Search Console (new workspace)
+- [x] Reconnect GitHub API + Search Console (new workspace)
