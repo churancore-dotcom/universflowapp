@@ -140,7 +140,7 @@ const FeaturedArtistsSection = ({
               onClick={() => { triggerHaptic('selection'); navigate(`/artists?focus=${encodeURIComponent(artist.name)}`); }}
               className="shrink-0 w-[104px] text-center"
             >
-              <div className="w-[92px] h-[92px] mx-auto rounded-full overflow-hidden border-2 border-primary/70">
+              <div className="w-[92px] h-[92px] mx-auto rounded-full overflow-hidden ring-1 ring-border/70 bg-muted">
                 {artist.image ? (
                   <OptimizedImage src={artist.image} alt={`${artist.name} artist profile`} className="w-full h-full" />
                 ) : (

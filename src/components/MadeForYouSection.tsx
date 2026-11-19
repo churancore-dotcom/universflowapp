@@ -270,7 +270,7 @@ const MadeForYouSection = memo(() => {
         transition={sliceTransition()}
         onClick={() => play(hero)}
         {...prewarmIntentProps(hero)}
-        className="relative w-full min-h-[164px] overflow-hidden text-left rounded-xl p-6 group border border-white/5"
+        className="relative w-full min-h-[176px] overflow-hidden text-left rounded-[26px] p-6 group border border-border/60"
       >
 
         {/* Depth: blurred artwork wash behind the glass, sharp art on the right. */}
@@ -289,7 +289,7 @@ const MadeForYouSection = memo(() => {
           <span className="inline-flex px-2 py-0.5 bg-primary/20 text-primary border border-primary/20 rounded-full text-[9px] font-bold uppercase tracking-wider mb-4">Personalized</span>
           <h3 className="text-xl font-black leading-tight text-foreground mb-1 line-clamp-2 tracking-tight">{hero.title}</h3>
           <p className="text-sm text-muted-foreground truncate font-semibold mb-4 opacity-80">{hero.artist}</p>
-          <div className="w-11 h-11 bg-white text-black rounded-full shadow-lg flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105">
+          <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full shadow-lg flex items-center justify-center flex-shrink-0 transition-transform hover:scale-105">
             <Play className="w-4 h-4 ml-0.5 fill-current" />
           </div>
         </div>
@@ -297,16 +297,18 @@ const MadeForYouSection = memo(() => {
 
 
       {/* Up-next list, uniform rows */}
-      <div className="mt-4 rounded-xl overflow-hidden border border-white/5 bg-card/30">
+      <div className="mt-3">
         {rest.map((song, idx) => {
           const isPlaying = currentSong?.id === song.id;
           return (
-            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 px-4 py-3.5 border-b border-white/5 last:border-0 text-left hover:bg-white/5 active:bg-white/10 transition-colors group">
+            <button key={song.id} onClick={() => play(song)} {...prewarmIntentProps(song)} className="w-full flex items-center justify-between gap-3 py-2.5 text-left active:opacity-60 transition-opacity group">
               <div className="flex items-center gap-4 min-w-0">
-                <span className="text-xs font-bold text-muted-foreground/60 tabular-nums w-4 text-right">{idx + 2}</span>
+                <div className="w-12 h-12 shrink-0 rounded-xl overflow-hidden bg-muted">
+                  {song.cover_url && <OptimizedImage src={song.cover_url} alt={song.title} className="w-full h-full object-cover" />}
+                </div>
 
                 <div className="min-w-0">
-                  <p className={`text-[13px] font-bold truncate leading-tight ${isPlaying ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
+                  <p className={`text-[14px] font-semibold truncate leading-tight ${isPlaying ? 'text-primary' : 'text-foreground'}`}>{song.title}</p>
                   <p className="text-[11px] text-muted-foreground/70 truncate mt-0.5 font-medium">{song.artist}</p>
                 </div>
               </div>

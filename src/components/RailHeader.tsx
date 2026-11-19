@@ -17,14 +17,14 @@ interface RailHeaderProps {
  * read as broken.
  */
 const RailHeader = memo(({ title, subtitle, badge, actionLabel, onAction }: RailHeaderProps) => (
-  <div className="flex items-center justify-between gap-3 mb-5">
+  <div className="flex items-end justify-between gap-3 mb-4">
     <div className="min-w-0">
       <div className="flex items-center gap-2">
-        <h2 className="text-[19px] font-bold tracking-tight text-foreground/90 truncate">{title}</h2>
+        <h2 className="font-display text-[24px] leading-none uppercase tracking-tight text-foreground truncate">{title}</h2>
         {badge}
       </div>
       {subtitle && (
-        <p className="text-[12.5px] text-muted-foreground/60 font-medium truncate mt-0.5">
+        <p className="text-[12.5px] text-muted-foreground font-medium truncate mt-1.5">
           {subtitle}
         </p>
       )}

@@ -4,7 +4,7 @@ import { Play, Pause } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { triggerHaptic } from '@/hooks/useHaptics';
 
-/** Editorial cover-led stage at the top of the Listen screen. */
+/** Cover-led hero at the top of the Listen screen: the artwork is the design. */
 const HomeStage = memo(({ song, label }: { song: Song; label: string }) => {
   const { currentSong, isPlaying, playSong, togglePlay } = usePlayer();
   const active = currentSong?.id === song.id;
@@ -16,41 +16,37 @@ const HomeStage = memo(({ song, label }: { song: Song; label: string }) => {
   const cover = song.cover_url;
 
   return (
-    <section className="px-6 pt-1">
-      <motion.div
-        initial={{ opacity: 0, y: 10 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
-        className="relative overflow-hidden rounded-[28px] border border-border/60 bg-card"
+    <section className="px-5 pt-1">
+      <motion.button
+        type="button"
+        onClick={onPlay}
+        aria-label={`${active && isPlaying ? 'Pause' : 'Play'} ${song.title}`}
+        initial={{ opacity: 0, scale: 0.985 }}
+        animate={{ opacity: 1, scale: 1 }}
+        whileTap={{ scale: 0.985 }}
+        transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+        className="relative block w-full aspect-[5/6] max-h-[440px] overflow-hidden rounded-[30px] bg-muted text-left"
       >
         {cover && (
-          <img
-            src={cover}
-            alt=""
-            aria-hidden
-            className="absolute inset-0 w-full h-full object-cover scale-125 blur-2xl opacity-60"
-          />
+          <img src={cover} alt={song.title} className="absolute inset-0 w-full h-full object-cover" />
         )}
-        <div className="absolute inset-0 bg-gradient-to-b from-background/10 via-background/40 to-background/90" />
-        <div className="relative flex items-end gap-4 p-4">
-          <div className="w-[118px] h-[118px] shrink-0 rounded-2xl overflow-hidden bg-muted shadow-2xl ring-1 ring-border/60">
-            {cover && <img src={cover} alt={song.title} className="w-full h-full object-cover" />}
+        <div className="absolute inset-0 bg-gradient-to-t from-background via-background/55 to-transparent" />
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-background/50 to-transparent" />
+
+        <span className="absolute left-5 top-5 rounded-full bg-background/55 backdrop-blur-md px-3 py-1 text-[10px] font-bold uppercase tracking-[0.22em] text-primary">
+          {label}
+        </span>
+
+        <div className="absolute inset-x-0 bottom-0 p-5 flex items-end gap-4">
+          <div className="min-w-0 flex-1">
+            <h2 className="font-display text-[34px] leading-[0.95] uppercase text-foreground line-clamp-2">{song.title}</h2>
+            <p className="mt-2 text-[14px] font-medium text-foreground/70 truncate">{song.artist}</p>
           </div>
-          <div className="min-w-0 flex-1 pb-1">
-            <p className="text-[10px] font-semibold uppercase tracking-[0.24em] text-primary">{label}</p>
-            <h2 className="mt-1.5 text-[19px] font-bold leading-tight text-foreground line-clamp-2">{song.title}</h2>
-            <p className="mt-0.5 text-[13px] text-muted-foreground truncate">{song.artist}</p>
-            <button
-              onClick={onPlay}
-              aria-label={active && isPlaying ? 'Pause' : 'Play'}
-              className="mt-3 inline-flex items-center gap-2 rounded-full bg-primary px-4 py-2 text-[13px] font-semibold text-primary-foreground active:scale-95 transition-transform"
-            >
-              {active && isPlaying ? <Pause className="w-4 h-4" fill="currentColor" /> : <Play className="w-4 h-4" fill="currentColor" />}
-              {active && isPlaying ? 'Pause' : active ? 'Resume' : 'Play'}
-            </button>
-          </div>
+          <span className="w-14 h-14 shrink-0 rounded-full bg-primary text-primary-foreground grid place-items-center shadow-[0_10px_30px_-8px_hsl(var(--primary)/0.7)]">
+            {active && isPlaying ? <Pause className="w-6 h-6" fill="currentColor" /> : <Play className="w-6 h-6 ml-0.5" fill="currentColor" />}
+          </span>
         </div>
-      </motion.div>
+      </motion.button>
     </section>
   );
 });

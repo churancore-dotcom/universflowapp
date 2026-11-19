@@ -20,8 +20,6 @@ import { notInterestedKey } from '@/lib/notInterested';
 import { isSuppressed } from '@/lib/feedPersonalizer';
 import { triggerHaptic } from '@/hooks/useHaptics';
 import { cleanRail, songFingerprint } from '@/lib/railQuality';
-import { useYtmNewReleases } from '@/lib/ytmRails';
-import { useUserCountry } from '@/hooks/useUserCountry';
 import { isSpamSong } from '@/pages/Search';
 import OptimizedImage from './OptimizedImage';
 
@@ -188,14 +186,6 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
     return best && best.plays >= 2 ? best : null;
   }, [recents]);
 
-  // ── New Release — the freshest real single from the live release feed ──
-  const country = useUserCountry();
-  const { data: releasePool = [] } = useYtmNewReleases(country, 8, true);
-  const newRelease = useMemo(
-    () => cleanRail(releasePool.filter((s) => !isSpamSong(s) && !taste.hiddenSongs?.has(notInterestedKey(s.title, s.artist))), { requireCover: true })[0] || null,
-    [releasePool, taste.hiddenSongs],
-  );
-
   // ── Moods — each chip searches the real catalogue and plays what comes back
   const [loadingMood, setLoadingMood] = useState<string | null>(null);
   const playMood = async (mood: { label: string; query: string }) => {
@@ -289,60 +279,27 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
         </div>
       )}
 
-      {/* ROW 2 — MOODS (real searches) + NEW RELEASE */}
-      <div className="grid grid-cols-2 gap-3 items-stretch">
-        <motion.div
-          initial={{ opacity: 0, y: 14 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.1 }}
-          className="rounded-[28px] border border-border/60 bg-card/70 p-4"
-        >
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Moods</p>
-          <div className="flex flex-wrap gap-2 mt-3">
-            {MOODS.map((mood) => (
-              <button
-                key={mood.label}
-                onClick={() => playMood(mood)}
-                disabled={loadingMood !== null}
-                className={`rounded-full px-3 py-1.5 text-[11px] font-bold uppercase tracking-wide transition-colors disabled:opacity-60 ${
-                  loadingMood === mood.label
-                    ? 'bg-primary text-primary-foreground'
-                    : 'bg-foreground/5 text-foreground/80 border border-border/60 active:bg-primary/20'
-                }`}
-              >
-                {loadingMood === mood.label ? '…' : mood.label}
-              </button>
-            ))}
-          </div>
-        </motion.div>
-
-        {newRelease ? (
-          <motion.button
-            initial={{ opacity: 0, y: 14 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.12 }}
-            onClick={() => { triggerHaptic('selection'); playSong(newRelease, null, releasePool); }}
-            className="relative rounded-[28px] overflow-hidden border border-border/60 bg-card/70 text-left active:opacity-80 transition-opacity"
-          >
-            <OptimizedImage src={newRelease.cover_url} alt={newRelease.title} className="absolute inset-0 w-full h-full" />
-            <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/20" />
-            <div className="relative h-full flex flex-col justify-between p-4 min-h-[180px]">
-              <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">New Release</p>
-              <div className="flex items-end gap-2">
-                <div className="w-14 h-14 shrink-0 rounded-[10px] overflow-hidden bg-muted">
-                  <OptimizedImage src={newRelease.cover_url} alt={newRelease.title} className="w-full h-full" />
-                </div>
-                <div className="min-w-0 flex-1">
-                  <p className="text-[13px] font-bold text-foreground truncate leading-tight">{newRelease.title}</p>
-                  <p className="text-[11px] text-muted-foreground truncate">{newRelease.artist}</p>
-                </div>
-                <span className="w-8 h-8 shrink-0 rounded-full bg-primary text-primary-foreground grid place-items-center">
-                  <Play className="w-4 h-4 fill-current ml-0.5" />
-                </span>
-              </div>
-            </div>
-          </motion.button>
-        ) : null}
+      {/* MOODS — one swipeable row, each chip plays a real catalogue search */}
+      <div className="-mx-5 overflow-x-auto hide-scrollbar" style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="flex gap-2 px-5 pt-1">
+          {MOODS.map((mood, i) => (
+            <motion.button
+              key={mood.label}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3, delay: 0.04 * i }}
+              onClick={() => playMood(mood)}
+              disabled={loadingMood !== null}
+              className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors disabled:opacity-60 ${
+                loadingMood === mood.label
+                  ? 'bg-primary text-primary-foreground'
+                  : 'border border-border/70 text-foreground/85 active:bg-primary/15'
+              }`}
+            >
+              {loadingMood === mood.label ? 'Loading…' : mood.label}
+            </motion.button>
+          ))}
+        </div>
       </div>
     </div>
   );

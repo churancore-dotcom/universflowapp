@@ -29,14 +29,6 @@ import CrossDeviceResume from '@/components/CrossDeviceResume';
 import FlowCoreSection from '@/components/FlowCoreSection';
 import HomeStage from '@/components/HomeStage';
 
-/** Editorial chapter divider: index number, title and a hairline rule. */
-const ChapterLabel = ({ index, title }: { index: string; title: string }) => (
-  <div className="px-6 mt-12 mb-5 flex items-center gap-3">
-    <span className="text-[11px] font-semibold tabular-nums text-primary">{index}</span>
-    <span className="text-[11px] font-semibold uppercase tracking-[0.24em] text-muted-foreground">{title}</span>
-    <span className="h-px flex-1 bg-border/70" />
-  </div>
-);
 
 import OfflineIndicator from '@/components/OfflineIndicator';
 import { TabTransition } from '@/components/PageTransition';
@@ -381,18 +373,16 @@ const Home = () => {
               {/* ── Featured song + personal bento, both from real history ── */}
               {stage?.song && <HomeStage song={stage.song} label={stage.label} />}
 
-              <div className="mt-6"><HomeBento songs={personal} /></div>
+              <div className="mt-5"><HomeBento songs={personal} /></div>
 
               {/* ── Chapter 1: what the world plays right now ── */}
-              <ChapterLabel index="01" title="Out there now" />
-              <div className="uf-feed-sections px-6 space-y-11">
+              <div className="uf-feed-sections px-6 space-y-12 mt-10">
                 <TrendingNowSection songs={clean.length ? clean : allSongs} enabled={homeReady} />
                 <FreshReleasesSection enabled={homeReady} />
               </div>
 
               {/* ── Chapter 2: built from your own listening ── */}
-              <ChapterLabel index="02" title="Yours" />
-              <div className="uf-feed-sections px-6 space-y-11">
+              <div className="uf-feed-sections px-6 space-y-12 mt-12">
                 <RecapProgressCard monthPlays={insights.monthPlays} onOpen={() => navigate('/recap')} />
                 <OnRepeatSection />
                 <MadeForYouSection />
@@ -401,8 +391,7 @@ const Home = () => {
               </div>
 
               {/* ── Chapter 3: the people behind the music ── */}
-              <ChapterLabel index="03" title="Artists" />
-              <div className="uf-feed-sections px-6 space-y-11 pb-24">
+              <div className="uf-feed-sections px-6 space-y-12 mt-12 pb-24">
                 <FeaturedArtistsSection songs={personal} circle />
               </div>
 
