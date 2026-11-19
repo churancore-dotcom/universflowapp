@@ -5,7 +5,7 @@ import { spawn } from "node:child_process";
 import { existsSync } from "node:fs";
 
 const child = spawn("npx", ["vite", "build"], {
-  env: { ...process.env, NATIVE_BUILD: "1" },
+  env: process.argv.includes("--plain") ? process.env : { ...process.env, NATIVE_BUILD: "1" },
   stdio: ["ignore", "pipe", "pipe"],
 });
 let done = false;

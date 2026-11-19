@@ -41,7 +41,7 @@ jobs:
             echo "::error::Supabase env missing — iOS build would black-screen. Aborting."
             exit 1
           fi
-          npm run build
+          node scripts/run-native-vite-build.mjs --plain
         env:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: ${{ secrets.VITE_SUPABASE_PUBLISHABLE_KEY }}
