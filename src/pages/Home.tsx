@@ -28,6 +28,7 @@ import HomeBento from '@/components/HomeBento';
 import CrossDeviceResume from '@/components/CrossDeviceResume';
 import FlowCoreSection from '@/components/FlowCoreSection';
 import HomeStage from '@/components/HomeStage';
+import QuickPicks from '@/components/QuickPicks';
 
 
 import OfflineIndicator from '@/components/OfflineIndicator';
@@ -371,9 +372,14 @@ const Home = () => {
             <>
               <CrossDeviceResume />
               {/* ── Featured song + personal bento, both from real history ── */}
-              {stage?.song && <HomeStage song={stage.song} label={stage.label} />}
+              {stage?.song && <HomeStage song={stage.song} label={stage.label} next={personal.filter((s) => s.id !== stage.song.id).slice(0, 30)} />}
 
-              <div className="mt-5"><HomeBento songs={personal} /></div>
+              <div className="mt-6"><HomeBento songs={personal} /></div>
+
+              <QuickPicks
+                songs={personal.filter((s) => s.id !== stage?.song?.id)}
+                subtitle={taste.signalCount >= 5 ? 'Based on what you play' : 'Start here — it learns as you listen'}
+              />
 
               {/* ── Chapter 1: what the world plays right now ── */}
               <div className="uf-feed-sections px-6 space-y-12 mt-10">

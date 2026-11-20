@@ -290,10 +290,10 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
               transition={{ duration: 0.3, delay: 0.04 * i }}
               onClick={() => playMood(mood)}
               disabled={loadingMood !== null}
-              className={`shrink-0 rounded-full px-4 py-2 text-[13px] font-semibold transition-colors disabled:opacity-60 ${
+              className={`shrink-0 w-[104px] h-[64px] rounded-[16px] px-3 py-2.5 text-left flex flex-col justify-end text-[14px] font-bold transition-colors disabled:opacity-60 ${
                 loadingMood === mood.label
                   ? 'bg-primary text-primary-foreground'
-                  : 'border border-border/70 text-foreground/85 active:bg-primary/15'
+                  : 'bg-gradient-to-br from-primary/25 via-card to-card border border-border/60 text-foreground active:bg-primary/15'
               }`}
             >
               {loadingMood === mood.label ? 'Loading…' : mood.label}
