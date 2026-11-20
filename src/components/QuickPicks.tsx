@@ -17,7 +17,7 @@ const QuickPicks = ({ songs, title = 'Quick picks', subtitle }: { songs: Song[];
   if (picks.length < 4) return null;
 
   return (
-    <section className="mt-8">
+    <section className="mt-8 relative z-10">
       <div className="px-6 flex items-end justify-between">
         <div>
           <p className="text-[10px] font-bold uppercase tracking-[0.24em] text-primary">For you</p>

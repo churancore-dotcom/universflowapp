@@ -374,7 +374,7 @@ const Home = () => {
               {/* ── Featured song + personal bento, both from real history ── */}
               {stage?.song && <HomeStage song={stage.song} label={stage.label} next={personal.filter((s) => s.id !== stage.song.id).slice(0, 30)} />}
 
-              <div className="mt-6"><HomeBento songs={personal} /></div>
+              <div className="mt-6 relative z-10"><HomeBento songs={personal} /></div>
 
               <QuickPicks
                 songs={personal.filter((s) => s.id !== stage?.song?.id)}
