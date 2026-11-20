@@ -59,3 +59,5 @@
 - [x] Reconnect GitHub API + Search Console (workspace move, 19 Nov)
 
 - [x] Reconnect GitHub API and Google Search Console in new workspace
+
+- [ ] Relink GitHub API + Search Console in new workspace
