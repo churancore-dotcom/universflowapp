@@ -29,6 +29,7 @@ import CrossDeviceResume from '@/components/CrossDeviceResume';
 import FlowCoreSection from '@/components/FlowCoreSection';
 import HomeStage from '@/components/HomeStage';
 import QuickPicks from '@/components/QuickPicks';
+import SongCardRail from '@/components/SongCardRail';
 
 
 import OfflineIndicator from '@/components/OfflineIndicator';
@@ -274,6 +275,21 @@ const Home = () => {
   }, [stage?.song?.id]);
   useEffect(() => { if (stage?.song) prewarmSong(stage.song); }, [stage?.song?.id]);
 
+  // Extra card rails: per favourite artist, plus deeper picks from the personal mix.
+  const artistRails = useMemo(() => {
+    const pool = personal.filter((s) => s.id !== stage?.song?.id);
+    const by = new Map<string, Song[]>();
+    for (const s of pool) {
+      const key = (s.artist || '').split(/,|&| feat\.? /i)[0].trim();
+      if (!key) continue;
+      const list = by.get(key) || [];
+      list.push(s);
+      by.set(key, list);
+    }
+    return [...by.entries()].filter(([, l]) => l.length >= 4).sort((a, b) => b[1].length - a[1].length).slice(0, 3);
+  }, [personal, stage?.song?.id]);
+  const deeperPicks = useMemo(() => personal.filter((s) => s.id !== stage?.song?.id).slice(17, 40), [personal, stage?.song?.id]);
+
   // ── Real personal stats for the header, chips and recap card ─────────────
   const insights = useHomeInsights();
 
@@ -380,6 +396,11 @@ const Home = () => {
                 songs={personal.filter((s) => s.id !== stage?.song?.id)}
                 subtitle={taste.signalCount >= 5 ? 'Based on what you play' : 'Start here — it learns as you listen'}
               />
+              {artistRails[0] && <SongCardRail eyebrow="Because you listen to" title={artistRails[0][0]} songs={artistRails[0][1]} size="lg" />}
+              <SongCardRail eyebrow="Keep exploring" title="More in your mix" songs={deeperPicks} />
+              {artistRails.slice(1).map(([name, list]) => (
+                <SongCardRail key={name} eyebrow="More from" title={name} songs={list} />
+              ))}
 
               {/* ── Chapter 1: what the world plays right now ── */}
               <div className="uf-feed-sections px-6 space-y-12 mt-10">
