@@ -249,6 +249,8 @@ const Home = () => {
     const own = cleanRail(tasteSongs.filter((s) => !isSpamSong(s)), { requireCover: true });
     const chart = clean.length ? clean : allSongs;
     if (!own.length) return rerank(chart, taste);
+    // Enough of the listener's own taste: never pad it with chart songs.
+    if (own.length >= 12) return rerank(own, taste);
     // Mostly the listener's own taste, with one local hit every third slot.
     const mixed: Song[] = [];
     let o = 0, c = 0;
