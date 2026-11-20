@@ -25,6 +25,9 @@ const JUNK_TITLE = [
   /\bslowed\b|\breverb\b|\bnightcore\b|\b8d\s*audio\b/i,
   /\bkaraoke\b|\bringtone\b|\bbgm\b|\binstrumental\b/i,
   /\bcover\s+(song|version|by)\b/i,
+  // Re-uploads dressed as versions of a real song, not the original release.
+  /\b(trending|viral|lo-?fi|female|male|sad|remake|recreated|reels?|insta(gram)?|tiktok)\s+version\b/i,
+  /\blo-?fi\s+(flip|mix|edit)\b|\bsuper\s+slowed\b|\bbass\s+boosted\b/i,
   /\bmix\s*(vol|volume)?\s*\d*\b.*\bdj\b/i,
   /\bcompilation\b|\bgreatest\s+hits\b|\ball\s+songs\b|\btop\s+\d+\s+songs\b/i,
   /\blyrical\s+video\s+status\b|\bwhatsapp\s+status\b|\bstatus\s+video\b/i,
