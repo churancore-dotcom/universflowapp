@@ -124,3 +124,43 @@ class PlaybackRetryBudget(private val maxRetries: Int = 2, private val stableMs:
         return 1_000L * attempts
     }
 }
+
+/**
+ * How far ahead a streamed song is loaded. Downloaded songs never glitch in
+ * the background; streamed ones did because only ~20-50 s were held, so any
+ * network/CPU squeeze from the app in front drained the buffer. Loading the
+ * whole song (and the start of the next) while the network is free makes a
+ * stream behave like a local file after the first seconds.
+ */
+object StreamBuffer {
+    /** Always keep loading until at least this much audio is held. */
+    const val MIN_MS = 180_000
+    /** Stop loading only past this much audio (or [TARGET_BYTES]). */
+    const val MAX_MS = 600_000
+    const val START_MS = 1_000
+    const val REBUFFER_MS = 2_500
+    const val BACK_MS = 10_000
+    /** Compressed audio held per player beyond [MIN_MS]. */
+    const val TARGET_BYTES = 24 * 1024 * 1024
+
+    /** Seconds of audio at [kbps] that the byte target can hold. */
+    fun secondsHeld(kbps: Int): Long = TARGET_BYTES * 8L / (kbps.coerceAtLeast(1) * 1000L)
+
+    /** Background progress ticks to the hidden web UI are rarer, freeing CPU for audio. */
+    fun progressIntervalMs(appInBackground: Boolean): Long = if (appInBackground) 5_000L else 500L
+}
+
+/** Rate limit for silent native playback health reports. */
+class HealthReportLimiter(private val minGapMs: Long = 15_000L, private val maxPerSession: Int = 60) {
+    private val last = HashMap<String, Long>()
+    private var sent = 0
+
+    fun allow(kind: String, now: Long): Boolean {
+        if (sent >= maxPerSession) return false
+        val prev = last[kind]
+        if (prev != null && now - prev < minGapMs) return false
+        last[kind] = now
+        sent++
+        return true
+    }
+}

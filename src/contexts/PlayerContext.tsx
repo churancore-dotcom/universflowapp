@@ -14,7 +14,7 @@ import { noteSongCompleted, primeAdEngine, resetAdCounter } from '@/lib/adEngine
 import { initNativeBridge } from '@/services/NativeBridge';
 import { Capacitor } from '@capacitor/core';
 import { confirmsNativeStart, showsPlayIntent } from '@/lib/nativePlaybackPhase';
-import { isNativePlayerAvailable, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type NativeQueueTrack, setNativeMiniPlayerState, setNativePlaybackSpeed, onNativeMediaButton } from '@/lib/nativePlayer';
+import { isNativePlayerAvailable, ExoPlayerPlugin, resolveNativeMetadataStream, type ExoPlaybackProgress, type ExoPlaybackState, type ExoPlaybackError, type ExoMediaItemTransition, type ExoPlaybackHealth, type NativeQueueTrack, setNativeMiniPlayerState, setNativePlaybackSpeed, onNativeMediaButton } from '@/lib/nativePlayer';
 import { readLocalRecent } from '@/lib/localRecentlyPlayed';
 import { prewarmSongs } from '@/lib/instantPlay';
 import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
@@ -2525,6 +2525,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     let stateHandle: { remove: () => void } | undefined;
     let errorHandle: { remove: () => void } | undefined;
     let transitionHandle: { remove: () => void } | undefined;
+    let healthHandle: { remove: () => void } | undefined;
     let cancelled = false;
 
     (async () => {
@@ -2679,6 +2680,20 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           reapplyNativeEqSoon();
           void setNativePlaybackSpeed(getEQSettings().playbackSpeed);
         });
+        // Silent evidence of mid-song break-ups on real phones (already rate
+        // limited natively): stream ran dry vs audio starved vs load failure.
+        const h = await ExoPlayerPlugin.addListener('playbackHealth', (d) => {
+          const data = d as ExoPlaybackHealth;
+          const song = currentSongRef.current;
+          recordPerfEvent({
+            event_type: 'native_playback_health',
+            severity: data.kind === 'error' ? 'error' : 'warn',
+            message: data.kind,
+            source: data.source,
+            track_id: song?.id ?? null,
+            details: { ...data },
+          });
+        });
         void ExoPlayerPlugin.getCurrentPosition()
           .then(({ position }) => {
             if (!nativeUserPausedRef.current && position > 0) setProgress(position / 1000);
@@ -2689,8 +2704,8 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
             if (duration > 0) setDuration(duration / 1000);
           })
           .catch(() => undefined);
-        if (cancelled) { p.remove(); s.remove(); e.remove(); t.remove(); return; }
-        progressHandle = p; stateHandle = s; errorHandle = e; transitionHandle = t;
+        if (cancelled) { p.remove(); s.remove(); e.remove(); t.remove(); h.remove(); return; }
+        progressHandle = p; stateHandle = s; errorHandle = e; transitionHandle = t; healthHandle = h;
       } catch (err) {
         console.warn('[player/native] failed to attach listeners', (err as Error)?.message);
       }
@@ -2702,6 +2717,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       try { stateHandle?.remove(); } catch { /* noop */ }
       try { errorHandle?.remove(); } catch { /* noop */ }
       try { transitionHandle?.remove(); } catch { /* noop */ }
+      try { healthHandle?.remove(); } catch { /* noop */ }
     };
   // Listeners are attached once; playSongAtIndex/extend are read via refs so
   // re-renders never tear down ExoPlayer listeners (which dropped `ended` and

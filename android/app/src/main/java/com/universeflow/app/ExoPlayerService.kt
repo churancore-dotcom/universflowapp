@@ -134,7 +134,9 @@ class ExoPlayerService : MediaSessionService() {
                     OverlapAction.WAIT -> Unit
                 }
             }
-            transitionHandler.postDelayed(this, 25L)
+            // Fast ticks only while an overlap copy exists; otherwise a lighter
+            // poll is enough to start preparing one and frees CPU in background.
+            transitionHandler.postDelayed(this, if (tailPlayer != null) 25L else 200L)
         }
     }
 
@@ -204,13 +206,7 @@ class ExoPlayerService : MediaSessionService() {
             val tail = ExoPlayer.Builder(this)
                 .setRenderersFactory(processedRenderers(processor))
                 .setMediaSourceFactory(NativeMediaSourceFactory.build(this))
-            .setLoadControl(
-                androidx.media3.exoplayer.DefaultLoadControl.Builder()
-                    .setBufferDurationsMs(20_000, 50_000, 1_000, 2_000)
-                    .setPrioritizeTimeOverSizeThresholds(true)
-                    .setBackBuffer(10_000, true)
-                    .build()
-            )
+                .setLoadControl(streamingLoadControl())
                 .setAudioAttributes(p.audioAttributes, false)
                 .setHandleAudioBecomingNoisy(true)
                 .build()
@@ -276,6 +272,18 @@ class ExoPlayerService : MediaSessionService() {
 
     /** Our own device-independent 10-band EQ (see PcmEqualizer). */
     val pcmEqualizer: PcmEqualizer get() = stemAudioProcessor.equalizer
+
+    /**
+     * Streamed songs used to hold only 20-50 s, so the app in front taking the
+     * network or CPU drained the buffer and the song broke up (downloads never
+     * did). Hold the whole song plus the start of the next instead.
+     */
+    private fun streamingLoadControl() = androidx.media3.exoplayer.DefaultLoadControl.Builder()
+        .setBufferDurationsMs(StreamBuffer.MIN_MS, StreamBuffer.MAX_MS, StreamBuffer.START_MS, StreamBuffer.REBUFFER_MS)
+        .setTargetBufferBytes(StreamBuffer.TARGET_BYTES)
+        .setPrioritizeTimeOverSizeThresholds(true)
+        .setBackBuffer(StreamBuffer.BACK_MS, true)
+        .build()
 
     private fun processedRenderers(processor: StemAudioProcessor): DefaultRenderersFactory =
         object : DefaultRenderersFactory(this@ExoPlayerService) {
@@ -517,15 +525,9 @@ class ExoPlayerService : MediaSessionService() {
         // can run dry as soon as another app takes CPU or network time.
         // Keep a moderate forward buffer so playback does not aggressively
         // consume bandwidth needed by resolver/prefetch requests.
-        val loadControl = androidx.media3.exoplayer.DefaultLoadControl.Builder()
-            // Rebuffer threshold 2s: after a dip caused by another app hogging
-            // the network/CPU, resume with enough audio that it does not
-            // immediately stutter again. Time beats byte caps so high-bitrate
-            // streams still keep the full forward buffer.
-            .setBufferDurationsMs(20_000, 50_000, 1_000, 2_000)
-            .setPrioritizeTimeOverSizeThresholds(true)
-            .setBackBuffer(10_000, true)
-            .build()
+        // Load the whole song ahead (see StreamBuffer) so a stream behaves
+        // like a downloaded file once its first seconds have arrived.
+        val loadControl = streamingLoadControl()
 
         val builder = ExoPlayer.Builder(this)
             .setRenderersFactory(renderersFactory)

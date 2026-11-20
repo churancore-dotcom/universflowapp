@@ -62,6 +62,20 @@ export interface ExoPlaybackError {
   message: string;
 }
 
+/** Silent, rate-limited report of a mid-song break-up on the phone. */
+export interface ExoPlaybackHealth {
+  kind: 'rebuffer' | 'underrun' | 'load_error' | 'error';
+  background: boolean;
+  bufferedMs: number;
+  positionMs: number;
+  source: 'stream' | 'download';
+  host?: string;
+  code?: string;
+  detail?: string;
+  trackBufferMs?: number;
+  sinceFeedMs?: number;
+}
+
 export interface ExoMediaItemTransition {
   mediaId: string;
   reason?: number;
@@ -127,8 +141,8 @@ interface ExoPlayerPluginShape {
   setPlaybackSpeed: (opts: { speed: number }) => Promise<void>;
   setMiniPlayerState: (opts: { liked?: boolean; shuffle?: boolean; repeat?: 'off' | 'all' | 'one' }) => Promise<void>;
   addListener: (
-    event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition' | 'mediaButton',
-    cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition | ExoMediaButton) => void,
+    event: 'playbackStateChange' | 'playbackProgress' | 'playbackError' | 'mediaItemTransition' | 'mediaButton' | 'playbackHealth',
+    cb: (data: ExoPlaybackState | ExoPlaybackProgress | ExoPlaybackError | ExoMediaItemTransition | ExoMediaButton | ExoPlaybackHealth) => void,
   ) => Promise<PluginListenerHandle>;
 }
 

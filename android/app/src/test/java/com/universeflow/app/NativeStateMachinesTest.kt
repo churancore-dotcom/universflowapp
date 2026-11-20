@@ -103,4 +103,28 @@ class NativeStateMachinesTest {
         budget.onPlayingChanged(true, 20_000)
         assertEquals(1000L, budget.nextDelay(31_000))
     }
+
+    @Test fun streamedSongIsHeldWhollyAhead() {
+        // A typical 5-minute song must be loaded in full, not ~20 s at a time.
+        assertTrue(StreamBuffer.MIN_MS >= 180_000)
+        assertTrue(StreamBuffer.START_MS <= StreamBuffer.REBUFFER_MS)
+        assertTrue(StreamBuffer.REBUFFER_MS <= StreamBuffer.MIN_MS)
+        assertTrue(StreamBuffer.MIN_MS <= StreamBuffer.MAX_MS)
+        // Even 320 kbps JioSaavn audio fits a 10-minute window in the byte target.
+        assertTrue(StreamBuffer.secondsHeld(320) >= StreamBuffer.MAX_MS / 1000)
+    }
+
+    @Test fun hiddenAppGetsRareProgressTicks() {
+        assertEquals(500L, StreamBuffer.progressIntervalMs(false))
+        assertEquals(5_000L, StreamBuffer.progressIntervalMs(true))
+    }
+
+    @Test fun healthReportsAreRateLimited() {
+        val limiter = HealthReportLimiter(minGapMs = 15_000, maxPerSession = 3)
+        assertTrue(limiter.allow("rebuffer", 0))
+        assertFalse(limiter.allow("rebuffer", 10_000))
+        assertTrue(limiter.allow("underrun", 10_000))
+        assertTrue(limiter.allow("rebuffer", 16_000))
+        assertFalse(limiter.allow("load_error", 40_000))
+    }
 }

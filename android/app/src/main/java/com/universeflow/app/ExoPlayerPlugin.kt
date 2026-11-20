@@ -20,6 +20,11 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.PlaybackParameters
 import androidx.media3.common.Player
+import androidx.media3.common.util.UnstableApi
+import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.analytics.AnalyticsListener
+import androidx.media3.exoplayer.source.LoadEventInfo
+import androidx.media3.exoplayer.source.MediaLoadData
 import com.getcapacitor.JSObject
 import com.getcapacitor.Plugin
 import com.getcapacitor.PluginCall
@@ -36,6 +41,7 @@ import java.util.concurrent.atomic.AtomicLong
  *
  * Events: playbackStateChange, playbackProgress, playbackError, mediaItemTransition.
  */
+@OptIn(UnstableApi::class)
 @CapacitorPlugin(name = "ExoPlayer")
 class ExoPlayerPlugin : Plugin() {
 
@@ -46,6 +52,13 @@ class ExoPlayerPlugin : Plugin() {
     private var playerListener: Player.Listener? = null
     @Volatile private var isStartingUp = false
     private val playGeneration = AtomicLong(0L)
+    /** True while the app's screen is hidden behind another app. */
+    @Volatile private var hostInBackground = false
+    private var analyticsListener: AnalyticsListener? = null
+    private val healthLimiter = HealthReportLimiter()
+    private var readyItemId: String? = null
+    private var lastSeekAt = 0L
+    private var lastLoadHost: String? = null
 
     private data class NativeTrack(
         val id: String,
@@ -158,6 +171,10 @@ class ExoPlayerPlugin : Plugin() {
             playerListener?.let { listener ->
                 try { listenerPlayer?.removeListener(listener) } catch (_: Throwable) {}
             }
+            analyticsListener?.let { listener ->
+                try { (listenerPlayer as? ExoPlayer)?.removeAnalyticsListener(listener) } catch (_: Throwable) {}
+            }
+            analyticsListener = null
             serviceConnected = false
             serviceBindAttempted = false
             listenerAttached = false
@@ -313,9 +330,18 @@ class ExoPlayerPlugin : Plugin() {
         val player = svc.player ?: return
         if (listenerAttached && listenerPlayer === player) return
         playerListener?.let { listenerPlayer?.removeListener(it) }
+        analyticsListener?.let { (listenerPlayer as? ExoPlayer)?.removeAnalyticsListener(it) }
+        readyItemId = null
         val listener = object : Player.Listener {
             override fun onPlaybackStateChanged(state: Int) {
                 emitPlaybackState(player)
+                val itemId = player.currentMediaItem?.mediaId
+                if (state == Player.STATE_READY) readyItemId = itemId
+                else if (state == Player.STATE_BUFFERING && player.playWhenReady && itemId != null && itemId == readyItemId &&
+                    android.os.SystemClock.elapsedRealtime() - lastSeekAt > 3_000L) {
+                    // Mid-song stall (not a start or seek): the stream ran dry.
+                    reportHealth("rebuffer", player)
+                }
                 if (player.playWhenReady && state != Player.STATE_IDLE && state != Player.STATE_ENDED) {
                     startProgress()
                 }
@@ -329,6 +355,7 @@ class ExoPlayerPlugin : Plugin() {
             override fun onPlayerError(error: PlaybackException) {
                 Log.e("ExoPlayerPlugin", "onPlayerError: ${error.message}")
                 stopProgress()
+                reportHealth("error", player) { put("code", error.errorCodeName).put("detail", (error.message ?: "").take(160)) }
 
                 // Transient network/source hiccups are the #1 cause of "song
                 // won't play" on mobile data. Retry in place before surfacing
@@ -379,7 +406,11 @@ class ExoPlayerPlugin : Plugin() {
                     JSObject().put("message", error.message ?: "playback error"),
                 )
             }
+            override fun onPositionDiscontinuity(oldPosition: Player.PositionInfo, newPosition: Player.PositionInfo, reason: Int) {
+                if (reason == Player.DISCONTINUITY_REASON_SEEK) lastSeekAt = android.os.SystemClock.elapsedRealtime()
+            }
             override fun onMediaItemTransition(mediaItem: MediaItem?, reason: Int) {
+                readyItemId = null
                 // Retry allowance belongs to one media item. Without resetting
                 // here, failures on earlier songs eventually disabled recovery
                 // for every later song in a long listening session.
@@ -394,6 +425,11 @@ class ExoPlayerPlugin : Plugin() {
         }
         playerListener = listener
         player.addListener(listener)
+        (player as? ExoPlayer)?.let { exo ->
+            val analytics = healthAnalytics(exo)
+            analyticsListener = analytics
+            exo.addAnalyticsListener(analytics)
+        }
         listenerAttached = true
         listenerPlayer = player
     }
@@ -530,6 +566,54 @@ class ExoPlayerPlugin : Plugin() {
         }.start()
     }
 
+    /**
+     * Silent playback health: which kind of break-up happens on real phones
+     * (stream ran dry vs audio thread starved vs load failure), so fixes are
+     * checked against evidence instead of guesses. Rate limited.
+     */
+    private fun reportHealth(kind: String, player: Player, extra: JSObject.() -> Unit = {}) {
+        if (!healthLimiter.allow(kind, android.os.SystemClock.elapsedRealtime())) return
+        try {
+            val scheme = player.currentMediaItem?.localConfiguration?.uri?.scheme ?: ""
+            val data = JSObject()
+                .put("kind", kind)
+                .put("background", hostInBackground)
+                .put("bufferedMs", player.totalBufferedDuration)
+                .put("positionMs", player.currentPosition.coerceAtLeast(0L))
+                .put("source", if (scheme == "file" || scheme == "content") "download" else "stream")
+                .put("host", lastLoadHost ?: "")
+            data.extra()
+            notifyListeners("playbackHealth", data)
+        } catch (_: Throwable) {}
+    }
+
+    private fun healthAnalytics(player: ExoPlayer) = object : AnalyticsListener {
+        override fun onAudioUnderrun(eventTime: AnalyticsListener.EventTime, bufferSize: Int, bufferSizeMs: Long, elapsedSinceLastFeedMs: Long) {
+            // Data was buffered but audio was not produced in time: CPU starvation.
+            reportHealth("underrun", player) { put("trackBufferMs", bufferSizeMs).put("sinceFeedMs", elapsedSinceLastFeedMs) }
+        }
+        override fun onLoadCompleted(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData) {
+            loadEventInfo.uri.host?.takeIf { loadEventInfo.uri.scheme?.startsWith("http") == true }?.let { lastLoadHost = it }
+        }
+        override fun onLoadError(eventTime: AnalyticsListener.EventTime, loadEventInfo: LoadEventInfo, mediaLoadData: MediaLoadData, error: java.io.IOException, wasCanceled: Boolean) {
+            if (wasCanceled) return
+            loadEventInfo.uri.host?.takeIf { loadEventInfo.uri.scheme?.startsWith("http") == true }?.let { lastLoadHost = it }
+            reportHealth("load_error", player) { put("detail", "${error.javaClass.simpleName}: ${(error.message ?: "").take(140)}") }
+        }
+    }
+
+    override fun handleOnPause() {
+        super.handleOnPause()
+        hostInBackground = true
+    }
+
+    override fun handleOnResume() {
+        super.handleOnResume()
+        hostInBackground = false
+        // Catch the screen up at once instead of waiting for a slow tick.
+        if (progressTimer != null) startProgress()
+    }
+
     private fun startProgress() {
         stopProgress()
         val r = object : Runnable {
@@ -546,7 +630,9 @@ class ExoPlayerPlugin : Plugin() {
                     put("duration", if (d > 0) d else 0L)
                 }
                 notifyListeners("playbackProgress", data)
-                main.postDelayed(this, 500)
+                // The hidden web UI needs no 2 Hz ticks; each one woke its
+                // renderer and competed with audio for CPU behind other apps.
+                main.postDelayed(this, StreamBuffer.progressIntervalMs(hostInBackground))
             }
         }
         progressTimer = r
