@@ -1,5 +1,5 @@
 /**
- * Home surface, simplified: Artist of the Week + Rediscover.
+ * Home surface, simplified: Rediscover + moods.
  *
  * Every value comes from data the app already has:
  *  - Continue Listening: the live player, or the persisted player snapshot
@@ -14,7 +14,7 @@ import { Play, Pause } from 'lucide-react';
 import { Song, usePlayer } from '@/contexts/PlayerContext';
 import { usePlayerProgress } from '@/lib/playerProgressStore';
 import { useLocalRecents } from '@/hooks/useLocalRecents';
-import { recentSongs, rediscoverSongs } from '@/lib/personalHome';
+import { rediscoverSongs } from '@/lib/personalHome';
 import { useTasteProfile } from '@/hooks/useTasteProfile';
 import { notInterestedKey } from '@/lib/notInterested';
 import { isSuppressed } from '@/lib/feedPersonalizer';
@@ -157,34 +157,11 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
     [rawRecents, taste],
   );
 
-  const history = useMemo(() => recentSongs(recents), [recents]);
-
   // ── Continue Listening ─────────────────────────────────────────────────
   const snapshot = useMemo(() => (typeof window === 'undefined' ? null : readSnapshot()), [recents.length]);
 
   // ── Rediscover — songs the listener loved earlier but hasn't played lately
   const rediscover = useMemo(() => rediscoverSongs(recents), [recents]);
-
-  // ── Artist of the Week — the artist the listener actually played most ──
-  const artistOfWeek = useMemo(() => {
-    const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const byArtist = new Map<string, { name: string; plays: number; songs: Song[] }>();
-    for (const entry of recents) {
-      if (entry.played_at < cutoff) continue;
-      const song = entry.song as Song | undefined;
-      if (!song?.artist) continue;
-      const key = song.artist.trim().toLowerCase();
-      const bucket = byArtist.get(key) || { name: song.artist.trim(), plays: 0, songs: [] };
-      bucket.plays += 1;
-      if (!bucket.songs.some((s) => songFingerprint(s) === songFingerprint(song))) bucket.songs.push(song);
-      byArtist.set(key, bucket);
-    }
-    let best: { name: string; plays: number; songs: Song[] } | null = null;
-    for (const bucket of byArtist.values()) {
-      if (!best || bucket.plays > best.plays) best = bucket;
-    }
-    return best && best.plays >= 2 ? best : null;
-  }, [recents]);
 
   // ── Moods — each chip searches the real catalogue and plays what comes back
   const [loadingMood, setLoadingMood] = useState<string | null>(null);
@@ -212,45 +189,14 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
     <div className="px-5 space-y-3">
       {/* HERO — Continue Listening */}
 
-      {/* ROW 1 — ARTIST OF THE WEEK (portrait) + REDISCOVER (3-row list) */}
-      {(artistOfWeek || rediscover.length > 0) && (
-        <div className="grid grid-cols-2 gap-3 items-start">
-          {artistOfWeek && (
-            <motion.button
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.05 }}
-              onClick={() => {
-                triggerHaptic('selection');
-                playSong(artistOfWeek.songs[0], null, [...artistOfWeek.songs, ...history.slice(0, 20)]);
-              }}
-              className="relative rounded-[28px] overflow-hidden border border-border/60 bg-card/70 text-left active:opacity-80 transition-opacity min-h-[268px]"
-            >
-              <OptimizedImage
-                src={artistOfWeek.songs[0]?.cover_url}
-                alt={artistOfWeek.name}
-                className="absolute inset-0 w-full h-full"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-background via-background/60 to-background/10" />
-              <div className="relative h-full flex flex-col justify-between p-4">
-                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Artist of the Week</p>
-                <div className="min-w-0">
-                  <p className="font-display text-[20px] leading-[1.05] uppercase text-foreground truncate">{artistOfWeek.name}</p>
-                  <p className="text-[11px] text-muted-foreground truncate mt-1">
-                    You played {artistOfWeek.plays} {artistOfWeek.plays === 1 ? 'track' : 'tracks'} this week
-                  </p>
-                </div>
-              </div>
-            </motion.button>
-          )}
-
-          {rediscover.length > 0 && (
-            <motion.div
-              initial={{ opacity: 0, y: 14 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.08 }}
-              className={`rounded-[24px] border border-border/60 bg-card/70 p-4 ${artistOfWeek ? 'self-stretch' : 'col-span-2'}`}
-            >
+      {/* ROW 1 — REDISCOVER (3-row list) */}
+      {rediscover.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 14 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ type: 'spring', stiffness: 140, damping: 20, delay: 0.08 }}
+          className="rounded-[24px] border border-border/60 bg-card/70 p-4"
+        >
               <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-primary">Rediscover</p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Not played lately</p>
               <div className="mt-3 space-y-3">
@@ -274,9 +220,7 @@ const HomeBento = ({ songs }: { songs: Song[]; personalArtist?: string | null })
                   </button>
                 ))}
               </div>
-            </motion.div>
-          )}
-        </div>
+        </motion.div>
       )}
 
       {/* MOODS — one swipeable row, each chip plays a real catalogue search */}
