@@ -1,5 +1,12 @@
 # Roadmap
 
+## Current request — 21 November
+- [ ] Improve original-song search results and recommendation quality without AI.
+- [ ] Reduce New Releases refresh delays without replacing the provider shelf.
+- [ ] Harden payment handling and verify safe failure paths (no real charge).
+- [ ] Review security within the user's selected-findings-only scope; current saved scan has no active findings.
+- [x] EQ and Studio Spaces: user confirms they sound great; leave audio unchanged.
+
 - [x] APK background recovery: bounded repeated stream restarts, reduced neutral PCM maths, aligned startup buffer; 21 JVM audio/state tests and 154 web tests passed.
 - [ ] Verify this background fix in a freshly built APK while switching apps; blocked on full Android CI build and physical-phone testing (service/plugin not compiled locally, room-builder thread requires Android).
 - [ ] Restore delivery of current playback fixes to the APK build repository: checked 2026-11-14 17:18 UTC, GitHub main/latest successful APK still uses the 14:59 account/search commit and lacks PlaybackRetryBudget; requires Project settings → Git status/re-check (agent cannot operate sync settings). User confirms glitches affect streams, not downloads.
