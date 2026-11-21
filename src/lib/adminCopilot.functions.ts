@@ -7,9 +7,11 @@ export const askAdminCopilot = createServerFn({ method: 'POST' })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: { messages: Msg[] }) => {
     const messages = (input?.messages ?? [])
-      .filter((m) => (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string')
+      // Only the admin's own questions are forwarded; client-supplied assistant
+      // turns could steer the model, so they are never trusted.
+      .filter((m) => m?.role === 'user' && typeof m.content === 'string')
       .slice(-12)
-      .map((m) => ({ role: m.role, content: m.content.slice(0, 2000) }));
+      .map((m) => ({ role: 'user' as const, content: m.content.slice(0, 2000) }));
     if (!messages.length) throw new Error('Ask a question');
     return { messages };
   })

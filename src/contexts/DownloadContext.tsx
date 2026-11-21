@@ -191,9 +191,20 @@ interface DownloadContextType {
 
 const DownloadContext = createContext<DownloadContextType | undefined>(undefined);
 
-const requirePremiumDownload = (): boolean => {
-  if (getRuntimePremium()) return true;
-  toast.error('Downloads are a Premium feature');
+// Entitlement is decided by the server (has_premium_subscription), never by
+// in-memory client state alone.
+const requirePremiumDownload = async (): Promise<boolean> => {
+  try {
+    const { supabase } = await import('@/integrations/supabase/client');
+    const { data: auth } = await supabase.auth.getUser();
+    const uid = auth?.user?.id;
+    if (uid) {
+      const { data, error } = await supabase.rpc('has_premium_subscription', { _user_id: uid });
+      if (!error && data === true) return true;
+    }
+  } catch { /* fall through to denial */ }
+  if (getRuntimePremium()) toast.error('Could not confirm Premium. Check your connection and try again.');
+  else toast.error('Downloads are a Premium feature');
   return false;
 };
 
@@ -452,7 +463,7 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, []);
 
   const downloadSong = useCallback(async (song: Song) => {
-    if (!requirePremiumDownload()) return;
+    if (!(await requirePremiumDownload())) return;
 
     // Wi-Fi-only guard — uses Capacitor Network on native, navigator.connection on web.
     try {
@@ -749,8 +760,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
   }, [downloads]);
 
   // Queue management functions
-  const addToQueue = useCallback((songs: Song[]) => {
-    if (!requirePremiumDownload()) return;
+  const addToQueue = useCallback(async (songs: Song[]) => {
+    if (!(await requirePremiumDownload())) return;
 
     setDownloadQueue(prev => {
       const seen = new Set<string>([
