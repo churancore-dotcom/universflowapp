@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isFreshUpload, parseReleaseCards } from '@/lib/deviceNewReleases';
+import { isFreshUpload, newestFirst, parseReleaseCards } from '@/lib/deviceNewReleases';
 
 const DAY = 86400000;
 const now = Date.parse('2026-11-05T10:00:00Z');
@@ -15,6 +15,16 @@ describe('device new releases', () => {
 
   it('drops tracks with no upload date', () => {
     expect(isFreshUpload(undefined, now)).toBe(false);
+  });
+
+  it('puts the newest verified release first and keeps undated ones after', () => {
+    const out = newestFirst([
+      { id: 'month-old', published: (now - 30 * DAY) / 1000 },
+      { id: 'undated' },
+      { id: 'today', published: now / 1000 },
+      { id: 'last-week', published: (now - 7 * DAY) / 1000 },
+    ]);
+    expect(out.map((t) => t.id)).toEqual(['today', 'last-week', 'month-old', 'undated']);
   });
 
   it('keeps shelf order and skips YouTube mix tiles', () => {

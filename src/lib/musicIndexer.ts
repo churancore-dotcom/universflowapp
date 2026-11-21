@@ -91,6 +91,8 @@ export interface IndexedTrack {
   videoId?: string;
   /** 'song' = official audio (YT Music Songs shelf), 'video' = generic music video. */
   kind?: 'song' | 'video';
+  /** Verified release/upload time (seconds) for New Releases. */
+  published?: number;
 }
 
 

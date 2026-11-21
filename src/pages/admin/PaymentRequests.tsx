@@ -112,7 +112,7 @@ export default function PaymentRequests() {
             Payment Requests
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Verify UPI payments → approve grants premium based on plan (1 month or 3 months)
+            Verify UPI payments → approving grants exactly 30, 60 or 90 days; each payment can be reviewed once
           </p>
         </div>
         <button onClick={load} className="p-2 rounded-lg bg-muted hover:bg-muted/70">

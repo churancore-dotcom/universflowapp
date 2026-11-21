@@ -176,6 +176,20 @@
       "when": 1795248982212,
       "tag": "0024_lock_scheduled_publish",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1795250171372,
+      "tag": "0025_harden_payment_review_and_push",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1795250197395,
+      "tag": "0026_keep_quarterly_plan_label",
+      "breakpoints": true
     }
   ]
 }

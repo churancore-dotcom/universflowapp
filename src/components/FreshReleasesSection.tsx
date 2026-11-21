@@ -57,7 +57,7 @@ const FreshReleasesSection = memo(({ enabled = true }: Props) => {
 
   return (
     <section className="relative">
-      <RailHeader title="New Releases" subtitle="Out this week" />
+      <RailHeader title="New Releases" subtitle="Newest first" />
 
       {/* Large covers in one swipeable row — artwork does the talking */}
       <div className="overflow-x-auto hide-scrollbar snap-x" style={{ WebkitOverflowScrolling: 'touch' }}>

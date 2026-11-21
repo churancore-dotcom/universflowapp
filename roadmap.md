@@ -1,13 +1,14 @@
 # Roadmap
 
 ## Current request — 21 November
-- [ ] Improve original-song search results and recommendation quality without AI.
-- [ ] Reduce New Releases refresh delays without replacing the provider shelf.
-- [ ] Harden payment handling and verify safe failure paths (no real charge).
-- [ ] Review security within the user's selected-findings-only scope; current saved scan has no active findings.
+- [x] Search: originals lifted, same-title soundalikes and unrequested versions pushed down (tests pass; APK not tried).
+- [x] Recommendations: mixes drop slowed/lofi/remix re-uploads and no artist runs more than twice (tests pass).
+- [x] New Releases newest first by verified date; live India shelf confirmed newest-first.
+- [x] Payments: one review per payment, exact 30/60/90 days, honest manual-review wording; no real payment submitted.
+- [x] Security: system push and expiry jobs locked to the backend; saved scan had no active findings.
 - [x] EQ and Studio Spaces: user confirms they sound great; leave audio unchanged.
-- [ ] Connect GitHub API in the newest workspace.
-- [ ] Connect Google Search Console in the newest workspace.
+- [x] Connect GitHub API in the newest workspace (account read verified).
+- [x] Connect Google Search Console in the newest workspace (verified sites listed).
 
 - [x] APK background recovery: bounded repeated stream restarts, reduced neutral PCM maths, aligned startup buffer; 21 JVM audio/state tests and 154 web tests passed.
 - [ ] Verify this background fix in a freshly built APK while switching apps; blocked on full Android CI build and physical-phone testing (service/plugin not compiled locally, room-builder thread requires Android).

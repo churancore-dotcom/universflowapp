@@ -1,4 +1,6 @@
 import { isAiGeneratedTrack } from '@/lib/aiSlopFilter';
+import { isJunkRailTrack, diversifyByArtist } from '@/lib/railQuality';
+import { isUnrequestedVersion } from '@/lib/searchOriginals';
 
 export interface SimilarTrack {
   id: string;
@@ -19,7 +21,8 @@ const norm = (v: string) =>
 
 /**
  * "Songs like this" must be different songs with a similar sound, never
- * covers/remixes/versions that merely share the searched title.
+ * covers/remixes/versions that merely share the searched title, and never
+ * slowed/lofi/remix re-uploads of other songs either.
  */
 export function filterSimilar(
   tracks: SimilarTrack[],
@@ -37,13 +40,14 @@ export function filterSimilar(
     if (seedTitle && (title.includes(seedTitle) || seedTitle.includes(title))) continue;
     if (queryNorm.length >= 3 && title.includes(queryNorm)) continue;
     if (isAiGeneratedTrack({ title: t.title, artist: t.artist })) continue;
+    if (isJunkRailTrack(t) || isUnrequestedVersion(t.title, seed.query)) continue;
     const key = `${title}|${norm(t.artist)}`;
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(t);
-    if (out.length >= limit) break;
   }
-  return out;
+  // Like YouTube's mixes: no artist runs more than twice in a row.
+  return diversifyByArtist(out, 2).slice(0, limit);
 }
 
 /**

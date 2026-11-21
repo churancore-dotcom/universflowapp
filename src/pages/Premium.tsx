@@ -816,7 +816,7 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
             toast({ title: 'A payment is already being verified', description: 'Please wait for it to complete.' });
             onSubmitted(stillPending as PendingPayment);
           } else toast({ title: 'This UTR was already submitted', variant: 'destructive' });
-        } else toast({ title: 'Submission failed', description: error.message, variant: 'destructive' });
+        } else toast({ title: 'Submission failed', description: 'Your payment details were not saved. Please check them and try again.', variant: 'destructive' });
         setSubmitting(false); return;
       }
       haptics.success();
@@ -955,8 +955,8 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
               style={{ background: 'hsl(var(--primary) / 0.08)', border: '0.5px solid hsl(var(--primary) / 0.2)' }}
             >
               <p className="text-foreground/80">
-                <strong className="text-primary">Auto-verify:</strong> We match the unique amount{' '}
-                <strong>(₹{amountFinal})</strong> with your bank UTR. Premium activates within minutes.
+                <strong className="text-primary">Manual check:</strong> We confirm the exact amount{' '}
+                <strong>(₹{amountFinal})</strong> and your UTR by hand. Premium turns on here once it is approved.
               </p>
             </div>
 
@@ -969,7 +969,7 @@ const UpiCheckoutSheet = memo(function UpiCheckoutSheet({ settings, plan, onClos
                 color: 'hsl(var(--primary-foreground))',
               }}
             >
-              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit & Activate'}
+              {submitting ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Submit for review'}
             </button>
           </>
         )}
@@ -1050,19 +1050,13 @@ interface PendingProgressBannerProps {
 }
 
 const PendingProgressBanner = memo(function PendingProgressBanner({ pending }: PendingProgressBannerProps) {
-  // Animated stage advancement to feel "live" — caps at stage 3 (last step is activation)
-  const [stage, setStage] = useState<1 | 2 | 3>(1);
+  // Real state only: the UTR is submitted and waits for a person to check it.
+  const stage = 2;
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
     const start = new Date(pending.created_at).getTime();
-    const tick = () => {
-      const seconds = Math.floor((Date.now() - start) / 1000);
-      setElapsed(seconds);
-      if (seconds < 3) setStage(1);
-      else if (seconds < 10) setStage(2);
-      else setStage(3);
-    };
+    const tick = () => setElapsed(Math.max(0, Math.floor((Date.now() - start) / 1000)));
     tick();
     const id = window.setInterval(tick, 1000);
     return () => clearInterval(id);
@@ -1070,13 +1064,14 @@ const PendingProgressBanner = memo(function PendingProgressBanner({ pending }: P
 
   const amountInr = (pending.amount_paise / 100).toFixed(2);
   const planLabel = (PLAN_LABEL as Record<string, string>)[pending.plan] ?? pending.plan;
-  const mins = Math.floor(elapsed / 60);
+  const hours = Math.floor(elapsed / 3600);
+  const mins = Math.floor((elapsed % 3600) / 60);
   const secs = elapsed % 60;
 
   const steps = [
     { label: 'UTR submitted', detail: `UTR ${pending.utr_number.slice(0, 6)}…${pending.utr_number.slice(-2)}` },
-    { label: 'Checking UTR with bank', detail: `Matching exact amount ₹${amountInr}` },
-    { label: 'Activating your Premium', detail: 'Almost there — hold on' },
+    { label: 'Waiting for manual review', detail: `We check the UTR and exact amount ₹${amountInr}` },
+    { label: 'Premium turns on', detail: 'Happens here automatically after approval' },
   ];
 
   return (
@@ -1105,15 +1100,15 @@ const PendingProgressBanner = memo(function PendingProgressBanner({ pending }: P
         </motion.div>
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-bold tracking-[0.22em] text-primary uppercase">
-            You're so close
+            Payment submitted
           </p>
-          <h2 className="text-[20px] font-bold leading-tight">Activating Premium · {planLabel}</h2>
+          <h2 className="text-[20px] font-bold leading-tight">Under review · {planLabel}</h2>
         </div>
       </div>
 
       <p className="text-[13px] text-muted-foreground mb-5 relative">
-        Your payment of <strong className="text-foreground">₹{amountInr}</strong> is being matched with our bank records.
-        This usually takes <strong className="text-foreground">1–2 minutes</strong>.
+        Your payment of <strong className="text-foreground">₹{amountInr}</strong> is waiting for a person to check it.
+        Review times vary; Premium is not active until it is approved.
       </p>
 
       <div className="space-y-2 mb-4 relative">
@@ -1176,7 +1171,7 @@ const PendingProgressBanner = memo(function PendingProgressBanner({ pending }: P
       >
         <Clock className="w-4 h-4 text-primary shrink-0" />
         <p className="text-[12px] text-foreground/80 flex-1">
-          Waiting <strong className="text-foreground">{mins > 0 ? `${mins}m ` : ''}{secs}s</strong> · You'll get a push notification the instant it's live.
+          Waiting <strong className="text-foreground">{hours > 0 ? `${hours}h ` : ''}{mins > 0 || hours > 0 ? `${mins}m ` : ''}{secs}s</strong> · This page updates by itself when it's approved.
         </p>
         <ShieldCheck className="w-4 h-4 text-primary shrink-0" />
       </div>

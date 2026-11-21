@@ -495,6 +495,9 @@ async function getIndiaNewReleases(limit: number): Promise<SearchResult[]> {
     const cover = typeof item?.image === 'string' ? item.image.replace(/\d+x\d+/, '500x500') : undefined;
     entries.push({ title, artists, cover, released });
   }
+  // Newest release first: the shelf mixes dates, and slicing it unsorted left
+  // today's songs behind month-old ones (or cut them off entirely).
+  entries.sort((a, b) => b.released - a.released);
   const resolved = await Promise.all(entries.slice(0, Math.min(40, limit + 12)).map(async (e) => {
     const r = await resolvePlayable(e.title, e.artists, e.cover);
     if (r) {

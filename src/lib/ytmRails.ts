@@ -2,6 +2,7 @@ import { useQuery } from '@tanstack/react-query';
 import { getYouTubeMusicCharts, getYouTubeMusicNewReleases, searchYouTubeMusicTracks, type IndexedTrack } from '@/lib/musicIndexer';
 import type { Song } from '@/contexts/PlayerContext';
 import { cleanRail } from '@/lib/railQuality';
+import { newestFirst } from '@/lib/deviceNewReleases';
 
 
 /** Convert a YTM IndexedTrack to the app's Song shape. */
@@ -71,16 +72,15 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
     queryFn: async (): Promise<Song[]> => {
       const tracks = await getYouTubeMusicNewReleases(country, Math.max(limit, 40));
       const out: Song[] = [];
-      for (const t of tracks) {
+      // Newest verified release first, so a song out today leads the rail.
+      for (const t of newestFirst(tracks)) {
         // A release tile with no artwork or no artist is not a real release
         // card — those are the "mock looking" rows users complain about.
         if (!t.cover_url || !t.artist) continue;
         const s = toSong(t);
         if (s) out.push(s);
       }
-      // YouTube returns new releases newest-first. Shuffling that is exactly
-      // what made the rail look like random old songs, so order is preserved;
-      // cleanRail only removes junk/duplicates in place.
+      // Never shuffled: cleanRail only removes junk/duplicates in place.
       return cleanRail(out, { requireCover: true }).slice(0, limit);
     },
 

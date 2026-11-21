@@ -15,6 +15,20 @@ describe('songs like this', () => {
     const out = filterSimilar([t('Tum Hi Ho', 'Arijit'), t('Tum Hi Ho (Official Video)', 'Arijit')], { title: 'Kesariya', query: 'k' });
     expect(out).toHaveLength(1);
   });
+  it('drops slowed, lofi and remix re-uploads of other songs', () => {
+    const out = filterSimilar(
+      [t('Apna Bana Le (Slowed + Reverb)', 'X'), t('Raataan Lambiyan (Lofi Flip)', 'Y'), t('Tera Ban Jaunga (Remix)', 'Z'), t('Pehle Bhi Main', 'Vishal')],
+      { title: 'Kesariya', query: 'kesariya' },
+    );
+    expect(out.map((s) => s.title)).toEqual(['Pehle Bhi Main']);
+  });
+  it('never lets one artist take more than two songs in a row', () => {
+    const out = filterSimilar(
+      [t('S1', 'Arijit'), t('S2', 'Arijit'), t('S3', 'Arijit'), t('S4', 'Pritam')],
+      { title: 'Kesariya', query: 'kesariya' },
+    );
+    expect(out.map((s) => s.artist)).toEqual(['Arijit', 'Arijit', 'Pritam', 'Arijit']);
+  });
 });
 
 describe('YouTube-style home mixes', () => {

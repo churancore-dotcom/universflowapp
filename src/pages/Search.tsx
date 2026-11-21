@@ -34,6 +34,7 @@ import {
   type SongHistoryEntry,
 } from '@/lib/songHistory';
 import { getArtistAffinity, artistAffinityBonus } from '@/lib/artistAffinity';
+import { buildOriginalIndex, isStudioRecording, originalAdjustment } from '@/lib/searchOriginals';
 
 type SearchSource = 'songs' | 'artists';
 
@@ -421,6 +422,8 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
   const phraseVariants = intent.variants.map(normalizeText).filter((variant) => variant.length > 2);
   const genreIntent = Boolean(intent.genre);
   const affinity = getArtistAffinity();
+  // YouTube's own order names the original first; covers reuse its title.
+  const originals = buildOriginalIndex([...youtube, ...literal], query);
   const allTracks: { track: IndexedTrack; score: number; sourcePriority: number; index: number }[] = [];
 
   const processTrack = (track: IndexedTrack, base: number, index: number, sourcePriority: number) => {
@@ -460,7 +463,8 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     const officialBonus = isOfficial ? 650 : 0;
     // YT Music's ATV/Songs result is authoritative recording metadata. Generic
     // video uploads and re-uploads must not beat it through title stuffing.
-    const kindBonus = track.kind === "song" ? 1500 : -350;
+    const kindBonus = isStudioRecording(track) ? 1500 : -350;
+    const originalBonus = originalAdjustment(track, query, originals);
 
     // Uploader authority: when the title credits an artist ("Ian Asher - ..."),
     // the real upload comes from that artist's own channel. Aggregator/reupload
@@ -481,7 +485,7 @@ function rankAndDedupeResults(query: string, youtube: IndexedTrack[], literal: I
     // Personal listening weight: artists this listener actually plays rise above
     // merely globally-popular results for the same query.
     const personalBonus = artistAffinityBonus(rawArtist, affinity);
-    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + authority + genreBonus + personalBonus - noisePenalty - index * 0.8;
+    const score = base + relevance + popularity + viralTier + officialBonus + kindBonus + originalBonus + authority + genreBonus + personalBonus - noisePenalty - index * 0.8;
     allTracks.push({ track, score, sourcePriority, index });
   };
 

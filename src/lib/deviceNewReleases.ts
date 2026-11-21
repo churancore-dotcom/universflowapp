@@ -99,6 +99,22 @@ export function isFreshUpload(uploadDate: string | undefined | null, now = Date.
   return t >= now - NEW_RELEASE_MAX_AGE_DAYS * 86400000 && t <= now + 86400000;
 }
 
+/**
+ * Newest verified release first. Undated items keep their shelf order after
+ * the dated ones, so a new drop is never buried behind month-old singles.
+ */
+export function newestFirst<T extends { published?: number | null }>(items: T[]): T[] {
+  return items
+    .map((item, index) => ({ item, index }))
+    .sort((a, b) => {
+      const pa = Number(a.item.published || 0);
+      const pb = Number(b.item.published || 0);
+      if (pa !== pb) return pb - pa;
+      return a.index - b.index;
+    })
+    .map(({ item }) => item);
+}
+
 const context = (gl: string) => ({
   client: { clientName: 'WEB_REMIX', clientVersion: CLIENT_VERSION, hl: 'en', gl },
 });
@@ -145,11 +161,13 @@ export async function getDeviceNewReleases(country: string, limit: number): Prom
   const dated = await Promise.all(tracks.map(async (t) => {
     const player = await post(PLAYER_URL, { context: context(gl), videoId: t.videoId });
     const mf = player?.microformat?.playerMicroformatRenderer;
-    return isFreshUpload(mf?.uploadDate || mf?.publishDate) ? t : null;
+    const uploaded = mf?.uploadDate || mf?.publishDate;
+    if (!isFreshUpload(uploaded)) return null;
+    return { ...t, published: Math.floor(Date.parse(uploaded) / 1000) };
   }));
   const seen = new Set<string>();
   const out: IndexedTrack[] = [];
-  for (const t of dated) {
+  for (const t of newestFirst(dated.filter((d): d is IndexedTrack & { published: number } => !!d))) {
     if (!t?.videoId || seen.has(t.videoId)) continue;
     seen.add(t.videoId);
     out.push(t);
