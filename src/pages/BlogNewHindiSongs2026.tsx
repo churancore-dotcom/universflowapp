@@ -6,12 +6,12 @@ const PAGE_URL = "https://universflow.in/blog/new-hindi-songs-2026";
 const PUBLISHED = "2026-07-18";
 
 const ARTISTS = [
-  { name: "Arijit Singh", note: "Bollywood's most-streamed voice — every 2026 romantic hit still runs through him." },
-  { name: "Pritam", note: "Composer behind the year's biggest film soundtracks and viral Reels hooks." },
-  { name: "Jubin Nautiyal", note: "Radio-ready ballads that dominate Hindi charts week after week." },
-  { name: "Shreya Ghoshal", note: "Timeless vocals fronting 2026's biggest OST releases." },
+  { name: "Arijit Singh", note: "Bollywood's most-streamed voice, behind many of the best-loved romantic songs." },
+  { name: "Pritam", note: "Composer behind many of Bollywood's biggest film soundtracks." },
+  { name: "Jubin Nautiyal", note: "Radio-ready ballads that remain Hindi favourites." },
+  { name: "Shreya Ghoshal", note: "Timeless vocals across decades of film soundtracks." },
   { name: "Neha Kakkar", note: "Party anthems and wedding-season smashes with billions of streams." },
-  { name: "King", note: "The Hindi hip-hop crossover star driving Gen-Z playlists in 2026." },
+  { name: "King", note: "The Hindi hip-hop crossover star behind “Maan Meri Jaan”." },
 ];
 
 const HITS = [
@@ -30,18 +30,18 @@ const HITS = [
 ];
 
 const PLAYLIST_IDEAS = [
-  { title: "New Hindi Songs 2026", desc: "This week's freshest Bollywood and Hindi-pop drops — refreshed every Friday." },
+  { title: "Hindi Love Classics", desc: "Arijit, Jubin and Shreya ballads that never get old." },
   { title: "Hindi Romantic Hits", desc: "The softest Arijit, Jubin and Shreya cuts for late-night listens." },
-  { title: "Bollywood Party 2026", desc: "Wedding-season bangers, dance-floor fillers and Reels-ready hooks." },
+  { title: "Bollywood Party", desc: "Wedding-season bangers and dance-floor fillers." },
   { title: "Hindi Chill Vibes", desc: "Lo-fi Bollywood, acoustic ballads and slow-burn Hindi indie." },
 ];
 
 const JSONLD = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
-  headline: "New Hindi Songs 2026 — Top 100 Hits to Stream & Download",
+  headline: "Hindi Songs to Stream in 2026 — Popular Bollywood Hits",
   description:
-    "The best new Hindi songs of 2026. Stream the latest Bollywood and Hindi-pop hits free on Universflow — plus offline downloads for every track.",
+    "A guide to popular Bollywood and Hindi-pop songs worth streaming in 2026, plus where to find this week's new releases in Universflow.",
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
   mainEntityOfPage: PAGE_URL,
@@ -57,8 +57,8 @@ const BlogNewHindiSongs2026 = () => {
   return (
     <div className="min-h-[100dvh] bg-black text-white">
       <SEOHead
-        title="New Hindi Songs 2026 — Top Hits | Universflow"
-        description="The biggest new Hindi songs of 2026 — Arijit Singh, Pritam, Jubin Nautiyal and more. Stream free and download Hindi hits offline on Universflow."
+        title="Hindi Songs to Stream in 2026 — Popular Bollywood Hits | Universflow"
+        description="Popular Hindi and Bollywood songs by Arijit Singh, Pritam, Jubin Nautiyal and more. For current releases, open New Releases in the Universflow app."
         keywords="new hindi songs, new hindi songs 2026, hindi songs download, latest bollywood songs, new songs, arijit singh, hindi music, free hindi songs, bollywood 2026"
         url={PAGE_URL}
         path="/blog/new-hindi-songs-2026"
@@ -72,19 +72,19 @@ const BlogNewHindiSongs2026 = () => {
           <ChevronRight className="w-3 h-3 rotate-180" /> Universflow
         </Link>
         <div className="mt-4 flex items-center gap-2 text-xs text-rose-300/80">
-          <Flame className="w-3.5 h-3.5" /> Updated {PUBLISHED} · Refreshed weekly
+          <Flame className="w-3.5 h-3.5" /> Published {PUBLISHED} · Popular hits guide
         </div>
         <h1 className="mt-3 text-4xl sm:text-5xl font-bold leading-tight tracking-tight">
-          New Hindi Songs 2026 — Top 100 Hits to Stream & Download
+          Hindi Songs to Stream in 2026 — Popular Bollywood Hits
         </h1>
         <p className="mt-4 text-white/70 text-base leading-relaxed">
-          Every week we round up the biggest new Hindi songs of 2026 — from Arijit Singh's latest
-          romantic anthems to King's Hindi hip-hop crossovers and the year's most-streamed Bollywood
-          soundtracks. Stream every track free on Universflow, or download them for offline play.
+          These are popular Hindi songs from recent years that listeners keep coming back to — not
+          a list of brand-new releases. For songs released this week, open New Releases on the
+          Universflow home screen, which comes from dated release listings.
         </p>
         <div className="mt-6 flex flex-wrap gap-3">
           <Link
-            to="/search?q=new+hindi+songs+2026"
+            to="/search?q=hindi+songs"
             className="inline-flex items-center gap-2 px-5 py-3 rounded-full bg-rose-500 hover:bg-rose-400 text-white text-sm font-semibold transition"
           >
             <Play className="w-4 h-4 fill-white" /> Stream on Universflow
@@ -100,7 +100,7 @@ const BlogNewHindiSongs2026 = () => {
 
       <section className="px-5 py-8 max-w-3xl mx-auto">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <Flame className="w-5 h-5 text-rose-400" /> Top Hindi artists driving 2026
+          <Flame className="w-5 h-5 text-rose-400" /> Hindi artists worth knowing
         </h2>
         <div className="grid gap-3">
           {ARTISTS.map((a) => (
@@ -114,7 +114,7 @@ const BlogNewHindiSongs2026 = () => {
 
       <section className="px-5 py-8 max-w-3xl mx-auto">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <Music2 className="w-5 h-5 text-rose-400" /> The biggest new Hindi songs to play first
+          <Music2 className="w-5 h-5 text-rose-400" /> Popular Hindi songs to play first
         </h2>
         <p className="text-sm text-white/60 mb-4">
           Tap any track to open it in Universflow — free streaming, no signup wall, and download for
@@ -170,7 +170,7 @@ const BlogNewHindiSongs2026 = () => {
 
       <section className="px-5 py-10 max-w-3xl mx-auto">
         <div className="rounded-3xl bg-gradient-to-br from-rose-600/20 to-rose-400/10 border border-rose-400/20 p-6">
-          <h2 className="text-xl font-bold">Stream every new Hindi hit free on Universflow</h2>
+          <h2 className="text-xl font-bold">Stream Hindi favourites on Universflow</h2>
           <p className="text-white/70 text-sm mt-2">
             Free streaming. Offline downloads. Built for India — Hindi, Punjabi, indie and more, all in one app.
           </p>

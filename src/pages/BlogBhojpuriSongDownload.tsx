@@ -84,7 +84,7 @@ const BlogBhojpuriSongDownload = () => {
           <ChevronRight className="w-3 h-3 rotate-180" /> Universflow
         </Link>
         <div className="mt-4 flex items-center gap-2 text-xs text-rose-300/80">
-          <Flame className="w-3.5 h-3.5" /> Updated {PUBLISHED} · Refreshed monthly
+          <Flame className="w-3.5 h-3.5" /> Published {PUBLISHED}
         </div>
         <h1 className="mt-3 text-4xl sm:text-5xl font-bold leading-tight tracking-tight">
           Best Bhojpuri Song Download Apps 2026

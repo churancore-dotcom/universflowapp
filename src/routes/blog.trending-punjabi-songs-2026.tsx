@@ -5,9 +5,9 @@ import { routeSeo } from "@/lib/routeSeo";
 export const Route = createFileRoute("/blog/trending-punjabi-songs-2026")({
   head: () =>
     routeSeo({
-      title: "Trending Punjabi Songs 2026 — Top Tracks Right Now",
+      title: "Popular Punjabi Songs to Stream in 2026",
       description:
-        "The Punjabi songs everyone is playing in 2026. Stream the trending list free on Universflow or save tracks for offline listening.",
+        "Popular Punjabi songs and artists worth streaming, plus where to find the current official chart in Universflow.",
       path: "/blog/trending-punjabi-songs-2026",
       type: "article",
       datePublished: "2026-06-14",

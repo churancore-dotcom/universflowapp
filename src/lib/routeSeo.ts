@@ -75,16 +75,6 @@ export function routeSeo({
 }
 
 
-export const FAQ_SCHEMA = JSON.stringify({
-  "@context": "https://schema.org",
-  "@type": "FAQPage",
-  mainEntity: [
-    { "@type": "Question", name: "Is Universflow really free?", acceptedAnswer: { "@type": "Answer", text: "Yes. Universflow is free to use with optional Premium upgrades. Create an account with email to start listening instantly." } },
-    { "@type": "Question", name: "Can I download songs to listen offline?", acceptedAnswer: { "@type": "Answer", text: "Yes. Tap the download icon on any song or playlist and it will be saved for offline playback inside the app." } },
-    { "@type": "Question", name: "Does Universflow work on Android and iPhone?", acceptedAnswer: { "@type": "Answer", text: "Universflow works in any modern browser and ships as a native Android app. iPhone users can install it as a home-screen web app." } },
-    { "@type": "Question", name: "How do I create a Universflow account?", acceptedAnswer: { "@type": "Answer", text: "Visit the Universflow sign-up page, enter your email and password, verify your email, and start listening." } },
-  ],
-});
 
 const APK_URL = `${SITE_ORIGIN}/api/public/apk`;
 

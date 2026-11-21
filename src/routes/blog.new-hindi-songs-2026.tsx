@@ -5,9 +5,9 @@ import { routeSeo } from "@/lib/routeSeo";
 export const Route = createFileRoute("/blog/new-hindi-songs-2026")({
   head: () =>
     routeSeo({
-      title: "New Hindi Songs 2026 — Latest Bollywood Releases",
+      title: "Hindi Songs to Stream in 2026 — Popular Bollywood Hits",
       description:
-        "The newest Hindi and Bollywood songs of 2026, updated regularly. Listen free on Universflow or download them for offline playback.",
+        "Popular Hindi and Bollywood songs worth streaming, plus where to find this week's new releases in Universflow.",
       path: "/blog/new-hindi-songs-2026",
       type: "article",
       datePublished: "2026-07-18",

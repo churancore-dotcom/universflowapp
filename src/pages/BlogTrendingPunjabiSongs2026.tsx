@@ -6,12 +6,12 @@ const PAGE_URL = "https://universflow.in/blog/trending-punjabi-songs-2026";
 const PUBLISHED = "2026-06-14";
 
 const ARTISTS = [
-  { name: "Diljit Dosanjh", note: "Global Punjabi superstar — Coachella-tested, chart-dominant in 2026." },
+  { name: "Diljit Dosanjh", note: "Global Punjabi superstar who headlined Coachella." },
   { name: "AP Dhillon", note: "Brown Munde era cemented him as the voice of new-wave Punjabi pop." },
   { name: "Karan Aujla", note: "Punchy lyricism and chart-topping collabs across the diaspora." },
   { name: "Sidhu Moose Wala", note: "Catalogue legend — still the most-streamed Punjabi artist year over year." },
   { name: "Shubh", note: "Toronto-based, viral on Reels with melodic Punjabi rap." },
-  { name: "Imran Khan", note: "Amplifier-era classics that never leave the charts." },
+  { name: "Imran Khan", note: "Known for the 2009 classic “Amplifier”." },
 ];
 
 const HITS = [
@@ -28,7 +28,7 @@ const HITS = [
 ];
 
 const PLAYLIST_IDEAS = [
-  { title: "Punjabi Hits 2026", desc: "The freshest Punjabi pop, rap and R&B blends — refreshed weekly." },
+  { title: "Punjabi Essentials", desc: "Punjabi pop, rap and R&B favourites in one place." },
   { title: "Punjabi Party Anthems", desc: "Bhangra, house and club-ready Punjabi heaters for the dancefloor." },
   { title: "Punjabi Chill", desc: "Lo-fi, acoustic and slow-burn Punjabi cuts for late-night drives." },
   { title: "Sidhu Moose Wala Forever", desc: "A curated journey through Sidhu's defining tracks." },
@@ -37,9 +37,9 @@ const PLAYLIST_IDEAS = [
 const JSONLD = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
-  headline: "Trending Punjabi Songs 2026 — Top Artists, Hits & Playlists",
+  headline: "Popular Punjabi Songs to Stream in 2026 — Artists & Hits",
   description:
-    "The biggest Punjabi songs, artists and playlists trending in 2026. Stream the latest Punjabi hits free on Universflow.",
+    "A guide to popular Punjabi songs and artists worth streaming in 2026, plus where to find the current official chart in Universflow.",
   datePublished: PUBLISHED,
   dateModified: PUBLISHED,
   mainEntityOfPage: PAGE_URL,
@@ -55,8 +55,8 @@ const BlogTrendingPunjabiSongs2026 = () => {
   return (
     <div className="min-h-[100dvh] bg-black text-white">
       <SEOHead
-        title="Trending Punjabi Songs 2026 — Top Hits | Universflow"
-        description="Discover the biggest Punjabi songs of 2026 — Diljit, AP Dhillon, Karan Aujla, Shubh and more. Stream the latest Punjabi hits free on Universflow."
+        title="Popular Punjabi Songs to Stream in 2026 | Universflow"
+        description="Popular Punjabi songs by Diljit, AP Dhillon, Karan Aujla, Shubh and more. For what is trending right now, open Trending in the Universflow app."
         keywords="punjabi songs, latest punjabi hits, trending punjabi songs 2026, diljit dosanjh, ap dhillon, karan aujla, sidhu moose wala, punjabi playlist, free punjabi music"
         url={PAGE_URL}
         path="/blog/trending-punjabi-songs-2026"
@@ -70,15 +70,16 @@ const BlogTrendingPunjabiSongs2026 = () => {
           <ChevronRight className="w-3 h-3 rotate-180" /> Universflow
         </Link>
         <div className="mt-4 flex items-center gap-2 text-xs text-rose-300/80">
-          <Flame className="w-3.5 h-3.5" /> Trending guide · Updated {PUBLISHED}
+          <Flame className="w-3.5 h-3.5" /> Popular hits guide · Published {PUBLISHED}
         </div>
         <h1 className="mt-3 text-4xl sm:text-5xl font-bold leading-tight tracking-tight">
-          Trending Punjabi Songs 2026
+          Popular Punjabi Songs to Stream in 2026
         </h1>
         <p className="mt-4 text-white/70 text-base leading-relaxed">
           Punjabi music has gone fully global — from Diljit at Coachella to AP Dhillon and Karan Aujla
-          ruling the charts. Here are the artists, hits and playlists driving Punjabi streaming in 2026,
-          all playable free inside Universflow.
+          among its biggest names. Below are popular Punjabi songs from recent years — not a live chart.
+          For what is trending this week, open Trending on the Universflow home screen, which follows
+          official charts.
         </p>
         <Link
           to="/search?q=punjabi"
@@ -90,7 +91,7 @@ const BlogTrendingPunjabiSongs2026 = () => {
 
       <section className="px-5 py-8 max-w-3xl mx-auto">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <Flame className="w-5 h-5 text-rose-400" /> Top Punjabi artists right now
+          <Flame className="w-5 h-5 text-rose-400" /> Punjabi artists worth knowing
         </h2>
         <div className="grid gap-3">
           {ARTISTS.map((a) => (
@@ -104,7 +105,7 @@ const BlogTrendingPunjabiSongs2026 = () => {
 
       <section className="px-5 py-8 max-w-3xl mx-auto">
         <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-          <Music2 className="w-5 h-5 text-rose-400" /> 10 trending Punjabi tracks to play first
+          <Music2 className="w-5 h-5 text-rose-400" /> 10 popular Punjabi tracks to play first
         </h2>
         <ol className="space-y-2">
           {HITS.map((h, i) => (
