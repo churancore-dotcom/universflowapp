@@ -1,6 +1,11 @@
 # Roadmap
 
-## Current request — 21 November
+## Current request — 22 November
+- [x] 9D rebuilt as a real head-model sound (7 sound tests pass; phone listening pending)
+- [ ] Connect GitHub API in the newest workspace
+- [ ] Connect Google Search Console in the newest workspace
+
+## Earlier — 21 November
 - [x] Search: originals lifted, same-title soundalikes and unrequested versions pushed down (tests pass; APK not tried).
 - [x] Recommendations: mixes drop slowed/lofi/remix re-uploads and no artist runs more than twice (tests pass).
 - [x] New Releases newest first by verified date; live India shelf confirmed newest-first.

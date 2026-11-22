@@ -52,4 +52,4 @@
 - Equalizer sliders map 1:1 onto matching native bands, and native peaking bands use the analog-matched (Vicanek) design; blending or bilinear RBJ near Nyquist made sliders weak and treble bands inert.
 - APK server-function calls go through `nativeServerFetch` (start.ts serverFns.fetch) to the live site with its own origin header, because the bundled https://localhost shell has no server and returns HTML; client code must still validate server-function reply shapes before rendering.
 - Native googlevideo streams load via ChunkedHttpDataSource in bounded ranges; open-ended requests get throttled and underrun on screen lock.
-- Native 9D is `BinauralOrbit.kt`: spherical-head time delay, head shadow, front/back and elevation cues with power-normalised treble and centred bass; it replaces crossfeed (binaural already bleeds) and the UI keeps 8D and 9D mutually exclusive so amplitude panning never smears the head model.
+- Native 9D is `BinauralOrbit.kt` (spherical-head binaural cues, centred bass), replacing crossfeed; UI keeps 8D/9D exclusive so panning never smears it.
