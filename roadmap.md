@@ -1,6 +1,8 @@
 # Roadmap
 
 ## Current request — 22 November
+- [x] Connect GitHub API in the newest workspace (account read verified)
+- [x] Connect Google Search Console in the newest workspace (verified sites listed)
 - [x] Background glitch: phone reports showed every reopen re-looked-up the song and failed in background; reopens now reuse the playing address (needs fresh APK test)
 - [x] 9D rebuilt as a real head-model sound (7 sound tests pass; phone listening pending)
 - [x] Connect GitHub API in the newest workspace
