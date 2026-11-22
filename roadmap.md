@@ -2,8 +2,8 @@
 
 ## Current request — 22 November
 - [x] 9D rebuilt as a real head-model sound (7 sound tests pass; phone listening pending)
-- [ ] Connect GitHub API in the newest workspace
-- [ ] Connect Google Search Console in the newest workspace
+- [x] Connect GitHub API in the newest workspace
+- [x] Connect Google Search Console in the newest workspace
 
 ## Earlier — 21 November
 - [x] Search: originals lifted, same-title soundalikes and unrequested versions pushed down (tests pass; APK not tried).
