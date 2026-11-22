@@ -21,6 +21,22 @@ object StreamUrlPolicy {
         return signedExpiry?.takeIf { it > nowMs } ?: nowMs + DEFAULT_TTL_MS
     }
 
+    /**
+     * Whether a URL resolved at [resolvedAtMs] can still be reopened: a signed
+     * `expire` must lie beyond the safety margin; unsigned URLs get the default TTL.
+     */
+    fun canReuse(url: String, resolvedAtMs: Long, nowMs: Long = System.currentTimeMillis()): Boolean {
+        val rawQuery = url.substringAfter('?', "").substringBefore('#')
+        val expireSeconds = rawQuery.split('&').firstNotNullOfOrNull { part ->
+            val separator = part.indexOf('=')
+            if (separator <= 0) return@firstNotNullOfOrNull null
+            val key = decode(part.substring(0, separator))
+            if (key != "expire" && key != "expires") null else decode(part.substring(separator + 1)).toLongOrNull()
+        }
+        return if (expireSeconds != null) expireSeconds * 1000L - EXPIRY_SAFETY_MS > nowMs
+        else nowMs - resolvedAtMs < DEFAULT_TTL_MS
+    }
+
     fun isUsable(expiresAtMs: Long, nowMs: Long = System.currentTimeMillis()): Boolean =
         expiresAtMs > nowMs
 

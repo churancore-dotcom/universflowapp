@@ -27,4 +27,18 @@ class StreamUrlPolicyTest {
         assertTrue(StreamUrlPolicy.isUsable(2_000L, 1_999L))
         assertFalse(StreamUrlPolicy.isUsable(2_000L, 2_000L))
     }
+
+    @Test
+    fun playingUrlIsReusedUntilItsSignedExpiry() {
+        val url = "https://rr1.googlevideo.com/videoplayback?expire=10000&itag=251"
+        assertTrue(StreamUrlPolicy.canReuse(url, 0L, 9_000_000L))
+        assertFalse(StreamUrlPolicy.canReuse(url, 0L, 9_900_000L))
+    }
+
+    @Test
+    fun unsignedUrlIsReusedForFourHours() {
+        val url = "https://cdn.example.com/song.mp4"
+        assertTrue(StreamUrlPolicy.canReuse(url, 0L, 4L * 3600_000L - 1))
+        assertFalse(StreamUrlPolicy.canReuse(url, 0L, 4L * 3600_000L))
+    }
 }

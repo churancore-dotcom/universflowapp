@@ -41,6 +41,20 @@ object NativeMediaSourceFactory {
 
     @Volatile private var simpleCache: SimpleCache? = null
 
+    /**
+     * The URL each song's playback actually opened. Media3 reopens the source
+     * many times per song (buffer refills, WebM cue reads, retries); doing a
+     * fresh network lookup each time failed in the background and the failed
+     * reopens eventually turned into a fatal error that restarted the song.
+     * Reopens now reuse the URL that is already playing until it expires or
+     * googlevideo rejects it.
+     */
+    private data class Opened(val url: String, val key: String?, val at: Long)
+    private val opened = java.util.concurrent.ConcurrentHashMap<String, Opened>()
+
+    /** Forget the playing URL after googlevideo rejected it (403 etc). */
+    fun forget(videoId: String) { opened.remove(videoId) }
+
     @Synchronized
     private fun cache(ctx: Context): SimpleCache {
         simpleCache?.let { return it }
@@ -111,6 +125,14 @@ object NativeMediaSourceFactory {
                     return@Resolver dataSpec.buildUpon().setKey(key).build()
                 }
             }
+            if (videoId != null) {
+                opened[videoId]?.let { o ->
+                    if (StreamUrlPolicy.canReuse(o.url, o.at)) {
+                        return@Resolver dataSpec.buildUpon().setUri(Uri.parse(o.url)).setKey(o.key).build()
+                    }
+                    opened.remove(videoId, o)
+                }
+            }
             val title = uri.getQueryParameter("title")
             val artist = uri.getQueryParameter("artist")
             val fallback = uri.getQueryParameter("fallback")
@@ -123,10 +145,18 @@ object NativeMediaSourceFactory {
             Log.d(TAG, "resolved $videoId via ${resolved.source}")
             val resolvedUri = Uri.parse(resolved.url)
             val key = if (videoId != null) cacheKeyFor(videoId, resolvedUri) else null
+            if (videoId != null && resolved.source != "fallback") {
+                if (opened.size > 64) opened.clear()
+                opened[videoId] = Opened(resolved.url, key, System.currentTimeMillis())
+            }
             dataSpec.buildUpon().setUri(resolvedUri).setKey(key).build()
         })
 
+        // A failed reopen while minutes of audio are already buffered must not
+        // become a fatal player error (that restarted the song); keep retrying
+        // with backoff while the buffer plays on.
         return DefaultMediaSourceFactory(resolvingFactory)
+            .setLoadErrorHandlingPolicy(androidx.media3.exoplayer.upstream.DefaultLoadErrorHandlingPolicy(12))
     }
 
     private fun fullyCachedKey(cache: SimpleCache, videoId: String): String? = try {

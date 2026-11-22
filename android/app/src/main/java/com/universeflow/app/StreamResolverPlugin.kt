@@ -32,7 +32,10 @@ class StreamResolverPlugin : Plugin() {
     @PluginMethod
     fun invalidate(call: PluginCall) {
         val videoId = call.getString("videoId") ?: ""
-        if (videoId.length == 11) NativeYouTubeResolver.invalidate(videoId)
+        if (videoId.length == 11) {
+            NativeYouTubeResolver.invalidate(videoId)
+            NativeMediaSourceFactory.forget(videoId)
+        }
         call.resolve()
     }
 

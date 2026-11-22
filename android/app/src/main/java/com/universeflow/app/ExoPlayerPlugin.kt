@@ -375,6 +375,7 @@ class ExoPlayerPlugin : Plugin() {
                         if (videoId?.length == 11) {
                             NativeYouTubeResolver.invalidate(videoId)
                             NewPipeResolver.invalidate(videoId)
+                            NativeMediaSourceFactory.forget(videoId)
                             // Player-JS refresh does network I/O; never on the main thread.
                             Thread({
             android.os.Process.setThreadPriority(android.os.Process.THREAD_PRIORITY_BACKGROUND)
