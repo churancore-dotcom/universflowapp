@@ -108,6 +108,7 @@ Deno.serve(async (req) => {
     // caller may only request their own address.
     const authHeader = req.headers.get('authorization') ?? '';
     const bearer = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+    let callerIsOwner = false;
     if (bearer && bearer.split('.').length === 3) {
       const who = await fetch(`${SUPABASE_URL}/auth/v1/user`, {
         headers: { apikey: SERVICE_ROLE, Authorization: authHeader },
@@ -118,6 +119,7 @@ Deno.serve(async (req) => {
           status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
+      if (caller?.id) callerIsOwner = true;
     }
 
     const lookup = await fetch(
@@ -138,13 +140,19 @@ Deno.serve(async (req) => {
     if (prof?.[0]?.email_verified) return UNIFORM_OK;
 
     const existingRes = await fetch(
-      `${SUPABASE_URL}/rest/v1/email_verifications?user_id=eq.${userId}&select=last_sent_at`,
+      `${SUPABASE_URL}/rest/v1/email_verifications?user_id=eq.${userId}&select=last_sent_at,expires_at`,
       { headers: { apikey: SERVICE_ROLE, Authorization: `Bearer ${SERVICE_ROLE}` } }
     );
     const existing = await existingRes.json().catch(() => []);
     if (existing?.[0]?.last_sent_at) {
       const ageMs = Date.now() - new Date(existing[0].last_sent_at).getTime();
       if (ageMs < 60_000) return UNIFORM_OK;
+    }
+    // A signed-out caller can't prove they own this inbox, so they may never
+    // replace a still-valid pending link (that would invalidate the owner's
+    // email). Only the signed-in owner can rotate an unexpired token.
+    if (!callerIsOwner && existing?.[0]?.expires_at && new Date(existing[0].expires_at).getTime() > Date.now()) {
+      return UNIFORM_OK;
     }
 
     const tokenBytes = new Uint8Array(32);
