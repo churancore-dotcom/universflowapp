@@ -54,11 +54,17 @@ class AudioTransitionsTest {
         assertTrue("rotation must remain enabled after track flush", next.indices.step(2).any { next[it] != next[it + 1] })
     }
 
-    @Test fun headphoneCrossfeedIsIndependentOfRotation() {
+    @Test fun binauralOrbitReachesOppositeEar() {
         val processor = configured()
         processor.setEnhancements(0, 1000, 0, 0)
+        // Mid-band tone, not DC: the 9D head model keeps bass (<150 Hz)
+        // centred per ear by design, so only content above the bass band
+        // proves ear-to-ear bleed.
         val input = ByteBuffer.allocateDirect(48000 * 4).order(ByteOrder.nativeOrder())
-        repeat(48000) { input.putShort(6000); input.putShort(0) }
+        repeat(48000) { i ->
+            val sample = (sin(i * 2.0 * Math.PI * 440 / 48000) * 6000).toInt().toShort()
+            input.putShort(sample); input.putShort(0)
+        }
         input.flip()
         processor.queueInput(input)
         val output = processor.output.order(ByteOrder.nativeOrder())
