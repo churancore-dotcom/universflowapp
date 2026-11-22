@@ -637,16 +637,20 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 <ToggleRow
                   icon={Headphones}
                   label="9D Surround"
-                  desc="Deep headphone surround that pulls sound out of your head."
+                  desc="Real 3D head sound: circles around, above and behind you. Use headphones."
                   checked={settings.headphoneSurround}
-                  onCheckedChange={(value) => setEQSettings({ headphoneSurround: value, activePreset: 'custom' })}
+                  onCheckedChange={(value) => setEQSettings(value
+                    ? { headphoneSurround: true, spatialAudio: false, activePreset: 'custom' }
+                    : { headphoneSurround: false, activePreset: 'custom' })}
                 />
                 <ToggleRow
                   icon={Waves}
                   label="8D movement"
                   desc="Slow stereo orbit with room cues."
                   checked={settings.spatialAudio}
-                  onCheckedChange={(value) => setEQSettings({ spatialAudio: value, activePreset: 'custom' })}
+                  onCheckedChange={(value) => setEQSettings(value
+                    ? { spatialAudio: true, headphoneSurround: false, activePreset: 'custom' }
+                    : { spatialAudio: false, activePreset: 'custom' })}
                 />
                 <ToggleRow
                   icon={Moon}
