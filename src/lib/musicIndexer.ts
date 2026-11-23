@@ -676,13 +676,13 @@ export async function getYouTubeMusicNewReleases(country = 'ZZ', limit = 24): Pr
   // New Releases rail vanished until the next refresh.
   const diskKey = `uf:fresh-releases-v5:${cc}`;
   const disk = readSavedReleases(diskKey);
-  if (disk && Date.now() - disk.savedAt < 15 * 60 * 1000) {
-    newReleasesMemCache.set(key, { data: disk.data.slice(0, limit), expiresAt: disk.savedAt + 15 * 60 * 1000 });
+  if (disk && Date.now() - disk.savedAt < 8 * 60 * 1000) {
+    newReleasesMemCache.set(key, { data: disk.data.slice(0, limit), expiresAt: disk.savedAt + 8 * 60 * 1000 });
     return disk.data.slice(0, limit);
   }
   const save = (out: IndexedTrack[]) => {
     if (!out.length) return out;
-    newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 15 * 60 * 1000 });
+    newReleasesMemCache.set(key, { data: out, expiresAt: Date.now() + 8 * 60 * 1000 });
     try { localStorage.setItem(diskKey, JSON.stringify({ data: out, savedAt: Date.now() })); } catch { /* storage full/unavailable */ }
     return out;
   };

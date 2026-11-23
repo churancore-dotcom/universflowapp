@@ -59,12 +59,12 @@ export function useYtmNewReleases(country: string, limit = 24, enabled = true) {
   return useQuery({
     queryKey: ['ytm-new-releases-v4', country, limit, hourBucket()],
     enabled,
-    staleTime: 10 * 60 * 1000,
+    staleTime: 5 * 60 * 1000,
     gcTime: 6 * 60 * 60 * 1000,
     // An empty shelf is usually a failed first load, so check again soon
     // instead of leaving the rail hidden for 20 minutes.
     // (The phone-side shelf outside India is many requests, so it waits longer.)
-    refetchInterval: (q) => (q.state.data?.length ? 20 * 60 * 1000 : country === 'IN' ? 60 * 1000 : 5 * 60 * 1000),
+    refetchInterval: (q) => (q.state.data?.length ? 10 * 60 * 1000 : country === 'IN' ? 60 * 1000 : 5 * 60 * 1000),
     refetchOnWindowFocus: true,
     refetchOnReconnect: true,
     // Keep showing the current shelf while the hourly refresh loads.

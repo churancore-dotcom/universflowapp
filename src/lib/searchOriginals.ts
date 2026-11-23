@@ -81,8 +81,8 @@ export function buildOriginalIndex(tracks: RankableTrack[], query: string): Map<
   return index;
 }
 
-export const ORIGINAL_BONUS = 600;
-export const SOUNDALIKE_PENALTY = 650;
+export const ORIGINAL_BONUS = 1200;
+export const SOUNDALIKE_PENALTY = 1100;
 export const VERSION_PENALTY = 600;
 /** Listening counts above this prove a recording is widely heard, not a soundalike. */
 export const PROVEN_LISTENERS = 100_000;
