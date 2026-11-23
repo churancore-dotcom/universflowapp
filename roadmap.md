@@ -79,3 +79,6 @@
 - [x] Reconnect GitHub API and Google Search Console in new workspace
 
 - [x] Relink GitHub API + Search Console in new workspace
+
+- [ ] Reconnect GitHub API and Google Search Console in new workspace
+- [x] Replace 8D with Live Stage sound

@@ -18,7 +18,6 @@
 const SMOOTH = 0.008;       // 8ms — sub-frame, click-free
 const SNAP   = 0.003;       // 3ms — used for binary on/off toggles (8D, surround)
 const SPATIAL_RATE_HZ = 0.18; // ~5.5s per full L↔R orbit
-const SPATIAL_DEPTH = 0.92;  // 0..1 — how far the LFO swings the pan
 
 type Mode = 'idle' | 'processed' | 'direct' | 'unsupported';
 
@@ -1273,7 +1272,8 @@ function applySpatial() {
   if (!engine.ctx || !engine.panLfoGain || !engine.stereoPanner) return;
   const ctx = engine.ctx;
   const now = ctx.currentTime;
-  const target = engine.spatialEnabled ? SPATIAL_DEPTH : 0;
+  // Live Stage replaced 8D: the song never spins, so the pan LFO stays at 0.
+  const target = 0;
   engine.panLfoGain.gain.cancelScheduledValues(now);
   engine.panLfoGain.gain.setTargetAtTime(target, now, SNAP);
   if (!engine.spatialEnabled) {
@@ -1294,7 +1294,7 @@ function applySpatial() {
   }
 }
 
-/** Toggle 8D auto-rotating spatial mode. Single boolean — no extra knobs. */
+/** Toggle Live Stage (formerly 8D). On the web it adds a light stage room; no rotation. */
 export function setSpatial(enabled: boolean) {
   engine.spatialEnabled = enabled;
   if (engine.mode !== 'processed') return;

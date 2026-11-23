@@ -8,7 +8,6 @@ import java.nio.ByteBuffer
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.sqrt
-import kotlin.math.sin
 
 /**
  * Real-time native Mid/Side stem processor for the APK ExoPlayer path.

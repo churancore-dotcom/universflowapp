@@ -6,7 +6,7 @@
 - Native playback retries must match the active generation, player, item, and play intent; detach plugin listeners without stopping the background service.
 - Reset native recovery per media item, sequence volume ramps to the active play request, renew long-session power locks, and cancel asynchronously attached lifecycle listeners.
 - Schedule Android overlaps in the playback service and connect browser overlap audio to the existing effects graph; autoplay controls recommendation extension, not explicitly queued songs.
-- Both Android overlap players use independent PCM processors with the same saved EQ/room/stem snapshot; 8D rotation and the 9D binaural orbit have separate persisted strengths so transitions never bypass effects or conflate controls.
+- Both Android overlap players use independent PCM processors with the same saved EQ/room/stem snapshot; Live Stage (the non-rotating wide-stage effect that replaced 8D) and the 9D binaural orbit have separate persisted strengths so transitions never bypass effects or conflate controls.
 - Auto EQ changes tonal bands and bass only, preserving user-selected spatial, room and speed settings so song changes cannot silently disable enhancements.
 - All page, lazy-import and access-gate waits use the shared PageLoader, with navigation pending visible immediately and no artificial minimum duration to avoid blank screens.
 
@@ -52,4 +52,4 @@
 - EQ sliders map 1:1 to native bands using analog-matched (Vicanek) peaking; RBJ near Nyquist made treble inert.
 - APK server-function calls go through `nativeServerFetch` (start.ts serverFns.fetch) to the live site with its own origin header, because the bundled https://localhost shell has no server and returns HTML; client code must still validate server-function reply shapes before rendering.
 - googlevideo loads in bounded ranges; reopens reuse the playing URL until expiry/rejection (background re-lookups failed).
-- Native 9D is `BinauralOrbit.kt` (spherical-head binaural cues, centred bass), replacing crossfeed; UI keeps 8D/9D exclusive so panning never smears it.
+- Native 9D is `BinauralOrbit.kt` (spherical-head binaural cues, centred bass), replacing crossfeed; UI keeps Live Stage/9D exclusive so widening never smears it; Live Stage keeps bass centred and never pans.
