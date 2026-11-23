@@ -44,8 +44,16 @@ class StemAudioProcessor : BaseAudioProcessor() {
     private var currentSpatialDepth = 0f
     private var currentSurround = 0f
     private var currentLateNight = 0f
-    private var spatialPhase = 0.0
-    private var spatialPhaseStep = 0.0
+    /**
+     * Live Stage (replaces the old 8D rotation): the song stays still in
+     * front of you, but the band spreads wide like a real stage. Everything
+     * above 180 Hz gets a short (~11 ms) decorrelated copy added in opposite
+     * polarity to each ear, so even mono-mixed vocals and guitars open out
+     * while bass and the lead stay locked in the centre and nothing pans.
+     */
+    private val stageRing = FloatArray(4096)
+    private var stageWrite = 0
+    private var stageDelay = 528
     /** 9D: physical head-model binaural orbit (see BinauralOrbit). */
     private val orbit = BinauralOrbit()
     private val orbitScratch = FloatArray(2)
@@ -114,7 +122,7 @@ class StemAudioProcessor : BaseAudioProcessor() {
         if (inputAudioFormat.encoding != C.ENCODING_PCM_16BIT || inputAudioFormat.channelCount !in 1..2) {
             return AudioFormat.NOT_SET
         }
-        // Mono streams still need stereo output for rotating pan and 9D.
+        // Mono streams still need stereo output for Live Stage and 9D.
         orbit.configure(inputAudioFormat.sampleRate)
         orbitRunning = false
         // 180 Hz one-pole cutoff for the current sample rate.
@@ -124,7 +132,9 @@ class StemAudioProcessor : BaseAudioProcessor() {
         val rcHigh = 1f / (2f * Math.PI.toFloat() * 9000f)
         highCoeff = dt / (rcHigh + dt)
         smoothingCoeff = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.025f)).toDouble()).toFloat()
-        spatialPhaseStep = 2.0 * Math.PI * 0.12 / inputAudioFormat.sampleRate.toDouble()
+        stageDelay = (inputAudioFormat.sampleRate * 0.011).toInt().coerceIn(1, stageRing.size - 1)
+        stageRing.fill(0f)
+        stageWrite = 0
         reverb.configure(inputAudioFormat.sampleRate)
         limiterRelease = 1f - kotlin.math.exp((-1f / (inputAudioFormat.sampleRate * 0.12f)).toDouble()).toFloat()
         limiterGain = 1f
@@ -213,14 +223,17 @@ class StemAudioProcessor : BaseAudioProcessor() {
             val midBand = mid - lowState - midHigh
             val centre = (midLow + midHigh) * instrument + midBand * vocal * (1f + currentShine * 0.35f)
             val widenedSide = side * instrument * currentWidth.coerceIn(0f, 2f)
-            val pan = if (currentSpatialDepth > 0.00001f) sin(spatialPhase).toFloat() * currentSpatialDepth * 0.82f else 0f
-            spatialPhase += spatialPhaseStep
-            if (spatialPhase >= 2.0 * Math.PI) spatialPhase -= 2.0 * Math.PI
-            val leftPan = if (pan == 0f) 1f else sqrt(((1f - pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
-            val rightPan = if (pan == 0f) 1f else sqrt(((1f + pan) * 0.5f).toDouble()).toFloat() * 1.4142135f
+            val stage = currentSpatialDepth.coerceIn(0f, 1f)
+            val aboveBass = mid - lowState
+            stageRing[stageWrite] = aboveBass
+            val readAt = (stageWrite - stageDelay + stageRing.size) % stageRing.size
+            stageWrite = (stageWrite + 1) % stageRing.size
+            // Stage width: real side signal opens up, plus a delayed
+            // above-bass copy that turns centre-only sound into a wide band.
+            val stageSide = if (stage > 0.00001f) widenedSide * (stage * 0.55f) + stageRing[readAt] * (stage * 0.32f) else 0f
             val lateMakeup = 1f + currentLateNight * 0.4f
-            var rawLeft = (centre + widenedSide) * makeup * leftPan * lateMakeup
-            var rawRight = (centre - widenedSide) * makeup * rightPan * lateMakeup
+            var rawLeft = (centre + widenedSide + stageSide) * makeup * lateMakeup
+            var rawRight = (centre - widenedSide - stageSide) * makeup * lateMakeup
             if (eqActive) {
                 rawLeft = equalizer.process(0, rawLeft * eqHeadroom)
                 rawRight = equalizer.process(1, rawRight * eqHeadroom)

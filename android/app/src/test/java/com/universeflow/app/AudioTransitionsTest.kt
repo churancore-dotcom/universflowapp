@@ -37,21 +37,43 @@ class AudioTransitionsTest {
         assertEquals(0.0383408f, TransitionEnvelope.gains("exponential", 0.25).second, 0.00001f)
     }
 
-    @Test fun rotatingPanSurvivesTrackFlush() {
+    @Test fun liveStageWidensWithoutPanning() {
         val processor = configured()
         processor.setEnhancements(1000, 0, 0, 0)
         val samples = render(processor, 2.0)
         val offset = samples.size - 4000
         val left = (offset until samples.size step 2).sumOf { kotlin.math.abs(samples[it].toInt()).toLong() }
         val right = (offset + 1 until samples.size step 2).sumOf { kotlin.math.abs(samples[it].toInt()).toLong() }
-        assertTrue("8D must move signal between ears", right > left * 2)
+        val differs = (offset until samples.size step 2).count { samples[it] != samples[it + 1] }
+        assertTrue("Live Stage must make a centred tone wide", differs > 1500)
+        // No rotation: both ears stay at similar overall level.
+        assertTrue("Live Stage must not pan to one side", left < right * 1.5 && right < left * 1.5)
         processor.equalizer.setEnabled(true)
         processor.equalizer.setBandMillibels(5, 600)
         processor.flush()
         assertEquals(600, processor.equalizer.getBandMillibels(5))
         assertTrue(processor.equalizer.isEnabled())
         val next = render(processor, 0.1)
-        assertTrue("rotation must remain enabled after track flush", next.indices.step(2).any { next[it] != next[it + 1] })
+        assertTrue("Live Stage must remain enabled after track flush", next.indices.step(2).any { next[it] != next[it + 1] })
+    }
+
+    @Test fun liveStageKeepsBassCentred() {
+        val processor = configured()
+        processor.setEnhancements(1000, 0, 0, 0)
+        val frames = 48000
+        val input = java.nio.ByteBuffer.allocateDirect(frames * 4).order(java.nio.ByteOrder.nativeOrder())
+        for (i in 0 until frames) {
+            val s = (sin(i * 2.0 * Math.PI * 50 / 48000) * 6000).toInt().toShort()
+            input.putShort(s); input.putShort(s)
+        }
+        input.flip()
+        processor.queueInput(input)
+        val out = processor.output.order(java.nio.ByteOrder.nativeOrder())
+        val samples = ShortArray(out.remaining() / 2) { out.short }
+        val tail = samples.size - 4000
+        val maxDiff = (tail until samples.size step 2).maxOf { kotlin.math.abs(samples[it] - samples[it + 1]) }
+        val maxLevel = (tail until samples.size).maxOf { kotlin.math.abs(samples[it].toInt()) }
+        assertTrue("bass must stay mostly centred", maxDiff < maxLevel * 0.35)
     }
 
     @Test fun binauralOrbitReachesOppositeEar() {

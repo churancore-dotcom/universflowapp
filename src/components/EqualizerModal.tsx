@@ -645,8 +645,8 @@ const EqualizerModal = ({ isOpen, onClose }: EqualizerModalProps) => {
                 />
                 <ToggleRow
                   icon={Waves}
-                  label="8D movement"
-                  desc="Slow stereo orbit with room cues."
+                  label="Live Stage"
+                  desc="Wide, front-row sound. Bass and vocals stay centred, nothing spins."
                   checked={settings.spatialAudio}
                   onCheckedChange={(value) => setEQSettings(value
                     ? { spatialAudio: true, headphoneSurround: false, activePreset: 'custom' }
