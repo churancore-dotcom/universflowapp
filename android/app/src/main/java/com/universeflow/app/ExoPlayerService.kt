@@ -209,6 +209,9 @@ class ExoPlayerService : MediaSessionService() {
                 .setLoadControl(streamingLoadControl())
                 .setAudioAttributes(p.audioAttributes, false)
                 .setHandleAudioBecomingNoisy(true)
+                // The crossfade partner must also keep CPU + Wi-Fi awake, or a
+                // locked screen sleeps it mid-overlap and the song breaks up.
+                .setWakeMode(C.WAKE_MODE_NETWORK)
                 .build()
             built = tail
             if (p.audioSessionId != C.AUDIO_SESSION_ID_UNSET) tail.setAudioSessionId(p.audioSessionId)
@@ -293,11 +296,12 @@ class ExoPlayerService : MediaSessionService() {
                     .setEnableFloatOutput(false)
                     // Larger output buffer: when another app is in front Android
                     // throttles our CPU, and the default ~250 ms buffer ran dry
-                    // while the effects chain caught up (audible glitches).
+                    // while the effects chain caught up (audible glitches). Screen-off
+                    // power saving throttles harder, so hold 2-4 s of ready audio.
                     .setAudioTrackBufferSizeProvider(
                         androidx.media3.exoplayer.audio.DefaultAudioTrackBufferSizeProvider.Builder()
-                            .setMinPcmBufferDurationUs(1_000_000)
-                            .setMaxPcmBufferDurationUs(2_000_000)
+                            .setMinPcmBufferDurationUs(2_000_000)
+                            .setMaxPcmBufferDurationUs(4_000_000)
                             .build()
                     )
                     .setEnableAudioTrackPlaybackParams(enableAudioTrackPlaybackParams)
