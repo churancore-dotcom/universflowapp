@@ -86,4 +86,4 @@
 - [x] Redesign lyrics screen; remove fake emotion UI
 - [x] Reconnect GitHub API + Search Console (new workspace)
 
-- [ ] Reconnect GitHub API + Search Console (workspace move 2)
+- [x] Reconnect GitHub API + Search Console (workspace move 2)
