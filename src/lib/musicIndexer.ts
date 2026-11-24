@@ -880,8 +880,15 @@ export function invalidateStreamCache(artist: string, title: string) {
   const cacheKey = makeCacheKey(artist, title);
   streamCache.delete(cacheKey);
   inFlightResolutions.delete(cacheKey);
+  recentlyFailed.delete(cacheKey);
   persistCache();
 }
+
+// Songs every source just failed for are not retried for a few minutes:
+// telemetry showed the same few songs re-looked-up 30+ times, each one
+// delaying the listener and the next songs. A user-forced refresh still retries.
+const FAILED_TTL_MS = 10 * 60 * 1000;
+const recentlyFailed = new Map<string, number>();
 
 export async function resolveIndexedTrack(
   artist: string,
@@ -893,6 +900,14 @@ export async function resolveIndexedTrack(
   if (opts.forceRefresh) {
     streamCache.delete(cacheKey);
     inFlightResolutions.delete(cacheKey);
+  }
+  if (!opts.forceRefresh) {
+    const failedAt = recentlyFailed.get(cacheKey);
+    if (failedAt && Date.now() - failedAt < FAILED_TTL_MS) {
+      throw new Error('Could not find a playable stream for this track');
+    }
+  } else {
+    recentlyFailed.delete(cacheKey);
   }
   const cached = opts.forceRefresh ? null : getCachedStream(cacheKey);
   if (cached) {
@@ -979,6 +994,11 @@ export async function resolveIndexedTrack(
       return first;
     }
 
+    recentlyFailed.set(cacheKey, Date.now());
+    if (recentlyFailed.size > 300) {
+      const oldest = recentlyFailed.keys().next().value;
+      if (oldest !== undefined) recentlyFailed.delete(oldest);
+    }
     recordPerfEvent({
       event_type: 'resolve_failed',
       severity: opts.background ? 'info' : 'error',
