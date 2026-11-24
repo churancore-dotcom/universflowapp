@@ -161,7 +161,8 @@ const PremiumPage = memo(function PremiumPage() {
 
   useEffect(() => {
     pendingRequestId.current += 1;
-    if (playBuild || !user || isPremium) { setPending(null); return; }
+    // Premium members extending their plan also get a pending request to track.
+    if (playBuild || !user) { setPending(null); return; }
     let cancelled = false;
     const fetchPending = async () => {
       // Only the newest read may update the banner, so an older "nothing
@@ -222,7 +223,7 @@ const PremiumPage = memo(function PremiumPage() {
       supabase.removeChannel(prChannel);
       supabase.removeChannel(subChannel);
     };
-  }, [user, isPremium, refetchPremium, playBuild]);
+  }, [user, refetchPremium, playBuild]);
 
   const local = useLocalCurrency();
   const monthly = settings?.monthlyPrice ?? 99;
@@ -458,18 +459,18 @@ const PremiumPage = memo(function PremiumPage() {
                   Active until {expiryText}
                 </p>
               )}
-              <Button
+              {!pending && <Button
                 onClick={handleUpgrade}
                 disabled={playBuying || (playBuild && !canBuyPlayProduct(playPriceByPlan[selectedPlan], playVerificationReady))}
                 className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-[13px] font-semibold bg-primary-strong text-primary-foreground"
               >
                 Extend membership
-              </Button>
+              </Button>}
             </motion.section>
           )}
 
           {/* Pending payment */}
-          {!isPremium && pending && (
+          {pending && (
             <div ref={pendingBannerRef} className="mb-8">
               <PendingProgressBanner pending={pending} />
             </div>
