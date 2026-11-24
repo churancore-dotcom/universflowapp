@@ -156,6 +156,10 @@ interface PlayerContextType {
   fillSmartQueue: () => Promise<number>;
 }
 
+// Never interrupt music with an ad while the phone is locked or the app is in
+// the background: nobody can see it, and the song would just stop.
+const isAppHiddenForAds = () => typeof document !== 'undefined' && document.visibilityState === 'hidden';
+
 const PlayerContext = createContext<PlayerContextType | undefined>(undefined);
 
 const NATIVE_RESOLVED_STREAMS_KEY = 'uf_native_resolved_streams_v1';
@@ -2191,7 +2195,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         const adBoundary = `${currentIdentity}>${nextTrack ? getSongIdentity(nextTrack) : nextIdx}`;
         const shouldCountBoundary = lastAdBoundaryRef.current !== adBoundary;
         if (shouldCountBoundary) lastAdBoundaryRef.current = adBoundary;
-        if (shouldCountBoundary && Date.now() >= adCooldownUntilRef.current && noteSongCompleted()) {
+        if (shouldCountBoundary && Date.now() >= adCooldownUntilRef.current && !isAppHiddenForAds() && noteSongCompleted()) {
           if (nextTrack) {
             try { audio.pause(); } catch { /* noop */ }
             wasPlayingRef.current = false;
@@ -2656,7 +2660,7 @@ export const PlayerProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           const adBoundary = `${currentIdentity}>${getSongIdentity(nextSong)}`;
           const shouldCountBoundary = lastAdBoundaryRef.current !== adBoundary;
           if (shouldCountBoundary) lastAdBoundaryRef.current = adBoundary;
-          if (shouldCountBoundary && Date.now() >= adCooldownUntilRef.current && noteSongCompleted()) {
+          if (shouldCountBoundary && Date.now() >= adCooldownUntilRef.current && !isAppHiddenForAds() && noteSongCompleted()) {
             void ExoPlayerPlugin.pause().catch(() => undefined);
             nativeUserPausedRef.current = true;
             wasPlayingRef.current = false;

@@ -27,8 +27,13 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
   const [campaign, setCampaign] = useState<AdCampaign | null>(getScheduledAdCampaign());
   const [elapsed, setElapsed] = useState(0);
   const [entitlementTimedOut, setEntitlementTimedOut] = useState(false);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [videoFailed, setVideoFailed] = useState(false);
+  // The countdown waits until the picture/video is actually on screen, so the
+  // listener never watches a blank box tick away.
+  const [mediaReady, setMediaReady] = useState(false);
+  const [campaignLoaded, setCampaignLoaded] = useState(() => !!getScheduledAdCampaign());
+  const videoRef = useRef<HTMLVideoElement>(null);
   const viewLoggedFor = useRef<string | null>(null);
 
   const duration = campaign?.duration_seconds ?? 8;
@@ -55,11 +60,12 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
     const scheduled = getScheduledAdCampaign();
     if (scheduled) {
       setCampaign(scheduled);
+      setCampaignLoaded(true);
       return;
     }
     let alive = true;
     void loadAdCampaign().then((c) => {
-      if (alive) setCampaign(c);
+      if (alive) { setCampaign(c); setCampaignLoaded(true); }
     });
     return () => {
       alive = false;
@@ -70,18 +76,44 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
   useEffect(() => {
     if (!isOpen) {
       setElapsed(0);
-      setMuted(true);
+      setMuted(false);
       setVideoFailed(false);
+      setMediaReady(false);
       return;
     }
     if (isPremium && !isLoading) {
       onComplete();
       return;
     }
-    if (entitlementPending) return;
+    if (entitlementPending || !campaignLoaded || !mediaReady) return;
     const timer = window.setInterval(() => setElapsed((v) => v + 1), 1000);
     return () => window.clearInterval(timer);
-  }, [isOpen, isPremium, isLoading, entitlementPending, onComplete]);
+  }, [isOpen, isPremium, isLoading, entitlementPending, campaignLoaded, mediaReady, onComplete]);
+
+  const hasVideo = !!campaign?.video_url && !videoFailed;
+  const hasImage = !hasVideo && !!campaign?.image_url;
+
+  // No media to wait for → ready at once. Slow media never holds the ad
+  // open forever: after 4 s the countdown starts anyway.
+  useEffect(() => {
+    if (!isOpen || !campaignLoaded) return;
+    if (!hasVideo && !hasImage) { setMediaReady(true); return; }
+    const t = window.setTimeout(() => setMediaReady(true), 4000);
+    return () => window.clearTimeout(t);
+  }, [isOpen, campaignLoaded, hasVideo, hasImage]);
+
+  // Video ads play with sound. If the phone refuses sound without a tap,
+  // fall back to muted so the picture still plays, and show the unmute button.
+  const startVideo = useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = false;
+    v.play().then(() => setMuted(false)).catch(() => {
+      v.muted = true;
+      setMuted(true);
+      void v.play().catch(() => undefined);
+    });
+  }, []);
 
   useEffect(() => {
     if (!isOpen || !campaign || viewLoggedFor.current === campaign.id) return;
@@ -119,7 +151,8 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
     }
   }, [campaign, navigate, onSkip, onComplete]);
 
-  if (isPremium || entitlementPending) return null;
+  if (isPremium && !isLoading) return null;
+  const showSkeleton = entitlementPending || !campaignLoaded;
 
   const isBrand = campaign?.kind === 'brand';
   const headline = campaign?.headline ?? 'Music without limits';
@@ -162,7 +195,7 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
                   {isBrand ? `Ad · ${campaign?.advertiser ?? 'Sponsored'}` : 'Univers Flow'}
                 </span>
                 <span className="text-[11px] font-medium tabular-nums text-muted-foreground">
-                  {remaining}s
+                  {showSkeleton || !mediaReady ? 'Loading…' : `${remaining}s`}
                 </span>
               </div>
 
@@ -195,7 +228,17 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
               />
             </div>
 
-            {/* Card */}
+            {showSkeleton ? (
+              <div className="overflow-hidden rounded-[28px] border border-border/60 bg-card" aria-busy="true" aria-label="Loading ad">
+                <div className="aspect-[16/10] w-full animate-pulse bg-muted/50" />
+                <div className="space-y-3 p-5">
+                  <div className="h-5 w-2/3 animate-pulse rounded-md bg-muted/60" />
+                  <div className="h-3.5 w-full animate-pulse rounded-md bg-muted/40" />
+                  <div className="h-3.5 w-4/5 animate-pulse rounded-md bg-muted/40" />
+                  <div className="mt-2 h-12 w-full animate-pulse rounded-lg bg-muted/50" />
+                </div>
+              </div>
+            ) : (
             <div className="overflow-hidden rounded-[28px] border border-border/60 bg-card/80 shadow-2xl backdrop-blur-xl">
               {campaign?.video_url && !videoFailed ? (
                 <div className="relative aspect-[9/12] max-h-[56dvh] w-full overflow-hidden bg-muted">
@@ -204,12 +247,13 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
                     src={campaign.video_url}
                     poster={campaign.image_url ?? undefined}
                     className="h-full w-full object-cover"
-                    autoPlay
+                    ref={videoRef}
                     muted={muted}
                     loop
                     playsInline
                     preload="auto"
-                    onError={() => setVideoFailed(true)}
+                    onLoadedData={() => { setMediaReady(true); startVideo(); }}
+                    onError={() => { setVideoFailed(true); setMediaReady(true); }}
                   />
                   <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-card to-transparent" />
                   <Button
@@ -217,14 +261,19 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
                     variant="secondary"
                     size="icon"
                     className="absolute right-3 top-3 rounded-full"
-                    onClick={() => setMuted((value) => !value)}
+                    onClick={() => {
+                      const v = videoRef.current;
+                      const next = !muted;
+                      setMuted(next);
+                      if (v) { v.muted = next; void v.play().catch(() => undefined); }
+                    }}
                     aria-label={muted ? 'Unmute ad' : 'Mute ad'}
                   >
                     {muted ? <VolumeX className="h-4 w-4" /> : <Volume2 className="h-4 w-4" />}
                   </Button>
                 </div>
               ) : campaign?.image_url ? (
-                <div className="relative aspect-[16/10] w-full overflow-hidden">
+                <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
                   <motion.img
                     src={campaign.image_url}
                     alt={isBrand ? `${campaign.advertiser ?? 'Sponsor'} advertisement` : headline}
@@ -233,6 +282,8 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
                     animate={{ scale: 1 }}
                     transition={{ duration: duration, ease: 'linear' }}
                     loading="eager"
+                    onLoad={() => setMediaReady(true)}
+                    onError={() => setMediaReady(true)}
                   />
                   <div className="absolute inset-0 bg-gradient-to-t from-card via-card/20 to-transparent" />
                 </div>
@@ -274,7 +325,7 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
                   className="relative mt-5 h-12 w-full gap-2 overflow-hidden rounded-lg text-[15px] font-bold"
                 >
                   <motion.span
-                    className="absolute inset-0 bg-gradient-to-r from-transparent via-white/25 to-transparent"
+                    className="absolute inset-0 bg-gradient-to-r from-transparent via-primary-foreground/25 to-transparent"
                     animate={{ x: ['-120%', '120%'] }}
                     transition={{ duration: 2.2, repeat: Infinity, repeatDelay: 0.8 }}
                   />
@@ -289,6 +340,7 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
                 </p>
               </div>
             </div>
+            )}
           </motion.div>
         </motion.div>
       )}
