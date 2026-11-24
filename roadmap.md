@@ -82,3 +82,6 @@
 
 - [x] Reconnect GitHub API and Google Search Console in new workspace
 - [x] Replace 8D with Live Stage sound
+
+- [x] Redesign lyrics screen; remove fake emotion UI
+- [ ] Reconnect GitHub API + Search Console (new workspace)

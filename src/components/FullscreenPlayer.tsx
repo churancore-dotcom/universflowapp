@@ -366,7 +366,7 @@ const FullscreenPlayer = memo(function FullscreenPlayer() {
                     artist={currentSong.artist}
                     title={currentSong.title}
                     duration={currentSong.duration}
-                    bare={false}
+                    bare
                   />
                 </div>
               ) : (
