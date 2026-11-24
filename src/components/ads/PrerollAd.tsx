@@ -132,6 +132,15 @@ const PrerollAd = memo(function PrerollAd({ isOpen, onComplete, onSkip }: Prerol
     }
   }, [elapsed, duration, isOpen, campaign, onComplete]);
 
+  // Locking the phone mid-ad ends the break and resumes the music, so the
+  // song never sits stopped behind an ad nobody can see.
+  useEffect(() => {
+    if (!isOpen) return;
+    const onHide = () => { if (document.visibilityState === 'hidden') onComplete(); };
+    document.addEventListener('visibilitychange', onHide);
+    return () => document.removeEventListener('visibilitychange', onHide);
+  }, [isOpen, onComplete]);
+
   const handleSkip = useCallback(() => {
     if (campaign) recordAdEvent(campaign.id, 'skip');
     (onSkip ?? onComplete)();
