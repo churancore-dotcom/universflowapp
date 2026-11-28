@@ -1,3 +1,4 @@
+import { downloadProblem } from '@/lib/downloadIntegrity';
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { Song } from './PlayerContext';
 import { toast } from 'sonner';
@@ -574,6 +575,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         // "audio/mpeg" makes some browsers refuse to decode it offline — the
         // download looked fine and then played silence.
         const upstreamType = (response.headers.get('content-type') || '').split(';')[0].trim();
+        const bad = downloadProblem(received, upstreamType, total);
+        if (bad) throw new Error(bad);
         const blobType = /^audio\/|^video\/mp4$/.test(upstreamType) ? upstreamType : 'audio/mpeg';
         blob = new Blob(chunks, { type: blobType });
 
@@ -581,6 +584,8 @@ export const DownloadProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (controller.signal.aborted) throw fetchError;
         blob = await nativeFetchBlob(downloadableSong.audio_url);
         if (!blob) throw fetchError;
+        const nativeBad = downloadProblem(blob.size, blob.type);
+        if (nativeBad) throw new Error(nativeBad);
         setDownloadProgress(prev => ({
           ...prev,
           [song.id]: { songId: song.id, progress: 90, status: 'downloading' }
