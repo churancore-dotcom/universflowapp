@@ -888,6 +888,9 @@ export function invalidateStreamCache(artist: string, title: string) {
 // telemetry showed the same few songs re-looked-up 30+ times, each one
 // delaying the listener and the next songs. A user-forced refresh still retries.
 const FAILED_TTL_MS = 10 * 60 * 1000;
+// A listener tapping a song again after a network blip must get a real retry
+// soon; only background prefetches honour the long cooldown.
+const FAILED_TTL_FOREGROUND_MS = 30 * 1000;
 const recentlyFailed = new Map<string, number>();
 
 export async function resolveIndexedTrack(
@@ -903,7 +906,8 @@ export async function resolveIndexedTrack(
   }
   if (!opts.forceRefresh) {
     const failedAt = recentlyFailed.get(cacheKey);
-    if (failedAt && Date.now() - failedAt < FAILED_TTL_MS) {
+    const ttl = opts.background ? FAILED_TTL_MS : FAILED_TTL_FOREGROUND_MS;
+    if (failedAt && Date.now() - failedAt < ttl) {
       throw new Error('Could not find a playable stream for this track');
     }
   } else {
